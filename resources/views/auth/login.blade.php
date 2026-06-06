@@ -35,15 +35,20 @@
   <!-- Password -->
   <div class="mb-3">
     <label class="form-label" for="password">Password</label>
-    <input class="form-control @error('password') is-invalid @enderror" 
-           id="password" 
-           type="password" 
-           name="password" 
-           placeholder="Password" 
-           required />
-    @error('password')
-      <div class="invalid-feedback">{{ $message }}</div>
-    @enderror
+    <div class="input-group">
+      <input class="form-control @error('password') is-invalid @enderror" 
+             id="password" 
+             type="password" 
+             name="password" 
+             placeholder="Password" 
+             required />
+      <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('password', this)">
+        <span class="fas fa-eye"></span>
+      </button>
+      @error('password')
+        <div class="invalid-feedback d-block">{{ $message }}</div>
+      @enderror
+    </div>
   </div>
 
   <div class="row flex-between-center">
@@ -84,4 +89,20 @@
     </a>
   </div>
 </div>
+
+<script>
+  function togglePassword(id, btn) {
+    const input = document.getElementById(id);
+    const icon = btn.querySelector('span');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.classList.remove('fa-eye');
+      icon.classList.add('fa-eye-slash');
+    } else {
+      input.type = 'password';
+      icon.classList.remove('fa-eye-slash');
+      icon.classList.add('fa-eye');
+    }
+  }
+</script>
 @endsection

@@ -13,8 +13,8 @@
     </div>
     <a class="navbar-brand" href="{{ route('dashboard') }}">
       <div class="d-flex align-items-center py-3">
-        <img class="me-2" src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="35" />
-        <span class="font-sans-serif text-primary">marquee<span class="text-secondary fw-semibold">cms</span></span>
+        <img class="me-2" src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="50" />
+        <span class="font-sans-serif text-primary">M<span class="text-secondary fw-semibold">CMS</span></span>
       </div>
     </a>
   </div>
@@ -39,6 +39,13 @@
             <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
           </div>
           
+          <a class="nav-link {{ Route::is('branches.*') ? 'active' : '' }}" href="{{ route('branches.index') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-store"></span></span>
+              <span class="nav-link-text ps-1">Branches</span>
+            </div>
+          </a>
+
           <a class="nav-link" href="#" role="button">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-calendar-alt"></span></span>
@@ -90,10 +97,17 @@
             <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
           </div>
 
-          <a class="nav-link" href="#" role="button">
+          <a class="nav-link {{ Route::is('staff.*') ? 'active' : '' }}" href="{{ route('staff.index') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-id-badge"></span></span>
+              <span class="nav-link-text ps-1">Staff Management</span>
+            </div>
+          </a>
+
+          <a class="nav-link {{ Route::is('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}" role="button">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-user-shield"></span></span>
-              <span class="nav-link-text ps-1">Staff / Roles</span>
+              <span class="nav-link-text ps-1">CMS Users</span>
             </div>
           </a>
 
@@ -121,6 +135,25 @@
         </li>
 
       </ul>
+      
+      @if(auth()->user()->isSuperAdmin())
+      <ul class="navbar-nav flex-column mb-3">
+        <!-- SaaS Admin Section -->
+        <li class="nav-item">
+          <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
+            <div class="col-auto navbar-vertical-label">SaaS Admin</div>
+            <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
+          </div>
+
+          <a class="nav-link {{ Route::is('marquees.*') ? 'active' : '' }}" href="{{ route('marquees.index') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-building"></span></span>
+              <span class="nav-link-text ps-1">Marquees / Tenants</span>
+            </div>
+          </a>
+        </li>
+      </ul>
+      @endif
     </div>
   </div>
 </nav>

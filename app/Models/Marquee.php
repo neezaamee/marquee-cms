@@ -61,4 +61,20 @@ class Marquee extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    /**
+     * The booted method of the model.
+     */
+    protected static function booted()
+    {
+        static::deleted(function ($marquee) {
+            $marquee->branches()->delete();
+            $marquee->users()->delete();
+        });
+
+        static::restoring(function ($marquee) {
+            $marquee->branches()->withTrashed()->restore();
+            $marquee->users()->withTrashed()->restore();
+        });
+    }
 }

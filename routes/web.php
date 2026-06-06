@@ -3,6 +3,10 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MarqueeController;
+use App\Http\Controllers\BranchController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\StaffController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -23,4 +27,9 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+    Route::resource('marquees', MarqueeController::class);
+    Route::resource('branches', BranchController::class);
+    Route::resource('users', UserController::class);
+    Route::resource('staff', StaffController::class);
 });

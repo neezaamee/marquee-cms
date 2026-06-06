@@ -1,0 +1,274 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Branch;
+use App\Models\Employee;
+use App\Models\Marquee;
+use App\Models\Permission;
+use App\Models\Role;
+use App\Models\SubscriptionPlan;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class StaffManagementTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected $plan;
+    protected $ownerRole;
+    protected $marquee;
+    protected $branch;
+    protected $owner;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->ownerRole = Role::create(['name' => 'owner', 'label' => 'Owner']);
+        Role::create(['name' => 'super_admin', 'label' => 'Super Admin']);
+        Permission::create(['name' => 'manage_settings', 'label' => 'Manage Settings']);
+        Permission::create(['name' => 'manage_staff', 'label' => 'Manage Staff']);
+
+        $this->plan = SubscriptionPlan::create([
+            'name'             => 'Standard',
+            'slug'             => 'standard',
+            'price'            => 10000,
+            'billing_interval' => 'month',
+        ]);
+
+        $this->marquee = Marquee::create([
+            'name'                 => 'Test Marquee Hall',
+            'address'             => '123 Main St',
+            'city'                => 'Lahore',
+            'province'            => 'Punjab',
+            'phone'               => '+923001234567',
+            'email'               => 'marquee@test.com',
+            'status'              => 'active',
+            'subscription_plan_id' => $this->plan->id,
+        ]);
+
+        $this->branch = Branch::create([
+            'marquee_id' => $this->marquee->id,
+            'name'       => 'Main Branch',
+            'address'    => '123 Main St',
+            'city'       => 'Lahore',
+            'province'   => 'Punjab',
+            'phone'      => '+923009999999',
+            'status'     => 'active',
+        ]);
+
+        $this->owner = User::create([
+            'name'       => 'Owner User',
+            'email'      => 'owner@test.com',
+            'password'   => bcrypt('password'),
+            'role_id'    => $this->ownerRole->id,
+            'marquee_id' => $this->marquee->id,
+            'branch_id'  => $this->branch->id,
+        ]);
+    }
+
+    public function test_staff_index_is_accessible_to_authenticated_users()
+    {
+        $response = $this->actingAs($this->owner)->get(route('staff.index'));
+        $response->assertStatus(200);
+        $response->assertSee('Staff Management');
+    }
+
+    public function test_staff_create_form_is_accessible()
+    {
+        $response = $this->actingAs($this->owner)->get(route('staff.create'));
+        $response->assertStatus(200);
+        $response->assertSee('Add New Employee');
+    }
+
+    public function test_can_create_employee_without_cms_login()
+    {
+        $response = $this->actingAs($this->owner)->post(route('staff.store'), [
+            'name'            => 'John Waiter',
+            'cnic'            => '35202-1234567-1',
+            'mobile_number'   => '+923001234567',
+            'designation'     => 'Waiter',
+            'joining_date'    => '2026-01-01',
+            'salary'          => 25000,
+            'employment_type' => 'Permanent',
+            'status'          => 'active',
+            'branch_id'       => $this->branch->id,
+            'enable_login'    => null,
+        ]);
+
+        $response->assertRedirect(route('staff.index'));
+        $this->assertDatabaseHas('employees', ['name' => 'John Waiter', 'designation' => 'Waiter']);
+
+        $employee = Employee::where('name', 'John Waiter')->first();
+        $this->assertNotNull($employee);
+        $this->assertNull($employee->user_id);  // No CMS user created
+        $this->assertStringStartsWith('EMP-', $employee->employee_id);
+    }
+
+    public function test_employee_id_is_auto_generated_with_correct_format()
+    {
+        $this->actingAs($this->owner)->post(route('staff.store'), [
+            'name'            => 'First Employee',
+            'cnic'            => '35202-1111111-1',
+            'mobile_number'   => '+923001111111',
+            'designation'     => 'Chef / Cook',
+            'joining_date'    => '2026-01-01',
+            'salary'          => 30000,
+            'employment_type' => 'Permanent',
+            'status'          => 'active',
+            'branch_id'       => $this->branch->id,
+        ]);
+
+        $employee = Employee::first();
+        $this->assertEquals('EMP-00001', $employee->employee_id);
+    }
+
+    public function test_can_create_employee_with_cms_login()
+    {
+        $managerRole = Role::create(['name' => 'branch_manager', 'label' => 'Branch Manager']);
+
+        $response = $this->actingAs($this->owner)->post(route('staff.store'), [
+            'name'            => 'Ali Manager',
+            'cnic'            => '35202-9999999-9',
+            'mobile_number'   => '+923009999999',
+            'designation'     => 'Branch Manager',
+            'joining_date'    => '2026-01-01',
+            'salary'          => 60000,
+            'employment_type' => 'Permanent',
+            'status'          => 'active',
+            'branch_id'       => $this->branch->id,
+            'enable_login'    => '1',
+            'login_email'     => 'ali.manager@test.com',
+            'login_password'  => 'secret123',
+            'login_role_id'   => $managerRole->id,
+        ]);
+
+        $response->assertRedirect(route('staff.index'));
+
+        $employee = Employee::where('name', 'Ali Manager')->first();
+        $this->assertNotNull($employee);
+        $this->assertNotNull($employee->user_id);  // CMS user WAS created
+
+        $this->assertDatabaseHas('users', ['email' => 'ali.manager@test.com']);
+    }
+
+    public function test_can_soft_delete_employee()
+    {
+        $employee = Employee::create([
+            'employee_id'     => 'EMP-00001',
+            'marquee_id'      => $this->marquee->id,
+            'branch_id'       => $this->branch->id,
+            'name'            => 'Delete Me',
+            'cnic'            => '35202-0000000-0',
+            'mobile_number'   => '+923000000000',
+            'designation'     => 'Helper / Labor',
+            'joining_date'    => '2026-01-01',
+            'salary'          => 15000,
+            'employment_type' => 'Daily Wages',
+            'status'          => 'active',
+        ]);
+
+        $response = $this->actingAs($this->owner)->delete(route('staff.destroy', $employee->id));
+        $response->assertRedirect(route('staff.index'));
+
+        $this->assertSoftDeleted('employees', ['id' => $employee->id]);
+    }
+
+    public function test_deleting_employee_also_soft_deletes_linked_user()
+    {
+        $staffRole = Role::create(['name' => 'accountant', 'label' => 'Accountant']);
+
+        $user = User::create([
+            'name'       => 'Linked User',
+            'email'      => 'linked@test.com',
+            'password'   => bcrypt('password'),
+            'role_id'    => $staffRole->id,
+            'marquee_id' => $this->marquee->id,
+            'branch_id'  => $this->branch->id,
+        ]);
+
+        $employee = Employee::create([
+            'employee_id'     => 'EMP-00002',
+            'marquee_id'      => $this->marquee->id,
+            'branch_id'       => $this->branch->id,
+            'user_id'         => $user->id,
+            'name'            => 'Employee With Login',
+            'cnic'            => '35202-1212121-2',
+            'mobile_number'   => '+923001212121',
+            'designation'     => 'Accountant',
+            'joining_date'    => '2026-01-01',
+            'salary'          => 40000,
+            'employment_type' => 'Permanent',
+            'status'          => 'active',
+        ]);
+
+        $this->actingAs($this->owner)->delete(route('staff.destroy', $employee->id));
+
+        $this->assertSoftDeleted('employees', ['id' => $employee->id]);
+        $this->assertSoftDeleted('users', ['id' => $user->id]);
+    }
+
+    public function test_branch_manager_can_edit_themselves()
+    {
+        $managerRole = Role::create(['name' => 'branch_manager', 'label' => 'Branch Manager']);
+
+        $managerUser = User::create([
+            'name'       => 'Branch Manager User',
+            'email'      => 'manager@test.com',
+            'password'   => bcrypt('password'),
+            'role_id'    => $managerRole->id,
+            'marquee_id' => $this->marquee->id,
+            'branch_id'  => $this->branch->id,
+        ]);
+
+        $employee = Employee::create([
+            'employee_id'     => 'EMP-00003',
+            'marquee_id'      => $this->marquee->id,
+            'branch_id'       => $this->branch->id,
+            'user_id'         => $managerUser->id,
+            'name'            => 'Branch Manager User',
+            'cnic'            => '35202-3333333-3',
+            'mobile_number'   => '+923003333333',
+            'designation'     => 'Branch Manager',
+            'joining_date'    => '2026-01-01',
+            'salary'          => 60000,
+            'employment_type' => 'Permanent',
+            'status'          => 'active',
+        ]);
+
+        // Get the edit view
+        $response = $this->actingAs($managerUser)->get(route('staff.edit', $employee->id));
+        $response->assertStatus(200);
+        $response->assertSee('Branch Manager'); // Verify that the designation option exists and is selected
+
+        // Update the employee profile details
+        $response = $this->actingAs($managerUser)->put(route('staff.update', $employee->id), [
+            'name'            => 'Branch Manager User Updated',
+            'cnic'            => '35202-3333333-3',
+            'mobile_number'   => '+923003333333',
+            'designation'     => 'Branch Manager', // Submit the designation unchanged
+            'joining_date'    => '2026-01-01',
+            'salary'          => 65000,
+            'employment_type' => 'Permanent',
+            'status'          => 'active',
+            'branch_id'       => $this->branch->id,
+            'enable_login'    => '1',
+            'login_email'     => 'manager.updated@test.com',
+            'login_role_id'   => $managerRole->id,
+        ]);
+
+        $response->assertRedirect(route('staff.index'));
+        $this->assertDatabaseHas('employees', [
+            'id' => $employee->id,
+            'name' => 'Branch Manager User Updated',
+            'designation' => 'Branch Manager',
+            'salary' => 65000
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $managerUser->id,
+            'email' => 'manager.updated@test.com'
+        ]);
+    }
+}

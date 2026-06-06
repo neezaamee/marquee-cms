@@ -6,7 +6,7 @@
   
   <a class="navbar-brand me-1 me-sm-3" href="{{ route('dashboard') }}">
     <div class="d-flex align-items-center">
-      <img class="me-2" src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="30" />
+      <img class="me-2" src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="50" />
       <span class="font-sans-serif text-primary">marquee</span>
     </div>
   </a>

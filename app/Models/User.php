@@ -56,6 +56,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the employee record linked to this CMS user account.
+     */
+    public function employee()
+    {
+        return $this->hasOne(Employee::class);
+    }
+
+    /**
      * Get the role assigned to this user.
      */
     public function role()
