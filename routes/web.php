@@ -11,6 +11,7 @@ use App\Http\Controllers\HallController;
 use App\Http\Controllers\SlotController;
 use App\Http\Controllers\HallSlotAssignmentController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\EventTypeController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -37,6 +38,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('users', UserController::class);
     Route::resource('staff', StaffController::class);
     Route::resource('customers', CustomerController::class);
+    Route::resource('event-types', EventTypeController::class);
     
     // Halls, Slots, and Assignments
     Route::resource('halls', HallController::class);

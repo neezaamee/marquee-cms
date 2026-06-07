@@ -49,6 +49,12 @@ class RolesAndPermissionsSeeder extends Seeder
             // Inventory
             ['name' => 'view_inventory', 'label' => 'View Inventory'],
             ['name' => 'manage_inventory', 'label' => 'Manage Inventory Items'],
+
+            // Event Types
+            ['name' => 'event-types.view', 'label' => 'View Event Types'],
+            ['name' => 'event-types.create', 'label' => 'Create Event Types'],
+            ['name' => 'event-types.edit', 'label' => 'Edit Event Types'],
+            ['name' => 'event-types.delete', 'label' => 'Delete Event Types'],
         ];
 
         $permissionInstances = [];
@@ -75,7 +81,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_menus', 'create_menus', 'edit_menus', 'delete_menus',
                     'view_payments', 'create_payments', 'refund_payments',
                     'view_reports', 'manage_staff', 'manage_settings',
-                    'view_inventory', 'manage_inventory'
+                    'view_inventory', 'manage_inventory',
+                    'event-types.view', 'event-types.create', 'event-types.edit', 'event-types.delete'
                 ],
             ],
             'branch_manager' => [
@@ -86,7 +93,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_halls', 'view_menus',
                     'view_payments', 'create_payments',
                     'view_reports', 'manage_staff', 'manage_settings',
-                    'view_inventory'
+                    'view_inventory',
+                    'event-types.view', 'event-types.create', 'event-types.edit'
                 ],
             ],
             'accountant' => [
@@ -103,7 +111,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'description' => 'Handles enquiries and registers customer event bookings.',
                 'permissions' => [
                     'view_bookings', 'create_bookings', 'edit_bookings',
-                    'view_halls', 'view_menus'
+                    'view_halls', 'view_menus',
+                    'event-types.view'
                 ],
             ],
             'store_keeper' => [
@@ -117,7 +126,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'label' => 'Staff Member',
                 'description' => 'View-only access to schedules and menus.',
                 'permissions' => [
-                    'view_bookings', 'view_halls', 'view_menus'
+                    'view_bookings', 'view_halls', 'view_menus',
+                    'event-types.view'
                 ],
             ],
         ];

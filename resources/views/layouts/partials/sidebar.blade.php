@@ -74,6 +74,13 @@
             </div>
           </a>
 
+          <a class="nav-link {{ Route::is('event-types.*') ? 'active' : '' }}" href="{{ route('event-types.index') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-glass-cheers"></span></span>
+              <span class="nav-link-text ps-1">Event Types</span>
+            </div>
+          </a>
+
           <a class="nav-link" href="#" role="button">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-utensils"></span></span>
