@@ -36,20 +36,37 @@ class HallList extends Component
     /**
      * Delete a hall.
      */
-    public function deleteHall(int $id)
+    public $confirmingDeletionId = null;
+
+    /**
+     * Set the record ID for deletion confirmation.
+     */
+    public function confirmDeletion(int $id)
+    {
+        $this->confirmingDeletionId = $id;
+    }
+
+    /**
+     * Delete the confirmed hall.
+     */
+    public function deleteRecord()
     {
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('delete_halls'), 403);
 
-        $hall = Hall::findOrFail($id);
-        
-        // Tenant security check
-        if (!auth()->user()->isSuperAdmin() && $hall->marquee_id !== auth()->user()->marquee_id) {
-            session()->flash('error', 'Unauthorized operation.');
-            return;
-        }
+        if ($this->confirmingDeletionId) {
+            $hall = Hall::findOrFail($this->confirmingDeletionId);
+            
+            // Tenant security check
+            if (!auth()->user()->isSuperAdmin() && $hall->marquee_id !== auth()->user()->marquee_id) {
+                session()->flash('error', 'Unauthorized operation.');
+                $this->confirmingDeletionId = null;
+                return;
+            }
 
-        $hall->delete();
-        session()->flash('success', 'Hall deleted successfully.');
+            $hall->delete();
+            $this->confirmingDeletionId = null;
+            session()->flash('success', 'Hall deleted successfully.');
+        }
     }
 
     /**

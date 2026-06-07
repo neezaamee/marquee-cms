@@ -104,7 +104,7 @@
                                             </a>
                                         @endif
                                         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('delete_halls'))
-                                            <button wire:click="deleteHall({{ $hall->id }})" wire:confirm="Are you sure you want to delete this hall? This action cannot be undone." class="btn btn-link p-0" type="button" data-bs-toggle="tooltip" title="Delete Hall">
+                                            <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $hall->id }})" title="Delete Hall">
                                                 <span class="text-danger fas fa-trash-alt"></span>
                                             </button>
                                         @endif
@@ -126,5 +126,28 @@
                 {{ $halls->links() }}
             </div>
         @endif
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div wire:ignore.self class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white" id="deleteConfirmModalLabel">
+                        <span class="fas fa-exclamation-triangle me-2"></span>Confirm Deletion
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-start">
+                    <p class="mb-0 text-900">Are you sure you want to delete this hall? This action cannot be undone and will permanently remove the record.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-falcon-default btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button wire:click="deleteRecord" type="button" class="btn btn-danger btn-sm" data-bs-dismiss="modal">
+                        <span class="fas fa-trash-alt me-1"></span>Delete Permanently
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>

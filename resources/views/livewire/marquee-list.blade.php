@@ -1,11 +1,15 @@
 <div>
     <div class="card mb-3">
         <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h5 class="mb-0">Shift Slots</h5>
+            <h5 class="mb-0">Marquee Tenants</h5>
             <div class="d-flex align-items-center gap-2">
-                @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'))
-                    <a class="btn btn-falcon-primary btn-sm" href="{{ route('slots.create') }}">
-                        <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add New Slot
+                <div class="input-group input-group-sm">
+                    <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search marquees..." />
+                    <span class="input-group-text"><span class="fas fa-search"></span></span>
+                </div>
+                @if(auth()->user()->isSuperAdmin())
+                    <a class="btn btn-falcon-primary btn-sm" href="{{ route('marquees.create') }}">
+                        <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add New Marquee
                     </a>
                 @endif
             </div>
@@ -32,53 +36,46 @@
                 <table class="table table-sm table-striped fs-10 mb-0">
                     <thead class="bg-200 text-900">
                         <tr>
-                            <th class="align-middle px-3">Slot Name</th>
-                            <th class="align-middle">Start Time</th>
-                            <th class="align-middle">End Time</th>
-                            <th class="align-middle">Description</th>
+                            <th class="align-middle px-3">Name</th>
+                            <th class="align-middle">City</th>
+                            <th class="align-middle">Phone</th>
+                            <th class="align-middle">Subscription Plan</th>
+                            <th class="align-middle">Expires At</th>
                             <th class="align-middle text-center">Status</th>
                             <th class="align-middle text-end px-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($shiftSlots as $slot)
+                        @forelse($marquees as $marquee)
                             <tr>
                                 <td class="align-middle px-3 fw-semi-bold">
-                                    {{ $slot->slot_name }}
+                                    <a href="{{ route('marquees.show', $marquee->id) }}">{{ $marquee->name }}</a>
                                 </td>
+                                <td class="align-middle">{{ $marquee->city }}</td>
+                                <td class="align-middle">{{ $marquee->phone }}</td>
+                                <td class="align-middle">{{ $marquee->subscriptionPlan->name ?? 'None' }}</td>
                                 <td class="align-middle">
-                                    <span class="badge badge-subtle-info">
-                                        <span class="fas fa-clock me-1"></span>
-                                        {{ \Carbon\Carbon::parse($slot->start_time)->format('h:i A') }}
-                                    </span>
+                                    {{ $marquee->subscription_ends_at ? $marquee->subscription_ends_at->format('M d, Y') : 'N/A' }}
                                 </td>
-                                <td class="align-middle">
-                                    <span class="badge badge-subtle-info">
-                                        <span class="fas fa-clock me-1"></span>
-                                        {{ \Carbon\Carbon::parse($slot->end_time)->format('h:i A') }}
-                                    </span>
-                                </td>
-                                <td class="align-middle text-muted">{{ $slot->description ?? 'No description' }}</td>
                                 <td class="align-middle text-center">
-                                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'))
-                                        <button wire:click="toggleStatus({{ $slot->id }})" class="btn btn-sm p-0 border-0 bg-transparent" type="button" data-bs-toggle="tooltip" title="Click to toggle status">
-                                            <span class="badge badge-subtle-{{ $slot->status === 'active' ? 'success' : 'secondary' }} rounded-pill">
-                                                {{ ucfirst($slot->status) }}
-                                            </span>
-                                        </button>
+                                    @if($marquee->status === 'active')
+                                        <span class="badge badge-subtle-success rounded-pill">Active</span>
+                                    @elseif($marquee->status === 'inactive')
+                                        <span class="badge badge-subtle-secondary rounded-pill">Inactive</span>
                                     @else
-                                        <span class="badge badge-subtle-{{ $slot->status === 'active' ? 'success' : 'secondary' }} rounded-pill">
-                                            {{ ucfirst($slot->status) }}
-                                        </span>
+                                        <span class="badge badge-subtle-danger rounded-pill">Suspended</span>
                                     @endif
                                 </td>
                                 <td class="align-middle text-end px-3">
                                     <div class="d-flex justify-content-end gap-2">
-                                        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'))
-                                            <a class="btn btn-link p-0" href="{{ route('slots.edit', $slot->id) }}" data-bs-toggle="tooltip" title="Edit Slot">
-                                                <span class="text-primary fas fa-edit"></span>
-                                            </a>
-                                            <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $slot->id }})" title="Delete Slot">
+                                        <a class="btn btn-link p-0" href="{{ route('marquees.show', $marquee->id) }}" data-bs-toggle="tooltip" title="View">
+                                            <span class="text-info fas fa-eye"></span>
+                                        </a>
+                                        <a class="btn btn-link p-0" href="{{ route('marquees.edit', $marquee->id) }}" data-bs-toggle="tooltip" title="Edit">
+                                            <span class="text-primary fas fa-edit"></span>
+                                        </a>
+                                        @if(auth()->user()->isSuperAdmin())
+                                            <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $marquee->id }})" title="Delete Marquee">
                                                 <span class="text-danger fas fa-trash-alt"></span>
                                             </button>
                                         @endif
@@ -87,7 +84,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">No slots found.</td>
+                                <td colspan="7" class="text-center py-4 text-muted">No marquees found.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -95,9 +92,9 @@
             </div>
         </div>
 
-        @if($shiftSlots->hasPages())
+        @if($marquees->hasPages())
             <div class="card-footer d-flex align-items-center justify-content-center bg-light">
-                {{ $shiftSlots->links() }}
+                {{ $marquees->links() }}
             </div>
         @endif
     </div>
@@ -113,7 +110,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-start">
-                    <p class="mb-0 text-900">Are you sure you want to delete this shift slot? This action cannot be undone and will permanently remove the record.</p>
+                    <p class="mb-0 text-900">Are you sure you want to delete this marquee tenant? This action will soft-delete the marquee and all related branches, users, and data.</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-falcon-default btn-sm" data-bs-dismiss="modal">Cancel</button>

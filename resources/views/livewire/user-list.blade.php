@@ -1,11 +1,15 @@
 <div>
     <div class="card mb-3">
         <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h5 class="mb-0">Shift Slots</h5>
+            <h5 class="mb-0">CMS Users</h5>
             <div class="d-flex align-items-center gap-2">
-                @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'))
-                    <a class="btn btn-falcon-primary btn-sm" href="{{ route('slots.create') }}">
-                        <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add New Slot
+                <div class="input-group input-group-sm">
+                    <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search users..." />
+                    <span class="input-group-text"><span class="fas fa-search"></span></span>
+                </div>
+                @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'))
+                    <a class="btn btn-falcon-primary btn-sm" href="{{ route('users.create') }}">
+                        <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add New User
                     </a>
                 @endif
             </div>
@@ -32,62 +36,59 @@
                 <table class="table table-sm table-striped fs-10 mb-0">
                     <thead class="bg-200 text-900">
                         <tr>
-                            <th class="align-middle px-3">Slot Name</th>
-                            <th class="align-middle">Start Time</th>
-                            <th class="align-middle">End Time</th>
-                            <th class="align-middle">Description</th>
+                            <th class="align-middle px-3">Name</th>
+                            <th class="align-middle">Email</th>
+                            <th class="align-middle">Role</th>
+                            <th class="align-middle">Branch</th>
+                            @if(auth()->user()->isSuperAdmin())
+                                <th class="align-middle">Marquee Tenant</th>
+                            @endif
+                            <th class="align-middle">Phone</th>
                             <th class="align-middle text-center">Status</th>
                             <th class="align-middle text-end px-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($shiftSlots as $slot)
+                        @forelse($users as $usr)
                             <tr>
                                 <td class="align-middle px-3 fw-semi-bold">
-                                    {{ $slot->slot_name }}
+                                    <a href="{{ route('users.show', $usr->id) }}">{{ $usr->name }}</a>
                                 </td>
+                                <td class="align-middle">{{ $usr->email }}</td>
                                 <td class="align-middle">
-                                    <span class="badge badge-subtle-info">
-                                        <span class="fas fa-clock me-1"></span>
-                                        {{ \Carbon\Carbon::parse($slot->start_time)->format('h:i A') }}
-                                    </span>
+                                    <span class="badge badge-subtle-primary">{{ $usr->role->label ?? 'None' }}</span>
                                 </td>
-                                <td class="align-middle">
-                                    <span class="badge badge-subtle-info">
-                                        <span class="fas fa-clock me-1"></span>
-                                        {{ \Carbon\Carbon::parse($slot->end_time)->format('h:i A') }}
-                                    </span>
-                                </td>
-                                <td class="align-middle text-muted">{{ $slot->description ?? 'No description' }}</td>
+                                <td class="align-middle">{{ $usr->branch->name ?? 'All Branches' }}</td>
+                                @if(auth()->user()->isSuperAdmin())
+                                    <td class="align-middle">{{ $usr->marquee->name ?? 'Global SaaS' }}</td>
+                                @endif
+                                <td class="align-middle">{{ $usr->phone ?? '—' }}</td>
                                 <td class="align-middle text-center">
-                                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'))
-                                        <button wire:click="toggleStatus({{ $slot->id }})" class="btn btn-sm p-0 border-0 bg-transparent" type="button" data-bs-toggle="tooltip" title="Click to toggle status">
-                                            <span class="badge badge-subtle-{{ $slot->status === 'active' ? 'success' : 'secondary' }} rounded-pill">
-                                                {{ ucfirst($slot->status) }}
-                                            </span>
-                                        </button>
-                                    @else
-                                        <span class="badge badge-subtle-{{ $slot->status === 'active' ? 'success' : 'secondary' }} rounded-pill">
-                                            {{ ucfirst($slot->status) }}
-                                        </span>
-                                    @endif
+                                    <span class="badge badge-subtle-{{ $usr->status === 'active' ? 'success' : 'secondary' }} rounded-pill">
+                                        {{ ucfirst($usr->status) }}
+                                    </span>
                                 </td>
                                 <td class="align-middle text-end px-3">
                                     <div class="d-flex justify-content-end gap-2">
-                                        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'))
-                                            <a class="btn btn-link p-0" href="{{ route('slots.edit', $slot->id) }}" data-bs-toggle="tooltip" title="Edit Slot">
+                                        <a class="btn btn-link p-0" href="{{ route('users.show', $usr->id) }}" data-bs-toggle="tooltip" title="View">
+                                            <span class="text-info fas fa-eye"></span>
+                                        </a>
+                                        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'))
+                                            <a class="btn btn-link p-0" href="{{ route('users.edit', $usr->id) }}" data-bs-toggle="tooltip" title="Edit">
                                                 <span class="text-primary fas fa-edit"></span>
                                             </a>
-                                            <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $slot->id }})" title="Delete Slot">
-                                                <span class="text-danger fas fa-trash-alt"></span>
-                                            </button>
+                                            @if($usr->id !== auth()->id())
+                                                <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $usr->id }})" title="Delete User">
+                                                    <span class="text-danger fas fa-trash-alt"></span>
+                                                </button>
+                                            @endif
                                         @endif
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">No slots found.</td>
+                                <td colspan="8" class="text-center py-4 text-muted">No users found.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -95,9 +96,9 @@
             </div>
         </div>
 
-        @if($shiftSlots->hasPages())
+        @if($users->hasPages())
             <div class="card-footer d-flex align-items-center justify-content-center bg-light">
-                {{ $shiftSlots->links() }}
+                {{ $users->links() }}
             </div>
         @endif
     </div>
@@ -113,7 +114,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-start">
-                    <p class="mb-0 text-900">Are you sure you want to delete this shift slot? This action cannot be undone and will permanently remove the record.</p>
+                    <p class="mb-0 text-900">Are you sure you want to delete this user? This will soft-delete the user's account and revoke their system access.</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-falcon-default btn-sm" data-bs-dismiss="modal">Cancel</button>
