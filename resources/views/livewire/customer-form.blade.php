@@ -73,7 +73,7 @@
 
                     <div class="col-md-4">
                         <label class="form-label" for="cnic_national_id">CNIC (Pakistan Format)</label>
-                        <input wire:model="cnic_national_id" class="form-control @error('cnic_national_id') is-invalid @enderror" id="cnic_national_id" type="text" placeholder="e.g. 35202-1234567-1" />
+                        <input type="text" id="cnic_national_id" class="form-control @error('cnic_national_id') is-invalid @enderror" placeholder="e.g. 35202-1234567-1" x-data x-init="IMask($el, { mask: '00000-0000000-0' })" wire:model.blur="cnic_national_id" />
                         @error('cnic_national_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
@@ -107,13 +107,13 @@
 
                     <div class="col-md-4">
                         <label class="form-label" for="phone_number">Phone Number *</label>
-                        <input wire:model="phone_number" class="form-control @error('phone_number') is-invalid @enderror" id="phone_number" type="text" required placeholder="e.g. 03001234567 or +923001234567" />
+                        <input type="text" id="phone_number" class="form-control @error('phone_number') is-invalid @enderror" required placeholder="e.g. 0300-1234567" x-data x-init="IMask($el, { mask: '0000-0000000' })" wire:model.blur="phone_number" />
                         @error('phone_number') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
                     <div class="col-md-4">
                         <label class="form-label" for="alternate_phone">Alternate Phone</label>
-                        <input wire:model="alternate_phone" class="form-control @error('alternate_phone') is-invalid @enderror" id="alternate_phone" type="text" placeholder="e.g. 03211234567" />
+                        <input type="text" id="alternate_phone" class="form-control @error('alternate_phone') is-invalid @enderror" placeholder="e.g. 0321-1234567" x-data x-init="IMask($el, { mask: '0000-0000000' })" wire:model.blur="alternate_phone" />
                         @error('alternate_phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
@@ -125,14 +125,46 @@
 
                     <div class="col-md-4">
                         <label class="form-label" for="city">City</label>
-                        <input wire:model="city" class="form-control @error('city') is-invalid @enderror" id="city" type="text" placeholder="e.g. Lahore" />
-                        @error('city') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <div wire:ignore x-data x-init="
+                            const choices = new Choices($refs.citySelect, {
+                                searchEnabled: true,
+                                itemSelectText: '',
+                                shouldSort: false
+                            });
+                            $refs.citySelect.addEventListener('change', (e) => {
+                                $wire.set('city', e.target.value);
+                            });
+                        ">
+                            <select x-ref="citySelect" id="city" class="form-select @error('city') is-invalid @enderror">
+                                <option value="">Select City...</option>
+                                @foreach($cities as $c)
+                                    <option value="{{ $c }}" @selected($city == $c)>{{ $c }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @error('city') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
 
                     <div class="col-md-4">
                         <label class="form-label" for="province">Province / State</label>
-                        <input wire:model="province" class="form-control @error('province') is-invalid @enderror" id="province" type="text" placeholder="e.g. Punjab" />
-                        @error('province') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <div wire:ignore x-data x-init="
+                            const choices = new Choices($refs.provinceSelect, {
+                                searchEnabled: true,
+                                itemSelectText: '',
+                                shouldSort: false
+                            });
+                            $refs.provinceSelect.addEventListener('change', (e) => {
+                                $wire.set('province', e.target.value);
+                            });
+                        ">
+                            <select x-ref="provinceSelect" id="province" class="form-select @error('province') is-invalid @enderror">
+                                <option value="">Select Province...</option>
+                                @foreach($provinces as $p)
+                                    <option value="{{ $p }}" @selected($province == $p)>{{ $p }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @error('province') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
 
                     <div class="col-md-4">

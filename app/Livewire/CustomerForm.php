@@ -55,6 +55,20 @@ class CustomerForm extends Component
         'Other'
     ];
 
+    public $cities = [
+        'Lahore', 'Karachi', 'Islamabad', 'Faisalabad', 'Rawalpindi', 
+        'Gujranwala', 'Multan', 'Peshawar', 'Quetta', 'Sialkot', 
+        'Bahawalpur', 'Sargodha', 'Sukkur', 'Jhang', 'Sheikhupura', 
+        'Gujrat', 'Mardan', 'Kasur', 'Rahim Yar Khan', 'Sahiwal',
+        'Okara', 'Wah Cantt', 'Dera Ghazi Khan', 'Mirpur Khas', 'Nawabshah',
+        'Mingora', 'Kamoke', 'Jhelum', 'Sadiqabad', 'Khanewal', 'Kohat'
+    ];
+
+    public $provinces = [
+        'Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan', 
+        'Azad Jammu & Kashmir', 'Gilgit-Baltistan', 'Islamabad Capital Territory'
+    ];
+
     public function mount($customer = null)
     {
         $user = auth()->user();
@@ -144,6 +158,12 @@ class CustomerForm extends Component
     {
         $user = auth()->user();
         abort_unless($user->isSuperAdmin() || $user->hasPermission('create_bookings'), 403);
+
+        // Strip dashes and spaces from phone numbers prior to validation
+        $this->phone_number = str_replace(['-', ' '], '', $this->phone_number);
+        if ($this->alternate_phone) {
+            $this->alternate_phone = str_replace(['-', ' '], '', $this->alternate_phone);
+        }
 
         $validatedData = $this->validate();
 

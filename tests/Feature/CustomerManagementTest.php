@@ -139,6 +139,28 @@ class CustomerManagementTest extends TestCase
         ]);
     }
 
+    public function test_phone_number_with_dashes_is_sanitized_and_validated()
+    {
+        Livewire::actingAs($this->userA);
+
+        Livewire::test('customer-form')
+            ->set('first_name', 'Ajmal')
+            ->set('last_name', 'Khan')
+            ->set('customer_type', 'Individual')
+            ->set('phone_number', '0300-1234567')
+            ->set('alternate_phone', '0321-7654321')
+            ->set('cnic_national_id', '35202-1234567-1')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('customers', [
+            'first_name' => 'Ajmal',
+            'last_name' => 'Khan',
+            'phone_number' => '03001234567',
+            'alternate_phone' => '03217654321',
+        ]);
+    }
+
     public function test_sequential_customer_code_generation()
     {
         Customer::create([
