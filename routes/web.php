@@ -7,6 +7,9 @@ use App\Http\Controllers\MarqueeController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\HallController;
+use App\Http\Controllers\SlotController;
+use App\Http\Controllers\HallSlotAssignmentController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -32,4 +35,9 @@ Route::middleware('auth')->group(function () {
     Route::resource('branches', BranchController::class);
     Route::resource('users', UserController::class);
     Route::resource('staff', StaffController::class);
+    
+    // Halls, Slots, and Assignments
+    Route::resource('halls', HallController::class);
+    Route::resource('slots', SlotController::class);
+    Route::get('hall-slots', [HallSlotAssignmentController::class, 'index'])->name('hall-slots.index');
 });
