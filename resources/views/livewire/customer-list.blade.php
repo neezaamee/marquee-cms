@@ -10,14 +10,14 @@
                 </div>
 
                 <!-- Type Filter -->
-                <select wire:model.live="filterType" class="form-select form-select-sm" style="min-width:130px">
+                <select wire:model.live="filterType" class="form-select form-select-sm" style="min-width: 130px; max-width: 150px;">
                     <option value="">All Types</option>
                     <option value="Individual">Individual</option>
                     <option value="Corporate">Corporate</option>
                 </select>
 
                 <!-- Status Filter -->
-                <select wire:model.live="filterStatus" class="form-select form-select-sm" style="min-width:130px">
+                <select wire:model.live="filterStatus" class="form-select form-select-sm" style="min-width: 130px; max-width: 150px;">
                     <option value="">All Statuses</option>
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -25,7 +25,7 @@
                 </select>
 
                 @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('create_bookings'))
-                    <a class="btn btn-falcon-primary btn-sm" href="{{ route('customers.create') }}">
+                    <a class="btn btn-falcon-primary btn-sm text-nowrap" href="{{ route('customers.create') }}">
                         <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add Customer
                     </a>
                 @endif
