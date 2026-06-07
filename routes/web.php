@@ -10,6 +10,7 @@ use App\Http\Controllers\StaffController;
 use App\Http\Controllers\HallController;
 use App\Http\Controllers\SlotController;
 use App\Http\Controllers\HallSlotAssignmentController;
+use App\Http\Controllers\CustomerController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -35,6 +36,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('branches', BranchController::class);
     Route::resource('users', UserController::class);
     Route::resource('staff', StaffController::class);
+    Route::resource('customers', CustomerController::class);
     
     // Halls, Slots, and Assignments
     Route::resource('halls', HallController::class);
