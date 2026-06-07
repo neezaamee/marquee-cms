@@ -121,5 +121,8 @@ class DatabaseSeeder extends Seeder
                 'status' => 'active',
             ]
         );
+
+        // 7. Seed default slots
+        $this->call(DefaultSlotsSeeder::class);
     }
 }

@@ -53,10 +53,24 @@
             </div>
           </a>
 
-          <a class="nav-link" href="#" role="button">
+          <a class="nav-link {{ Route::is('halls.*') ? 'active' : '' }}" href="{{ route('halls.index') }}" role="button">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-hotel"></span></span>
               <span class="nav-link-text ps-1">Halls & Venues</span>
+            </div>
+          </a>
+
+          <a class="nav-link {{ Route::is('slots.*') ? 'active' : '' }}" href="{{ route('slots.index') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-clock"></span></span>
+              <span class="nav-link-text ps-1">Shift Slots</span>
+            </div>
+          </a>
+
+          <a class="nav-link {{ Route::is('hall-slots.*') ? 'active' : '' }}" href="{{ route('hall-slots.index') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-tasks"></span></span>
+              <span class="nav-link-text ps-1">Slot Assignments</span>
             </div>
           </a>
 
