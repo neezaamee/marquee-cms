@@ -74,6 +74,13 @@
             </div>
           </a>
 
+          <a class="nav-link {{ Route::is('availability.*') ? 'active' : '' }}" href="{{ route('availability.index') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-calendar-check"></span></span>
+              <span class="nav-link-text ps-1">Availability Checker</span>
+            </div>
+          </a>
+
           <a class="nav-link {{ Route::is('event-types.*') ? 'active' : '' }}" href="{{ route('event-types.index') }}" role="button">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-glass-cheers"></span></span>

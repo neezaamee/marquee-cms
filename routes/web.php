@@ -15,6 +15,7 @@ use App\Http\Controllers\EventTypeController;
 use App\Http\Controllers\MenuCategoryController;
 use App\Http\Controllers\MenuItemController;
 use App\Http\Controllers\PackageController;
+use App\Http\Controllers\AvailabilityController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -50,6 +51,9 @@ Route::middleware('auth')->group(function () {
     Route::get('packages/{package}/builder', [PackageController::class, 'builder'])->name('packages.builder');
     Route::get('packages/{package}/preview', [PackageController::class, 'preview'])->name('packages.preview');
     Route::resource('packages', PackageController::class);
+    
+    // Availability Engine
+    Route::get('availability', [AvailabilityController::class, 'index'])->name('availability.index');
     
     // Halls, Slots, and Assignments
     Route::resource('halls', HallController::class);

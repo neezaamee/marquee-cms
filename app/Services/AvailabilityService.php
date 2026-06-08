@@ -2,114 +2,192 @@
 
 namespace App\Services;
 
+use App\Models\Booking;
 use App\Models\Hall;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Models\Slot;
+use Carbon\Carbon;
 
 class AvailabilityService
 {
     /**
-     * Check if a specific Hall is available on a specific Date and Slot.
-     * 
-     * Rules:
-     * - Same Date + Same Hall + Same Slot = NOT ALLOWED (Already Booked)
-     * - Same Date + Same Hall + Different Slot = ALLOWED
-     * - Different Hall + Same Date + Same Slot = ALLOWED
+     * Resolve a start/end time relative to a date, adjusting for midnight crossings.
      *
-     * @param int $hallId
-     * @param string $bookingDate (YYYY-MM-DD)
-     * @param int $slotId
-     * @return bool (true if available, false if already booked)
+     * @param string|Carbon $date
+     * @param string|Carbon $startTime
+     * @param string|Carbon $endTime
+     * @return array [Carbon $start, Carbon $end]
      */
-    public function checkAvailability(int $hallId, string $bookingDate, int $slotId): bool
+    public function parseTimeRange($date, $startTime, $endTime): array
     {
-        // If the bookings table doesn't exist yet, return true (fully available)
-        if (!Schema::hasTable('bookings')) {
-            return true;
+        $dateStr = $date instanceof Carbon ? $date->format('Y-m-d') : $date;
+
+        $start = $this->resolveDateTime($dateStr, $startTime);
+        $end = $this->resolveDateTime($dateStr, $endTime);
+
+        // If the end time is on or before the start time, it means the event crosses midnight
+        // (e.g. 18:00 to 01:00). Move the end datetime to the next day.
+        if ($end->lte($start)) {
+            $end->addDay();
         }
 
-        // Query the bookings table
-        // A booking is considered active if it exists, is not cancelled, and not soft deleted
-        $exists = DB::table('bookings')
-            ->where('hall_id', $hallId)
-            ->where('booking_date', $bookingDate)
-            ->where('slot_id', $slotId)
-            ->whereNull('deleted_at')
-            ->whereIn('status', ['confirmed', 'pending']) // Adapt to actual booking statuses
-            ->exists();
-
-        return !$exists;
+        return [$start, $end];
     }
 
     /**
-     * Get availability calendar data for a branch within a date range.
-     * Ready to be consumed by the future calendar UI.
-     *
-     * @param int $branchId
-     * @param string $startDate (YYYY-MM-DD)
-     * @param string $endDate (YYYY-MM-DD)
-     * @return array
+     * Helper to parse string times or Carbon objects.
      */
-    public function getAvailabilityCalendar(int $branchId, string $startDate, string $endDate): array
+    protected function resolveDateTime(string $dateStr, $time): Carbon
     {
-        // 1. Fetch all active halls in the branch along with their active assigned slots
-        $halls = Hall::where('branch_id', $branchId)
+        if ($time instanceof Carbon) {
+            return $time;
+        }
+
+        // Check if the input is already a full datetime string
+        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/', $time)) {
+            return Carbon::parse($time);
+        }
+
+        return Carbon::parse($dateStr . ' ' . $time);
+    }
+
+    /**
+     * Retrieve the first conflicting booking for a hall and time range, if one exists.
+     *
+     * @param int $hallId
+     * @param string|Carbon $date
+     * @param string|Carbon $startTime
+     * @param string|Carbon $endTime
+     * @param int|null $excludeBookingId
+     * @return Booking|null
+     */
+    public function getConflictingBooking(int $hallId, $date, $startTime, $endTime, ?int $excludeBookingId = null): ?Booking
+    {
+        [$start, $end] = $this->parseTimeRange($date, $startTime, $endTime);
+
+        $query = Booking::where('hall_id', $hallId)
+            ->whereIn('booking_status', ['Reserved', 'Confirmed'])
+            ->where(function ($q) use ($start, $end) {
+                // requested_start < existing_end AND requested_end > existing_start
+                $q->where('start_time', '<', $end)
+                  ->where('end_time', '>', $start);
+            });
+
+        if ($excludeBookingId) {
+            $query->where('id', '!=', $excludeBookingId);
+        }
+
+        return $query->with(['slot', 'creator'])->first();
+    }
+
+    /**
+     * Check if a specific time range or slot is available for a hall.
+     * Supports legacy signature checkAvailability(int $hallId, $date, int $slotId)
+     * and current checkAvailability(int $hallId, $date, string $startTime, string $endTime, ?int $excludeBookingId = null)
+     *
+     * @param int $hallId
+     * @param string|Carbon $date
+     * @param mixed $startTimeOrSlotId
+     * @param mixed|null $endTime
+     * @param int|null $excludeBookingId
+     * @return bool
+     */
+    public function checkAvailability(int $hallId, $date, $startTimeOrSlotId, $endTime = null, ?int $excludeBookingId = null): bool
+    {
+        // If bookings table doesn't exist, return true (available)
+        if (!\Illuminate\Support\Facades\Schema::hasTable('bookings')) {
+            return true;
+        }
+
+        // If the table doesn't have start_time column, run the simple old slot-id checks
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('bookings', 'start_time')) {
+            $statusCheck = ['confirmed', 'reserved', 'Confirmed', 'Reserved'];
+            return !\Illuminate\Support\Facades\DB::table('bookings')
+                ->where('hall_id', $hallId)
+                ->where('booking_date', $date)
+                ->where('slot_id', $startTimeOrSlotId)
+                ->whereIn('status', $statusCheck)
+                ->exists();
+        }
+
+        // Otherwise, run our advanced datetime conflict range calculations
+        if ($endTime === null) {
+            // If only slot ID was provided in the new schema, resolve the slot start/end times
+            $slot = Slot::findOrFail($startTimeOrSlotId);
+            $startTime = $slot->start_time;
+            $endTime = $slot->end_time;
+        } else {
+            $startTime = $startTimeOrSlotId;
+        }
+
+        return !$this->getConflictingBooking($hallId, $date, $startTime, $endTime, $excludeBookingId);
+    }
+
+    /**
+     * Direct alias for checkAvailability.
+     */
+    public function checkTimeAvailability(int $hallId, $date, $startTimeOrSlotId, $endTime = null, ?int $excludeBookingId = null): bool
+    {
+        return $this->checkAvailability($hallId, $date, $startTimeOrSlotId, $endTime, $excludeBookingId);
+    }
+
+    /**
+     * Check if the hall has ZERO bookings for the entire day.
+     *
+     * @param int $hallId
+     * @param string|Carbon $date
+     * @return bool
+     */
+    public function checkHallAvailability(int $hallId, $date): bool
+    {
+        $dateStr = $date instanceof Carbon ? $date->format('Y-m-d') : $date;
+
+        return !Booking::where('hall_id', $hallId)
+            ->where('booking_date', $dateStr)
+            ->whereIn('booking_status', ['Reserved', 'Confirmed'])
+            ->exists();
+    }
+
+    /**
+     * Retrieve all predefined slots that are BOOKED (overlapping with any confirmed bookings) for a hall and date.
+     *
+     * @param int $hallId
+     * @param string|Carbon $date
+     * @return \Illuminate\Support\Collection
+     */
+    public function getBookedSlots(int $hallId, $date)
+    {
+        $hall = Hall::findOrFail($hallId);
+        $dateStr = $date instanceof Carbon ? $date->format('Y-m-d') : $date;
+
+        // Fetch all active slots for the marquee
+        $slots = Slot::where('marquee_id', $hall->marquee_id)
             ->where('status', 'active')
-            ->with(['slots' => function ($query) {
-                $query->where('slots.status', 'active');
-            }])
             ->get();
 
-        // 2. Fetch bookings for these halls in the date range (if bookings table exists)
-        $bookings = collect();
-        if (Schema::hasTable('bookings')) {
-            $bookings = DB::table('bookings')
-                ->whereIn('hall_id', $halls->pluck('id'))
-                ->whereBetween('booking_date', [$startDate, $endDate])
-                ->whereNull('deleted_at')
-                ->whereIn('status', ['confirmed', 'pending'])
-                ->get()
-                ->groupBy(['booking_date', 'hall_id', 'slot_id']);
-        }
+        return $slots->filter(function ($slot) use ($hallId, $dateStr) {
+            return !$this->checkAvailability($hallId, $dateStr, $slot->start_time, $slot->end_time);
+        });
+    }
 
-        // 3. Construct the daily matrix
-        $calendarData = [];
-        $start = new \DateTime($startDate);
-        $end = new \DateTime($endDate);
-        $interval = new \DateInterval('P1D');
-        $period = new \DatePeriod($start, $interval, $end->modify('+1 day'));
+    /**
+     * Retrieve all predefined slots that are AVAILABLE (not overlapping with any confirmed bookings) for a hall and date.
+     *
+     * @param int $hallId
+     * @param string|Carbon $date
+     * @return \Illuminate\Support\Collection
+     */
+    public function getAvailableSlots(int $hallId, $date)
+    {
+        $hall = Hall::findOrFail($hallId);
+        $dateStr = $date instanceof Carbon ? $date->format('Y-m-d') : $date;
 
-        foreach ($period as $date) {
-            $dateStr = $date->format('Y-m-d');
-            $calendarData[$dateStr] = [];
+        // Fetch all active slots for the marquee
+        $slots = Slot::where('marquee_id', $hall->marquee_id)
+            ->where('status', 'active')
+            ->get();
 
-            foreach ($halls as $hall) {
-                $hallData = [
-                    'hall_id' => $hall->id,
-                    'hall_name' => $hall->hall_name,
-                    'hall_code' => $hall->hall_code,
-                    'capacity' => $hall->capacity,
-                    'slots' => []
-                ];
-
-                foreach ($hall->slots as $slot) {
-                    // Check if slot is booked
-                    $isBooked = isset($bookings[$dateStr][$hall->id][$slot->id]);
-                    
-                    $hallData['slots'][] = [
-                        'slot_id' => $slot->id,
-                        'slot_name' => $slot->slot_name,
-                        'start_time' => $slot->start_time,
-                        'end_time' => $slot->end_time,
-                        'status' => $isBooked ? 'booked' : 'available',
-                        'booking_id' => $isBooked ? $bookings[$dateStr][$hall->id][$slot->id]->first()->id ?? null : null,
-                    ];
-                }
-
-                $calendarData[$dateStr][] = $hallData;
-            }
-        }
-
-        return $calendarData;
+        return $slots->filter(function ($slot) use ($hallId, $dateStr) {
+            return $this->checkAvailability($hallId, $dateStr, $slot->start_time, $slot->end_time);
+        });
     }
 }
