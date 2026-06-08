@@ -373,4 +373,60 @@ class BookingManagementTest extends TestCase
             ->assertSet('taxRate', 10.00)
             ->assertHasNoErrors();
     }
+
+    public function test_wizard_submits_booking_successfully()
+    {
+        Livewire::actingAs($this->userOwnerA);
+
+        Livewire::test('booking-wizard')
+            // Step 1: Customer Selection
+            ->set('selectedCustomerId', $this->customerA->id)
+            ->call('nextStep') // step 1 -> 2
+            ->assertSet('currentStep', 2)
+
+            // Step 2: Event Details
+            ->set('selectedEventTypeId', $this->eventTypeA->id)
+            ->set('selectedHallId', $this->hallA->id)
+            ->set('selectedDate', '2026-06-25')
+            ->call('nextStep') // step 2 -> 3
+            ->assertSet('currentStep', 3)
+
+            // Step 3: Shift / Slot Selection
+            ->set('checkType', 'slot')
+            ->set('selectedSlotId', $this->slotA->id)
+            ->call('nextStep') // step 3 -> 4
+            ->assertSet('currentStep', 4)
+
+            // Step 4: Package & Pricing
+            ->set('selectedPackageId', $this->packageA->id)
+            ->set('guestCount', 150)
+            ->set('perPlatePrice', 1500)
+            ->set('hallCharges', 20000)
+            ->set('extraCharges', 10000)
+            ->set('discountAmount', 5000)
+            ->set('securityDeposit', 15000)
+            ->set('taxRate', 13)
+            ->call('nextStep') // step 4 -> 5
+            ->assertSet('currentStep', 5)
+
+            // Step 5: Review & Instructions
+            ->set('specialInstructions', 'Please set up round tables.')
+            ->set('bookingStatus', 'Confirmed')
+            ->call('submitBooking')
+            ->assertHasNoErrors();
+
+        // Retrieve created booking and verify details
+        $booking = Booking::first();
+        $this->assertNotNull($booking);
+
+        $this->assertDatabaseHas('bookings', [
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'booking_date' => '2026-06-25 00:00:00',
+            'guest_count' => 150,
+            'booking_status' => 'Confirmed',
+            'special_instructions' => 'Please set up round tables.',
+        ]);
+    }
 }

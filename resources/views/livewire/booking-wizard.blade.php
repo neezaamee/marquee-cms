@@ -561,8 +561,8 @@
                     <div class="card-body fs-11">
                         <div class="mb-2"><strong>Customer:</strong> {{ \App\Models\Customer::find($selectedCustomerId)->full_name }}</div>
                         <div class="mb-2"><strong>Hall:</strong> {{ \App\Models\Hall::find($selectedHallId)->hall_name }}</div>
-                        <div class="mb-2"><strong>Date:</strong> {{ Carbon::parse($selectedDate)->format('M d, Y') }}</div>
-                        <div class="mb-2"><strong>Timings:</strong> {{ Carbon::parse($startTime)->format('h:i A') }} - {{ Carbon::parse($endTime)->format('h:i A') }}</div>
+                        <div class="mb-2"><strong>Date:</strong> {{ \Carbon\Carbon::parse($selectedDate)->format('M d, Y') }}</div>
+                        <div class="mb-2"><strong>Timings:</strong> {{ \Carbon\Carbon::parse($startTime)->format('h:i A') }} - {{ \Carbon\Carbon::parse($endTime)->format('h:i A') }}</div>
                         <div class="mb-2"><strong>Package:</strong> {{ \App\Models\Package::find($selectedPackageId)->package_name }}</div>
                         <div class="mb-2"><strong>Guests:</strong> {{ $guestCount }}</div>
                         
