@@ -16,6 +16,7 @@ use App\Http\Controllers\MenuCategoryController;
 use App\Http\Controllers\MenuItemController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\AvailabilityController;
+use App\Http\Controllers\BookingController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -43,6 +44,10 @@ Route::middleware('auth')->group(function () {
     Route::resource('staff', StaffController::class);
     Route::resource('customers', CustomerController::class);
     Route::resource('event-types', EventTypeController::class);
+    
+    // Booking Management
+    Route::get('bookings/{booking}/slip', [BookingController::class, 'slip'])->name('bookings.slip');
+    Route::resource('bookings', BookingController::class);
     
     // Menu Management
     Route::resource('menu-categories', MenuCategoryController::class);
