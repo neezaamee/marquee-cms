@@ -12,6 +12,9 @@ use App\Http\Controllers\SlotController;
 use App\Http\Controllers\HallSlotAssignmentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EventTypeController;
+use App\Http\Controllers\MenuCategoryController;
+use App\Http\Controllers\MenuItemController;
+use App\Http\Controllers\PackageController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -39,6 +42,14 @@ Route::middleware('auth')->group(function () {
     Route::resource('staff', StaffController::class);
     Route::resource('customers', CustomerController::class);
     Route::resource('event-types', EventTypeController::class);
+    
+    // Menu Management
+    Route::resource('menu-categories', MenuCategoryController::class);
+    Route::resource('menu-items', MenuItemController::class);
+    
+    Route::get('packages/{package}/builder', [PackageController::class, 'builder'])->name('packages.builder');
+    Route::get('packages/{package}/preview', [PackageController::class, 'preview'])->name('packages.preview');
+    Route::resource('packages', PackageController::class);
     
     // Halls, Slots, and Assignments
     Route::resource('halls', HallController::class);

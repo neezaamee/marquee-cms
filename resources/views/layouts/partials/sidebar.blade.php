@@ -81,12 +81,30 @@
             </div>
           </a>
 
-          <a class="nav-link" href="#" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-utensils"></span></span>
-              <span class="nav-link-text ps-1">Menus & Catering</span>
-            </div>
-          </a>
+          @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_menus'))
+            <a class="nav-link {{ Route::is('menu-categories.*') ? 'active' : '' }}" href="{{ route('menu-categories.index') }}" role="button">
+              <div class="d-flex align-items-center">
+                <span class="nav-link-icon"><span class="fas fa-list"></span></span>
+                <span class="nav-link-text ps-1">Menu Categories</span>
+              </div>
+            </a>
+
+            <a class="nav-link {{ Route::is('menu-items.*') ? 'active' : '' }}" href="{{ route('menu-items.index') }}" role="button">
+              <div class="d-flex align-items-center">
+                <span class="nav-link-icon"><span class="fas fa-utensils"></span></span>
+                <span class="nav-link-text ps-1">Menu Items</span>
+              </div>
+            </a>
+          @endif
+
+          @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_packages'))
+            <a class="nav-link {{ Route::is('packages.*') ? 'active' : '' }}" href="{{ route('packages.index') }}" role="button">
+              <div class="d-flex align-items-center">
+                <span class="nav-link-icon"><span class="fas fa-cubes"></span></span>
+                <span class="nav-link-text ps-1">Packages</span>
+              </div>
+            </a>
+          @endif
         </li>
 
         <!-- CRM & Accounts Section -->

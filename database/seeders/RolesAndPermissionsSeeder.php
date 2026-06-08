@@ -55,6 +55,12 @@ class RolesAndPermissionsSeeder extends Seeder
             ['name' => 'event-types.create', 'label' => 'Create Event Types'],
             ['name' => 'event-types.edit', 'label' => 'Edit Event Types'],
             ['name' => 'event-types.delete', 'label' => 'Delete Event Types'],
+
+            // Packages
+            ['name' => 'view_packages', 'label' => 'View Packages'],
+            ['name' => 'create_packages', 'label' => 'Create Packages'],
+            ['name' => 'edit_packages', 'label' => 'Edit Packages'],
+            ['name' => 'delete_packages', 'label' => 'Delete Packages'],
         ];
 
         $permissionInstances = [];
@@ -82,7 +88,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_payments', 'create_payments', 'refund_payments',
                     'view_reports', 'manage_staff', 'manage_settings',
                     'view_inventory', 'manage_inventory',
-                    'event-types.view', 'event-types.create', 'event-types.edit', 'event-types.delete'
+                    'event-types.view', 'event-types.create', 'event-types.edit', 'event-types.delete',
+                    'view_packages', 'create_packages', 'edit_packages', 'delete_packages'
                 ],
             ],
             'branch_manager' => [
@@ -94,7 +101,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_payments', 'create_payments',
                     'view_reports', 'manage_staff', 'manage_settings',
                     'view_inventory',
-                    'event-types.view', 'event-types.create', 'event-types.edit'
+                    'event-types.view', 'event-types.create', 'event-types.edit',
+                    'view_packages', 'create_packages', 'edit_packages'
                 ],
             ],
             'accountant' => [
@@ -112,7 +120,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'permissions' => [
                     'view_bookings', 'create_bookings', 'edit_bookings',
                     'view_halls', 'view_menus',
-                    'event-types.view'
+                    'event-types.view',
+                    'view_packages'
                 ],
             ],
             'store_keeper' => [
@@ -127,7 +136,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'description' => 'View-only access to schedules and menus.',
                 'permissions' => [
                     'view_bookings', 'view_halls', 'view_menus',
-                    'event-types.view'
+                    'event-types.view',
+                    'view_packages'
                 ],
             ],
         ];
