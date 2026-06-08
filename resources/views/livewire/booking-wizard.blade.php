@@ -118,7 +118,7 @@
 
                                 <div class="col-md-6">
                                     <label class="form-label" for="newPhone">Phone Number *</label>
-                                    <input type="text" id="newPhone" class="form-control form-control-sm" placeholder="e.g. 0300-1234567" x-data x-init="IMask($el, { mask: '0000-0000000' })" wire:model.blur="newPhone" />
+                                    <input type="text" id="newPhone" class="form-control form-control-sm" placeholder="e.g. +923001234567" x-data x-init="IMask($el, { mask: '+920000000000' })" wire:model.blur="newPhone" />
                                     @error('newPhone') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                 </div>
 

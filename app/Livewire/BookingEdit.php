@@ -113,22 +113,22 @@ class BookingEdit extends Component
         $marqueeId = auth()->user()->marquee_id;
 
         $this->customersList = Customer::where('marquee_id', $marqueeId)
-            ->where('status', 'Active')
+            ->whereIn('status', ['active', 'Active'])
             ->orderBy('first_name')
             ->get();
 
         $this->eventTypesList = EventType::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
+            ->whereIn('status', ['active', 'Active'])
             ->orderBy('sort_order')
             ->get();
 
         $this->hallsList = Hall::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
+            ->whereIn('status', ['active', 'Active'])
             ->orderBy('hall_name')
             ->get();
 
         $this->packagesList = Package::where('marquee_id', $marqueeId)
-            ->where('status', 'Active')
+            ->whereIn('status', ['active', 'Active'])
             ->orderBy('package_name')
             ->get();
     }
@@ -173,7 +173,7 @@ class BookingEdit extends Component
         $marqueeId = auth()->user()->marquee_id;
 
         $slots = Slot::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
+            ->whereIn('status', ['active', 'Active'])
             ->orderBy('start_time')
             ->get();
 

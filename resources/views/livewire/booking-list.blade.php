@@ -12,9 +12,9 @@
         </div>
 
         <div class="card-body bg-light border-top border-bottom py-2">
-            <div class="row g-2 align-items-center">
+            <div class="row g-2">
                 <!-- Search -->
-                <div class="col-md-3">
+                <div class="col-lg-2 col-md-4 col-12">
                     <div class="input-group input-group-sm">
                         <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search number, customer..." />
                         <span class="input-group-text"><span class="fas fa-search"></span></span>
@@ -22,7 +22,7 @@
                 </div>
 
                 <!-- Hall Filter -->
-                <div class="col-md-2">
+                <div class="col-lg-2 col-md-4 col-6">
                     <select wire:model.live="filterHall" class="form-select form-select-sm">
                         <option value="">All Halls</option>
                         @foreach($halls as $hall)
@@ -32,7 +32,7 @@
                 </div>
 
                 <!-- Status Filter -->
-                <div class="col-md-2">
+                <div class="col-lg-2 col-md-4 col-6">
                     <select wire:model.live="filterStatus" class="form-select form-select-sm">
                         <option value="">All Statuses</option>
                         <option value="Draft">Draft</option>
@@ -45,7 +45,7 @@
                 </div>
 
                 <!-- Payment Status Filter -->
-                <div class="col-md-2">
+                <div class="col-lg-2 col-md-4 col-6">
                     <select wire:model.live="filterPaymentStatus" class="form-select form-select-sm">
                         <option value="">All Payments</option>
                         <option value="Unpaid">Unpaid</option>
@@ -55,10 +55,14 @@
                     </select>
                 </div>
 
-                <!-- Date Range Filters -->
-                <div class="col-md-3 d-flex gap-1">
-                    <input wire:model.live="filterDateStart" type="date" class="form-control form-control-sm" placeholder="Start Date" title="From Booking Date" />
-                    <input wire:model.live="filterDateEnd" type="date" class="form-control form-control-sm" placeholder="End Date" title="To Booking Date" />
+                <!-- Start Date Filter -->
+                <div class="col-lg-2 col-md-4 col-6">
+                    <input wire:model.live="filterDateStart" type="date" class="form-control form-control-sm font-monospace" placeholder="From Date" title="From Booking Date" />
+                </div>
+
+                <!-- End Date Filter -->
+                <div class="col-lg-2 col-md-4 col-6">
+                    <input wire:model.live="filterDateEnd" type="date" class="form-control form-control-sm font-monospace" placeholder="To Date" title="To Booking Date" />
                 </div>
             </div>
         </div>
