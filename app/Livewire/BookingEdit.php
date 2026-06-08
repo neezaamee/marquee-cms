@@ -297,6 +297,15 @@ class BookingEdit extends Component
 
     public function recalculatePrices()
     {
+        // Typecast/sanitize inputs to numeric types to prevent TypeError in number_format()
+        $this->guestCount = is_numeric($this->guestCount) ? intval($this->guestCount) : 0;
+        $this->perPlatePrice = is_numeric($this->perPlatePrice) ? floatval($this->perPlatePrice) : 0.00;
+        $this->hallCharges = is_numeric($this->hallCharges) ? floatval($this->hallCharges) : 0.00;
+        $this->extraCharges = is_numeric($this->extraCharges) ? floatval($this->extraCharges) : 0.00;
+        $this->discountAmount = is_numeric($this->discountAmount) ? floatval($this->discountAmount) : 0.00;
+        $this->securityDeposit = is_numeric($this->securityDeposit) ? floatval($this->securityDeposit) : 0.00;
+        $this->taxRate = is_numeric($this->taxRate) ? floatval($this->taxRate) : 0.00;
+
         $pricing = BookingPricingService::calculate([
             'guest_count' => $this->guestCount,
             'per_plate_price' => $this->perPlatePrice,
@@ -417,6 +426,7 @@ class BookingEdit extends Component
 
     public function render()
     {
+        $this->recalculatePrices();
         return view('livewire.booking-edit');
     }
 }

@@ -307,4 +307,70 @@ class BookingManagementTest extends TestCase
             'status_to' => 'Confirmed',
         ]);
     }
+
+    public function test_component_math_calculations_with_string_inputs()
+    {
+        Livewire::actingAs($this->userOwnerA);
+
+        // 1. Test Wizard
+        Livewire::test('booking-wizard')
+            ->set('selectedCustomerId', $this->customerA->id)
+            ->set('selectedEventTypeId', $this->eventTypeA->id)
+            ->set('selectedHallId', $this->hallA->id)
+            ->set('selectedDate', '2026-06-25')
+            ->set('selectedPackageId', $this->packageA->id)
+            // Send strings & empty values
+            ->set('guestCount', '150')
+            ->set('perPlatePrice', '1200.50')
+            ->set('hallCharges', '')
+            ->set('extraCharges', '15000')
+            ->set('discountAmount', '')
+            ->set('securityDeposit', '10000.50')
+            ->set('taxRate', '13')
+            ->call('recalculatePrices')
+            ->assertSet('guestCount', 150)
+            ->assertSet('perPlatePrice', 1200.50)
+            ->assertSet('hallCharges', 0.00)
+            ->assertSet('extraCharges', 15000.00)
+            ->assertSet('discountAmount', 0.00)
+            ->assertSet('securityDeposit', 10000.50)
+            ->assertSet('taxRate', 13.00)
+            ->assertHasNoErrors();
+
+        // 2. Test Edit Component
+        $booking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-25',
+            'start_time' => '2026-06-25 18:00:00',
+            'end_time' => '2026-06-25 23:30:00',
+            'guest_count' => 100,
+            'per_plate_price' => 1500.00,
+            'grand_total' => 150000.00,
+            'booking_status' => 'Draft',
+            'payment_status' => 'Unpaid',
+        ]);
+
+        Livewire::test('booking-edit', ['booking' => $booking])
+            ->set('guestCount', '')
+            ->set('perPlatePrice', '1400')
+            ->set('hallCharges', '50000')
+            ->set('extraCharges', '')
+            ->set('discountAmount', '5000')
+            ->set('securityDeposit', '')
+            ->set('taxRate', '10')
+            ->call('recalculatePrices')
+            ->assertSet('guestCount', 0)
+            ->assertSet('perPlatePrice', 1400.00)
+            ->assertSet('hallCharges', 50000.00)
+            ->assertSet('extraCharges', 0.00)
+            ->assertSet('discountAmount', 5000.00)
+            ->assertSet('securityDeposit', 0.00)
+            ->assertSet('taxRate', 10.00)
+            ->assertHasNoErrors();
+    }
 }
