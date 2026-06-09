@@ -44,6 +44,7 @@ class Booking extends Model
         'deposit_refunded_amount',
         'deposit_deducted_amount',
         'deposit_notes',
+        'no_food',
     ];
 
     protected $casts = [
@@ -62,6 +63,7 @@ class Booking extends Model
         'grand_total' => 'float',
         'deposit_refunded_amount' => 'float',
         'deposit_deducted_amount' => 'float',
+        'no_food' => 'boolean',
     ];
 
     /**
@@ -81,15 +83,15 @@ class Booking extends Model
                     $marqueeId = auth()->user()->marquee_id;
                 }
 
-                $year = $model->booking_date ? Carbon::parse($model->booking_date)->year : Carbon::now()->year;
+                $prefix = Carbon::now()->format('dmY');
 
-                // Find how many bookings have been created for this tenant in this year
+                // Find how many bookings have been created for this tenant with this prefix
                 $count = static::withTrashed()
                     ->where('marquee_id', $marqueeId)
-                    ->where('booking_number', 'like', "BK-{$year}-%")
+                    ->where('booking_number', 'like', "{$prefix}-%")
                     ->count();
 
-                $model->booking_number = 'BK-' . $year . '-' . str_pad($count + 1, 6, '0', STR_PAD_LEFT);
+                $model->booking_number = $prefix . '-' . str_pad($count + 1, 6, '0', STR_PAD_LEFT);
             }
         });
     }
@@ -172,7 +174,16 @@ class Booking extends Model
     public function menuItems(): BelongsToMany
     {
         return $this->belongsToMany(MenuItem::class, 'booking_menu_items')
-                    ->withPivot('custom_note')
+                    ->withPivot(['custom_note', 'managed_by_host'])
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the allocated halls for this booking.
+     */
+    public function halls(): BelongsToMany
+    {
+        return $this->belongsToMany(Hall::class, 'booking_halls')
                     ->withTimestamps();
     }
 }

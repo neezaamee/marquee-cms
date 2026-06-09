@@ -53,9 +53,19 @@ class BookingEdit extends Component
     public $selectedAddons = []; // extra_service_id => ['selected' => bool, 'price' => float, 'quantity' => int, 'name' => string]
 
     // Menu Customization selection
-    public $bookingMenuItems = []; // array of ['id' => int, 'item_name' => string, 'custom_note' => string]
+    public $bookingMenuItems = []; // array of ['id' => int, 'item_name' => string, 'custom_note' => string, 'managed_by_host' => bool]
     public $selectedMenuItemToAdd = ''; // dropdown selection to add menu item
     public $menuItemsAutocomplete = []; // list of all menu items for the dropdown
+
+    // Search and Multi-select states
+    public $eventTypeSearch = '';
+    public $hallSearch = '';
+    public $selectedHallIds = [];
+    public $filteredEventTypes = [];
+    public $filteredHalls = [];
+
+    // Rent / Sitting Plan only state
+    public $noFood = false;
 
     public $specialInstructions = '';
     public $bookingStatus = '';
@@ -89,7 +99,13 @@ class BookingEdit extends Component
 
         $this->selectedCustomerId = $booking->customer_id;
         $this->selectedEventTypeId = $booking->event_type_id;
-        $this->selectedHallId = $booking->hall_id;
+        
+        $this->selectedHallIds = $booking->halls->pluck('id')->map(fn($id) => (string)$id)->toArray();
+        if (empty($this->selectedHallIds) && $booking->hall_id) {
+            $this->selectedHallIds = [(string)$booking->hall_id];
+        }
+        $this->selectedHallId = reset($this->selectedHallIds) ?: '';
+        
         $this->selectedDate = $booking->booking_date->format('Y-m-d');
         
         $this->selectedSlotId = $booking->slot_id ?: '';
@@ -108,6 +124,7 @@ class BookingEdit extends Component
         $this->extraCharges = $booking->extra_charges ?? 0.00;
         $this->discountAmount = $booking->discount_amount ?? 0.00;
         $this->securityDeposit = $booking->security_deposit ?? 0.00;
+        $this->noFood = (bool)$booking->no_food;
         
         // Calculate original tax rate
         $this->packageAmount = $booking->package_amount ?? 0.00;
@@ -170,6 +187,7 @@ class BookingEdit extends Component
                 'id' => $item->id,
                 'item_name' => $item->item_name,
                 'custom_note' => $item->pivot->custom_note ?? '',
+                'managed_by_host' => (bool)($item->pivot->managed_by_host ?? false),
             ];
         }
     }
@@ -201,12 +219,15 @@ class BookingEdit extends Component
         $this->menuItemsAutocomplete = MenuItem::where('marquee_id', $marqueeId)
             ->orderBy('item_name')
             ->get();
-    }
 
-    public function updatedSelectedHallId()
-    {
-        $this->resetSlotState();
-        $this->loadSlotsAndCheck();
+        $this->filteredEventTypes = $this->eventTypesList->toArray();
+        $this->filteredHalls = $this->hallsList->toArray();
+
+        // Initialize search values
+        $selectedEvent = EventType::find($this->selectedEventTypeId);
+        if ($selectedEvent) {
+            $this->eventTypeSearch = $selectedEvent->event_type_name;
+        }
     }
 
     public function updatedSelectedDate()
@@ -217,6 +238,57 @@ class BookingEdit extends Component
 
     public function updatedCheckType()
     {
+        $this->resetSlotState();
+        $this->loadSlotsAndCheck();
+    }
+
+    public function updatedEventTypeSearch()
+    {
+        if (empty($this->eventTypeSearch)) {
+            $this->filteredEventTypes = $this->eventTypesList->toArray();
+        } else {
+            $term = '%' . $this->eventTypeSearch . '%';
+            $this->filteredEventTypes = EventType::where('marquee_id', auth()->user()->marquee_id)
+                ->whereIn('status', ['active', 'Active'])
+                ->where('event_type_name', 'like', $term)
+                ->orderBy('sort_order')
+                ->get()
+                ->toArray();
+        }
+    }
+
+    public function selectEventType($id, $name)
+    {
+        $this->selectedEventTypeId = $id;
+        $this->eventTypeSearch = $name;
+    }
+
+    public function updatedHallSearch()
+    {
+        if (empty($this->hallSearch)) {
+            $this->filteredHalls = $this->hallsList->toArray();
+        } else {
+            $term = '%' . $this->hallSearch . '%';
+            $this->filteredHalls = Hall::where('marquee_id', auth()->user()->marquee_id)
+                ->whereIn('status', ['active', 'Active'])
+                ->where('hall_name', 'like', $term)
+                ->orderBy('hall_name')
+                ->get()
+                ->toArray();
+        }
+    }
+
+    public function toggleHall($id)
+    {
+        $id = (string)$id;
+        if (in_array($id, $this->selectedHallIds)) {
+            $this->selectedHallIds = array_diff($this->selectedHallIds, [$id]);
+        } else {
+            $this->selectedHallIds[] = $id;
+        }
+        $this->selectedHallIds = array_values($this->selectedHallIds);
+        $this->selectedHallId = reset($this->selectedHallIds) ?: '';
+        
         $this->resetSlotState();
         $this->loadSlotsAndCheck();
     }
@@ -235,7 +307,7 @@ class BookingEdit extends Component
 
     public function loadSlotsAndCheck()
     {
-        if (empty($this->selectedHallId) || empty($this->selectedDate)) {
+        if (empty($this->selectedHallIds) || empty($this->selectedDate)) {
             return;
         }
 
@@ -250,13 +322,19 @@ class BookingEdit extends Component
         $this->availableSlotsList = [];
 
         foreach ($slots as $slot) {
-            $isSlotAvailable = $service->checkAvailability(
-                $this->selectedHallId,
-                $this->selectedDate,
-                $slot->start_time,
-                $slot->end_time,
-                $this->booking->id // Exclude self
-            );
+            $isSlotAvailable = true;
+            foreach ($this->selectedHallIds as $hallId) {
+                if (!$service->checkAvailability(
+                    $hallId,
+                    $this->selectedDate,
+                    $slot->start_time,
+                    $slot->end_time,
+                    $this->booking->id
+                )) {
+                    $isSlotAvailable = false;
+                    break;
+                }
+            }
 
             $this->availableSlotsList[] = [
                 'id' => $slot->id,
@@ -317,27 +395,29 @@ class BookingEdit extends Component
 
     private function runAvailabilityCheck()
     {
-        if (empty($this->selectedHallId) || empty($this->selectedDate) || empty($this->startTime) || empty($this->endTime)) {
+        if (empty($this->selectedHallIds) || empty($this->selectedDate) || empty($this->startTime) || empty($this->endTime)) {
             $this->availabilityChecked = false;
             return;
         }
 
         $service = new AvailabilityService();
+        $this->isAvailable = true;
+        $this->conflictDetails = null;
 
-        $conflicting = $service->getConflictingBooking(
-            $this->selectedHallId,
-            $this->selectedDate,
-            Carbon::parse($this->startTime)->format('H:i:s'),
-            Carbon::parse($this->endTime)->format('H:i:s'),
-            $this->booking->id // Exclude self
-        );
+        foreach ($this->selectedHallIds as $hallId) {
+            $conflicting = $service->getConflictingBooking(
+                $hallId,
+                $this->selectedDate,
+                Carbon::parse($this->startTime)->format('H:i:s'),
+                Carbon::parse($this->endTime)->format('H:i:s'),
+                $this->booking->id
+            );
 
-        if ($conflicting) {
-            $this->isAvailable = false;
-            $this->conflictDetails = $conflicting;
-        } else {
-            $this->isAvailable = true;
-            $this->conflictDetails = null;
+            if ($conflicting) {
+                $this->isAvailable = false;
+                $this->conflictDetails = $conflicting;
+                break;
+            }
         }
 
         $this->availabilityChecked = true;
@@ -404,6 +484,7 @@ class BookingEdit extends Component
                     'id' => $item->id,
                     'item_name' => $item->item_name,
                     'custom_note' => '',
+                    'managed_by_host' => false,
                 ];
             }
         }
@@ -421,6 +502,12 @@ class BookingEdit extends Component
 
     public function recalculatePrices()
     {
+        if ($this->noFood) {
+            $this->perPlatePrice = 0.00;
+            $this->selectedPackageId = '';
+            $this->bookingMenuItems = [];
+        }
+
         // Calculate the sum of selected extra services (add-ons)
         $addonsSum = 0.00;
         foreach ($this->selectedAddons as $addonId => $addon) {
@@ -472,14 +559,13 @@ class BookingEdit extends Component
             return;
         }
 
-        $this->validate([
+        $rules = [
             'selectedCustomerId' => 'required|exists:customers,id',
             'selectedEventTypeId' => 'required|exists:event_types,id',
-            'selectedHallId' => 'required|exists:halls,id',
+            'selectedHallIds' => 'required|array|min:1',
             'selectedDate' => 'required|date',
             'startTime' => 'required',
             'endTime' => 'required',
-            'selectedPackageId' => 'required|exists:packages,id',
             'guestCount' => 'required|integer|min:1',
             'perPlatePrice' => 'required|numeric|min:0',
             'hallCharges' => 'required|numeric|min:0',
@@ -489,34 +575,45 @@ class BookingEdit extends Component
             'taxRate' => 'required|numeric|min:0',
             'bookingStatus' => 'required|in:Draft,Reserved,Confirmed,Completed,Cancelled,Rejected',
             'paymentStatus' => 'required|in:Unpaid,Partially Paid,Paid,Refunded',
-        ]);
+        ];
+
+        if (!$this->noFood) {
+            $rules['selectedPackageId'] = 'required|exists:packages,id';
+        }
+
+        $this->validate($rules);
 
         $marqueeId = auth()->user()->marquee_id;
         $userId = auth()->id();
 
         try {
             DB::transaction(function () use ($marqueeId, $userId) {
-                // Shared lock checking
-                DB::table('bookings')
-                    ->where('marquee_id', $marqueeId)
-                    ->where('hall_id', $this->selectedHallId)
-                    ->where('booking_date', $this->selectedDate)
-                    ->where('id', '!=', $this->booking->id)
-                    ->lockForUpdate()
-                    ->get();
-
                 $service = new AvailabilityService();
-                $isStillAvailable = $service->checkAvailability(
-                    $this->selectedHallId,
-                    $this->selectedDate,
-                    Carbon::parse($this->startTime)->format('H:i:s'),
-                    Carbon::parse($this->endTime)->format('H:i:s'),
-                    $this->booking->id
-                );
 
-                // Check for double-booking unless we are saving as Draft or Cancelled/Rejected
-                if (in_array($this->bookingStatus, ['Reserved', 'Confirmed']) && !$isStillAvailable) {
-                    throw new \Exception("Double-booking clash: The selected slot overlaps with another reservation.");
+                // Shared lock checking & availability verification
+                foreach ($this->selectedHallIds as $hId) {
+                    DB::table('bookings')
+                        ->where('marquee_id', $marqueeId)
+                        ->where('hall_id', $hId)
+                        ->where('booking_date', $this->selectedDate)
+                        ->where('id', '!=', $this->booking->id)
+                        ->lockForUpdate()
+                        ->get();
+
+                    $isStillAvailable = $service->checkAvailability(
+                        $hId,
+                        $this->selectedDate,
+                        Carbon::parse($this->startTime)->format('H:i:s'),
+                        Carbon::parse($this->endTime)->format('H:i:s'),
+                        $this->booking->id
+                    );
+
+                    // Check for double-booking unless we are saving as Draft or Cancelled/Rejected
+                    if (in_array($this->bookingStatus, ['Reserved', 'Confirmed']) && !$isStillAvailable) {
+                        $hallModel = Hall::find($hId);
+                        $hallName = $hallModel ? $hallModel->hall_name : 'Hall';
+                        throw new \Exception("Double-booking clash: The selected slot overlaps with another reservation in {$hallName}.");
+                    }
                 }
 
                 $oldStatus = $this->booking->booking_status;
@@ -526,9 +623,9 @@ class BookingEdit extends Component
                 $this->booking->update([
                     'customer_id' => $this->selectedCustomerId,
                     'event_type_id' => $this->selectedEventTypeId,
-                    'hall_id' => $this->selectedHallId,
+                    'hall_id' => reset($this->selectedHallIds), // primary hall fallback
                     'slot_id' => $this->selectedSlotId ?: null,
-                    'package_id' => $this->selectedPackageId,
+                    'package_id' => $this->noFood ? null : $this->selectedPackageId,
                     'booking_date' => $this->selectedDate,
                     'start_time' => $this->startTime,
                     'end_time' => $this->endTime,
@@ -545,7 +642,11 @@ class BookingEdit extends Component
                     'special_instructions' => $this->specialInstructions ?: null,
                     'booking_status' => $this->bookingStatus,
                     'payment_status' => $this->paymentStatus,
+                    'no_food' => $this->noFood,
                 ]);
+
+                // Sync allocated halls pivot table
+                $this->booking->halls()->sync($this->selectedHallIds);
 
                 // Sync extra services (add-ons)
                 $this->booking->extraServices()->delete();
@@ -564,13 +665,14 @@ class BookingEdit extends Component
                     }
                 }
 
-                // Sync customized menu items
+                // Sync customized menu items with managed_by_host pivot values
                 $this->booking->menuItems()->detach();
                 foreach ($this->bookingMenuItems as $menuItem) {
                     \App\Models\BookingMenuItem::create([
                         'booking_id' => $this->booking->id,
                         'menu_item_id' => $menuItem['id'],
                         'custom_note' => $menuItem['custom_note'] ?: null,
+                        'managed_by_host' => !empty($menuItem['managed_by_host']),
                     ]);
                 }
 

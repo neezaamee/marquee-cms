@@ -47,6 +47,7 @@ Route::middleware('auth')->group(function () {
     
     // Booking Management
     Route::get('bookings/{booking}/slip', [BookingController::class, 'slip'])->name('bookings.slip');
+    Route::get('bookings/payments/{payment}/receipt', [BookingController::class, 'paymentReceipt'])->name('bookings.payment-receipt');
     Route::resource('bookings', BookingController::class);
     
     // Menu Management

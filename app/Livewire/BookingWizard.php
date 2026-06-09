@@ -75,9 +75,19 @@ class BookingWizard extends Component
     public $selectedAddons = []; // extra_service_id => ['selected' => bool, 'price' => float, 'quantity' => int, 'name' => string]
 
     // Menu Customization selection
-    public $bookingMenuItems = []; // array of ['id' => int, 'item_name' => string, 'custom_note' => string]
+    public $bookingMenuItems = []; // array of ['id' => int, 'item_name' => string, 'custom_note' => string, 'managed_by_host' => bool]
     public $selectedMenuItemToAdd = ''; // dropdown selection to add menu item
     public $menuItemsAutocomplete = []; // list of all menu items for the dropdown
+
+    // Search and Multi-select states
+    public $eventTypeSearch = '';
+    public $hallSearch = '';
+    public $selectedHallIds = [];
+    public $filteredEventTypes = [];
+    public $filteredHalls = [];
+
+    // Rent / Sitting Plan only state
+    public $noFood = false;
 
     // Pricing calculation outputs
     public $packageAmount = 0.00;
@@ -94,6 +104,11 @@ class BookingWizard extends Component
     public $eventTypesList = [];
     public $hallsList = [];
     public $packagesList = [];
+
+    // Quick customer additional additions
+    public $newNTN = '';
+    public $newReferralName = '';
+    public $newReferralContact = '';
 
     // Constants for Quick Customer
     public $cities = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Gujranwala', 'Sialkot'];
@@ -146,8 +161,12 @@ class BookingWizard extends Component
             ->orderBy('item_name')
             ->get();
 
-        if ($this->hallsList->isNotEmpty() && empty($this->selectedHallId)) {
-            $this->selectedHallId = (string) $this->hallsList->first()->id;
+        $this->filteredEventTypes = $this->eventTypesList->toArray();
+        $this->filteredHalls = $this->hallsList->toArray();
+
+        if ($this->hallsList->isNotEmpty() && empty($this->selectedHallIds)) {
+            $this->selectedHallIds = [(string)$this->hallsList->first()->id];
+            $this->selectedHallId = $this->selectedHallIds[0];
         }
 
         $this->searchCustomers();
@@ -202,6 +221,9 @@ class BookingWizard extends Component
             'newEmail' => 'nullable|email|max:255',
             'newCity' => 'required|string',
             'newProvince' => 'required|string',
+            'newNTN' => 'nullable|string|max:50',
+            'newReferralName' => 'nullable|string|max:255',
+            'newReferralContact' => 'nullable|string|max:50',
         ]);
 
         $marqueeId = auth()->user()->marquee_id;
@@ -219,6 +241,9 @@ class BookingWizard extends Component
             'city' => $this->newCity,
             'province' => $this->newProvince,
             'status' => 'Active',
+            'ntn_number' => $this->newNTN ?: null,
+            'referred_by_name' => $this->newReferralName ?: null,
+            'referred_by_contact' => $this->newReferralContact ?: null,
         ]);
 
         // Auto select
@@ -244,6 +269,9 @@ class BookingWizard extends Component
         $this->newPhone = '';
         $this->newCNIC = '';
         $this->newCity = 'Lahore';
+        $this->newNTN = '';
+        $this->newReferralName = '';
+        $this->newReferralContact = '';
         $this->newProvince = 'Punjab';
     }
 
@@ -274,12 +302,62 @@ class BookingWizard extends Component
         $this->conflictDetails = null;
     }
 
+    public function updatedEventTypeSearch()
+    {
+        if (empty($this->eventTypeSearch)) {
+            $this->filteredEventTypes = $this->eventTypesList->toArray();
+        } else {
+            $term = '%' . $this->eventTypeSearch . '%';
+            $this->filteredEventTypes = EventType::where('marquee_id', auth()->user()->marquee_id)
+                ->whereIn('status', ['active', 'Active'])
+                ->where('event_type_name', 'like', $term)
+                ->orderBy('sort_order')
+                ->get()
+                ->toArray();
+        }
+    }
+
+    public function selectEventType($id, $name)
+    {
+        $this->selectedEventTypeId = $id;
+        $this->eventTypeSearch = $name;
+    }
+
+    public function updatedHallSearch()
+    {
+        if (empty($this->hallSearch)) {
+            $this->filteredHalls = $this->hallsList->toArray();
+        } else {
+            $term = '%' . $this->hallSearch . '%';
+            $this->filteredHalls = Hall::where('marquee_id', auth()->user()->marquee_id)
+                ->whereIn('status', ['active', 'Active'])
+                ->where('hall_name', 'like', $term)
+                ->orderBy('hall_name')
+                ->get()
+                ->toArray();
+        }
+    }
+
+    public function toggleHall($id)
+    {
+        $id = (string)$id;
+        if (in_array($id, $this->selectedHallIds)) {
+            $this->selectedHallIds = array_diff($this->selectedHallIds, [$id]);
+        } else {
+            $this->selectedHallIds[] = $id;
+        }
+        $this->selectedHallIds = array_values($this->selectedHallIds);
+        $this->selectedHallId = reset($this->selectedHallIds) ?: '';
+        
+        $this->resetSlotState();
+    }
+
     /**
      * Loads dynamic slot choices and performs initial analysis.
      */
     public function loadSlotsAndCheck()
     {
-        if (empty($this->selectedHallId) || empty($this->selectedDate)) {
+        if (empty($this->selectedHallIds) || empty($this->selectedDate)) {
             return;
         }
 
@@ -295,12 +373,13 @@ class BookingWizard extends Component
         $this->availableSlotsList = [];
 
         foreach ($slots as $slot) {
-            $isSlotAvailable = $service->checkAvailability(
-                $this->selectedHallId,
-                $this->selectedDate,
-                $slot->start_time,
-                $slot->end_time
-            );
+            $isSlotAvailable = true;
+            foreach ($this->selectedHallIds as $hallId) {
+                if (!$service->checkAvailability($hallId, $this->selectedDate, $slot->start_time, $slot->end_time)) {
+                    $isSlotAvailable = false;
+                    break;
+                }
+            }
 
             $this->availableSlotsList[] = [
                 'id' => $slot->id,
@@ -362,26 +441,28 @@ class BookingWizard extends Component
 
     private function runAvailabilityCheck()
     {
-        if (empty($this->selectedHallId) || empty($this->selectedDate) || empty($this->startTime) || empty($this->endTime)) {
+        if (empty($this->selectedHallIds) || empty($this->selectedDate) || empty($this->startTime) || empty($this->endTime)) {
             $this->availabilityChecked = false;
             return;
         }
 
         $service = new AvailabilityService();
+        $this->isAvailable = true;
+        $this->conflictDetails = null;
 
-        $conflicting = $service->getConflictingBooking(
-            $this->selectedHallId,
-            $this->selectedDate,
-            Carbon::parse($this->startTime)->format('H:i:s'),
-            Carbon::parse($this->endTime)->format('H:i:s')
-        );
+        foreach ($this->selectedHallIds as $hallId) {
+            $conflicting = $service->getConflictingBooking(
+                $hallId,
+                $this->selectedDate,
+                Carbon::parse($this->startTime)->format('H:i:s'),
+                Carbon::parse($this->endTime)->format('H:i:s')
+            );
 
-        if ($conflicting) {
-            $this->isAvailable = false;
-            $this->conflictDetails = $conflicting;
-        } else {
-            $this->isAvailable = true;
-            $this->conflictDetails = null;
+            if ($conflicting) {
+                $this->isAvailable = false;
+                $this->conflictDetails = $conflicting;
+                break;
+            }
         }
 
         $this->availabilityChecked = true;
@@ -410,6 +491,7 @@ class BookingWizard extends Component
                 'id' => $item->id,
                 'item_name' => $item->item_name,
                 'custom_note' => '',
+                'managed_by_host' => false,
             ];
         }
 
@@ -443,6 +525,7 @@ class BookingWizard extends Component
                     'id' => $item->id,
                     'item_name' => $item->item_name,
                     'custom_note' => '',
+                    'managed_by_host' => false,
                 ];
             }
         }
@@ -495,6 +578,12 @@ class BookingWizard extends Component
 
     public function recalculatePrices()
     {
+        if ($this->noFood) {
+            $this->perPlatePrice = 0.00;
+            $this->selectedPackageId = '';
+            $this->bookingMenuItems = [];
+        }
+
         // Calculate the sum of selected extra services (add-ons)
         $addonsSum = 0.00;
         foreach ($this->selectedAddons as $addonId => $addon) {
@@ -542,8 +631,11 @@ class BookingWizard extends Component
         } elseif ($this->currentStep === 2) {
             $this->validate([
                 'selectedEventTypeId' => 'required|exists:event_types,id',
-                'selectedHallId' => 'required|exists:halls,id',
+                'selectedHallIds' => 'required|array|min:1',
                 'selectedDate' => 'required|date|after_or_equal:today',
+            ], [
+                'selectedHallIds.required' => 'You must select at least one hall.',
+                'selectedHallIds.min' => 'You must select at least one hall.',
             ]);
             $this->loadSlotsAndCheck();
         } elseif ($this->currentStep === 3) {
@@ -560,8 +652,7 @@ class BookingWizard extends Component
                 return;
             }
         } elseif ($this->currentStep === 4) {
-            $this->validate([
-                'selectedPackageId' => 'required|exists:packages,id',
+            $rules = [
                 'guestCount' => 'required|integer|min:1',
                 'perPlatePrice' => 'required|numeric|min:0',
                 'hallCharges' => 'required|numeric|min:0',
@@ -569,15 +660,23 @@ class BookingWizard extends Component
                 'discountAmount' => 'required|numeric|min:0',
                 'securityDeposit' => 'required|numeric|min:0',
                 'taxRate' => 'required|numeric|min:0',
-            ]);
+            ];
 
-            // Package guest bounds warning check
-            $package = Package::find($this->selectedPackageId);
-            if ($package) {
-                if ($this->guestCount < $package->minimum_guests) {
-                    session()->flash('warning', "Warning: Headcount ({$this->guestCount}) is below the minimum limit ({$package->minimum_guests}) of this package.");
-                } elseif ($package->maximum_guests && $this->guestCount > $package->maximum_guests) {
-                    session()->flash('warning', "Warning: Headcount ({$this->guestCount}) exceeds the maximum limit ({$package->maximum_guests}) of this package.");
+            if (!$this->noFood) {
+                $rules['selectedPackageId'] = 'required|exists:packages,id';
+            }
+
+            $this->validate($rules);
+
+            if (!$this->noFood) {
+                // Package guest bounds warning check
+                $package = Package::find($this->selectedPackageId);
+                if ($package) {
+                    if ($this->guestCount < $package->minimum_guests) {
+                        session()->flash('warning', "Warning: Headcount ({$this->guestCount}) is below the minimum limit ({$package->minimum_guests}) of this package.");
+                    } elseif ($package->maximum_guests && $this->guestCount > $package->maximum_guests) {
+                        session()->flash('warning', "Warning: Headcount ({$this->guestCount}) exceeds the maximum limit ({$package->maximum_guests}) of this package.");
+                    }
                 }
             }
         }
@@ -598,14 +697,13 @@ class BookingWizard extends Component
      */
     public function submitBooking()
     {
-        $this->validate([
+        $rules = [
             'selectedCustomerId' => 'required|exists:customers,id',
             'selectedEventTypeId' => 'required|exists:event_types,id',
-            'selectedHallId' => 'required|exists:halls,id',
+            'selectedHallIds' => 'required|array|min:1',
             'selectedDate' => 'required|date',
             'startTime' => 'required',
             'endTime' => 'required',
-            'selectedPackageId' => 'required|exists:packages,id',
             'guestCount' => 'required|integer|min:1',
             'perPlatePrice' => 'required|numeric|min:0',
             'hallCharges' => 'required|numeric|min:0',
@@ -614,7 +712,13 @@ class BookingWizard extends Component
             'securityDeposit' => 'required|numeric|min:0',
             'taxRate' => 'required|numeric|min:0',
             'bookingStatus' => 'required|in:Draft,Reserved,Confirmed',
-        ]);
+        ];
+
+        if (!$this->noFood) {
+            $rules['selectedPackageId'] = 'required|exists:packages,id';
+        }
+
+        $this->validate($rules);
 
         $marqueeId = auth()->user()->marquee_id;
         $userId = auth()->id();
@@ -622,26 +726,29 @@ class BookingWizard extends Component
         // Perform transactional creation and final double-booking check
         try {
             $booking = DB::transaction(function () use ($marqueeId, $userId) {
-                
-                // 1. Lock existing bookings to prevent race conditions
-                DB::table('bookings')
-                    ->where('marquee_id', $marqueeId)
-                    ->where('hall_id', $this->selectedHallId)
-                    ->where('booking_date', $this->selectedDate)
-                    ->lockForUpdate()
-                    ->get();
-
-                // 2. Final check inside transaction
                 $service = new AvailabilityService();
-                $isStillAvailable = $service->checkAvailability(
-                    $this->selectedHallId,
-                    $this->selectedDate,
-                    Carbon::parse($this->startTime)->format('H:i:s'),
-                    Carbon::parse($this->endTime)->format('H:i:s')
-                );
+                
+                // 1. Lock existing bookings to prevent race conditions & 2. Final check inside transaction
+                foreach ($this->selectedHallIds as $hId) {
+                    DB::table('bookings')
+                        ->where('marquee_id', $marqueeId)
+                        ->where('hall_id', $hId)
+                        ->where('booking_date', $this->selectedDate)
+                        ->lockForUpdate()
+                        ->get();
 
-                if (!$isStillAvailable) {
-                    throw new \Exception("Double-booking prevented: The selected slot was just booked by another operator.");
+                    $isStillAvailable = $service->checkAvailability(
+                        $hId,
+                        $this->selectedDate,
+                        Carbon::parse($this->startTime)->format('H:i:s'),
+                        Carbon::parse($this->endTime)->format('H:i:s')
+                    );
+
+                    if (!$isStillAvailable) {
+                        $hallModel = Hall::find($hId);
+                        $hallName = $hallModel ? $hallModel->hall_name : 'Hall';
+                        throw new \Exception("Double-booking prevented: The selected hall ({$hallName}) was just booked by another operator.");
+                    }
                 }
 
                 // 3. Create the Booking
@@ -649,9 +756,9 @@ class BookingWizard extends Component
                     'marquee_id' => $marqueeId,
                     'customer_id' => $this->selectedCustomerId,
                     'event_type_id' => $this->selectedEventTypeId,
-                    'hall_id' => $this->selectedHallId,
+                    'hall_id' => reset($this->selectedHallIds), // primary hall
                     'slot_id' => $this->selectedSlotId ?: null,
-                    'package_id' => $this->selectedPackageId,
+                    'package_id' => $this->noFood ? null : $this->selectedPackageId,
                     'booking_date' => $this->selectedDate,
                     'start_time' => $this->startTime,
                     'end_time' => $this->endTime,
@@ -670,7 +777,11 @@ class BookingWizard extends Component
                     'payment_status' => 'Unpaid',
                     'created_by' => $userId,
                     'deposit_status' => 'Held',
+                    'no_food' => $this->noFood,
                 ]);
+
+                // 3.5 Sync allocated halls
+                $newBooking->halls()->sync($this->selectedHallIds);
 
                 // 4. Save selected extra services (add-ons)
                 foreach ($this->selectedAddons as $addonId => $addon) {
@@ -694,6 +805,7 @@ class BookingWizard extends Component
                         'booking_id' => $newBooking->id,
                         'menu_item_id' => $menuItem['id'],
                         'custom_note' => $menuItem['custom_note'] ?: null,
+                        'managed_by_host' => !empty($menuItem['managed_by_host']),
                     ]);
                 }
 

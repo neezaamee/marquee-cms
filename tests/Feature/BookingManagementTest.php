@@ -191,8 +191,8 @@ class BookingManagementTest extends TestCase
             'booking_status' => 'Draft',
         ]);
 
-        $year = Carbon::now()->year;
-        $this->assertEquals("BK-{$year}-000001", $booking1->booking_number);
+        $prefix = Carbon::now()->format('dmY');
+        $this->assertEquals("{$prefix}-000001", $booking1->booking_number);
 
         $booking2 = Booking::create([
             'marquee_id' => $this->marqueeA->id,
@@ -210,7 +210,7 @@ class BookingManagementTest extends TestCase
             'booking_status' => 'Draft',
         ]);
 
-        $this->assertEquals("BK-{$year}-000002", $booking2->booking_number);
+        $this->assertEquals("{$prefix}-000002", $booking2->booking_number);
     }
 
     public function test_pricing_calculations_service()
@@ -259,7 +259,7 @@ class BookingManagementTest extends TestCase
         Livewire::test('booking-wizard')
             ->set('selectedCustomerId', $this->customerA->id)
             ->set('selectedEventTypeId', $this->eventTypeA->id)
-            ->set('selectedHallId', $this->hallA->id)
+            ->set('selectedHallIds', [(string)$this->hallA->id])
             ->set('selectedDate', '2026-06-20')
             ->set('checkType', 'slot')
             ->set('selectedSlotId', $this->slotA->id)
@@ -324,7 +324,7 @@ class BookingManagementTest extends TestCase
         Livewire::test('booking-wizard')
             ->set('selectedCustomerId', $this->customerA->id)
             ->set('selectedEventTypeId', $this->eventTypeA->id)
-            ->set('selectedHallId', $this->hallA->id)
+            ->set('selectedHallIds', [(string)$this->hallA->id])
             ->set('selectedDate', '2026-06-25')
             ->set('selectedPackageId', $this->packageA->id)
             // Send strings & empty values
@@ -396,7 +396,7 @@ class BookingManagementTest extends TestCase
 
             // Step 2: Event Details
             ->set('selectedEventTypeId', $this->eventTypeA->id)
-            ->set('selectedHallId', $this->hallA->id)
+            ->set('selectedHallIds', [(string)$this->hallA->id])
             ->set('selectedDate', '2026-06-25')
             ->call('nextStep') // step 2 -> 3
             ->assertSet('currentStep', 3)
@@ -485,7 +485,7 @@ class BookingManagementTest extends TestCase
             ->set('selectedCustomerId', $this->customerA->id)
             ->call('nextStep') // Step 1 -> 2
             ->set('selectedEventTypeId', $this->eventTypeA->id)
-            ->set('selectedHallId', $this->hallA->id)
+            ->set('selectedHallIds', [(string)$this->hallA->id])
             ->set('selectedDate', '2026-06-25')
             ->call('nextStep') // Step 2 -> 3
             ->set('checkType', 'slot')
@@ -499,6 +499,7 @@ class BookingManagementTest extends TestCase
                 'id' => $menuItem1->id,
                 'item_name' => 'Chicken Korma',
                 'custom_note' => '',
+                'managed_by_host' => false,
             ]
         ]);
 
@@ -512,11 +513,13 @@ class BookingManagementTest extends TestCase
                 'id' => $menuItem1->id,
                 'item_name' => 'Chicken Korma',
                 'custom_note' => '',
+                'managed_by_host' => false,
             ],
             [
                 'id' => $menuItem2->id,
                 'item_name' => 'Chicken Karahi',
                 'custom_note' => '',
+                'managed_by_host' => false,
             ]
         ]);
 
@@ -703,5 +706,116 @@ class BookingManagementTest extends TestCase
         $this->actingAs($this->userOwnerA);
         $responseOwner = $this->get(route('bookings.edit', $booking->id));
         $responseOwner->assertStatus(200);
+    }
+
+    public function test_multi_hall_booking_and_conflict_detection()
+    {
+        $hallB = Hall::create([
+            'marquee_id' => $this->marqueeA->id,
+            'branch_id' => $this->branchA->id,
+            'hall_name' => 'Sapphire Lounge',
+            'hall_code' => 'SLL',
+            'capacity' => 400,
+            'hall_type' => 'Banquet',
+            'default_booking_price' => 50000.00,
+            'status' => 'active',
+        ]);
+
+        // Setup existing confirmed booking in Hall B
+        Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $hallB->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-20',
+            'start_time' => '2026-06-20 18:00:00',
+            'end_time' => '2026-06-20 23:30:00',
+            'booking_status' => 'Confirmed',
+        ]);
+
+        Livewire::actingAs($this->userOwnerA);
+
+        // Test that checking availability for both Hall A and Hall B on same slot fails
+        Livewire::test('booking-wizard')
+            ->set('selectedCustomerId', $this->customerA->id)
+            ->set('selectedEventTypeId', $this->eventTypeA->id)
+            ->set('selectedHallIds', [(string)$this->hallA->id, (string)$hallB->id])
+            ->set('selectedDate', '2026-06-20')
+            ->set('checkType', 'slot')
+            ->set('selectedSlotId', $this->slotA->id)
+            ->call('nextStep') // Step 1 to 2
+            ->call('nextStep') // Step 2 to 3
+            ->call('nextStep') // Step 3 checks and fails since Hall B has conflict
+            ->assertHasErrors(['availability']);
+            
+        // Test that checking availability for only Hall A succeeds
+        Livewire::test('booking-wizard')
+            ->set('selectedCustomerId', $this->customerA->id)
+            ->set('selectedEventTypeId', $this->eventTypeA->id)
+            ->set('selectedHallIds', [(string)$this->hallA->id])
+            ->set('selectedDate', '2026-06-20')
+            ->set('checkType', 'slot')
+            ->set('selectedSlotId', $this->slotA->id)
+            ->call('nextStep') // Step 1 to 2
+            ->call('nextStep') // Step 2 to 3
+            ->call('nextStep') // Step 3 checks and succeeds
+            ->assertHasNoErrors();
+    }
+
+    public function test_no_food_booking_recalculates_to_zero_plate_charges()
+    {
+        Livewire::actingAs($this->userOwnerA);
+
+        Livewire::test('booking-wizard')
+            // Step 1: Customer Selection
+            ->set('selectedCustomerId', $this->customerA->id)
+            ->call('nextStep')
+
+            // Step 2: Event Details
+            ->set('selectedEventTypeId', $this->eventTypeA->id)
+            ->set('selectedHallIds', [(string)$this->hallA->id])
+            ->set('selectedDate', '2026-06-25')
+            ->call('nextStep')
+
+            // Step 3: Shift / Slot Selection
+            ->set('checkType', 'slot')
+            ->set('selectedSlotId', $this->slotA->id)
+            ->call('nextStep')
+
+            // Step 4: Packages & Pricing (enable Sitting Plan Only / No Food)
+            ->set('noFood', true)
+            ->set('guestCount', 200)
+            ->set('hallCharges', 50000)
+            ->set('discountAmount', 0)
+            ->set('securityDeposit', 10000)
+            ->set('taxRate', 0)
+            ->call('recalculatePrices')
+            ->assertSet('perPlatePrice', 0.00)
+            ->assertSet('packageAmount', 0.00)
+            ->assertSet('subtotal', 50000.00)
+            ->assertSet('grandTotal', 60000.00) // subtotal + security deposit
+            ->call('nextStep')
+
+            // Step 5: Submit
+            ->set('bookingStatus', 'Confirmed')
+            ->call('submitBooking')
+            ->assertHasNoErrors();
+
+        // Verify the database has the no_food flag and 0 per plate price
+        $booking = Booking::orderBy('id', 'desc')->first();
+        $this->assertNotNull($booking);
+        $this->assertTrue($booking->no_food);
+        $this->assertEquals(0.00, $booking->per_plate_price);
+        $this->assertEquals(0.00, $booking->package_amount);
+        $this->assertEquals(50000.00, $booking->hall_charges);
+        $this->assertEquals(60000.00, $booking->grand_total);
+        
+        // Check pivot table exists
+        $this->assertDatabaseHas('booking_halls', [
+            'booking_id' => $booking->id,
+            'hall_id' => $this->hallA->id,
+        ]);
     }
 }

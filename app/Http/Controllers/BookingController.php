@@ -69,4 +69,22 @@ class BookingController extends Controller
 
         return view('bookings.slip', compact('booking'));
     }
+
+    /**
+     * Renders a printable payment receipt for a specific payment.
+     */
+    public function paymentReceipt(\App\Models\BookingPayment $payment)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
+
+        $booking = $payment->booking;
+
+        // Tenant scoping security check
+        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
+            abort(403, 'Unauthorized access to this payment receipt.');
+        }
+
+        return view('bookings.receipt', compact('payment', 'booking'));
+    }
 }
+

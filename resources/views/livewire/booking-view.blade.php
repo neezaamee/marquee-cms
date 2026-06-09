@@ -36,8 +36,14 @@
                                     <td class="px-0 py-1 fw-bold text-800">{{ $booking->eventType->event_type_name ?? '—' }}</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-500 fw-bold px-0 py-1">Venue Hall:</td>
-                                    <td class="px-0 py-1 fw-bold text-800">{{ $booking->hall->hall_name ?? '—' }}</td>
+                                    <td class="text-500 fw-bold px-0 py-1">Venue Hall(s):</td>
+                                    <td class="px-0 py-1 fw-bold text-800">
+                                        @if($booking->halls->isNotEmpty())
+                                            {{ $booking->halls->pluck('hall_name')->implode(', ') }}
+                                        @else
+                                            {{ $booking->hall->hall_name ?? '—' }}
+                                        @endif
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td class="text-500 fw-bold px-0 py-1">Booking Date:</td>
@@ -120,6 +126,9 @@
                                                     <span class="d-block text-muted fs-12 italic">({{ $item->pivot->custom_note }})</span>
                                                 @endif
                                             </div>
+                                            @if(!empty($item->pivot->managed_by_host))
+                                                <span class="badge badge-subtle-warning fs-11">Managed by Host</span>
+                                            @endif
                                         </li>
                                     @endforeach
                                 </ul>
@@ -178,6 +187,7 @@
                                         <th>Recorded By</th>
                                         <th>Notes</th>
                                         <th class="text-end" style="width: 120px;">Amount</th>
+                                        <th class="text-center" style="width: 80px;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -189,14 +199,19 @@
                                             <td class="align-middle fw-semi-bold text-700">{{ $payment->recorder->name ?? 'System' }}</td>
                                             <td class="align-middle text-muted">{{ $payment->notes ?? '—' }}</td>
                                             <td class="align-middle text-end font-monospace fw-bold text-800">Rs. {{ number_format($payment->amount, 2) }}</td>
+                                            <td class="align-middle text-center">
+                                                <a href="{{ route('bookings.payment-receipt', $payment->id) }}" target="_blank" class="btn btn-falcon-default btn-xs" title="Print Receipt">
+                                                    <span class="fas fa-print"></span>
+                                                </a>
+                                            </td>
                                         </tr>
                                     @endforeach
                                     <tr class="table-info fw-bold fs-11">
-                                        <td colspan="5" class="text-end text-800">Total Payments Recorded:</td>
+                                        <td colspan="6" class="text-end text-800">Total Payments Recorded:</td>
                                         <td class="text-end text-800 font-monospace">Rs. {{ number_format($booking->payments->sum('amount'), 2) }}</td>
                                     </tr>
                                     <tr class="{{ ($booking->grand_total - $booking->payments->sum('amount')) <= 0 ? 'table-success' : 'table-warning' }} fw-bold fs-11">
-                                        <td colspan="5" class="text-end text-800">Outstanding Balance:</td>
+                                        <td colspan="6" class="text-end text-800">Outstanding Balance:</td>
                                         <td class="text-end text-800 font-monospace">
                                             Rs. {{ number_format(max(0, $booking->grand_total - $booking->payments->sum('amount')), 2) }}
                                         </td>
@@ -266,22 +281,29 @@
                 </div>
                 <div class="card-body fs-11">
                     <table class="table table-sm table-borderless mb-0">
-                        <tr>
-                            <td class="text-500 px-0">Package:</td>
-                            <td class="px-0 text-end fw-semi-bold">{{ $booking->package->package_name ?? 'Custom' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-500 px-0">Guests:</td>
-                            <td class="px-0 text-end fw-semi-bold">{{ $booking->guest_count }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-500 px-0">Per Plate Rate:</td>
-                            <td class="px-0 text-end fw-semi-bold">Rs. {{ number_format($booking->per_plate_price, 2) }}</td>
-                        </tr>
-                        <tr class="border-bottom">
-                            <td class="text-500 px-0 pb-2">Package Sum:</td>
-                            <td class="px-0 text-end fw-bold pb-2">Rs. {{ number_format($booking->package_amount, 2) }}</td>
-                        </tr>
+                        @if(!$booking->no_food)
+                            <tr>
+                                <td class="text-500 px-0">Package:</td>
+                                <td class="px-0 text-end fw-semi-bold">{{ $booking->package->package_name ?? 'Custom' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-500 px-0">Guests:</td>
+                                <td class="px-0 text-end fw-semi-bold">{{ $booking->guest_count }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-500 px-0">Per Plate Rate:</td>
+                                <td class="px-0 text-end fw-semi-bold">Rs. {{ number_format($booking->per_plate_price, 2) }}</td>
+                            </tr>
+                            <tr class="border-bottom">
+                                <td class="text-500 px-0 pb-2">Package Sum:</td>
+                                <td class="px-0 text-end fw-bold pb-2">Rs. {{ number_format($booking->package_amount, 2) }}</td>
+                            </tr>
+                        @else
+                            <tr class="border-bottom text-secondary">
+                                <td class="px-0 pb-2">Catering Plan:</td>
+                                <td class="px-0 text-end fw-bold pb-2">Sitting Plan Only (No Food)</td>
+                            </tr>
+                        @endif
 
                         <tr>
                             <td class="text-500 px-0 pt-2">Hall Rent:</td>

@@ -64,7 +64,12 @@ class AvailabilityService
     {
         [$start, $end] = $this->parseTimeRange($date, $startTime, $endTime);
 
-        $query = Booking::where('hall_id', $hallId)
+        $query = Booking::where(function ($q) use ($hallId) {
+                $q->where('hall_id', $hallId)
+                  ->orWhereHas('halls', function ($sub) use ($hallId) {
+                      $sub->where('halls.id', $hallId);
+                  });
+            })
             ->whereIn('booking_status', ['Reserved', 'Confirmed'])
             ->where(function ($q) use ($start, $end) {
                 // requested_start < existing_end AND requested_end > existing_start
@@ -141,7 +146,12 @@ class AvailabilityService
     {
         $dateStr = $date instanceof Carbon ? $date->format('Y-m-d') : $date;
 
-        return !Booking::where('hall_id', $hallId)
+        return !Booking::where(function ($q) use ($hallId) {
+                $q->where('hall_id', $hallId)
+                  ->orWhereHas('halls', function ($sub) use ($hallId) {
+                      $sub->where('halls.id', $hallId);
+                  });
+            })
             ->where('booking_date', $dateStr)
             ->whereIn('booking_status', ['Reserved', 'Confirmed'])
             ->exists();

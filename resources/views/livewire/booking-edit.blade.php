@@ -28,15 +28,32 @@
                         @error('selectedCustomerId') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
-                    <!-- Event Type -->
+                    <!-- Event Type (Searchable) -->
                     <div class="col-md-4">
-                        <label class="form-label font-sans-serif fw-bold text-700" for="selectedEventTypeId">Event Type *</label>
-                        <select wire:model="selectedEventTypeId" class="form-select @error('selectedEventTypeId') is-invalid @enderror" id="selectedEventTypeId">
-                            @foreach($eventTypesList as $ev)
-                                <option value="{{ $ev->id }}">{{ $ev->event_type_name }}</option>
-                            @endforeach
-                        </select>
-                        @error('selectedEventTypeId') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <label class="form-label font-sans-serif fw-bold text-700">Event Type *</label>
+                        <div class="position-relative">
+                            <input wire:model.live.debounce.250ms="eventTypeSearch" class="form-control" type="text" placeholder="Search event types..." />
+                            @if(!empty($eventTypeSearch) && empty($selectedEventTypeId))
+                                <div class="position-absolute bg-white border rounded shadow w-100 z-3 mt-1 overflow-hidden">
+                                    @forelse($filteredEventTypes as $ev)
+                                        <button wire:click="selectEventType({{ $ev['id'] }}, '{{ addslashes($ev['event_type_name']) }}')" class="btn btn-link w-100 text-start text-decoration-none text-900 py-2 px-3 hover-bg-light border-bottom border-translucent" type="button">
+                                            <span class="fw-bold">{{ $ev['event_type_name'] }}</span>
+                                        </button>
+                                    @empty
+                                        <div class="text-center py-2 fs-11 text-muted">No matching event types.</div>
+                                    @endforelse
+                                </div>
+                            @endif
+                        </div>
+                        @if($selectedEventTypeId)
+                            <div class="mt-2">
+                                <span class="badge badge-subtle-success fs-11">
+                                    Selected: {{ \App\Models\EventType::find($selectedEventTypeId)->event_type_name ?? '' }}
+                                    <span wire:click="$set('selectedEventTypeId', ''); $set('eventTypeSearch', '')" class="fas fa-times ms-2 cursor-pointer text-danger"></span>
+                                </span>
+                            </div>
+                        @endif
+                        @error('selectedEventTypeId') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
 
                     <!-- Booking Date -->
@@ -46,15 +63,45 @@
                         @error('selectedDate') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
-                    <!-- Venue / Hall -->
+                    <!-- Venue / Hall (Searchable Multi-select) -->
                     <div class="col-md-4">
-                        <label class="form-label font-sans-serif fw-bold text-700" for="selectedHallId">Hall Location *</label>
-                        <select wire:model.live="selectedHallId" class="form-select @error('selectedHallId') is-invalid @enderror" id="selectedHallId">
-                            @foreach($hallsList as $hall)
-                                <option value="{{ $hall->id }}">{{ $hall->hall_name }}</option>
-                            @endforeach
-                        </select>
-                        @error('selectedHallId') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <label class="form-label font-sans-serif fw-bold text-700">Select Hall(s) *</label>
+                        <div class="position-relative">
+                            <input wire:model.live.debounce.250ms="hallSearch" class="form-control" type="text" placeholder="Search and select halls..." />
+                            @if(!empty($hallSearch))
+                                <div class="position-absolute bg-white border rounded shadow w-100 z-3 mt-1 overflow-hidden" style="max-height: 200px; overflow-y: auto;">
+                                    @forelse($filteredHalls as $hall)
+                                        <button wire:click="toggleHall({{ $hall['id'] }})" class="btn btn-link w-100 text-start text-decoration-none text-900 py-2 px-3 hover-bg-light border-bottom border-translucent" type="button">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <span class="fw-bold">{{ $hall['hall_name'] }}</span>
+                                                    <span class="badge badge-subtle-secondary ms-1 fs-12">(Cap: {{ $hall['capacity'] }})</span>
+                                                </div>
+                                                @if(in_array((string)$hall['id'], $selectedHallIds))
+                                                    <span class="fas fa-check text-success"></span>
+                                                @endif
+                                            </div>
+                                        </button>
+                                    @empty
+                                        <div class="text-center py-2 fs-11 text-muted">No matching halls.</div>
+                                    @endforelse
+                                </div>
+                            @endif
+                        </div>
+                        <div class="mt-2 d-flex flex-wrap gap-2">
+                            @forelse($selectedHallIds as $hId)
+                                @php $hModel = \App\Models\Hall::find($hId); @endphp
+                                @if($hModel)
+                                    <span class="badge badge-subtle-primary fs-11 p-2">
+                                        {{ $hModel->hall_name }} (Cap: {{ $hModel->capacity }})
+                                        <span wire:click="toggleHall({{ $hId }})" class="fas fa-times ms-2 cursor-pointer text-danger" title="Remove Hall"></span>
+                                    </span>
+                                @endif
+                            @empty
+                                <span class="text-muted fs-11">No halls selected yet.</span>
+                            @endforelse
+                        </div>
+                        @error('selectedHallIds') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
 
                     <!-- Shift Slots -->
@@ -112,15 +159,25 @@
 
                     <div class="col-lg-8">
                         <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label font-sans-serif fw-bold text-700" for="selectedPackageId">Select Package *</label>
-                                <select wire:model.live="selectedPackageId" class="form-select @error('selectedPackageId') is-invalid @enderror" id="selectedPackageId">
-                                    @foreach($packagesList as $pkg)
-                                        <option value="{{ $pkg->id }}">{{ $pkg->package_name }}</option>
-                                    @endforeach
-                                </select>
-                                @error('selectedPackageId') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="edit_noFood" wire:model.live="noFood" />
+                                    <label class="form-check-label fw-bold cursor-pointer" for="edit_noFood">Sitting Plan Only (No Food Catering)</label>
+                                </div>
                             </div>
+
+                            @if(!$noFood)
+                                <div class="col-md-6">
+                                    <label class="form-label font-sans-serif fw-bold text-700" for="selectedPackageId">Select Package *</label>
+                                    <select wire:model.live="selectedPackageId" class="form-select @error('selectedPackageId') is-invalid @enderror" id="selectedPackageId">
+                                        <option value="">Choose Package...</option>
+                                        @foreach($packagesList as $pkg)
+                                            <option value="{{ $pkg->id }}">{{ $pkg->package_name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('selectedPackageId') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                            @endif
 
                             <div class="col-md-6">
                                 <label class="form-label font-sans-serif fw-bold text-700" for="guestCount">Guest Count *</label>
@@ -128,13 +185,15 @@
                                 @error('guestCount') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                             </div>
 
-                            <div class="col-md-6">
-                                <label class="form-label font-sans-serif fw-bold text-700" for="perPlatePrice">Per Plate Rate *</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">Rs.</span>
-                                    <input wire:model.live="perPlatePrice" class="form-control" type="number" id="perPlatePrice" step="0.01" />
+                            @if(!$noFood)
+                                <div class="col-md-6">
+                                    <label class="form-label font-sans-serif fw-bold text-700" for="perPlatePrice">Per Plate Rate *</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Rs.</span>
+                                        <input wire:model.live="perPlatePrice" class="form-control" type="number" id="perPlatePrice" step="0.01" />
+                                    </div>
                                 </div>
-                            </div>
+                            @endif
 
                             <div class="col-md-6">
                                 <label class="form-label font-sans-serif fw-bold text-700" for="hallCharges">Hall Rent Charges</label>
@@ -216,62 +275,68 @@
                             </div>
 
                             <!-- Menu Customization Section -->
-                            <div class="col-12 mt-4">
-                                <h6 class="border-bottom pb-2 mb-2 text-primary fw-bold fs-9">
-                                    <span class="fas fa-utensils me-2"></span>Customize Event Menu Items
-                                </h6>
-                                
-                                <div class="card bg-light border p-3">
-                                    <div class="row g-2 align-items-center mb-3">
-                                        <div class="col-md-9">
-                                            <select class="form-select form-select-sm" wire:model="selectedMenuItemToAdd">
-                                                <option value="">-- Choose additional dish to add/swap --</option>
-                                                @foreach($menuItemsAutocomplete as $mi)
-                                                    <option value="{{ $mi->id }}">{{ $mi->item_name }} ({{ $mi->category->category_name ?? 'N/A' }})</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <button type="button" class="btn btn-sm btn-success w-100" wire:click="addMenuItem">
-                                                <span class="fas fa-plus-circle me-1"></span>Add Dish
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    @if(count($bookingMenuItems) > 0)
-                                        <div class="table-responsive">
-                                            <table class="table table-sm bg-white border fs-11 mb-0">
-                                                <thead>
-                                                    <tr class="bg-200">
-                                                        <th>Dish Name</th>
-                                                        <th>Custom Instructions (e.g. extra spicy, double serving)</th>
-                                                        <th class="text-center" style="width: 80px;">Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @foreach($bookingMenuItems as $idx => $item)
-                                                        <tr>
-                                                            <td class="align-middle fw-bold text-700">{{ $item['item_name'] }}</td>
-                                                            <td>
-                                                                <input type="text" class="form-control form-control-sm" placeholder="No instructions" wire:model="bookingMenuItems.{{ $idx }}.custom_note" />
-                                                            </td>
-                                                            <td class="align-middle text-center">
-                                                                <button type="button" class="btn btn-sm btn-link text-danger p-0" wire:click="removeMenuItem({{ $idx }})">
-                                                                    <span class="fas fa-trash-alt"></span>
-                                                                </button>
-                                                            </td>
-                                                        </tr>
+                            @if(!$noFood)
+                                <div class="col-12 mt-4">
+                                    <h6 class="border-bottom pb-2 mb-2 text-primary fw-bold fs-9">
+                                        <span class="fas fa-utensils me-2"></span>Customize Event Menu Items
+                                    </h6>
+                                    
+                                    <div class="card bg-light border p-3">
+                                        <div class="row g-2 align-items-center mb-3">
+                                            <div class="col-md-9">
+                                                <select class="form-select form-select-sm" wire:model="selectedMenuItemToAdd">
+                                                    <option value="">-- Choose additional dish to add/swap --</option>
+                                                    @foreach($menuItemsAutocomplete as $mi)
+                                                        <option value="{{ $mi->id }}">{{ $mi->item_name }} ({{ $mi->category->category_name ?? 'N/A' }})</option>
                                                     @endforeach
-                                                </tbody>
-                                            </table>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button type="button" class="btn btn-sm btn-success w-100" wire:click="addMenuItem">
+                                                    <span class="fas fa-plus-circle me-1"></span>Add Dish
+                                                </button>
+                                            </div>
                                         </div>
-                                    @else
-                                        <div class="text-center text-muted py-3">
-                                            <span class="fas fa-info-circle me-1"></span>No dishes currently selected. Add custom dishes or choose a package.
-                                        </div>
-                                    @endif
+
+                                        @if(count($bookingMenuItems) > 0)
+                                            <div class="table-responsive">
+                                                <table class="table table-sm bg-white border fs-11 mb-0">
+                                                    <thead>
+                                                        <tr class="bg-200">
+                                                            <th>Dish Name</th>
+                                                            <th>Custom Instructions (e.g. extra spicy, double serving)</th>
+                                                            <th class="text-center" style="width: 150px;">Managed by Host</th>
+                                                            <th class="text-center" style="width: 80px;">Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach($bookingMenuItems as $idx => $item)
+                                                            <tr>
+                                                                <td class="align-middle fw-bold text-700">{{ $item['item_name'] }}</td>
+                                                                <td>
+                                                                    <input type="text" class="form-control form-control-sm" placeholder="No instructions" wire:model="bookingMenuItems.{{ $idx }}.custom_note" />
+                                                                </td>
+                                                                <td class="text-center align-middle">
+                                                                    <input class="form-check-input" type="checkbox" wire:model.live="bookingMenuItems.{{ $idx }}.managed_by_host" id="edit_managed_by_host_{{ $idx }}" />
+                                                                </td>
+                                                                <td class="align-middle text-center">
+                                                                    <button type="button" class="btn btn-sm btn-link text-danger p-0" wire:click="removeMenuItem({{ $idx }})">
+                                                                        <span class="fas fa-trash-alt"></span>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        @else
+                                            <div class="text-center text-muted py-3">
+                                                <span class="fas fa-info-circle me-1"></span>No dishes currently selected. Add custom dishes or choose a package.
+                                            </div>
+                                        @endif
+                                    </div>
                                 </div>
-                            </div>
+                            @endif
                         </div>
                     </div>
 
@@ -282,10 +347,17 @@
                                 <h6 class="mb-0 text-white"><span class="fas fa-calculator me-1"></span>Invoice Math Preview</h6>
                             </div>
                             <div class="card-body fs-11">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span>Base Package Amount:</span>
-                                    <span class="font-monospace">Rs. {{ number_format($packageAmount, 2) }}</span>
-                                </div>
+                                @if(!$noFood)
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>Base Package Amount:</span>
+                                        <span class="font-monospace">Rs. {{ number_format($packageAmount, 2) }}</span>
+                                    </div>
+                                @else
+                                    <div class="d-flex justify-content-between mb-1 text-secondary fw-bold">
+                                        <span>Catering Plan:</span>
+                                        <span>Sitting Plan Only (No Food)</span>
+                                    </div>
+                                @endif
                                 <div class="d-flex justify-content-between mb-1">
                                     <span>Hall Rent:</span>
                                     <span class="font-monospace">Rs. {{ number_format($hallCharges, 2) }}</span>
