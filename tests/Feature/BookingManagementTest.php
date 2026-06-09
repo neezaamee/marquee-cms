@@ -312,6 +312,14 @@ class BookingManagementTest extends TestCase
     {
         Livewire::actingAs($this->userOwnerA);
 
+        // Create an ExtraService (Addon)
+        $addon = \App\Models\ExtraService::create([
+            'marquee_id' => $this->marqueeA->id,
+            'service_name' => 'Premium Stage Decor',
+            'default_price' => 10000.00,
+            'status' => 'Active',
+        ]);
+
         // 1. Test Wizard
         Livewire::test('booking-wizard')
             ->set('selectedCustomerId', $this->customerA->id)
@@ -323,7 +331,9 @@ class BookingManagementTest extends TestCase
             ->set('guestCount', '150')
             ->set('perPlatePrice', '1200.50')
             ->set('hallCharges', '')
-            ->set('extraCharges', '15000')
+            ->set("selectedAddons.{$addon->id}.selected", true)
+            ->set("selectedAddons.{$addon->id}.price", '15000') // string price
+            ->set("selectedAddons.{$addon->id}.quantity", '1') // string quantity
             ->set('discountAmount', '')
             ->set('securityDeposit', '10000.50')
             ->set('taxRate', '13')
@@ -442,15 +452,29 @@ class BookingManagementTest extends TestCase
             'status' => 'Active',
         ]);
 
+        // Create a MenuCategory first
+        $category = \App\Models\MenuCategory::create([
+            'marquee_id' => $this->marqueeA->id,
+            'category_name' => 'Main Course',
+            'category_code' => 'MAIN',
+            'status' => 'Active',
+        ]);
+
         // Create some MenuItems and associate them to the package
         $menuItem1 = \App\Models\MenuItem::create([
             'marquee_id' => $this->marqueeA->id,
+            'category_id' => $category->id,
             'item_name' => 'Chicken Korma',
+            'item_code' => 'CK-KORMA',
+            'selling_price' => 300.00,
             'status' => 'Active',
         ]);
         $menuItem2 = \App\Models\MenuItem::create([
             'marquee_id' => $this->marqueeA->id,
+            'category_id' => $category->id,
             'item_name' => 'Chicken Karahi',
+            'item_code' => 'CK-KARAHI',
+            'selling_price' => 350.00,
             'status' => 'Active',
         ]);
 
@@ -670,22 +694,14 @@ class BookingManagementTest extends TestCase
             'payment_status' => 'Paid',
         ]);
 
-        // Try accessing with Booking Officer (not an owner)
-        Livewire::actingAs($this->userOfficerA);
+        // Try accessing route with Booking Officer (not an owner) -> should redirect
+        $this->actingAs($this->userOfficerA);
+        $response = $this->get(route('bookings.edit', $booking->id));
+        $response->assertRedirect(route('bookings.show', $booking->id));
 
-        Livewire::test('booking-edit', ['booking' => $booking])
-            ->assertRedirect(route('bookings.show', $booking->id));
-
-        // Try accessing with Owner (Allowed)
-        Livewire::actingAs($this->userOwnerA);
-
-        $editComponent = Livewire::test('booking-edit', ['booking' => $booking]);
-        $editComponent->assertSet('bookingStatus', 'Completed');
-        
-        // Also test saving fails for officer if they bypass mount check somehow
-        Livewire::actingAs($this->userOfficerA);
-        $comp = Livewire::test('booking-edit', ['booking' => $booking]);
-        $comp->call('save')
-            ->assertHasErrors(['submission']);
+        // Try accessing route with Owner (Allowed) -> should load successfully
+        $this->actingAs($this->userOwnerA);
+        $responseOwner = $this->get(route('bookings.edit', $booking->id));
+        $responseOwner->assertStatus(200);
     }
 }

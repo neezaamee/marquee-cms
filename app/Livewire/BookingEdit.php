@@ -1,7 +1,7 @@
 <?php
-
+ 
 namespace App\Livewire;
-
+ 
 use App\Models\Booking;
 use App\Models\BookingHistory;
 use App\Models\Customer;
@@ -9,6 +9,8 @@ use App\Models\EventType;
 use App\Models\Hall;
 use App\Models\Package;
 use App\Models\Slot;
+use App\Models\ExtraService;
+use App\Models\MenuItem;
 use App\Services\AvailabilityService;
 use App\Services\BookingPricingService;
 use Carbon\Carbon;
