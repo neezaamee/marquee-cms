@@ -123,6 +123,9 @@ class DatabaseSeeder extends Seeder
         );
 
         // 7. Seed default slots
-        $this->call(DefaultSlotsSeeder::class);
+        $this->call([
+            DefaultSlotsSeeder::class,
+            ExtraServicesSeeder::class,
+        ]);
     }
 }

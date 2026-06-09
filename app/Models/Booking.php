@@ -39,6 +39,10 @@ class Booking extends Model
         'booking_status', // Draft, Reserved, Confirmed, Cancelled, Rejected
         'payment_status', // Unpaid, Partially Paid, Paid, Refunded
         'created_by',
+        'deposit_status', // Held, Refunded, Deducted
+        'deposit_refunded_amount',
+        'deposit_deducted_amount',
+        'deposit_notes',
     ];
 
     protected $casts = [
@@ -46,15 +50,17 @@ class Booking extends Model
         'start_time' => 'datetime',
         'end_time' => 'datetime',
         'guest_count' => 'integer',
-        'per_plate_price' => 'decimal:2',
-        'package_amount' => 'decimal:2',
-        'hall_charges' => 'decimal:2',
-        'extra_charges' => 'decimal:2',
-        'discount_amount' => 'decimal:2',
-        'security_deposit' => 'decimal:2',
-        'tax_amount' => 'decimal:2',
-        'subtotal' => 'decimal:2',
-        'grand_total' => 'decimal:2',
+        'per_plate_price' => 'float',
+        'package_amount' => 'float',
+        'hall_charges' => 'float',
+        'extra_charges' => 'float',
+        'discount_amount' => 'float',
+        'security_deposit' => 'float',
+        'tax_amount' => 'float',
+        'subtotal' => 'float',
+        'grand_total' => 'float',
+        'deposit_refunded_amount' => 'float',
+        'deposit_deducted_amount' => 'float',
     ];
 
     /**
@@ -141,5 +147,31 @@ class Booking extends Model
     public function histories(): HasMany
     {
         return $this->hasMany(BookingHistory::class)->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Get the payment ledger transactions for this booking.
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(BookingPayment::class)->orderBy('payment_date', 'asc');
+    }
+
+    /**
+     * Get the customized extra services (add-ons) for this booking.
+     */
+    public function extraServices(): HasMany
+    {
+        return $this->hasMany(BookingExtraService::class);
+    }
+
+    /**
+     * Get the customized menu item selections for this booking.
+     */
+    public function menuItems(): BelongsToMany
+    {
+        return $this->belongsToMany(MenuItem::class, 'booking_menu_items')
+                    ->withPivot('custom_note')
+                    ->withTimestamps();
     }
 }

@@ -145,10 +145,10 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label font-sans-serif fw-bold text-700" for="extraCharges">Extra / Setup Charges</label>
+                                <label class="form-label font-sans-serif fw-bold text-700" for="extraCharges">Extra / Setup Charges (Sum of Add-ons)</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rs.</span>
-                                    <input wire:model.live="extraCharges" class="form-control" type="number" id="extraCharges" step="0.01" />
+                                    <input wire:model.live="extraCharges" class="form-control" type="number" id="extraCharges" step="0.01" disabled />
                                 </div>
                             </div>
 
@@ -173,6 +173,103 @@
                                 <div class="input-group input-group-sm">
                                     <input wire:model.live="taxRate" class="form-control" type="number" id="taxRate" step="0.01" />
                                     <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+
+                            <!-- Add-ons / Services Section -->
+                            <div class="col-12 mt-4">
+                                <h6 class="border-bottom pb-2 mb-2 text-primary fw-bold fs-9">
+                                    <span class="fas fa-cubes me-2"></span>Select Extra Add-ons & Services
+                                </h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped border fs-11 mb-0">
+                                        <thead>
+                                            <tr class="bg-light">
+                                                <th class="text-center" style="width: 50px;">Select</th>
+                                                <th>Service Name</th>
+                                                <th style="width: 150px;">Price (PKR)</th>
+                                                <th style="width: 100px;">Qty</th>
+                                                <th style="width: 120px;" class="text-end">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($addonsList as $addon)
+                                                <tr>
+                                                    <td class="align-middle text-center">
+                                                        <input class="form-check-input" type="checkbox" wire:model.live="selectedAddons.{{ $addon->id }}.selected" />
+                                                    </td>
+                                                    <td class="align-middle fw-semi-bold">{{ $addon->service_name }}</td>
+                                                    <td class="align-middle">
+                                                        <input class="form-control form-control-sm text-end" type="number" step="0.01" wire:model.live="selectedAddons.{{ $addon->id }}.price" {{ empty($selectedAddons[$addon->id]['selected']) ? 'disabled' : '' }} />
+                                                    </td>
+                                                    <td class="align-middle">
+                                                        <input class="form-control form-control-sm text-center" type="number" min="1" wire:model.live="selectedAddons.{{ $addon->id }}.quantity" {{ empty($selectedAddons[$addon->id]['selected']) ? 'disabled' : '' }} />
+                                                    </td>
+                                                    <td class="align-middle text-end font-monospace fw-bold text-700">
+                                                        Rs. {{ number_format(floatval($selectedAddons[$addon->id]['price'] ?? 0) * intval($selectedAddons[$addon->id]['quantity'] ?? 1), 2) }}
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Menu Customization Section -->
+                            <div class="col-12 mt-4">
+                                <h6 class="border-bottom pb-2 mb-2 text-primary fw-bold fs-9">
+                                    <span class="fas fa-utensils me-2"></span>Customize Event Menu Items
+                                </h6>
+                                
+                                <div class="card bg-light border p-3">
+                                    <div class="row g-2 align-items-center mb-3">
+                                        <div class="col-md-9">
+                                            <select class="form-select form-select-sm" wire:model="selectedMenuItemToAdd">
+                                                <option value="">-- Choose additional dish to add/swap --</option>
+                                                @foreach($menuItemsAutocomplete as $mi)
+                                                    <option value="{{ $mi->id }}">{{ $mi->item_name }} ({{ $mi->category->category_name ?? 'N/A' }})</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <button type="button" class="btn btn-sm btn-success w-100" wire:click="addMenuItem">
+                                                <span class="fas fa-plus-circle me-1"></span>Add Dish
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    @if(count($bookingMenuItems) > 0)
+                                        <div class="table-responsive">
+                                            <table class="table table-sm bg-white border fs-11 mb-0">
+                                                <thead>
+                                                    <tr class="bg-200">
+                                                        <th>Dish Name</th>
+                                                        <th>Custom Instructions (e.g. extra spicy, double serving)</th>
+                                                        <th class="text-center" style="width: 80px;">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($bookingMenuItems as $idx => $item)
+                                                        <tr>
+                                                            <td class="align-middle fw-bold text-700">{{ $item['item_name'] }}</td>
+                                                            <td>
+                                                                <input type="text" class="form-control form-control-sm" placeholder="No instructions" wire:model="bookingMenuItems.{{ $idx }}.custom_note" />
+                                                            </td>
+                                                            <td class="align-middle text-center">
+                                                                <button type="button" class="btn btn-sm btn-link text-danger p-0" wire:click="removeMenuItem({{ $idx }})">
+                                                                    <span class="fas fa-trash-alt"></span>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @else
+                                        <div class="text-center text-muted py-3">
+                                            <span class="fas fa-info-circle me-1"></span>No dishes currently selected. Add custom dishes or choose a package.
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>

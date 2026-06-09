@@ -68,6 +68,15 @@ class BookingWizard extends Component
     public $securityDeposit = 0.00;
     public $taxRate = 13.00;
 
+    // Add-on selection properties
+    public $addonsList = [];
+    public $selectedAddons = []; // extra_service_id => ['selected' => bool, 'price' => float, 'quantity' => int, 'name' => string]
+
+    // Menu Customization selection
+    public $bookingMenuItems = []; // array of ['id' => int, 'item_name' => string, 'custom_note' => string]
+    public $selectedMenuItemToAdd = ''; // dropdown selection to add menu item
+    public $menuItemsAutocomplete = []; // list of all menu items for the dropdown
+
     // Pricing calculation outputs
     public $packageAmount = 0.00;
     public $subtotal = 0.00;
@@ -111,6 +120,28 @@ class BookingWizard extends Component
         $this->packagesList = Package::where('marquee_id', $marqueeId)
             ->whereIn('status', ['active', 'Active'])
             ->orderBy('package_name')
+            ->get();
+
+        // Load active extra services catalog
+        $this->addonsList = ExtraService::where('marquee_id', $marqueeId)
+            ->where('status', 'Active')
+            ->orderBy('service_name')
+            ->get();
+
+        // Initialize selectedAddons
+        $this->selectedAddons = [];
+        foreach ($this->addonsList as $addon) {
+            $this->selectedAddons[$addon->id] = [
+                'selected' => false,
+                'price' => $addon->default_price,
+                'quantity' => 1,
+                'name' => $addon->service_name,
+            ];
+        }
+
+        // Load all menu items for autocomplete/addition dropdown
+        $this->menuItemsAutocomplete = MenuItem::where('marquee_id', $marqueeId)
+            ->orderBy('item_name')
             ->get();
 
         if ($this->hallsList->isNotEmpty() && empty($this->selectedHallId)) {
@@ -358,17 +389,71 @@ class BookingWizard extends Component
     {
         if (empty($this->selectedPackageId)) {
             $this->perPlatePrice = 0.00;
+            $this->bookingMenuItems = [];
             $this->recalculatePrices();
             return;
         }
 
-        $package = Package::findOrFail($this->selectedPackageId);
+        $package = Package::with('menuItems')->findOrFail($this->selectedPackageId);
         $this->perPlatePrice = $package->per_plate_price;
         $this->guestCount = $package->minimum_guests ?: 100;
         
         // Auto default security deposit to package flat base price or custom rate
         $this->securityDeposit = 15000.00; // Standard security deposit default
+
+        // Copy package menu items to booking level for customization
+        $this->bookingMenuItems = [];
+        foreach ($package->menuItems as $item) {
+            $this->bookingMenuItems[] = [
+                'id' => $item->id,
+                'item_name' => $item->item_name,
+                'custom_note' => '',
+            ];
+        }
+
         $this->recalculatePrices();
+    }
+
+    public function updatedSelectedAddons()
+    {
+        $this->recalculatePrices();
+    }
+
+    public function addMenuItem()
+    {
+        if (empty($this->selectedMenuItemToAdd)) {
+            return;
+        }
+
+        $item = MenuItem::find($this->selectedMenuItemToAdd);
+        if ($item) {
+            // Check for duplicates
+            $exists = false;
+            foreach ($this->bookingMenuItems as $existing) {
+                if ($existing['id'] == $item->id) {
+                    $exists = true;
+                    break;
+                }
+            }
+
+            if (!$exists) {
+                $this->bookingMenuItems[] = [
+                    'id' => $item->id,
+                    'item_name' => $item->item_name,
+                    'custom_note' => '',
+                ];
+            }
+        }
+
+        $this->selectedMenuItemToAdd = '';
+    }
+
+    public function removeMenuItem($index)
+    {
+        if (isset($this->bookingMenuItems[$index])) {
+            unset($this->bookingMenuItems[$index]);
+            $this->bookingMenuItems = array_values($this->bookingMenuItems); // Reset keys
+        }
     }
 
     public function updatedGuestCount()
@@ -408,6 +493,17 @@ class BookingWizard extends Component
 
     public function recalculatePrices()
     {
+        // Calculate the sum of selected extra services (add-ons)
+        $addonsSum = 0.00;
+        foreach ($this->selectedAddons as $addonId => $addon) {
+            if (!empty($addon['selected'])) {
+                $price = is_numeric($addon['price']) ? floatval($addon['price']) : 0.00;
+                $quantity = is_numeric($addon['quantity']) ? intval($addon['quantity']) : 1;
+                $addonsSum += $price * $quantity;
+            }
+        }
+        $this->extraCharges = $addonsSum;
+
         // Typecast/sanitize inputs to numeric types to prevent TypeError in number_format()
         $this->guestCount = is_numeric($this->guestCount) ? intval($this->guestCount) : 0;
         $this->perPlatePrice = is_numeric($this->perPlatePrice) ? floatval($this->perPlatePrice) : 0.00;
@@ -571,9 +667,35 @@ class BookingWizard extends Component
                     'booking_status' => $this->bookingStatus,
                     'payment_status' => 'Unpaid',
                     'created_by' => $userId,
+                    'deposit_status' => 'Held',
                 ]);
 
-                // 4. Create history record
+                // 4. Save selected extra services (add-ons)
+                foreach ($this->selectedAddons as $addonId => $addon) {
+                    if (!empty($addon['selected'])) {
+                        $price = floatval($addon['price']);
+                        $qty = intval($addon['quantity']);
+                        \App\Models\BookingExtraService::create([
+                            'booking_id' => $newBooking->id,
+                            'extra_service_id' => $addonId,
+                            'service_name' => $addon['name'],
+                            'unit_price' => $price,
+                            'quantity' => $qty,
+                            'total_price' => $price * $qty,
+                        ]);
+                    }
+                }
+
+                // 5. Save customized menu items
+                foreach ($this->bookingMenuItems as $menuItem) {
+                    \App\Models\BookingMenuItem::create([
+                        'booking_id' => $newBooking->id,
+                        'menu_item_id' => $menuItem['id'],
+                        'custom_note' => $menuItem['custom_note'] ?: null,
+                    ]);
+                }
+
+                // 6. Create history record
                 BookingHistory::create([
                     'booking_id' => $newBooking->id,
                     'user_id' => $userId,

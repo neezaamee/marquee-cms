@@ -100,6 +100,118 @@
                 </div>
             </div>
 
+            <!-- Customize Menu and Add-ons Details -->
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0 fw-bold"><span class="fas fa-utensils me-2 text-primary"></span>Selected Menu & Extra Services</h6>
+                </div>
+                <div class="card-body fs-11">
+                    <div class="row g-3">
+                        <!-- Custom Menu Items -->
+                        <div class="col-md-6 border-end border-translucent">
+                            <h6 class="text-primary font-sans-serif fw-bold mb-2">Customized Menu Items</h6>
+                            @if($booking->menuItems->isNotEmpty())
+                                <ul class="list-group list-group-flush border-translucent">
+                                    @foreach($booking->menuItems as $item)
+                                        <li class="list-group-item px-0 py-1 d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <span class="fw-bold text-800">{{ $item->item_name }}</span>
+                                                @if($item->pivot->custom_note)
+                                                    <span class="d-block text-muted fs-12 italic">({{ $item->pivot->custom_note }})</span>
+                                                @endif
+                                            </div>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @else
+                                <p class="text-muted fs-11">No customized menu items recorded.</p>
+                            @endif
+                        </div>
+
+                        <!-- Booked Extra Services (Add-ons) -->
+                        <div class="col-md-6">
+                            <h6 class="text-primary font-sans-serif fw-bold mb-2">Selected Add-ons / Services</h6>
+                            @if($booking->extraServices->isNotEmpty())
+                                <table class="table table-sm table-borderless fs-11 mb-0">
+                                    <thead>
+                                        <tr class="border-bottom text-500">
+                                            <th class="px-0 py-1">Service</th>
+                                            <th class="px-0 py-1 text-center" style="width: 50px;">Qty</th>
+                                            <th class="px-0 py-1 text-end" style="width: 100px;">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($booking->extraServices as $savedSrv)
+                                            <tr>
+                                                <td class="px-0 py-1 fw-semi-bold text-800">{{ $savedSrv->service_name }}</td>
+                                                <td class="px-0 py-1 text-center text-800">{{ $savedSrv->quantity }}</td>
+                                                <td class="px-0 py-1 text-end text-800 font-monospace">Rs. {{ number_format($savedSrv->total_price, 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            @else
+                                <p class="text-muted fs-11">No additional services selected.</p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Transactions Ledger -->
+            <div class="card mb-3">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold"><span class="fas fa-wallet me-2 text-primary"></span>Payment History Ledger</h6>
+                    <span class="badge badge-subtle-success fs-12 font-monospace">
+                        Total Paid: Rs. {{ number_format($booking->payments->sum('amount'), 2) }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    @if($booking->payments->isNotEmpty())
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped border fs-11 mb-0">
+                                <thead>
+                                    <tr class="bg-light text-700">
+                                        <th>Date</th>
+                                        <th>Method</th>
+                                        <th>Reference</th>
+                                        <th>Recorded By</th>
+                                        <th>Notes</th>
+                                        <th class="text-end" style="width: 120px;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($booking->payments as $payment)
+                                        <tr>
+                                            <td class="align-middle fw-bold">{{ $payment->payment_date->format('M d, Y') }}</td>
+                                            <td class="align-middle"><span class="badge badge-subtle-primary">{{ $payment->payment_method }}</span></td>
+                                            <td class="align-middle font-monospace">{{ $payment->transaction_reference ?? '—' }}</td>
+                                            <td class="align-middle fw-semi-bold text-700">{{ $payment->recorder->name ?? 'System' }}</td>
+                                            <td class="align-middle text-muted">{{ $payment->notes ?? '—' }}</td>
+                                            <td class="align-middle text-end font-monospace fw-bold text-800">Rs. {{ number_format($payment->amount, 2) }}</td>
+                                        </tr>
+                                    @endforeach
+                                    <tr class="table-info fw-bold fs-11">
+                                        <td colspan="5" class="text-end text-800">Total Payments Recorded:</td>
+                                        <td class="text-end text-800 font-monospace">Rs. {{ number_format($booking->payments->sum('amount'), 2) }}</td>
+                                    </tr>
+                                    <tr class="{{ ($booking->grand_total - $booking->payments->sum('amount')) <= 0 ? 'table-success' : 'table-warning' }} fw-bold fs-11">
+                                        <td colspan="5" class="text-end text-800">Outstanding Balance:</td>
+                                        <td class="text-end text-800 font-monospace">
+                                            Rs. {{ number_format(max(0, $booking->grand_total - $booking->payments->sum('amount')), 2) }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <div class="text-center py-4 text-muted fs-11">
+                            <span class="fas fa-info-circle me-1"></span>No payment transactions recorded in the ledger yet.
+                        </div>
+                    @endif
+                </div>
+            </div>
+
             <!-- Booking histories timeline audit log -->
             <div class="card mb-3">
                 <div class="card-header bg-light">
@@ -240,19 +352,101 @@
                             @endif
                         </div>
 
+                        <!-- Refundable Security Deposit Status & Process -->
+                        <hr class="my-2" />
+                        <span class="text-muted fs-12 fw-bold mb-1">Security Deposit Status:</span>
+                        <div class="bg-light border rounded p-2 mb-2 fs-11">
+                            <div><strong>Current Status:</strong> 
+                                @if($booking->deposit_status === 'Refunded')
+                                    <span class="badge badge-subtle-success">Refunded</span>
+                                @elseif($booking->deposit_status === 'Deducted')
+                                    <span class="badge badge-subtle-danger">Deducted (Damages)</span>
+                                @else
+                                    <span class="badge badge-subtle-info">Held (Active)</span>
+                                @endif
+                            </div>
+                            @if($booking->deposit_status !== 'Held')
+                                <div class="mt-1"><strong>Refunded:</strong> Rs. {{ number_format($booking->deposit_refunded_amount, 2) }}</div>
+                                <div><strong>Deducted:</strong> Rs. {{ number_format($booking->deposit_deducted_amount, 2) }}</div>
+                                @if($booking->deposit_notes)
+                                    <div class="mt-1 text-muted fs-12 text-wrap" style="word-break: break-all;"><strong>Notes:</strong> {{ $booking->deposit_notes }}</div>
+                                @endif
+                            @endif
+                        </div>
+
+                        @if($booking->deposit_status === 'Held')
+                            @if($showDepositModal)
+                                <div class="border border-info rounded p-2 bg-info-subtle">
+                                    <h6 class="fs-12 text-info-900 fw-bold mb-2">Process Security Deposit</h6>
+                                    
+                                    <div class="mb-2">
+                                        <label class="form-label fs-11 mb-1">Action Type</label>
+                                        <select wire:model.live="depositAction" class="form-select form-select-sm fs-12">
+                                            <option value="refund_full">Refund Full Amount (Rs. {{ number_format($booking->security_deposit, 2) }})</option>
+                                            <option value="partial_refund">Partial Refund / Deduct Damages</option>
+                                        </select>
+                                    </div>
+
+                                    @if($depositAction === 'partial_refund')
+                                        <div class="mb-2">
+                                            <label class="form-label fs-11 mb-1">Refunded Amount (Rs.)</label>
+                                            <input wire:model="depositRefundedAmount" type="number" class="form-control form-control-sm fs-12" />
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label fs-11 mb-1">Deducted Amount (Rs.)</label>
+                                            <input wire:model="depositDeductedAmount" type="number" class="form-control form-control-sm fs-12" />
+                                        </div>
+                                        @error('depositSum') <div class="text-danger fs-12 mb-2">{{ $message }}</div> @enderror
+                                    @endif
+
+                                    <div class="mb-2">
+                                        <label class="form-label fs-11 mb-1">Deduction / Refund Notes</label>
+                                        <textarea wire:model="depositNotes" class="form-control form-control-sm fs-12" rows="2" placeholder="Describe damages, deductions, or refund reference..."></textarea>
+                                        @error('depositNotes') <div class="text-danger fs-12 mt-1">{{ $message }}</div> @enderror
+                                    </div>
+
+                                    <div class="d-flex justify-content-end gap-1">
+                                        <button wire:click="$set('showDepositModal', false)" class="btn btn-falcon-default btn-xs" type="button">Cancel</button>
+                                        <button wire:click="processDeposit" class="btn btn-info btn-xs" type="button">Process Release</button>
+                                    </div>
+                                </div>
+                            @else
+                                <button wire:click="$set('showDepositModal', true)" class="btn btn-falcon-info btn-sm w-100" type="button">
+                                    <span class="fas fa-hand-holding-usd me-1"></span> Process Deposit Release
+                                </button>
+                            @endif
+                        @endif
+
                         <hr class="my-2" />
 
                         <!-- Recording payments panel -->
                         @if($showPaymentModal)
                             <div class="border border-warning rounded p-2 bg-warning-subtle">
-                                <h6 class="fs-12 text-warning-800 fw-bold mb-2">Record Cash Payment</h6>
+                                <h6 class="fs-12 text-warning-800 fw-bold mb-2">Record Ledger Payment</h6>
                                 <div class="mb-2">
-                                    <label class="form-label fs-11 mb-1">Amount Paid (Rs.)</label>
-                                    <input wire:model="amountPaid" type="number" class="form-control form-control-sm" placeholder="e.g. 50000" />
+                                    <label class="form-label fs-11 mb-1">Amount Paid (Rs.) *</label>
+                                    <input wire:model="amountPaid" type="number" class="form-control form-control-sm fs-12" placeholder="e.g. 50000" />
                                 </div>
                                 <div class="mb-2">
-                                    <label class="form-label fs-11 mb-1">Notes</label>
-                                    <input wire:model="paymentNote" type="text" class="form-control form-control-sm" placeholder="e.g. Adv cash payment" />
+                                    <label class="form-label fs-11 mb-1">Payment Date *</label>
+                                    <input wire:model="paymentDate" type="date" class="form-control form-control-sm fs-12" />
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fs-11 mb-1">Payment Method *</label>
+                                    <select wire:model="paymentMethod" class="form-select form-select-sm fs-12">
+                                        <option value="Cash">Cash</option>
+                                        <option value="Bank Transfer">Bank Transfer</option>
+                                        <option value="Cheque">Cheque</option>
+                                        <option value="Card">Card</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fs-11 mb-1">Transaction Ref / Cheque #</label>
+                                    <input wire:model="transactionReference" type="text" class="form-control form-control-sm fs-12" placeholder="e.g. TXN-123456" />
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fs-11 mb-1">Notes / Remarks</label>
+                                    <input wire:model="paymentNote" type="text" class="form-control form-control-sm fs-12" placeholder="e.g. Advance cash payment" />
                                 </div>
                                 <div class="d-flex justify-content-end gap-1">
                                     <button wire:click="$set('showPaymentModal', false)" class="btn btn-falcon-default btn-xs" type="button">Cancel</button>

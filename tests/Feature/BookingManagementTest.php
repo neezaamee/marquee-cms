@@ -429,4 +429,263 @@ class BookingManagementTest extends TestCase
             'special_instructions' => 'Please set up round tables.',
         ]);
     }
+
+    public function test_wizard_registers_addons_and_customized_menus()
+    {
+        Livewire::actingAs($this->userOwnerA);
+
+        // Create an ExtraService (Addon)
+        $addon = \App\Models\ExtraService::create([
+            'marquee_id' => $this->marqueeA->id,
+            'service_name' => 'Premium Stage Decor',
+            'default_price' => 50000.00,
+            'status' => 'Active',
+        ]);
+
+        // Create some MenuItems and associate them to the package
+        $menuItem1 = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marqueeA->id,
+            'item_name' => 'Chicken Korma',
+            'status' => 'Active',
+        ]);
+        $menuItem2 = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marqueeA->id,
+            'item_name' => 'Chicken Karahi',
+            'status' => 'Active',
+        ]);
+
+        $this->packageA->menuItems()->sync([$menuItem1->id]);
+
+        // Run the Booking Wizard
+        $wizard = Livewire::test('booking-wizard')
+            ->set('selectedCustomerId', $this->customerA->id)
+            ->call('nextStep') // Step 1 -> 2
+            ->set('selectedEventTypeId', $this->eventTypeA->id)
+            ->set('selectedHallId', $this->hallA->id)
+            ->set('selectedDate', '2026-06-25')
+            ->call('nextStep') // Step 2 -> 3
+            ->set('checkType', 'slot')
+            ->set('selectedSlotId', $this->slotA->id)
+            ->call('nextStep') // Step 3 -> 4
+            ->set('selectedPackageId', $this->packageA->id);
+
+        // Assert menu item copied from package
+        $wizard->assertSet('bookingMenuItems', [
+            [
+                'id' => $menuItem1->id,
+                'item_name' => 'Chicken Korma',
+                'custom_note' => '',
+            ]
+        ]);
+
+        // Customize menu items: Swap or add a dish
+        $wizard->set('selectedMenuItemToAdd', $menuItem2->id)
+            ->call('addMenuItem');
+
+        // It should now have both items in bookingMenuItems
+        $wizard->assertSet('bookingMenuItems', [
+            [
+                'id' => $menuItem1->id,
+                'item_name' => 'Chicken Korma',
+                'custom_note' => '',
+            ],
+            [
+                'id' => $menuItem2->id,
+                'item_name' => 'Chicken Karahi',
+                'custom_note' => '',
+            ]
+        ]);
+
+        // Add custom note
+        $wizard->set('bookingMenuItems.0.custom_note', 'Spicy chicken');
+
+        // Select the addon
+        $wizard->set("selectedAddons.{$addon->id}.selected", true)
+            ->set("selectedAddons.{$addon->id}.quantity", 2)
+            ->call('recalculatePrices');
+
+        // Assert extra charges updated
+        // unit_price = 50000 * 2 = 100000.00
+        $wizard->assertSet('extraCharges', 100000.00);
+
+        // Move to step 5 and submit
+        $wizard->call('nextStep') // Step 4 -> 5
+            ->set('bookingStatus', 'Confirmed')
+            ->call('submitBooking')
+            ->assertHasNoErrors();
+
+        // Retrieve created booking and verify details
+        $booking = Booking::orderBy('id', 'desc')->first();
+        $this->assertNotNull($booking);
+
+        // Verify extra services are saved
+        $this->assertDatabaseHas('booking_extra_services', [
+            'booking_id' => $booking->id,
+            'extra_service_id' => $addon->id,
+            'service_name' => 'Premium Stage Decor',
+            'unit_price' => 50000.00,
+            'quantity' => 2,
+            'total_price' => 100000.00,
+        ]);
+
+        // Verify custom menu items are saved
+        $this->assertDatabaseHas('booking_menu_items', [
+            'booking_id' => $booking->id,
+            'menu_item_id' => $menuItem1->id,
+            'custom_note' => 'Spicy chicken',
+        ]);
+        $this->assertDatabaseHas('booking_menu_items', [
+            'booking_id' => $booking->id,
+            'menu_item_id' => $menuItem2->id,
+            'custom_note' => null,
+        ]);
+    }
+
+    public function test_view_details_page_payment_registration()
+    {
+        // Create a booking
+        $booking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-25',
+            'start_time' => '2026-06-25 18:00:00',
+            'end_time' => '2026-06-25 23:30:00',
+            'guest_count' => 100,
+            'per_plate_price' => 1500.00,
+            'grand_total' => 150000.00,
+            'booking_status' => 'Draft',
+            'payment_status' => 'Unpaid',
+        ]);
+
+        Livewire::actingAs($this->userOwnerA);
+
+        // Initialize Livewire component
+        $viewComponent = Livewire::test('booking-view', ['booking' => $booking])
+            ->set('amountPaid', 50000.00)
+            ->set('paymentMethod', 'Bank Transfer')
+            ->set('transactionReference', 'TRX-998877')
+            ->set('paymentNote', 'Initial deposit paid.')
+            ->call('recordPayment')
+            ->assertHasNoErrors();
+
+        // Payment status should now be 'Partially Paid'
+        $booking->refresh();
+        $this->assertEquals('Partially Paid', $booking->payment_status);
+
+        // Sum of payments should be 50,000
+        $this->assertEquals(50000.00, $booking->payments()->sum('amount'));
+
+        // Let's pay the rest
+        $viewComponent->set('amountPaid', 100000.00)
+            ->set('paymentMethod', 'Cash')
+            ->call('recordPayment')
+            ->assertHasNoErrors();
+
+        // Payment status should now be 'Paid'
+        $booking->refresh();
+        $this->assertEquals('Paid', $booking->payment_status);
+        $this->assertEquals(150000.00, $booking->payments()->sum('amount'));
+    }
+
+    public function test_deposit_release_handles_damages_refund_amounts_and_notes()
+    {
+        // Create a booking
+        $booking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-25',
+            'start_time' => '2026-06-25 18:00:00',
+            'end_time' => '2026-06-25 23:30:00',
+            'guest_count' => 100,
+            'per_plate_price' => 1500.00,
+            'security_deposit' => 20000.00,
+            'grand_total' => 170000.00,
+            'booking_status' => 'Draft',
+            'payment_status' => 'Unpaid',
+            'deposit_status' => 'Held',
+        ]);
+
+        Livewire::actingAs($this->userOwnerA);
+
+        // Case 1: Partial refund / deduction
+        $viewComponent = Livewire::test('booking-view', ['booking' => $booking])
+            ->set('depositAction', 'refund_partial')
+            ->set('depositRefundedAmount', 15000.00)
+            ->set('depositDeductedAmount', 5000.00)
+            ->set('depositNotes', 'Deducted Rs. 5000 for sofa damage.')
+            ->call('processDeposit')
+            ->assertHasNoErrors();
+
+        $booking->refresh();
+        $this->assertEquals('Deducted', $booking->deposit_status);
+        $this->assertEquals(15000.00, $booking->deposit_refunded_amount);
+        $this->assertEquals(5000.00, $booking->deposit_deducted_amount);
+        $this->assertEquals('Deducted Rs. 5000 for sofa damage.', $booking->deposit_notes);
+
+        // Reset deposit status to test full refund
+        $booking->update([
+            'deposit_status' => 'Held',
+            'deposit_refunded_amount' => 0.00,
+            'deposit_deducted_amount' => 0.00,
+            'deposit_notes' => null,
+        ]);
+
+        // Case 2: Full refund
+        Livewire::test('booking-view', ['booking' => $booking])
+            ->set('depositAction', 'refund_full')
+            ->call('processDeposit')
+            ->assertHasNoErrors();
+
+        $booking->refresh();
+        $this->assertEquals('Refunded', $booking->deposit_status);
+        $this->assertEquals(20000.00, $booking->deposit_refunded_amount);
+        $this->assertEquals(0.00, $booking->deposit_deducted_amount);
+    }
+
+    public function test_editing_locked_bookings_fails_unless_owner()
+    {
+        // Create a Completed booking
+        $booking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-25',
+            'start_time' => '2026-06-25 18:00:00',
+            'end_time' => '2026-06-25 23:30:00',
+            'guest_count' => 100,
+            'per_plate_price' => 1500.00,
+            'grand_total' => 150000.00,
+            'booking_status' => 'Completed',
+            'payment_status' => 'Paid',
+        ]);
+
+        // Try accessing with Booking Officer (not an owner)
+        Livewire::actingAs($this->userOfficerA);
+
+        Livewire::test('booking-edit', ['booking' => $booking])
+            ->assertRedirect(route('bookings.show', $booking->id));
+
+        // Try accessing with Owner (Allowed)
+        Livewire::actingAs($this->userOwnerA);
+
+        $editComponent = Livewire::test('booking-edit', ['booking' => $booking]);
+        $editComponent->assertSet('bookingStatus', 'Completed');
+        
+        // Also test saving fails for officer if they bypass mount check somehow
+        Livewire::actingAs($this->userOfficerA);
+        $comp = Livewire::test('booking-edit', ['booking' => $booking]);
+        $comp->call('save')
+            ->assertHasErrors(['submission']);
+    }
 }

@@ -46,6 +46,15 @@ class BookingEdit extends Component
     public $taxAmount = 0.00;
     public $grandTotal = 0.00;
 
+    // Add-ons properties
+    public $addonsList = [];
+    public $selectedAddons = []; // extra_service_id => ['selected' => bool, 'price' => float, 'quantity' => int, 'name' => string]
+
+    // Menu Customization selection
+    public $bookingMenuItems = []; // array of ['id' => int, 'item_name' => string, 'custom_note' => string]
+    public $selectedMenuItemToAdd = ''; // dropdown selection to add menu item
+    public $menuItemsAutocomplete = []; // list of all menu items for the dropdown
+
     public $specialInstructions = '';
     public $bookingStatus = '';
     public $paymentStatus = '';
@@ -65,6 +74,16 @@ class BookingEdit extends Component
     public function mount(Booking $booking)
     {
         $this->booking = $booking;
+
+        // Owner/Superadmin lock validation
+        $user = auth()->user();
+        $isOwner = $user->role && in_array($user->role->name, ['owner', 'super_admin']);
+        $isLocked = in_array($booking->booking_status, ['Completed', 'Cancelled']);
+
+        if ($isLocked && !$isOwner) {
+            session()->flash('error', 'Only owners or super admins can edit Completed or Cancelled bookings.');
+            return redirect()->route('bookings.show', $booking->id);
+        }
 
         $this->selectedCustomerId = $booking->customer_id;
         $this->selectedEventTypeId = $booking->event_type_id;
@@ -106,6 +125,51 @@ class BookingEdit extends Component
 
         $this->loadDropdowns();
         $this->loadSlotsAndCheck();
+
+        // Load Add-ons
+        $marqueeId = auth()->user()->marquee_id;
+        $this->addonsList = ExtraService::where('marquee_id', $marqueeId)
+            ->where('status', 'Active')
+            ->orderBy('service_name')
+            ->get();
+
+        // Initialize selectedAddons map
+        $this->selectedAddons = [];
+        foreach ($this->addonsList as $addon) {
+            $this->selectedAddons[$addon->id] = [
+                'selected' => false,
+                'price' => $addon->default_price,
+                'quantity' => 1,
+                'name' => $addon->service_name,
+            ];
+        }
+
+        // Map already saved addons
+        foreach ($booking->extraServices as $saved) {
+            $addonId = $saved->extra_service_id;
+            if ($addonId && isset($this->selectedAddons[$addonId])) {
+                $this->selectedAddons[$addonId]['selected'] = true;
+                $this->selectedAddons[$addonId]['price'] = $saved->unit_price;
+                $this->selectedAddons[$addonId]['quantity'] = $saved->quantity;
+            } else {
+                $this->selectedAddons['custom_' . $saved->id] = [
+                    'selected' => true,
+                    'price' => $saved->unit_price,
+                    'quantity' => $saved->quantity,
+                    'name' => $saved->service_name,
+                ];
+            }
+        }
+
+        // Load custom menu items
+        $this->bookingMenuItems = [];
+        foreach ($booking->menuItems as $item) {
+            $this->bookingMenuItems[] = [
+                'id' => $item->id,
+                'item_name' => $item->item_name,
+                'custom_note' => $item->pivot->custom_note ?? '',
+            ];
+        }
     }
 
     public function loadDropdowns()
@@ -130,6 +194,10 @@ class BookingEdit extends Component
         $this->packagesList = Package::where('marquee_id', $marqueeId)
             ->whereIn('status', ['active', 'Active'])
             ->orderBy('package_name')
+            ->get();
+
+        $this->menuItemsAutocomplete = MenuItem::where('marquee_id', $marqueeId)
+            ->orderBy('item_name')
             ->get();
     }
 
@@ -277,13 +345,25 @@ class BookingEdit extends Component
     {
         if (empty($this->selectedPackageId)) {
             $this->perPlatePrice = 0.00;
+            $this->bookingMenuItems = [];
             $this->recalculatePrices();
             return;
         }
 
-        $package = Package::findOrFail($this->selectedPackageId);
+        $package = Package::with('menuItems')->findOrFail($this->selectedPackageId);
         $this->perPlatePrice = $package->per_plate_price;
         $this->guestCount = $package->minimum_guests ?: 100;
+
+        // Copy package menu items to booking level
+        $this->bookingMenuItems = [];
+        foreach ($package->menuItems as $item) {
+            $this->bookingMenuItems[] = [
+                'id' => $item->id,
+                'item_name' => $item->item_name,
+                'custom_note' => '',
+            ];
+        }
+
         $this->recalculatePrices();
     }
 
@@ -295,8 +375,61 @@ class BookingEdit extends Component
     public function updatedSecurityDeposit() { $this->recalculatePrices(); }
     public function updatedTaxRate() { $this->recalculatePrices(); }
 
+    public function updatedSelectedAddons()
+    {
+        $this->recalculatePrices();
+    }
+
+    public function addMenuItem()
+    {
+        if (empty($this->selectedMenuItemToAdd)) {
+            return;
+        }
+
+        $item = MenuItem::find($this->selectedMenuItemToAdd);
+        if ($item) {
+            // Check for duplicates
+            $exists = false;
+            foreach ($this->bookingMenuItems as $existing) {
+                if ($existing['id'] == $item->id) {
+                    $exists = true;
+                    break;
+                }
+            }
+
+            if (!$exists) {
+                $this->bookingMenuItems[] = [
+                    'id' => $item->id,
+                    'item_name' => $item->item_name,
+                    'custom_note' => '',
+                ];
+            }
+        }
+
+        $this->selectedMenuItemToAdd = '';
+    }
+
+    public function removeMenuItem($index)
+    {
+        if (isset($this->bookingMenuItems[$index])) {
+            unset($this->bookingMenuItems[$index]);
+            $this->bookingMenuItems = array_values($this->bookingMenuItems); // Reset keys
+        }
+    }
+
     public function recalculatePrices()
     {
+        // Calculate the sum of selected extra services (add-ons)
+        $addonsSum = 0.00;
+        foreach ($this->selectedAddons as $addonId => $addon) {
+            if (!empty($addon['selected'])) {
+                $price = is_numeric($addon['price']) ? floatval($addon['price']) : 0.00;
+                $quantity = is_numeric($addon['quantity']) ? intval($addon['quantity']) : 1;
+                $addonsSum += $price * $quantity;
+            }
+        }
+        $this->extraCharges = $addonsSum;
+
         // Typecast/sanitize inputs to numeric types to prevent TypeError in number_format()
         $this->guestCount = is_numeric($this->guestCount) ? intval($this->guestCount) : 0;
         $this->perPlatePrice = is_numeric($this->perPlatePrice) ? floatval($this->perPlatePrice) : 0.00;
@@ -327,6 +460,16 @@ class BookingEdit extends Component
      */
     public function save()
     {
+        // Owner/Superadmin lock validation on save
+        $user = auth()->user();
+        $isOwner = $user->role && in_array($user->role->name, ['owner', 'super_admin']);
+        $isLocked = in_array($this->booking->booking_status, ['Completed', 'Cancelled']);
+
+        if ($isLocked && !$isOwner) {
+            $this->addError('submission', 'Only owners or super admins can edit Completed or Cancelled bookings.');
+            return;
+        }
+
         $this->validate([
             'selectedCustomerId' => 'required|exists:customers,id',
             'selectedEventTypeId' => 'required|exists:event_types,id',
@@ -401,6 +544,33 @@ class BookingEdit extends Component
                     'booking_status' => $this->bookingStatus,
                     'payment_status' => $this->paymentStatus,
                 ]);
+
+                // Sync extra services (add-ons)
+                $this->booking->extraServices()->delete();
+                foreach ($this->selectedAddons as $addonId => $addon) {
+                    if (!empty($addon['selected'])) {
+                        $price = floatval($addon['price']);
+                        $qty = intval($addon['quantity']);
+                        \App\Models\BookingExtraService::create([
+                            'booking_id' => $this->booking->id,
+                            'extra_service_id' => is_numeric($addonId) ? $addonId : null,
+                            'service_name' => $addon['name'],
+                            'unit_price' => $price,
+                            'quantity' => $qty,
+                            'total_price' => $price * $qty,
+                        ]);
+                    }
+                }
+
+                // Sync customized menu items
+                $this->booking->menuItems()->detach();
+                foreach ($this->bookingMenuItems as $menuItem) {
+                    \App\Models\BookingMenuItem::create([
+                        'booking_id' => $this->booking->id,
+                        'menu_item_id' => $menuItem['id'],
+                        'custom_note' => $menuItem['custom_note'] ?: null,
+                    ]);
+                }
 
                 // Create history record if anything changed
                 if ($oldStatus !== $this->bookingStatus || $oldPaymentStatus !== $this->paymentStatus) {
