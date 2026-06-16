@@ -71,6 +71,21 @@ class BookingController extends Controller
     }
 
     /**
+     * Renders a printable slip layout (V2) for a booking.
+     */
+    public function slipV2(Booking $booking)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
+
+        // Tenant scoping security check
+        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
+            abort(403, 'Unauthorized access to this booking.');
+        }
+
+        return view('bookings.slip_v2', compact('booking'));
+    }
+
+    /**
      * Renders a printable payment receipt for a specific payment.
      */
     public function paymentReceipt(\App\Models\BookingPayment $payment)

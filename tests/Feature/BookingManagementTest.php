@@ -974,4 +974,48 @@ class BookingManagementTest extends TestCase
         $this->assertEquals(100000.00, $customer->total_paid_amount);
         $this->assertEquals(100000.00, $customer->outstanding_balance);
     }
+
+    public function test_booking_slips_v1_and_v2_accessibility_and_tenant_isolation()
+    {
+        $booking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-25',
+            'start_time' => '2026-06-25 18:00:00',
+            'end_time' => '2026-06-25 23:30:00',
+            'guest_count' => 150,
+            'per_plate_price' => 1500.00,
+            'grand_total' => 225000.00,
+            'booking_status' => 'Confirmed',
+        ]);
+
+        // 1. Authorized user can view V1 and V2 slips
+        $this->actingAs($this->userOwnerA);
+        $this->get(route('bookings.slip', $booking->id))->assertStatus(200)->assertSeeLivewire('booking-slip');
+        $this->get(route('bookings.slip-v2', $booking->id))->assertStatus(200)->assertSeeLivewire('booking-slip-v2');
+
+        // 2. Tenant isolation blocks access to other tenant's booking slips
+        $bookingB = Booking::create([
+            'marquee_id' => $this->marqueeB->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-26',
+            'start_time' => '2026-06-26 18:00:00',
+            'end_time' => '2026-06-26 23:30:00',
+            'guest_count' => 150,
+            'per_plate_price' => 1500.00,
+            'grand_total' => 225000.00,
+            'booking_status' => 'Confirmed',
+        ]);
+
+        $this->get(route('bookings.slip', $bookingB->id))->assertStatus(404);
+        $this->get(route('bookings.slip-v2', $bookingB->id))->assertStatus(404);
+    }
 }

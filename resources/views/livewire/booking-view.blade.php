@@ -354,7 +354,10 @@
                     <div class="d-flex flex-column gap-2">
                         <!-- Invoice Printing -->
                         <a class="btn btn-falcon-success btn-sm w-100" href="{{ route('bookings.slip', $booking->id) }}" target="_blank">
-                            <span class="fas fa-print me-1"></span> Print Booking Slip
+                            <span class="fas fa-print me-1"></span> Print Booking Slip (V1)
+                        </a>
+                        <a class="btn btn-falcon-primary btn-sm w-100 mt-2" href="{{ route('bookings.slip-v2', $booking->id) }}" target="_blank">
+                            <span class="fas fa-print me-1"></span> Print Booking Slip (V2)
                         </a>
 
                         <hr class="my-2" />
