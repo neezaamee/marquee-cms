@@ -18,6 +18,7 @@ class MenuItemForm extends Component
     // Fields
     public $category_id = '';
     public $item_name = '';
+    public $urdu_name = '';
     public $item_code = '';
     public $description = '';
     public $unit = 'Per Plate';
@@ -43,6 +44,7 @@ class MenuItemForm extends Component
             $this->itemId = $menuItem->id;
             $this->category_id = $menuItem->category_id;
             $this->item_name = $menuItem->item_name;
+            $this->urdu_name = $menuItem->urdu_name ?? '';
             $this->item_code = $menuItem->item_code;
             $this->description = $menuItem->description ?? '';
             $this->unit = $menuItem->unit;
@@ -63,6 +65,7 @@ class MenuItemForm extends Component
                 Rule::exists('menu_categories', 'id')->where('marquee_id', $marqueeId)->whereNull('deleted_at'),
             ],
             'item_name' => 'required|string|max:255',
+            'urdu_name' => 'nullable|string|max:255',
             'item_code' => [
                 'required',
                 'string',
@@ -100,6 +103,7 @@ class MenuItemForm extends Component
             'marquee_id' => auth()->user()->marquee_id,
             'category_id' => $this->category_id,
             'item_name' => $this->item_name,
+            'urdu_name' => $this->urdu_name ?: null,
             'item_code' => $this->item_code,
             'description' => $this->description,
             'unit' => $this->unit,

@@ -14,6 +14,7 @@ class BookingMenuItem extends Model
         'booking_id',
         'menu_item_id',
         'custom_note',
+        'managed_by_host',
     ];
 
     /**

@@ -134,6 +134,8 @@ class CustomerProfile extends Component
 
     public function render()
     {
+        $this->customer->loadMissing(['bookings.payments', 'bookings.halls', 'bookings.eventType']);
+        
         // Reload documents and communication logs with uploader details
         $documents = $this->customer->documents()->with('uploader')->latest()->get();
         $communicationLogs = $this->customer->communicationLogs()->with('logger')->latest()->get();

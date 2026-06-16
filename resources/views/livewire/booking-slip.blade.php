@@ -172,7 +172,7 @@
         </div>
 
         <!-- Event Menu Checklist (Highlighting host-managed dishes) -->
-        @if(!$booking->no_food && $booking->menuItems->isNotEmpty())
+        @if($booking->menuItems->isNotEmpty())
             <div class="my-4">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-2">Event Menu Selection Details</span>
                 <div class="row g-2">
@@ -180,13 +180,19 @@
                         <div class="col-md-6 col-sm-12">
                             <div class="p-2 border rounded bg-light d-flex justify-content-between align-items-center fs-11">
                                 <div>
-                                    <span class="fw-bold text-800">{{ $item->item_name }}</span>
+                                    <span class="fw-bold text-800">
+                                        {{ $item->item_name }}
+                                        @if($item->urdu_name)
+                                            <span class="text-muted fs-11 ms-1">({{ $item->urdu_name }})</span>
+                                        @endif
+                                    </span>
                                     @if(!empty($item->pivot->custom_note))
                                         <div class="text-muted fs-12 italic">({{ $item->pivot->custom_note }})</div>
                                     @endif
                                 </div>
                                 @if(!empty($item->pivot->managed_by_host))
-                                    <span class="badge badge-subtle-warning fs-11">Managed by Host</span>
+                                    <span class="badge badge-subtle-warning fs-11 d-print-none">Managed by Host</span>
+                                    <span class="text-danger fw-bold fs-11 d-none d-print-inline-block">(By Host)</span>
                                 @endif
                             </div>
                         </div>

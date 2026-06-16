@@ -18,6 +18,7 @@ class MenuItem extends Model
         'marquee_id',
         'category_id',
         'item_name',
+        'urdu_name',
         'item_code',
         'description',
         'unit',

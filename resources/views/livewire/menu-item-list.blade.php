@@ -75,6 +75,9 @@
                                 </td>
                                 <td class="fw-semi-bold">
                                     <a href="{{ route('menu-items.show', $item->id) }}">{{ $item->item_name }}</a>
+                                    @if($item->urdu_name)
+                                        <span class="d-block text-muted fs-11">{{ $item->urdu_name }}</span>
+                                    @endif
                                 </td>
                                 <td>
                                     <span class="text-800 fw-semi-bold">{{ $item->category->category_name }}</span>

@@ -56,6 +56,7 @@ class BookingEdit extends Component
     public $bookingMenuItems = []; // array of ['id' => int, 'item_name' => string, 'custom_note' => string, 'managed_by_host' => bool]
     public $selectedMenuItemToAdd = ''; // dropdown selection to add menu item
     public $menuItemsAutocomplete = []; // list of all menu items for the dropdown
+    public $menuItemSearch = '';
 
     // Search and Multi-select states
     public $eventTypeSearch = '';
@@ -186,6 +187,7 @@ class BookingEdit extends Component
             $this->bookingMenuItems[] = [
                 'id' => $item->id,
                 'item_name' => $item->item_name,
+                'urdu_name' => $item->urdu_name,
                 'custom_note' => $item->pivot->custom_note ?? '',
                 'managed_by_host' => (bool)($item->pivot->managed_by_host ?? false),
             ];
@@ -442,6 +444,7 @@ class BookingEdit extends Component
             $this->bookingMenuItems[] = [
                 'id' => $item->id,
                 'item_name' => $item->item_name,
+                'urdu_name' => $item->urdu_name,
                 'custom_note' => '',
             ];
         }
@@ -462,13 +465,25 @@ class BookingEdit extends Component
         $this->recalculatePrices();
     }
 
-    public function addMenuItem()
+    public function updatedMenuItemSearch()
     {
-        if (empty($this->selectedMenuItemToAdd)) {
-            return;
+        $marqueeId = auth()->user()->marquee_id;
+        if (empty($this->menuItemSearch)) {
+            $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)
+                ->orderBy('item_name')
+                ->get();
+        } else {
+            $term = '%' . $this->menuItemSearch . '%';
+            $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)
+                ->where('item_name', 'like', $term)
+                ->orderBy('item_name')
+                ->get();
         }
+    }
 
-        $item = MenuItem::find($this->selectedMenuItemToAdd);
+    public function selectMenuItem($id)
+    {
+        $item = MenuItem::find($id);
         if ($item) {
             // Check for duplicates
             $exists = false;
@@ -483,12 +498,23 @@ class BookingEdit extends Component
                 $this->bookingMenuItems[] = [
                     'id' => $item->id,
                     'item_name' => $item->item_name,
+                    'urdu_name' => $item->urdu_name,
                     'custom_note' => '',
-                    'managed_by_host' => false,
+                    'managed_by_host' => $this->noFood ? true : false,
                 ];
             }
         }
+        $this->menuItemSearch = '';
+        $this->updatedMenuItemSearch();
+    }
 
+    public function addMenuItem()
+    {
+        if (empty($this->selectedMenuItemToAdd)) {
+            return;
+        }
+
+        $this->selectMenuItem($this->selectedMenuItemToAdd);
         $this->selectedMenuItemToAdd = '';
     }
 
@@ -505,7 +531,10 @@ class BookingEdit extends Component
         if ($this->noFood) {
             $this->perPlatePrice = 0.00;
             $this->selectedPackageId = '';
-            $this->bookingMenuItems = [];
+            $this->bookingMenuItems = array_map(function($item) {
+                $item['managed_by_host'] = true;
+                return $item;
+            }, $this->bookingMenuItems);
         }
 
         // Calculate the sum of selected extra services (add-ons)

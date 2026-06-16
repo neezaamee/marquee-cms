@@ -89,6 +89,15 @@ class BookingList extends Component
             return;
         }
 
+        $user = auth()->user();
+        $isOwner = $user->role && in_array($user->role->name, ['owner', 'super_admin']);
+
+        if ($booking->booking_status === 'Completed' && !$isOwner) {
+            session()->flash('error', 'Completed bookings cannot be cancelled or deleted.');
+            $this->deleteId = null;
+            return;
+        }
+
         $oldStatus = $booking->booking_status;
 
         // Update status to Cancelled
@@ -110,6 +119,17 @@ class BookingList extends Component
 
         session()->flash('success', 'Booking #' . $booking->booking_number . ' has been cancelled and deleted.');
         $this->deleteId = null;
+        $this->resetPage();
+    }
+
+    public function resetFilters()
+    {
+        $this->search = '';
+        $this->filterStatus = '';
+        $this->filterPaymentStatus = '';
+        $this->filterHall = '';
+        $this->filterDateStart = '';
+        $this->filterDateEnd = '';
         $this->resetPage();
     }
 

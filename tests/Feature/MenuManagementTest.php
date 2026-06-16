@@ -181,6 +181,7 @@ class MenuManagementTest extends TestCase
         Livewire::test('menu-item-form')
             ->set('category_id', $category->id)
             ->set('item_name', 'Mutton Biryani')
+            ->set('urdu_name', 'مٹن بریانی')
             ->set('item_code' , 'BIRY-MT')
             ->set('unit', 'Per Plate')
             ->set('base_cost', 250)
@@ -193,6 +194,7 @@ class MenuManagementTest extends TestCase
 
         $this->assertDatabaseHas('menu_items', [
             'item_name' => 'Mutton Biryani',
+            'urdu_name' => 'مٹن بریانی',
             'item_code' => 'BIRY-MT',
             'base_cost' => 250.00,
             'selling_price' => 450.00,

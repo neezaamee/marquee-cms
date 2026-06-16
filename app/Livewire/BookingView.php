@@ -155,10 +155,15 @@ class BookingView extends Component
 
         $user = auth()->user();
         $isOwner = $user->role && in_array($user->role->name, ['owner', 'super_admin']);
-        $isLocked = in_array($this->booking->booking_status, ['Completed', 'Cancelled']);
+
+        if ($this->booking->booking_status === 'Completed' && !$isOwner) {
+            session()->flash('error', 'Completed bookings cannot be changed to another status.');
+            return;
+        }
+        $isLocked = $this->booking->booking_status === 'Cancelled';
 
         if ($isLocked && !$isOwner) {
-            session()->flash('error', 'Only owners or super admins can unlock or change status of Completed or Cancelled bookings.');
+            session()->flash('error', 'Only owners or super admins can unlock or change status of Cancelled bookings.');
             return;
         }
 

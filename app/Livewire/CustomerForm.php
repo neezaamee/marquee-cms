@@ -164,6 +164,9 @@ class CustomerForm extends Component
         if ($this->alternate_phone) {
             $this->alternate_phone = str_replace(['-', ' '], '', $this->alternate_phone);
         }
+        if ($this->referred_by_contact) {
+            $this->referred_by_contact = str_replace(['-', ' '], '', $this->referred_by_contact);
+        }
 
         $validatedData = $this->validate();
 

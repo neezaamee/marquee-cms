@@ -21,6 +21,13 @@
                         @error('item_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
+                    <!-- Urdu Name -->
+                    <div class="col-md-6">
+                        <label class="form-label" for="urdu_name">Urdu Name (Optional)</label>
+                        <input wire:model="urdu_name" class="form-control @error('urdu_name') is-invalid @enderror" id="urdu_name" type="text" placeholder="e.g. چکن بریانی" style="direction: rtl;" />
+                        @error('urdu_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
                     <!-- Item Code -->
                     <div class="col-md-6">
                         <label class="form-label" for="item_code">Menu Item Code *</label>

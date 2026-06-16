@@ -18,7 +18,7 @@
                         <a class="btn btn-falcon-default btn-sm" href="{{ route('bookings.index') }}">
                             <span class="fas fa-chevron-left me-1"></span> Back to List
                         </a>
-                        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings'))
+                        @if((auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings')) && ($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin']))))
                             <a class="btn btn-falcon-primary btn-sm" href="{{ route('bookings.edit', $booking->id) }}">
                                 <span class="fas fa-edit me-1"></span> Edit
                             </a>
@@ -121,7 +121,12 @@
                                     @foreach($booking->menuItems as $item)
                                         <li class="list-group-item px-0 py-1 d-flex justify-content-between align-items-center">
                                             <div>
-                                                <span class="fw-bold text-800">{{ $item->item_name }}</span>
+                                                <span class="fw-bold text-800">
+                                                    {{ $item->item_name }}
+                                                    @if($item->urdu_name)
+                                                        <span class="text-muted fs-11 ms-1">({{ $item->urdu_name }})</span>
+                                                    @endif
+                                                </span>
                                                 @if($item->pivot->custom_note)
                                                     <span class="d-block text-muted fs-12 italic">({{ $item->pivot->custom_note }})</span>
                                                 @endif
@@ -355,24 +360,26 @@
                         <hr class="my-2" />
 
                         <!-- Booking Status Updates -->
-                        <span class="text-muted fs-12 fw-bold mb-1">Update Reservation Status:</span>
-                        <div class="d-flex gap-1 flex-wrap">
-                            @if($booking->booking_status !== 'Confirmed')
-                                <button wire:click="updateStatus('Confirmed')" class="btn btn-success btn-xs" type="button">Confirm</button>
-                            @endif
-                            @if($booking->booking_status !== 'Reserved')
-                                <button wire:click="updateStatus('Reserved')" class="btn btn-warning btn-xs" type="button">Reserve</button>
-                            @endif
-                            @if($booking->booking_status !== 'Completed' && $booking->booking_status !== 'Cancelled')
-                                <button wire:click="updateStatus('Completed')" class="btn btn-info btn-xs" type="button">Complete</button>
-                            @endif
-                            @if($booking->booking_status !== 'Cancelled')
-                                <button wire:click="updateStatus('Cancelled')" class="btn btn-danger btn-xs" type="button">Cancel</button>
-                            @endif
-                            @if($booking->booking_status !== 'Rejected' && $booking->booking_status !== 'Confirmed')
-                                <button wire:click="updateStatus('Rejected')" class="btn btn-dark btn-xs" type="button">Reject</button>
-                            @endif
-                        </div>
+                        @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
+                            <span class="text-muted fs-12 fw-bold mb-1">Update Reservation Status:</span>
+                            <div class="d-flex gap-1 flex-wrap">
+                                @if($booking->booking_status !== 'Confirmed')
+                                    <button wire:click="updateStatus('Confirmed')" class="btn btn-success btn-xs" type="button">Confirm</button>
+                                @endif
+                                @if($booking->booking_status !== 'Reserved')
+                                    <button wire:click="updateStatus('Reserved')" class="btn btn-warning btn-xs" type="button">Reserve</button>
+                                @endif
+                                @if($booking->booking_status !== 'Completed' && $booking->booking_status !== 'Cancelled')
+                                    <button wire:click="updateStatus('Completed')" class="btn btn-info btn-xs" type="button">Complete</button>
+                                @endif
+                                @if($booking->booking_status !== 'Cancelled')
+                                    <button wire:click="updateStatus('Cancelled')" class="btn btn-danger btn-xs" type="button">Cancel</button>
+                                @endif
+                                @if($booking->booking_status !== 'Rejected' && $booking->booking_status !== 'Confirmed')
+                                    <button wire:click="updateStatus('Rejected')" class="btn btn-dark btn-xs" type="button">Reject</button>
+                                @endif
+                            </div>
+                        @endif
 
                         <!-- Refundable Security Deposit Status & Process -->
                         <hr class="my-2" />

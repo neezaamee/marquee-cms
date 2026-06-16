@@ -64,6 +64,13 @@
                 <div class="col-lg-2 col-md-4 col-6">
                     <input wire:model.live="filterDateEnd" type="date" class="form-control form-control-sm font-monospace" placeholder="To Date" title="To Booking Date" />
                 </div>
+
+                <!-- Reset Filters -->
+                <div class="col-lg-2 col-md-4 col-12">
+                    <button wire:click="resetFilters" class="btn btn-falcon-default btn-sm w-100" type="button">
+                        <span class="fas fa-undo me-1"></span>Reset Filters
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -164,14 +171,18 @@
                                             <span class="text-success fas fa-print"></span>
                                         </a>
                                         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings'))
-                                            <a class="btn btn-link p-0" href="{{ route('bookings.edit', $booking->id) }}" data-bs-toggle="tooltip" title="Edit Booking">
-                                                <span class="text-primary fas fa-edit"></span>
-                                            </a>
+                                            @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
+                                                <a class="btn btn-link p-0" href="{{ route('bookings.edit', $booking->id) }}" data-bs-toggle="tooltip" title="Edit Booking">
+                                                    <span class="text-primary fas fa-edit"></span>
+                                                </a>
+                                            @endif
                                         @endif
                                         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('cancel_bookings'))
-                                            <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $booking->id }})" title="Cancel Booking">
-                                                <span class="text-danger fas fa-ban"></span>
-                                            </button>
+                                            @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
+                                                <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $booking->id }})" title="Cancel Booking">
+                                                    <span class="text-danger fas fa-ban"></span>
+                                                </button>
+                                            @endif
                                         @endif
                                     </div>
                                 </td>

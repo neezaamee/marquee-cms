@@ -258,7 +258,7 @@
                                 <table class="table table-sm table-striped fs-10 align-middle">
                                     <thead class="bg-200">
                                         <tr>
-                                            <th>Invoice #</th>
+                                            <th>Booking #</th>
                                             <th>Booking Date</th>
                                             <th>Hall / Event</th>
                                             <th>Invoiced Amount</th>
@@ -268,12 +268,62 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td colspan="7" class="text-center py-4 text-muted">
-                                                <span class="fas fa-file-invoice fa-2x mb-2 d-block text-400"></span>
-                                                Billing integration will appear here once the booking and finance engines are active.
-                                            </td>
-                                        </tr>
+                                        @forelse($customer->bookings as $booking)
+                                            @php
+                                                $paidSum = $booking->payments->sum('amount');
+                                                $balance = max(0.00, $booking->grand_total - $paidSum);
+                                                
+                                                $paymentColors = [
+                                                    'Unpaid' => 'danger',
+                                                    'Partially Paid' => 'warning',
+                                                    'Paid' => 'success',
+                                                    'Refunded' => 'secondary'
+                                                ];
+                                                $pc = $paymentColors[$booking->payment_status] ?? 'secondary';
+
+                                                $statusColors = [
+                                                    'Draft' => 'secondary',
+                                                    'Reserved' => 'warning',
+                                                    'Confirmed' => 'success',
+                                                    'Completed' => 'info',
+                                                    'Cancelled' => 'danger',
+                                                    'Rejected' => 'dark'
+                                                ];
+                                                $sc = $statusColors[$booking->booking_status] ?? 'secondary';
+                                            @endphp
+                                            <tr>
+                                                <td class="font-monospace fw-semi-bold">
+                                                    <a href="{{ route('bookings.show', $booking->id) }}">#{{ $booking->booking_number }}</a>
+                                                </td>
+                                                <td>{{ $booking->booking_date->format('d-M-Y') }}</td>
+                                                <td>
+                                                    <div class="fw-semi-bold">
+                                                        @if($booking->halls->isNotEmpty())
+                                                            {{ $booking->halls->pluck('hall_name')->implode(', ') }}
+                                                        @else
+                                                            {{ $booking->hall->hall_name ?? '—' }}
+                                                        @endif
+                                                    </div>
+                                                    <div class="text-500 fs-11">{{ $booking->eventType->event_type_name ?? '—' }}</div>
+                                                </td>
+                                                <td class="font-monospace">Rs. {{ number_format($booking->grand_total, 2) }}</td>
+                                                <td class="font-monospace">Rs. {{ number_format($paidSum, 2) }}</td>
+                                                <td class="font-monospace fw-bold text-{{ $balance > 0 ? 'danger' : 'success' }}">
+                                                    Rs. {{ number_format($balance, 2) }}
+                                                </td>
+                                                <td>
+                                                    <span class="badge badge-subtle-{{ $pc }} rounded-pill me-1">{{ $booking->payment_status }}</span>
+                                                    <span class="badge badge-subtle-{{ $sc }} rounded-pill">{{ $booking->booking_status }}</span>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="7" class="text-center py-4 text-muted">
+                                                    <span class="fas fa-file-invoice fa-2x mb-2 d-block text-400"></span>
+                                                    No bookings or invoices recorded for this customer.
+                                                </td>
+                                            </tr>
+                                        @endforelse
                                     </tbody>
                                 </table>
                             </div>

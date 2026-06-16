@@ -498,6 +498,7 @@ class BookingManagementTest extends TestCase
             [
                 'id' => $menuItem1->id,
                 'item_name' => 'Chicken Korma',
+                'urdu_name' => null,
                 'custom_note' => '',
                 'managed_by_host' => false,
             ]
@@ -512,12 +513,14 @@ class BookingManagementTest extends TestCase
             [
                 'id' => $menuItem1->id,
                 'item_name' => 'Chicken Korma',
+                'urdu_name' => null,
                 'custom_note' => '',
                 'managed_by_host' => false,
             ],
             [
                 'id' => $menuItem2->id,
                 'item_name' => 'Chicken Karahi',
+                'urdu_name' => null,
                 'custom_note' => '',
                 'managed_by_host' => false,
             ]
@@ -693,7 +696,7 @@ class BookingManagementTest extends TestCase
             'guest_count' => 100,
             'per_plate_price' => 1500.00,
             'grand_total' => 150000.00,
-            'booking_status' => 'Completed',
+            'booking_status' => 'Cancelled',
             'payment_status' => 'Paid',
         ]);
 
@@ -811,11 +814,164 @@ class BookingManagementTest extends TestCase
         $this->assertEquals(0.00, $booking->package_amount);
         $this->assertEquals(50000.00, $booking->hall_charges);
         $this->assertEquals(60000.00, $booking->grand_total);
-        
         // Check pivot table exists
         $this->assertDatabaseHas('booking_halls', [
             'booking_id' => $booking->id,
             'hall_id' => $this->hallA->id,
         ]);
+    }
+
+    public function test_completed_bookings_are_locked_from_editing_and_cancellation()
+    {
+        $booking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-15',
+            'start_time' => '2026-06-15 18:00:00',
+            'end_time' => '2026-06-15 23:30:00',
+            'guest_count' => 150,
+            'per_plate_price' => 1500.00,
+            'grand_total' => 225000.00,
+            'booking_status' => 'Completed',
+        ]);
+
+        // 1. Staff is blocked
+        Livewire::actingAs($this->userStaffA);
+        
+        // Edit component blocks completed booking edit for staff
+        Livewire::test('booking-edit', ['booking' => $booking])
+            ->assertRedirect(route('bookings.show', $booking->id));
+
+        // BookingView component blocks status changes for staff
+        Livewire::test('booking-view', ['booking' => $booking])
+            ->call('updateStatus', 'Draft');
+            
+        $booking->refresh();
+        $this->assertEquals('Completed', $booking->booking_status);
+
+        // BookingList component blocks deleting/cancelling for staff
+        Livewire::test('booking-list')
+            ->set('deleteId', $booking->id)
+            ->call('deleteRecord');
+            
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'deleted_at' => null,
+        ]);
+
+        // 2. Owner is NOT blocked
+        Livewire::actingAs($this->userOwnerA);
+        
+        // Edit component does NOT block completed booking edit for Owner
+        Livewire::test('booking-edit', ['booking' => $booking])
+            ->assertStatus(200);
+
+        // BookingView component allows status changes for Owner
+        Livewire::test('booking-view', ['booking' => $booking])
+            ->call('updateStatus', 'Draft');
+            
+        $booking->refresh();
+        $this->assertEquals('Draft', $booking->booking_status);
+        
+        // Restore status to Completed to test delete
+        $booking->update(['booking_status' => 'Completed']);
+
+        // BookingList component allows cancelling/deleting for Owner
+        Livewire::test('booking-list')
+            ->set('deleteId', $booking->id)
+            ->call('deleteRecord');
+            
+        $this->assertSoftDeleted('bookings', [
+            'id' => $booking->id,
+        ]);
+    }
+
+    public function test_customer_dynamic_statistics_calculations()
+    {
+        $customer = Customer::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_code' => 'CUST-TEST-STATS',
+            'customer_type' => 'Individual',
+            'first_name' => 'Test',
+            'last_name' => 'Stats',
+            'phone_number' => '0300-1111111',
+            'status' => 'Active',
+        ]);
+
+        // Create bookings:
+        // 1. Completed
+        $booking1 = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $customer->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => Carbon::yesterday()->format('Y-m-d'),
+            'start_time' => Carbon::yesterday()->format('Y-m-d') . ' 18:00:00',
+            'end_time' => Carbon::yesterday()->format('Y-m-d') . ' 23:30:00',
+            'guest_count' => 100,
+            'per_plate_price' => 1000.00,
+            'grand_total' => 100000.00,
+            'booking_status' => 'Completed',
+            'payment_status' => 'Paid',
+        ]);
+
+        // Record a payment transaction
+        \App\Models\BookingPayment::create([
+            'booking_id' => $booking1->id,
+            'amount' => 100000.00,
+            'payment_date' => Carbon::yesterday()->format('Y-m-d'),
+            'payment_method' => 'Cash',
+            'recorded_by' => $this->userOwnerA->id,
+        ]);
+
+        // 2. Upcoming Confirmed
+        $booking2 = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $customer->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => Carbon::tomorrow()->format('Y-m-d'),
+            'start_time' => Carbon::tomorrow()->format('Y-m-d') . ' 18:00:00',
+            'end_time' => Carbon::tomorrow()->format('Y-m-d') . ' 23:30:00',
+            'guest_count' => 100,
+            'per_plate_price' => 1000.00,
+            'grand_total' => 100000.00,
+            'booking_status' => 'Confirmed',
+            'payment_status' => 'Unpaid',
+        ]);
+
+        // 3. Cancelled
+        $booking3 = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $customer->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => Carbon::tomorrow()->format('Y-m-d'),
+            'start_time' => Carbon::tomorrow()->format('Y-m-d') . ' 18:00:00',
+            'end_time' => Carbon::tomorrow()->format('Y-m-d') . ' 23:30:00',
+            'guest_count' => 100,
+            'per_plate_price' => 1000.00,
+            'grand_total' => 100000.00,
+            'booking_status' => 'Cancelled',
+            'payment_status' => 'Unpaid',
+        ]);
+
+        $this->assertEquals(3, $customer->total_bookings);
+        $this->assertEquals(1, $customer->upcoming_events);
+        $this->assertEquals(1, $customer->completed_events);
+        $this->assertEquals(1, $customer->cancelled_events);
+        $this->assertEquals(200000.00, $customer->total_revenue_generated);
+        $this->assertEquals(100000.00, $customer->total_paid_amount);
+        $this->assertEquals(100000.00, $customer->outstanding_balance);
     }
 }

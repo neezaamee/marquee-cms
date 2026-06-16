@@ -138,18 +138,9 @@
         <!-- Ledger Financial Summary (Account Balances) -->
         <div class="row justify-content-end mb-4">
             <div class="col-sm-5 text-end fs-11">
-                <div class="d-flex justify-content-between mb-1">
-                    <span class="text-600">Event Grand Total:</span>
-                    <span class="font-monospace">Rs. {{ number_format($booking->grand_total, 2) }}</span>
-                </div>
-                <div class="d-flex justify-content-between mb-1 text-success border-bottom pb-1">
-                    <span>Total Payments Received:</span>
-                    @php $totalPaid = $booking->payments()->sum('amount'); @endphp
-                    <span class="font-monospace">Rs. {{ number_format($totalPaid, 2) }}</span>
-                </div>
-                <div class="d-flex justify-content-between fs-10 fw-black text-danger mt-2">
-                    <span>Remaining Balance:</span>
-                    <span class="font-monospace">Rs. {{ number_format(max(0, $booking->grand_total - $totalPaid), 2) }}</span>
+                <div class="d-flex justify-content-between fs-10 fw-black text-success mt-2">
+                    <span>Paid Amount:</span>
+                    <span class="font-monospace">Rs. {{ number_format($payment->amount, 2) }}</span>
                 </div>
             </div>
         </div>

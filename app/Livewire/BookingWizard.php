@@ -78,6 +78,7 @@ class BookingWizard extends Component
     public $bookingMenuItems = []; // array of ['id' => int, 'item_name' => string, 'custom_note' => string, 'managed_by_host' => bool]
     public $selectedMenuItemToAdd = ''; // dropdown selection to add menu item
     public $menuItemsAutocomplete = []; // list of all menu items for the dropdown
+    public $menuItemSearch = '';
 
     // Search and Multi-select states
     public $eventTypeSearch = '';
@@ -211,19 +212,46 @@ class BookingWizard extends Component
      */
     public function createCustomer()
     {
+        $this->newPhone = str_replace(['-', ' '], '', $this->newPhone);
+        if ($this->newReferralContact) {
+            $this->newReferralContact = str_replace(['-', ' '], '', $this->newReferralContact);
+        }
+
+        $marqueeId = auth()->user()->marquee_id;
+
         $this->validate([
             'newFirstName' => 'required|string|max:255',
             'newLastName' => 'required|string|max:255',
             'newCustomerType' => 'required|in:Individual,Corporate',
             'newCompanyName' => 'required_if:newCustomerType,Corporate|nullable|string|max:255',
             'newPhone' => 'required|string|max:20',
-            'newCNIC' => 'nullable|string|max:20',
-            'newEmail' => 'nullable|email|max:255',
+            'newCNIC' => [
+                'nullable',
+                'string',
+                'max:20',
+                'regex:/^\d{5}-\d{7}-\d{1}$/',
+                \Illuminate\Validation\Rule::unique('customers', 'cnic_national_id')
+                    ->where('marquee_id', $marqueeId)
+                    ->whereNull('deleted_at'),
+            ],
+            'newEmail' => [
+                'nullable',
+                'email',
+                'max:255',
+                \Illuminate\Validation\Rule::unique('customers', 'email')
+                    ->where('marquee_id', $marqueeId)
+                    ->whereNull('deleted_at'),
+            ],
             'newCity' => 'required|string',
             'newProvince' => 'required|string',
             'newNTN' => 'nullable|string|max:50',
             'newReferralName' => 'nullable|string|max:255',
             'newReferralContact' => 'nullable|string|max:50',
+        ], [
+            'newCNIC.regex' => 'The CNIC format must be XXXXX-XXXXXXX-X.',
+            'newCNIC.unique' => 'This CNIC is already registered in your Marquee database.',
+            'newEmail.unique' => 'This email is already registered in your Marquee database.',
+            'newCompanyName.required_if' => 'The company name field is required for Corporate customers.',
         ]);
 
         $marqueeId = auth()->user()->marquee_id;
@@ -490,6 +518,7 @@ class BookingWizard extends Component
             $this->bookingMenuItems[] = [
                 'id' => $item->id,
                 'item_name' => $item->item_name,
+                'urdu_name' => $item->urdu_name,
                 'custom_note' => '',
                 'managed_by_host' => false,
             ];
@@ -503,13 +532,25 @@ class BookingWizard extends Component
         $this->recalculatePrices();
     }
 
-    public function addMenuItem()
+    public function updatedMenuItemSearch()
     {
-        if (empty($this->selectedMenuItemToAdd)) {
-            return;
+        $marqueeId = auth()->user()->marquee_id;
+        if (empty($this->menuItemSearch)) {
+            $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)
+                ->orderBy('item_name')
+                ->get();
+        } else {
+            $term = '%' . $this->menuItemSearch . '%';
+            $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)
+                ->where('item_name', 'like', $term)
+                ->orderBy('item_name')
+                ->get();
         }
+    }
 
-        $item = MenuItem::find($this->selectedMenuItemToAdd);
+    public function selectMenuItem($id)
+    {
+        $item = MenuItem::find($id);
         if ($item) {
             // Check for duplicates
             $exists = false;
@@ -524,12 +565,23 @@ class BookingWizard extends Component
                 $this->bookingMenuItems[] = [
                     'id' => $item->id,
                     'item_name' => $item->item_name,
+                    'urdu_name' => $item->urdu_name,
                     'custom_note' => '',
-                    'managed_by_host' => false,
+                    'managed_by_host' => $this->noFood ? true : false,
                 ];
             }
         }
+        $this->menuItemSearch = '';
+        $this->updatedMenuItemSearch();
+    }
 
+    public function addMenuItem()
+    {
+        if (empty($this->selectedMenuItemToAdd)) {
+            return;
+        }
+
+        $this->selectMenuItem($this->selectedMenuItemToAdd);
         $this->selectedMenuItemToAdd = '';
     }
 
@@ -581,7 +633,10 @@ class BookingWizard extends Component
         if ($this->noFood) {
             $this->perPlatePrice = 0.00;
             $this->selectedPackageId = '';
-            $this->bookingMenuItems = [];
+            $this->bookingMenuItems = array_map(function($item) {
+                $item['managed_by_host'] = true;
+                return $item;
+            }, $this->bookingMenuItems);
         }
 
         // Calculate the sum of selected extra services (add-ons)
