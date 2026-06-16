@@ -268,7 +268,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse($customer->bookings as $booking)
+                                        @forelse($bookings as $booking)
                                             @php
                                                 $paidSum = $booking->payments->sum('amount');
                                                 $balance = max(0.00, $booking->grand_total - $paidSum);
@@ -327,6 +327,11 @@
                                     </tbody>
                                 </table>
                             </div>
+                            @if($bookings->hasPages())
+                                <div class="d-flex justify-content-center mt-3">
+                                    {{ $bookings->links() }}
+                                </div>
+                            @endif
                         </div>
                     @endif
 
@@ -427,6 +432,11 @@
                                             </tbody>
                                         </table>
                                     </div>
+                                    @if($documents->hasPages())
+                                        <div class="d-flex justify-content-center mt-3">
+                                            {{ $documents->links() }}
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -522,6 +532,11 @@
                                             </div>
                                         @endforelse
                                     </div>
+                                    @if($communicationLogs->hasPages())
+                                        <div class="d-flex justify-content-center mt-3">
+                                            {{ $communicationLogs->links() }}
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>

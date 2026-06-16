@@ -11,24 +11,10 @@ class MarqueeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index()
     {
         abort_unless(auth()->user()->isSuperAdmin(), 403);
-
-        $query = Marquee::with('subscriptionPlan');
-
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('city', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
-
-        $marquees = $query->paginate(10);
-        return view('marquees.index', compact('marquees'));
+        return view('marquees.index');
     }
 
     /**

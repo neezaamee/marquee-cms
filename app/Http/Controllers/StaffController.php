@@ -16,34 +16,9 @@ class StaffController extends Controller
     /**
      * Display the staff listing with search and pagination.
      */
-    public function index(Request $request)
+    public function index()
     {
-        $query = Employee::with(['branch', 'user']);
-
-        // Search filter
-        if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('employee_id', 'like', "%{$search}%")
-                  ->orWhere('cnic', 'like', "%{$search}%")
-                  ->orWhere('designation', 'like', "%{$search}%")
-                  ->orWhere('mobile_number', 'like', "%{$search}%");
-            });
-        }
-
-        // Status filter
-        if ($status = $request->get('status')) {
-            $query->where('status', $status);
-        }
-
-        // Designation filter
-        if ($designation = $request->get('designation')) {
-            $query->where('designation', $designation);
-        }
-
-        $employees = $query->latest()->paginate(15)->withQueryString();
-
-        return view('staff.index', compact('employees'));
+        return view('staff.index');
     }
 
     /**

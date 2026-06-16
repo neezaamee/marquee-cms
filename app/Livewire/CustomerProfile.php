@@ -8,10 +8,13 @@ use App\Models\CustomerCommunicationLog;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 class CustomerProfile extends Component
 {
-    use WithFileUploads;
+    use WithFileUploads, WithPagination;
+
+    protected $paginationTheme = 'bootstrap';
 
     public $customer;
 
@@ -82,6 +85,8 @@ class CustomerProfile extends Component
         $this->document_type = 'CNIC Front';
         $this->document_file = null;
 
+        $this->resetPage('docsPage');
+
         session()->flash('success_doc', 'Document uploaded successfully.');
     }
 
@@ -103,6 +108,7 @@ class CustomerProfile extends Component
         }
 
         $doc->delete();
+        $this->resetPage('docsPage');
         session()->flash('success_doc', 'Document deleted successfully.');
     }
 
@@ -129,17 +135,28 @@ class CustomerProfile extends Component
         $this->comm_subject = '';
         $this->comm_content = '';
         
+        $this->resetPage('logsPage');
+
         session()->flash('success_crm', 'Communication log entry added.');
     }
 
     public function render()
     {
-        $this->customer->loadMissing(['bookings.payments', 'bookings.halls', 'bookings.eventType']);
-        
-        // Reload documents and communication logs with uploader details
-        $documents = $this->customer->documents()->with('uploader')->latest()->get();
-        $communicationLogs = $this->customer->communicationLogs()->with('logger')->latest()->get();
+        $bookings = $this->customer->bookings()
+            ->with(['payments', 'halls', 'eventType'])
+            ->latest()
+            ->paginate(5, ['*'], 'bookingsPage');
+            
+        $documents = $this->customer->documents()
+            ->with('uploader')
+            ->latest()
+            ->paginate(5, ['*'], 'docsPage');
+            
+        $communicationLogs = $this->customer->communicationLogs()
+            ->with('logger')
+            ->latest()
+            ->paginate(5, ['*'], 'logsPage');
 
-        return view('livewire.customer-profile', compact('documents', 'communicationLogs'));
+        return view('livewire.customer-profile', compact('bookings', 'documents', 'communicationLogs'));
     }
 }
