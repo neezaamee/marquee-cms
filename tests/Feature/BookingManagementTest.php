@@ -1018,4 +1018,82 @@ class BookingManagementTest extends TestCase
         $this->get(route('bookings.slip', $bookingB->id))->assertStatus(404);
         $this->get(route('bookings.slip-v2', $bookingB->id))->assertStatus(404);
     }
+
+    public function test_bookings_report_view_accessibility_and_tenant_isolation()
+    {
+        $booking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-25',
+            'start_time' => '2026-06-25 18:00:00',
+            'end_time' => '2026-06-25 23:30:00',
+            'guest_count' => 150,
+            'per_plate_price' => 1500.00,
+            'grand_total' => 225000.00,
+            'booking_status' => 'Confirmed',
+        ]);
+
+        // 1. Authorized user can access bookings report route
+        $this->actingAs($this->userOwnerA);
+        $response = $this->get(route('bookings.report', [
+            'search' => $booking->booking_number,
+        ]));
+        $response->assertStatus(200);
+        $response->assertViewHas('bookings');
+        $response->assertSee($booking->booking_number);
+
+        // 2. Tenant isolation limits query results automatically
+        $bookingB = Booking::create([
+            'marquee_id' => $this->marqueeB->id,
+            'booking_number' => 'REPORT-TEST-B-999999',
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-26',
+            'start_time' => '2026-06-26 18:00:00',
+            'end_time' => '2026-06-26 23:30:00',
+            'guest_count' => 150,
+            'per_plate_price' => 1500.00,
+            'grand_total' => 225000.00,
+            'booking_status' => 'Confirmed',
+        ]);
+
+        // Owner A should not see Booking B on the report
+        $responseB = $this->get(route('bookings.report'));
+        $responseB->assertStatus(200);
+        $responseB->assertDontSee($bookingB->booking_number);
+    }
+
+    public function test_excel_export_action_streams_matching_bookings()
+    {
+        $booking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-25',
+            'start_time' => '2026-06-25 18:00:00',
+            'end_time' => '2026-06-25 23:30:00',
+            'guest_count' => 150,
+            'per_plate_price' => 1500.00,
+            'grand_total' => 225000.00,
+            'booking_status' => 'Confirmed',
+        ]);
+
+        Livewire::actingAs($this->userOwnerA);
+
+        $response = Livewire::test('booking-list')
+            ->set('search', $booking->booking_number)
+            ->call('exportExcel');
+
+        $response->assertFileDownloaded();
+    }
 }

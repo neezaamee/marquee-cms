@@ -13,21 +13,17 @@
 
     <!-- Printable Area -->
     <div class="card bg-white shadow-none border p-4 p-md-5" id="printable-invoice">
-        <div class="row align-items-center mb-4">
+        <div class="row align-items-start mb-4">
             <!-- Brand Info -->
-            <div class="col-sm-6 text-start">
-                <h3 class="text-primary fw-black mb-1 text-uppercase fs-8 fs-md-6 lh-sm" style="word-break: break-word;">
-                    {{ $booking->marquee->name ?? 'Royal Event Marquee' }}
-                </h3>
-                <div class="fs-12 text-700 mt-1">
-                    {{ $booking->marquee->address ?? 'Main Boulevard, Gulberg' }}, {{ $booking->marquee->city ?? 'Lahore' }}
-                </div>
-                <div class="fs-12 text-600 mt-0.5">
-                    Phone: {{ $booking->marquee->phone ?? '—' }}
-                </div>
+            <div class="col-6 text-start">
+                <h2 class="mb-1 text-primary fw-bold">{{ $booking->marquee->name ?? 'Royal Event Marquee' }}</h2>
+                <p class="mb-0 text-600 fs-12">
+                    <span class="fas fa-map-marker-alt me-1"></span>{{ $booking->marquee->address ?? '' }}, {{ $booking->marquee->city ?? '' }}
+                    @if($booking->marquee->phone) | <span class="fas fa-phone me-1"></span>{{ $booking->marquee->phone }} @endif
+                </p>
             </div>
             <!-- Invoice Title & QR Code Placeholder -->
-            <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
+            <div class="col-6 text-end">
                 <h4 class="text-800 fw-bold mb-1 fs-9 fs-md-7">BOOKING CONFIRMATION</h4>
                 <div class="fs-12 font-monospace text-secondary">VOUCHER REFERENCE: #{{ $booking->booking_number }}</div>
                 <div class="mt-2 d-inline-block p-2 border bg-light text-center" style="width: 70px; height: 70px; border-radius: 4px;">
@@ -41,37 +37,7 @@
 
         <!-- Meta Grid -->
         <div class="row g-3 my-2">
-            <div class="col-sm-6">
-                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
-                <table class="table table-sm table-borderless fs-12 mb-0">
-                    <tr>
-                        <td class="text-600 px-0 py-1" style="width: 120px;">Booking Hall(s):</td>
-                        <td class="text-800 fw-bold px-0 py-1">
-                            @if($booking->halls->isNotEmpty())
-                                {{ $booking->halls->pluck('hall_name')->implode(', ') }}
-                            @else
-                                {{ $booking->hall->hall_name ?? '—' }}
-                            @endif
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Booking Date:</td>
-                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Shift Slot:</td>
-                        <td class="text-800 px-0 py-1">{{ $booking->slot->slot_name ?? 'Custom Schedule' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Timings:</td>
-                        <td class="text-danger-800 font-monospace fw-bold px-0 py-1">
-                            {{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }}
-                        </td>
-                    </tr>
-                </table>
-            </div>
-
-            <div class="col-sm-6">
+            <div class="col-6">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Customer / Host Details</span>
                 @if($booking->customer)
                     <table class="table table-sm table-borderless fs-12 mb-0">
@@ -108,6 +74,36 @@
                 @else
                     <p class="text-muted fs-12 mb-0">No customer detail attached.</p>
                 @endif
+            </div>
+
+            <div class="col-6">
+                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
+                <table class="table table-sm table-borderless fs-12 mb-0">
+                    <tr>
+                        <td class="text-600 px-0 py-1" style="width: 120px;">Booking Hall(s):</td>
+                        <td class="text-800 fw-bold px-0 py-1">
+                            @if($booking->halls->isNotEmpty())
+                                {{ $booking->halls->pluck('hall_name')->implode(', ') }}
+                            @else
+                                {{ $booking->hall->hall_name ?? '—' }}
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Booking Date:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Shift Slot:</td>
+                        <td class="text-800 px-0 py-1">{{ $booking->slot->slot_name ?? 'Custom Schedule' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Timings:</td>
+                        <td class="text-danger-800 font-monospace fw-bold px-0 py-1">
+                            {{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }}
+                        </td>
+                    </tr>
+                </table>
             </div>
         </div>
 
@@ -173,7 +169,7 @@
         <!-- Event Menu Details & Instructions (Split Layout) -->
         <div class="row g-4 my-2">
             <!-- Left Side: Menu Items Selection (Responsive Print Font) -->
-            <div class="col-md-6 col-sm-12 border-end border-translucent">
+            <div class="col-6 border-end border-translucent">
                 @if($booking->menuItems->isNotEmpty())
                     <div>
                         <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-2">Event Menu Selection Details</span>
@@ -201,7 +197,7 @@
             </div>
 
             <!-- Right Side: Special Instructions & Addons -->
-            <div class="col-md-6 col-sm-12">
+            <div class="col-6">
                 @if($booking->extraServices->isNotEmpty())
                     <div class="mb-3">
                         <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-2">Extra Add-ons / Services Details</span>
@@ -259,13 +255,23 @@
     <!-- Print Custom stylesheet injection -->
     <style>
         @media print {
-            body {
+            @page {
+                size: A4 portrait;
+                margin: 8mm 12mm 10mm 12mm !important;
+            }
+            html, body {
+                width: 100% !important;
+                height: auto !important;
                 background: #fff !important;
                 color: #000 !important;
                 margin: 0 !important;
                 padding: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
-            .content, .main {
+            .main, .content, .container, .container-fluid {
+                width: 100% !important;
+                max-width: 100% !important;
                 padding: 0 !important;
                 margin: 0 !important;
             }
@@ -275,19 +281,52 @@
                 padding: 0 !important;
                 margin: 0 !important;
             }
+            /* Avoid page breaks inside logical units */
+            .card, table, tr, td, th, ul, li, .row, p, ol {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
             /* Hide top navigation header and side navigation during print */
             nav, .navbar, .navbar-vertical, .d-print-none, footer, .footer {
                 display: none !important;
             }
-            /* Responsive Scaling to guarantee fitting one page */
-            .responsive-print-font {
+            /* Spacing overrides to guarantee layout fits A4 single-page height */
+            hr {
+                margin-top: 0.5rem !important;
+                margin-bottom: 0.5rem !important;
+            }
+            .my-2 {
+                margin-top: 0.25rem !important;
+                margin-bottom: 0.25rem !important;
+            }
+            .my-4 {
+                margin-top: 0.5rem !important;
+                margin-bottom: 0.5rem !important;
+            }
+            .mb-4 {
+                margin-bottom: 0.5rem !important;
+            }
+            .mt-5 {
+                margin-top: 1.5rem !important;
+            }
+            .pt-4 {
+                padding-top: 1rem !important;
+            }
+            /* Precise scaling of print typography */
+            .fs-12 {
                 font-size: 10pt !important;
             }
-            .fs-12 {
-                font-size: 11pt !important;
-            }
             .fs-13 {
-                font-size: 12pt !important;
+                font-size: 10.5pt !important;
+            }
+            .responsive-print-font {
+                font-size: 9.5pt !important;
+            }
+            h2 {
+                font-size: 16pt !important;
+            }
+            h4 {
+                font-size: 13pt !important;
             }
         }
     </style>

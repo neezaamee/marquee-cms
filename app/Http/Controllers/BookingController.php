@@ -101,5 +101,55 @@ class BookingController extends Controller
 
         return view('bookings.receipt', compact('payment', 'booking'));
     }
+
+    /**
+     * Display a printable and filterable report of bookings.
+     */
+    public function report(Request $request)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
+
+        $query = Booking::with(['customer', 'hall', 'slot', 'package', 'payments', 'eventType']);
+
+        if ($request->filled('search')) {
+            $searchTerm = '%' . $request->input('search') . '%';
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('booking_number', 'like', $searchTerm)
+                  ->orWhereHas('customer', function ($cq) use ($searchTerm) {
+                      $cq->where('first_name', 'like', $searchTerm)
+                        ->orWhere('last_name', 'like', $searchTerm)
+                        ->orWhere('phone_number', 'like', $searchTerm);
+                  });
+            });
+        }
+
+        if ($request->filled('filterStatus')) {
+            $query->where('booking_status', $request->input('filterStatus'));
+        }
+
+        if ($request->filled('filterPaymentStatus')) {
+            $query->where('payment_status', $request->input('filterPaymentStatus'));
+        }
+
+        if ($request->filled('filterHall')) {
+            $query->where('hall_id', $request->input('filterHall'));
+        }
+
+        if ($request->filled('filterDateStart')) {
+            $query->where('booking_date', '>=', $request->input('filterDateStart'));
+        }
+
+        if ($request->filled('filterDateEnd')) {
+            $query->where('booking_date', '<=', $request->input('filterDateEnd'));
+        }
+
+        $bookings = $query->orderBy('booking_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $marquee = auth()->user()->marquee;
+
+        return view('bookings.report', compact('bookings', 'marquee'));
+    }
 }
 

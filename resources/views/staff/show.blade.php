@@ -35,11 +35,17 @@
         </div>
 
         {{-- CMS Login Badge --}}
-        @if($staff->user_id)
-          <div class="alert alert-success py-2 px-3 fs-10 mb-3" role="alert">
-            <span class="fas fa-key me-1"></span>
-            CMS Login: <strong>{{ $staff->user->email ?? '—' }}</strong>
-            <br><small>Role: {{ ucwords(str_replace('_', ' ', $staff->user->role->name ?? '—')) }}</small>
+        @if($staff->users->isNotEmpty())
+          <div class="alert alert-success py-2 px-3 fs-10 mb-3 text-start" role="alert">
+            <div class="fw-bold mb-1"><span class="fas fa-key me-1"></span>CMS Login Profiles:</div>
+            @foreach($staff->users as $u)
+              <div class="border-bottom border-200 py-1" style="border-bottom-style: dashed !important;">
+                <strong>Email:</strong> {{ $u->email }}<br>
+                <strong>Username:</strong> {{ $u->username }}<br>
+                <strong>Branch:</strong> {{ $u->branch->name ?? 'All Branches' }}<br>
+                <strong>Role:</strong> {{ ucwords(str_replace('_', ' ', $u->role->name ?? '—')) }}
+              </div>
+            @endforeach
           </div>
         @else
           <div class="alert alert-light border py-2 px-3 fs-10 mb-3" role="alert">

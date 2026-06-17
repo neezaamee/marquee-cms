@@ -45,6 +45,13 @@
             <button class="dropdown-item d-flex align-items-center gap-2" type="button" value="auto" data-theme-control="theme">
               <span class="fas fa-adjust"></span>Auto <span class="fas fa-check dropdown-check-icon ms-auto text-600"></span>
             </button>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item d-flex align-items-center justify-content-between gap-3 font-sans-serif" style="cursor: default;">
+              <label class="form-check-label fs-10 fw-semi-bold mb-0" for="mode-fluid" style="cursor: pointer;">Fluid Layout</label>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="mode-fluid" data-theme-control="isFluid" style="cursor: pointer;" />
+              </div>
+            </div>
           </div>
         </div>
       </div>

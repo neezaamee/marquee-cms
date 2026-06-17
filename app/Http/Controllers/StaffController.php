@@ -62,11 +62,6 @@ class StaffController extends Controller
             'status'          => 'required|string',
             'branch_id'       => 'required|exists:branches,id',
             'photo'           => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            // CMS Login fields (conditional)
-            'enable_login'    => 'nullable|boolean',
-            'login_email'     => 'nullable|required_if:enable_login,1|email|unique:users,email',
-            'login_password'  => 'nullable|required_if:enable_login,1|min:6',
-            'login_role_id'   => 'nullable|required_if:enable_login,1|exists:roles,id',
         ]);
 
         // Handle photo upload
@@ -75,25 +70,9 @@ class StaffController extends Controller
             $photoPath = $request->file('photo')->store('staff/photos', 'public');
         }
 
-        // Create CMS login user if requested
-        $userId = null;
-        if ($request->boolean('enable_login')) {
-            $loginUser = User::create([
-                'name'       => $validated['name'],
-                'email'      => $validated['login_email'],
-                'password'   => Hash::make($validated['login_password']),
-                'role_id'    => $validated['login_role_id'],
-                'marquee_id' => Auth::user()->marquee_id,
-                'branch_id'  => $validated['branch_id'],
-                'status'     => 'active',
-            ]);
-            $userId = $loginUser->id;
-        }
-
         Employee::create([
             'marquee_id'      => Auth::user()->marquee_id,
             'branch_id'       => $validated['branch_id'],
-            'user_id'         => $userId,
             'name'            => $validated['name'],
             'cnic'            => $validated['cnic'],
             'mobile_number'   => $validated['mobile_number'],
@@ -114,7 +93,7 @@ class StaffController extends Controller
      */
     public function show(Employee $staff)
     {
-        $staff->load(['branch', 'user.role']);
+        $staff->load(['branch', 'users.role']);
         return view('staff.show', compact('staff'));
     }
 
@@ -139,7 +118,6 @@ class StaffController extends Controller
         }
 
         $roles = Role::whereNotIn('name', ['super_admin'])->get();
-        $staff->load('user');
 
         return view('staff.edit', compact('staff', 'branches', 'roles', 'designations'));
     }
@@ -160,11 +138,6 @@ class StaffController extends Controller
             'status'          => 'required|string',
             'branch_id'       => 'required|exists:branches,id',
             'photo'           => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            // CMS Login fields (conditional)
-            'enable_login'    => 'nullable|boolean',
-            'login_email'     => 'nullable|email|unique:users,email,' . ($staff->user_id ?? 'NULL'),
-            'login_password'  => 'nullable|min:6',
-            'login_role_id'   => 'nullable|exists:roles,id',
         ]);
 
         // Handle photo upload
@@ -177,40 +150,8 @@ class StaffController extends Controller
             $photoPath = $request->file('photo')->store('staff/photos', 'public');
         }
 
-        // Handle CMS login account
-        if ($request->boolean('enable_login')) {
-            $loginData = [
-                'name'       => $validated['name'],
-                'email'      => $validated['login_email'],
-                'role_id'    => $validated['login_role_id'],
-                'marquee_id' => Auth::user()->marquee_id,
-                'branch_id'  => $validated['branch_id'],
-            ];
-            if ($validated['login_password'] ?? null) {
-                $loginData['password'] = Hash::make($validated['login_password']);
-            }
-
-            if ($staff->user_id) {
-                // Update existing user
-                $staff->user->update($loginData);
-            } else {
-                // Create new user
-                $loginData['password'] = Hash::make($validated['login_password']);
-                $loginData['status']   = 'active';
-                $loginUser             = User::create($loginData);
-                $staff->user_id        = $loginUser->id;
-            }
-        } else {
-            // Disable login: delete the linked user if they exist
-            if ($staff->user_id && $staff->user) {
-                $staff->user->delete();
-                $staff->user_id = null;
-            }
-        }
-
         $staff->update([
             'branch_id'       => $validated['branch_id'],
-            'user_id'         => $staff->user_id,
             'name'            => $validated['name'],
             'cnic'            => $validated['cnic'],
             'mobile_number'   => $validated['mobile_number'],
@@ -231,14 +172,21 @@ class StaffController extends Controller
      */
     public function destroy(Employee $staff)
     {
-        // Also soft-delete the linked user login account if they have one
-        if ($staff->user_id && $staff->user) {
-            $staff->user->delete();
-        }
+        // Also soft-delete all linked user login accounts
+        $staff->users()->delete();
 
         $staff->delete();
 
         return redirect()->route('staff.index')
             ->with('success', 'Employee removed successfully.');
+    }
+
+    /**
+     * Manage CMS login profiles for a staff member.
+     */
+    public function logins(Employee $staff)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        return view('staff.logins', compact('staff'));
     }
 }

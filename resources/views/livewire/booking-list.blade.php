@@ -3,6 +3,19 @@
         <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0"><span class="fas fa-ticket-alt me-2 text-primary"></span>Booking Management</h5>
             <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button wire:click="exportExcel" class="btn btn-falcon-default btn-sm text-nowrap" type="button">
+                    <span class="fas fa-file-excel me-1 text-success"></span>Export Excel
+                </button>
+                <a href="{{ route('bookings.report', [
+                    'search' => $search,
+                    'filterStatus' => $filterStatus,
+                    'filterPaymentStatus' => $filterPaymentStatus,
+                    'filterHall' => $filterHall,
+                    'filterDateStart' => $filterDateStart,
+                    'filterDateEnd' => $filterDateEnd
+                ]) }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap">
+                    <span class="fas fa-print me-1 text-primary"></span>Print / PDF
+                </a>
                 @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('create_bookings'))
                     <a class="btn btn-falcon-primary btn-sm text-nowrap" href="{{ route('bookings.create') }}">
                         <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add Booking
@@ -92,15 +105,19 @@
             @endif
 
             <div class="table-responsive scrollbar">
-                <table class="table table-sm table-striped fs-10 mb-0 align-middle">
+                <table class="table table-sm table-striped fs-10 mb-0 align-middle table-hover">
                     <thead class="bg-200 text-900">
                         <tr>
                             <th class="px-3">Booking #</th>
                             <th>Customer</th>
+                            <th>Event Type</th>
                             <th>Hall & Slot</th>
                             <th>Event Date</th>
                             <th>Guest Count</th>
-                            <th>Grand Total</th>
+                            <th>Per Head Rate</th>
+                            <th>Total Amount</th>
+                            <th>Received Amount</th>
+                            <th>Balance Amount</th>
                             <th class="text-center">Status</th>
                             <th class="text-center">Payment</th>
                             <th class="text-end px-3">Actions</th>
@@ -121,7 +138,16 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <div class="fw-semi-bold">{{ $booking->hall->hall_name ?? '—' }}</div>
+                                    {{ $booking->eventType->event_type_name ?? '—' }}
+                                </td>
+                                <td>
+                                    <div class="fw-semi-bold">
+                                        @if($booking->halls->isNotEmpty())
+                                            {{ $booking->halls->pluck('hall_name')->implode(', ') }}
+                                        @else
+                                            {{ $booking->hall->hall_name ?? '—' }}
+                                        @endif
+                                    </div>
                                     <div class="text-muted fs-11">{{ $booking->slot->slot_name ?? 'Custom Time' }}</div>
                                 </td>
                                 <td>
@@ -133,8 +159,25 @@
                                 <td>
                                     {{ number_format($booking->guest_count) }}
                                 </td>
-                                <td class="fw-semi-bold">
-                                    Rs. {{ number_format($booking->grand_total, 2) }}
+                                <td class="font-monospace">
+                                    @if($booking->no_food)
+                                        <span class="text-muted fs-11">No Food</span>
+                                    @else
+                                        {{ number_format($booking->per_plate_price) }}
+                                    @endif
+                                </td>
+                                <td class="fw-semi-bold font-monospace">
+                                    {{ number_format($booking->grand_total) }}
+                                </td>
+                                <td class="font-monospace">
+                                    @php
+                                        $received = $booking->payments->sum('amount');
+                                        $balance = max(0.00, $booking->grand_total - $received);
+                                    @endphp
+                                    {{ number_format($received) }}
+                                </td>
+                                <td class="fw-bold font-monospace text-{{ $balance > 0 ? 'danger' : 'success' }}">
+                                    {{ number_format($balance) }}
                                 </td>
                                 <td class="text-center">
                                     @php
@@ -189,7 +232,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="text-center py-5 text-muted">
+                                <td colspan="13" class="text-center py-5 text-muted">
                                     <span class="fas fa-ticket-alt fa-2x mb-2 d-block"></span>
                                     No bookings found.
                                 </td>

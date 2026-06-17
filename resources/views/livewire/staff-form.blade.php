@@ -110,47 +110,6 @@
                             </div>
                         @endif
                     </div>
-
-                    <!-- CMS Login Account Details -->
-                    <div class="row navbar-vertical-label-wrapper mt-4 mb-2">
-                        <div class="col-auto navbar-vertical-label text-primary">CMS Login Account</div>
-                        <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
-                    </div>
-
-                    <div class="col-12">
-                        <div class="form-check form-switch mb-0">
-                            <input wire:model.live="enable_login" class="form-check-input cursor-pointer" type="checkbox" id="enable_login" />
-                            <label class="form-check-label mb-0 fw-semi-bold cursor-pointer" for="enable_login">Enable CMS login credentials for this staff member</label>
-                        </div>
-                    </div>
-
-                    @if($enable_login)
-                        <!-- CMS Login Email -->
-                        <div class="col-md-4">
-                            <label class="form-label" for="login_email">Login Email *</label>
-                            <input wire:model="login_email" class="form-control @error('login_email') is-invalid @enderror" id="login_email" type="email" required placeholder="e.g. staff.ajmal@royalmarquee.com" />
-                            @error('login_email') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-
-                        <!-- CMS Login Password -->
-                        <div class="col-md-4">
-                            <label class="form-label" for="login_password">Password {{ $linkedUserId ? '(Leave blank to keep current)' : '*' }}</label>
-                            <input wire:model="login_password" class="form-control @error('login_password') is-invalid @enderror" id="login_password" type="password" placeholder="Password min 6 chars" />
-                            @error('login_password') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-
-                        <!-- CMS Login Role -->
-                        <div class="col-md-4">
-                            <label class="form-label" for="login_role_id">Login Role *</label>
-                            <select wire:model="login_role_id" class="form-select @error('login_role_id') is-invalid @enderror" id="login_role_id" required>
-                                <option value="">Select Role...</option>
-                                @foreach($roles as $r)
-                                    <option value="{{ $r->id }}">{{ $r->label }}</option>
-                                @endforeach
-                            </select>
-                            @error('login_role_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                    @endif
                 </div>
 
                 <div class="mt-4 d-flex justify-content-end gap-2">

@@ -31,13 +31,6 @@ class StaffForm extends Component
     public $photo = null;
     public $existingPhoto = null;
 
-    // CMS Login fields
-    public $enable_login = false;
-    public $login_email = '';
-    public $login_password = '';
-    public $login_role_id = '';
-    public $linkedUserId = null;
-
     // Lists
     public $branches = [];
     public $roles = [];
@@ -83,20 +76,12 @@ class StaffForm extends Component
             $this->status = $staff->status;
             $this->branch_id = $staff->branch_id;
             $this->existingPhoto = $staff->photo;
-
-            if ($staff->user_id) {
-                $staff->load('user');
-                $this->linkedUserId = $staff->user_id;
-                $this->enable_login = true;
-                $this->login_email = $staff->user->email ?? '';
-                $this->login_role_id = $staff->user->role_id ?? '';
-            }
         }
     }
 
     protected function rules()
     {
-        $rules = [
+        return [
             'name' => 'required|string|max:255',
             'cnic' => 'required|string|max:20',
             'mobile_number' => 'required|string|max:20',
@@ -107,21 +92,7 @@ class StaffForm extends Component
             'status' => 'required|string',
             'branch_id' => 'required|exists:branches,id',
             'photo' => 'nullable|image|max:2048', // 2MB Max
-            'enable_login' => 'boolean',
         ];
-
-        if ($this->enable_login) {
-            $rules['login_email'] = 'required|email|unique:users,email,' . ($this->linkedUserId ?? 'NULL');
-            $rules['login_role_id'] = 'required|exists:roles,id';
-
-            if (!$this->linkedUserId) {
-                $rules['login_password'] = 'required|string|min:6';
-            } else {
-                $rules['login_password'] = 'nullable|string|min:6';
-            }
-        }
-
-        return $rules;
     }
 
     public function save()
@@ -140,43 +111,10 @@ class StaffForm extends Component
             $photoPath = $this->photo->store('staff/photos', 'public');
         }
 
-        // Handle CMS user creation/update/deletion
-        $userId = $this->linkedUserId;
-        if ($this->enable_login) {
-            $userData = [
-                'name' => $this->name,
-                'email' => $this->login_email,
-                'role_id' => $this->login_role_id,
-                'marquee_id' => auth()->user()->marquee_id,
-                'branch_id' => $this->branch_id,
-                'status' => 'active',
-            ];
-
-            if ($this->login_password) {
-                $userData['password'] = Hash::make($this->login_password);
-            }
-
-            if ($this->linkedUserId) {
-                $loginUser = User::findOrFail($this->linkedUserId);
-                $loginUser->update($userData);
-            } else {
-                $loginUser = User::create($userData);
-                $userId = $loginUser->id;
-            }
-        } else {
-            // Delete CMS login if disabled
-            if ($this->linkedUserId) {
-                $loginUser = User::findOrFail($this->linkedUserId);
-                $loginUser->delete();
-                $userId = null;
-            }
-        }
-
         // Create or Update Employee
         $staffData = [
             'marquee_id' => auth()->user()->marquee_id,
             'branch_id' => $this->branch_id,
-            'user_id' => $userId,
             'name' => $this->name,
             'cnic' => $this->cnic,
             'mobile_number' => $this->mobile_number,

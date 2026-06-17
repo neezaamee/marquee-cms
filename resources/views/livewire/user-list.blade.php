@@ -7,11 +7,6 @@
                     <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search users..." />
                     <span class="input-group-text"><span class="fas fa-search"></span></span>
                 </div>
-                @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'))
-                    <a class="btn btn-falcon-primary btn-sm" href="{{ route('users.create') }}">
-                        <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add New User
-                    </a>
-                @endif
             </div>
         </div>
 
@@ -37,6 +32,7 @@
                     <thead class="bg-200 text-900">
                         <tr>
                             <th class="align-middle px-3">Name</th>
+                            <th class="align-middle">Username</th>
                             <th class="align-middle">Email</th>
                             <th class="align-middle">Role</th>
                             <th class="align-middle">Branch</th>
@@ -54,6 +50,7 @@
                                 <td class="align-middle px-3 fw-semi-bold">
                                     <a href="{{ route('users.show', $usr->id) }}">{{ $usr->name }}</a>
                                 </td>
+                                <td class="align-middle font-monospace">{{ $usr->username ?? '—' }}</td>
                                 <td class="align-middle">{{ $usr->email }}</td>
                                 <td class="align-middle">
                                     <span class="badge badge-subtle-primary">{{ $usr->role->label ?? 'None' }}</span>

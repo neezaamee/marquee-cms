@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'superadmin@marquee.cms'],
             [
                 'name' => 'SaaS Super Admin',
+                'username' => 'superadmin',
                 'password' => Hash::make('Password123!'),
                 'role_id' => $superAdminRole->id,
                 'status' => 'active',
@@ -99,6 +100,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'owner@royalmarquee.com'],
             [
                 'name' => 'Mian Akbar (Owner)',
+                'username' => 'owner',
                 'password' => Hash::make('Password123!'),
                 'marquee_id' => $marquee->id,
                 'branch_id' => null,
@@ -113,6 +115,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'manager.lh@royalmarquee.com'],
             [
                 'name' => 'Asif Mehmood (Manager)',
+                'username' => 'manager',
                 'password' => Hash::make('Password123!'),
                 'marquee_id' => $marquee->id,
                 'branch_id' => $branchLahore->id,

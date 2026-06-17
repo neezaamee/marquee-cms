@@ -32,174 +32,211 @@
           </a>
         </li>
 
-        <!-- Bookings Section -->
+        <!-- Bookings & Operations Category -->
+        @php
+          $bookingsActive = Route::is('branches.*', 'halls.*', 'slots.*', 'hall-slots.*', 'bookings.*', 'availability.*', 'event-types.*', 'menu-categories.*', 'menu-items.*', 'packages.*', 'extra-services.*');
+        @endphp
         <li class="nav-item">
-          <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
-            <div class="col-auto navbar-vertical-label">Bookings & Operations</div>
-            <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
-          </div>
-          
-          <a class="nav-link {{ Route::is('branches.*') ? 'active' : '' }}" href="{{ route('branches.index') }}" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-store"></span></span>
-              <span class="nav-link-text ps-1">Branches</span>
-            </div>
-          </a>
-
-          <a class="nav-link {{ Route::is('halls.*') ? 'active' : '' }}" href="{{ route('halls.index') }}" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-hotel"></span></span>
-              <span class="nav-link-text ps-1">Halls & Venues</span>
-            </div>
-          </a>
-
-          <a class="nav-link {{ Route::is('slots.*') ? 'active' : '' }}" href="{{ route('slots.index') }}" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-clock"></span></span>
-              <span class="nav-link-text ps-1">Shift Slots</span>
-            </div>
-          </a>
-
-          <a class="nav-link {{ Route::is('hall-slots.*') ? 'active' : '' }}" href="{{ route('hall-slots.index') }}" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-tasks"></span></span>
-              <span class="nav-link-text ps-1">Slot Assignments</span>
-            </div>
-          </a>
-
-          <a class="nav-link {{ Route::is('bookings.*') ? 'active' : '' }}" href="{{ route('bookings.index') }}" role="button">
+          <a class="nav-link dropdown-indicator {{ $bookingsActive ? '' : 'collapsed' }}" href="#bookingsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $bookingsActive ? 'true' : 'false' }}" aria-controls="bookingsCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-ticket-alt"></span></span>
-              <span class="nav-link-text ps-1">Bookings</span>
+              <span class="nav-link-text ps-1">Bookings & Operations</span>
             </div>
           </a>
-
-          <a class="nav-link {{ Route::is('availability.*') ? 'active' : '' }}" href="{{ route('availability.index') }}" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-calendar-check"></span></span>
-              <span class="nav-link-text ps-1">Availability Checker</span>
-            </div>
-          </a>
-
-          <a class="nav-link {{ Route::is('event-types.*') ? 'active' : '' }}" href="{{ route('event-types.index') }}" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-glass-cheers"></span></span>
-              <span class="nav-link-text ps-1">Event Types</span>
-            </div>
-          </a>
-
-          @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_menus'))
-            <a class="nav-link {{ Route::is('menu-categories.*') ? 'active' : '' }}" href="{{ route('menu-categories.index') }}" role="button">
-              <div class="d-flex align-items-center">
-                <span class="nav-link-icon"><span class="fas fa-list"></span></span>
-                <span class="nav-link-text ps-1">Menu Categories</span>
-              </div>
-            </a>
-
-            <a class="nav-link {{ Route::is('menu-items.*') ? 'active' : '' }}" href="{{ route('menu-items.index') }}" role="button">
-              <div class="d-flex align-items-center">
-                <span class="nav-link-icon"><span class="fas fa-utensils"></span></span>
-                <span class="nav-link-text ps-1">Menu Items</span>
-              </div>
-            </a>
-          @endif
-
-          @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_packages'))
-            <a class="nav-link {{ Route::is('packages.*') ? 'active' : '' }}" href="{{ route('packages.index') }}" role="button">
-              <div class="d-flex align-items-center">
-                <span class="nav-link-icon"><span class="fas fa-cubes"></span></span>
-                <span class="nav-link-text ps-1">Packages</span>
-              </div>
-            </a>
-          @endif
+          <ul class="nav collapse {{ $bookingsActive ? 'show' : '' }}" id="bookingsCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('branches.*') ? 'active' : '' }}" href="{{ route('branches.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Branches</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('halls.*') ? 'active' : '' }}" href="{{ route('halls.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Halls & Venues</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('slots.*') ? 'active' : '' }}" href="{{ route('slots.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Shift Slots</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('hall-slots.*') ? 'active' : '' }}" href="{{ route('hall-slots.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Slot Assignments</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('bookings.*') ? 'active' : '' }}" href="{{ route('bookings.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Bookings</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('availability.*') ? 'active' : '' }}" href="{{ route('availability.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Availability Checker</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('event-types.*') ? 'active' : '' }}" href="{{ route('event-types.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Event Types</span>
+                </div>
+              </a>
+            </li>
+            @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_menus'))
+              <li class="nav-item">
+                <a class="nav-link {{ Route::is('menu-categories.*') ? 'active' : '' }}" href="{{ route('menu-categories.index') }}">
+                  <div class="d-flex align-items-center">
+                    <span class="nav-link-text ps-1">Menu Categories</span>
+                  </div>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link {{ Route::is('menu-items.*') ? 'active' : '' }}" href="{{ route('menu-items.index') }}">
+                  <div class="d-flex align-items-center">
+                    <span class="nav-link-text ps-1">Menu Items</span>
+                  </div>
+                </a>
+              </li>
+            @endif
+            @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_packages'))
+              <li class="nav-item">
+                <a class="nav-link {{ Route::is('packages.*') ? 'active' : '' }}" href="{{ route('packages.index') }}">
+                  <div class="d-flex align-items-center">
+                    <span class="nav-link-text ps-1">Packages</span>
+                  </div>
+                </a>
+              </li>
+            @endif
+            @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'))
+              <li class="nav-item">
+                <a class="nav-link {{ Route::is('extra-services.*') ? 'active' : '' }}" href="{{ route('extra-services.index') }}">
+                  <div class="d-flex align-items-center">
+                    <span class="nav-link-text ps-1">Add-ons (Services)</span>
+                  </div>
+                </a>
+              </li>
+            @endif
+          </ul>
         </li>
 
-        <!-- CRM & Accounts Section -->
+        <!-- CRM & Finance Category -->
+        @php
+          $crmActive = Route::is('customers.*');
+        @endphp
         <li class="nav-item">
-          <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
-            <div class="col-auto navbar-vertical-label">CRM & Finance</div>
-            <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
-          </div>
-
-          <a class="nav-link {{ Route::is('customers.*') ? 'active' : '' }}" href="{{ route('customers.index') }}" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-users"></span></span>
-              <span class="nav-link-text ps-1">Customers</span>
-            </div>
-          </a>
-
-          <a class="nav-link" href="#" role="button">
+          <a class="nav-link dropdown-indicator {{ $crmActive ? '' : 'collapsed' }}" href="#crmCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $crmActive ? 'true' : 'false' }}" aria-controls="crmCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-credit-card"></span></span>
-              <span class="nav-link-text ps-1">Payments</span>
+              <span class="nav-link-text ps-1">CRM & Finance</span>
             </div>
           </a>
+          <ul class="nav collapse {{ $crmActive ? 'show' : '' }}" id="crmCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('customers.*') ? 'active' : '' }}" href="{{ route('customers.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Customers</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Payments</span>
+                </div>
+              </a>
+            </li>
+          </ul>
         </li>
 
-        <!-- Staff & Management Section -->
+        <!-- Organization Category -->
+        @php
+          $orgActive = Route::is('staff.*', 'users.*');
+        @endphp
         <li class="nav-item">
-          <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
-            <div class="col-auto navbar-vertical-label">Organization</div>
-            <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
-          </div>
-
-          <a class="nav-link {{ Route::is('staff.*') ? 'active' : '' }}" href="{{ route('staff.index') }}" role="button">
+          <a class="nav-link dropdown-indicator {{ $orgActive ? '' : 'collapsed' }}" href="#orgCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $orgActive ? 'true' : 'false' }}" aria-controls="orgCollapse">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-id-badge"></span></span>
-              <span class="nav-link-text ps-1">Staff Management</span>
+              <span class="nav-link-icon"><span class="fas fa-sitemap"></span></span>
+              <span class="nav-link-text ps-1">Organization</span>
             </div>
           </a>
-
-          <a class="nav-link {{ Route::is('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-user-shield"></span></span>
-              <span class="nav-link-text ps-1">CMS Users</span>
-            </div>
-          </a>
-
-          <a class="nav-link" href="#" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-chart-line"></span></span>
-              <span class="nav-link-text ps-1">Reports & Analytics</span>
-            </div>
-          </a>
+          <ul class="nav collapse {{ $orgActive ? 'show' : '' }}" id="orgCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('staff.*') ? 'active' : '' }}" href="{{ route('staff.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Staff Management</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">CMS Users</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Reports & Analytics</span>
+                </div>
+              </a>
+            </li>
+          </ul>
         </li>
 
-        <!-- System Section -->
+        <!-- System Category -->
         <li class="nav-item">
-          <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
-            <div class="col-auto navbar-vertical-label">System</div>
-            <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
-          </div>
-
-          <a class="nav-link" href="#" role="button">
+          <a class="nav-link dropdown-indicator collapsed" href="#systemCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="systemCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-cog"></span></span>
-              <span class="nav-link-text ps-1">Settings</span>
+              <span class="nav-link-text ps-1">System</span>
             </div>
           </a>
+          <ul class="nav collapse" id="systemCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link" href="#">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Settings</span>
+                </div>
+              </a>
+            </li>
+          </ul>
         </li>
 
-      </ul>
-      
-      @if(auth()->user()->isSuperAdmin())
-      <ul class="navbar-nav flex-column mb-3">
-        <!-- SaaS Admin Section -->
-        <li class="nav-item">
-          <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
-            <div class="col-auto navbar-vertical-label">SaaS Admin</div>
-            <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
-          </div>
-
-          <a class="nav-link {{ Route::is('marquees.*') ? 'active' : '' }}" href="{{ route('marquees.index') }}" role="button">
-            <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-building"></span></span>
-              <span class="nav-link-text ps-1">Marquees / Tenants</span>
-            </div>
-          </a>
-        </li>
-      </ul>
-      @endif
+        <!-- SaaS Admin Category -->
+        @if(auth()->user()->isSuperAdmin())
+          @php
+            $saasActive = Route::is('marquees.*');
+          @endphp
+          <li class="nav-item">
+            <a class="nav-link dropdown-indicator {{ $saasActive ? '' : 'collapsed' }}" href="#saasCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $saasActive ? 'true' : 'false' }}" aria-controls="saasCollapse">
+              <div class="d-flex align-items-center">
+                <span class="nav-link-icon"><span class="fas fa-building"></span></span>
+                <span class="nav-link-text ps-1">SaaS Admin</span>
+              </div>
+            </a>
+            <ul class="nav collapse {{ $saasActive ? 'show' : '' }}" id="saasCollapse" data-bs-parent="#navbarVerticalNav">
+              <li class="nav-item">
+                <a class="nav-link {{ Route::is('marquees.*') ? 'active' : '' }}" href="{{ route('marquees.index') }}">
+                  <div class="d-flex align-items-center">
+                    <span class="nav-link-text ps-1">Marquees / Tenants</span>
+                  </div>
+                </a>
+              </li>
+            </ul>
+          </li>
+        @endif
     </div>
   </div>
 </nav>

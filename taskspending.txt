@@ -1,0 +1,9 @@
+Features to be added
+1. Support and Help > 1. FAQ, 2. Change Log, 3. Submit Feedback, 4. Video tutorials.
+Modifications to be done
+
+1. Analyze and Decide to add Input Masking for each appropriate field in whole project.
+2. Analyze and brief about default things to marquee and default things to branches.
+3. Brief and discuss about the project to all Stakeholders, Owners, Managers, Staffs and users.
+4. Create seeders of default data for marquee and branches.
+5. as super admin there is no option of adding owners.

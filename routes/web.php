@@ -17,6 +17,7 @@ use App\Http\Controllers\MenuItemController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ExtraServiceController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -41,11 +42,14 @@ Route::middleware('auth')->group(function () {
     Route::resource('marquees', MarqueeController::class);
     Route::resource('branches', BranchController::class);
     Route::resource('users', UserController::class);
+    Route::get('staff/{staff}/logins', [StaffController::class, 'logins'])->name('staff.logins');
     Route::resource('staff', StaffController::class);
     Route::resource('customers', CustomerController::class);
     Route::resource('event-types', EventTypeController::class);
+    Route::resource('extra-services', ExtraServiceController::class);
     
     // Booking Management
+    Route::get('bookings/report', [BookingController::class, 'report'])->name('bookings.report');
     Route::get('bookings/{booking}/slip', [BookingController::class, 'slip'])->name('bookings.slip');
     Route::get('bookings/{booking}/slip-v2', [BookingController::class, 'slipV2'])->name('bookings.slip-v2');
     Route::get('bookings/payments/{payment}/receipt', [BookingController::class, 'paymentReceipt'])->name('bookings.payment-receipt');

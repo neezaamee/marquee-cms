@@ -125,11 +125,14 @@ class StaffManagementTest extends TestCase
         $this->assertEquals('EMP-00001', $employee->employee_id);
     }
 
-    public function test_can_create_employee_with_cms_login()
+    public function test_can_create_employee_with_cms_login_via_livewire()
     {
         $managerRole = Role::create(['name' => 'branch_manager', 'label' => 'Branch Manager']);
 
-        $response = $this->actingAs($this->owner)->post(route('staff.store'), [
+        $employee = Employee::create([
+            'employee_id'     => 'EMP-00002',
+            'marquee_id'      => $this->marquee->id,
+            'branch_id'       => $this->branch->id,
             'name'            => 'Ali Manager',
             'cnic'            => '35202-9999999-9',
             'mobile_number'   => '+923009999999',
@@ -138,20 +141,22 @@ class StaffManagementTest extends TestCase
             'salary'          => 60000,
             'employment_type' => 'Permanent',
             'status'          => 'active',
-            'branch_id'       => $this->branch->id,
-            'enable_login'    => '1',
-            'login_email'     => 'ali.manager@test.com',
-            'login_password'  => 'secret123',
-            'login_role_id'   => $managerRole->id,
         ]);
 
-        $response->assertRedirect(route('staff.index'));
+        \Livewire\Livewire::actingAs($this->owner)
+            ->test('manage-staff-logins', ['staff' => $employee])
+            ->set('branch_id', $this->branch->id)
+            ->set('email', 'ali.manager@test.com')
+            ->set('username', 'alimanager')
+            ->set('role_id', $managerRole->id)
+            ->set('password', 'secret123')
+            ->call('addLogin');
 
-        $employee = Employee::where('name', 'Ali Manager')->first();
-        $this->assertNotNull($employee);
-        $this->assertNotNull($employee->user_id);  // CMS user WAS created
-
-        $this->assertDatabaseHas('users', ['email' => 'ali.manager@test.com']);
+        $this->assertDatabaseHas('users', [
+            'email' => 'ali.manager@test.com',
+            'username' => 'alimanager',
+            'employee_id' => $employee->id,
+        ]);
     }
 
     public function test_can_soft_delete_employee()
@@ -180,20 +185,10 @@ class StaffManagementTest extends TestCase
     {
         $staffRole = Role::create(['name' => 'accountant', 'label' => 'Accountant']);
 
-        $user = User::create([
-            'name'       => 'Linked User',
-            'email'      => 'linked@test.com',
-            'password'   => bcrypt('password'),
-            'role_id'    => $staffRole->id,
-            'marquee_id' => $this->marquee->id,
-            'branch_id'  => $this->branch->id,
-        ]);
-
         $employee = Employee::create([
             'employee_id'     => 'EMP-00002',
             'marquee_id'      => $this->marquee->id,
             'branch_id'       => $this->branch->id,
-            'user_id'         => $user->id,
             'name'            => 'Employee With Login',
             'cnic'            => '35202-1212121-2',
             'mobile_number'   => '+923001212121',
@@ -202,6 +197,17 @@ class StaffManagementTest extends TestCase
             'salary'          => 40000,
             'employment_type' => 'Permanent',
             'status'          => 'active',
+        ]);
+
+        $user = User::create([
+            'employee_id' => $employee->id,
+            'name'       => 'Linked User',
+            'email'      => 'linked@test.com',
+            'username'   => 'linkeduser',
+            'password'   => bcrypt('password'),
+            'role_id'    => $staffRole->id,
+            'marquee_id' => $this->marquee->id,
+            'branch_id'  => $this->branch->id,
         ]);
 
         $this->actingAs($this->owner)->delete(route('staff.destroy', $employee->id));
@@ -214,20 +220,10 @@ class StaffManagementTest extends TestCase
     {
         $managerRole = Role::create(['name' => 'branch_manager', 'label' => 'Branch Manager']);
 
-        $managerUser = User::create([
-            'name'       => 'Branch Manager User',
-            'email'      => 'manager@test.com',
-            'password'   => bcrypt('password'),
-            'role_id'    => $managerRole->id,
-            'marquee_id' => $this->marquee->id,
-            'branch_id'  => $this->branch->id,
-        ]);
-
         $employee = Employee::create([
             'employee_id'     => 'EMP-00003',
             'marquee_id'      => $this->marquee->id,
             'branch_id'       => $this->branch->id,
-            'user_id'         => $managerUser->id,
             'name'            => 'Branch Manager User',
             'cnic'            => '35202-3333333-3',
             'mobile_number'   => '+923003333333',
@@ -236,6 +232,17 @@ class StaffManagementTest extends TestCase
             'salary'          => 60000,
             'employment_type' => 'Permanent',
             'status'          => 'active',
+        ]);
+
+        $managerUser = User::create([
+            'employee_id' => $employee->id,
+            'name'       => 'Branch Manager User',
+            'email'      => 'manager@test.com',
+            'username'   => 'manager',
+            'password'   => bcrypt('password'),
+            'role_id'    => $managerRole->id,
+            'marquee_id' => $this->marquee->id,
+            'branch_id'  => $this->branch->id,
         ]);
 
         // Get the edit view
@@ -254,9 +261,6 @@ class StaffManagementTest extends TestCase
             'employment_type' => 'Permanent',
             'status'          => 'active',
             'branch_id'       => $this->branch->id,
-            'enable_login'    => '1',
-            'login_email'     => 'manager.updated@test.com',
-            'login_role_id'   => $managerRole->id,
         ]);
 
         $response->assertRedirect(route('staff.index'));
@@ -266,9 +270,11 @@ class StaffManagementTest extends TestCase
             'designation' => 'Branch Manager',
             'salary' => 65000
         ]);
+
+        // Synced booted event will keep the linked user's name in sync
         $this->assertDatabaseHas('users', [
             'id' => $managerUser->id,
-            'email' => 'manager.updated@test.com'
+            'name' => 'Branch Manager User Updated'
         ]);
     }
 }

@@ -143,7 +143,56 @@ class BookingList extends Component
             ->get();
 
         // Build query
-        $query = Booking::with(['customer', 'hall', 'slot', 'package']);
+        $query = Booking::with(['customer', 'hall', 'slot', 'package', 'payments', 'eventType']);
+
+        if (!empty($this->search)) {
+            $searchTerm = '%' . $this->search . '%';
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('booking_number', 'like', $searchTerm)
+                  ->orWhereHas('customer', function ($cq) use ($searchTerm) {
+                      $cq->where('first_name', 'like', $searchTerm)
+                        ->orWhere('last_name', 'like', $searchTerm)
+                        ->orWhere('phone_number', 'like', $searchTerm);
+                  });
+            });
+        }
+
+        if (!empty($this->filterStatus)) {
+            $query->where('booking_status', $this->filterStatus);
+        }
+
+        if (!empty($this->filterPaymentStatus)) {
+            $query->where('payment_status', $this->filterPaymentStatus);
+        }
+
+        if (!empty($this->filterHall)) {
+            $query->where('hall_id', $this->filterHall);
+        }
+
+        if (!empty($this->filterDateStart)) {
+            $query->where('booking_date', '>=', $this->filterDateStart);
+        }
+
+        if (!empty($this->filterDateEnd)) {
+            $query->where('booking_date', '<=', $this->filterDateEnd);
+        }
+
+        $bookings = $query->orderBy('booking_date', 'asc')
+            ->orderBy('id', 'desc')
+            ->paginate(15);
+
+        return view('livewire.booking-list', [
+            'bookings' => $bookings,
+            'halls' => $halls,
+        ]);
+    }
+
+    /**
+     * Export the filtered list of bookings to Excel (CSV format).
+     */
+    public function exportExcel()
+    {
+        $query = Booking::with(['customer', 'hall', 'slot', 'package', 'payments', 'eventType']);
 
         if (!empty($this->search)) {
             $searchTerm = '%' . $this->search . '%';
@@ -179,11 +228,61 @@ class BookingList extends Component
 
         $bookings = $query->orderBy('booking_date', 'desc')
             ->orderBy('id', 'desc')
-            ->paginate(15);
+            ->get();
 
-        return view('livewire.booking-list', [
-            'bookings' => $bookings,
-            'halls' => $halls,
-        ]);
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="bookings-report-' . now()->format('YmdHis') . '.csv"',
+        ];
+
+        $callback = function () use ($bookings) {
+            $file = fopen('php://output', 'w');
+
+            // Add UTF-8 BOM for Urdu/Excel support
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            fputcsv($file, [
+                'Booking #',
+                'Customer Name',
+                'Phone Number',
+                'Event Type',
+                'Hall Name',
+                'Shift/Slot',
+                'Event Date',
+                'Guest Count',
+                'Per Head Rate',
+                'Total Amount',
+                'Received Amount',
+                'Balance Amount',
+                'Booking Status',
+                'Payment Status'
+            ]);
+
+            foreach ($bookings as $b) {
+                $received = $b->payments->sum('amount');
+                $balance = max(0.00, $b->grand_total - $received);
+
+                fputcsv($file, [
+                    $b->booking_number,
+                    $b->customer->full_name ?? '—',
+                    $b->customer->phone_number ?? '—',
+                    $b->eventType->event_type_name ?? '—',
+                    $b->hall->hall_name ?? '—',
+                    $b->slot->slot_name ?? 'Custom Time',
+                    $b->booking_date->format('Y-m-d'),
+                    $b->guest_count,
+                    $b->per_plate_price,
+                    $b->grand_total,
+                    $received,
+                    $balance,
+                    $b->booking_status,
+                    $b->payment_status
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->streamDownload($callback, 'bookings-report-' . now()->format('YmdHis') . '.csv', $headers);
     }
 }

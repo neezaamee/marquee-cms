@@ -53,10 +53,8 @@ class StaffList extends Component
                 return;
             }
 
-            // Also delete the linked user login account if they have one
-            if ($staff->user_id && $staff->user) {
-                $staff->user->delete();
-            }
+            // Also delete the linked user login accounts if they have any
+            $staff->users()->delete();
 
             $staff->delete();
             $this->confirmingDeletionId = null;
@@ -66,7 +64,7 @@ class StaffList extends Component
 
     public function render()
     {
-        $query = Employee::with(['branch', 'user']);
+        $query = Employee::with(['branch'])->withCount('users');
 
         // Search filter
         if (!empty($this->search)) {

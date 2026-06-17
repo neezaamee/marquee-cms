@@ -15,7 +15,6 @@ class Employee extends Model
         'employee_id',
         'marquee_id',
         'branch_id',
-        'user_id',
         'name',
         'cnic',
         'mobile_number',
@@ -99,6 +98,16 @@ class Employee extends Model
                 $employee->employee_id = 'EMP-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
             }
         });
+
+        // Automatically sync name and phone to all linked users on save
+        static::saved(function (Employee $employee) {
+            foreach ($employee->users as $user) {
+                $user->update([
+                    'name' => $employee->name,
+                    'phone' => $employee->mobile_number,
+                ]);
+            }
+        });
     }
 
     // ───────────────────── Relationships ─────────────────────
@@ -112,10 +121,18 @@ class Employee extends Model
     }
 
     /**
-     * Get the CMS user account linked to this employee (if any).
+     * Get the first CMS user account linked to this employee (for backward compatibility).
      */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->hasOne(User::class)->latestOfMany();
+    }
+
+    /**
+     * Get the CMS user accounts linked to this employee.
+     */
+    public function users()
+    {
+        return $this->hasMany(User::class);
     }
 }
