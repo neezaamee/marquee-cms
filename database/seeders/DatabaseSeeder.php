@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SubscriptionPlanSeeder::class,
             RolesAndPermissionsSeeder::class,
+            SaasModuleSeeder::class,
         ]);
 
         // Retrieve seeded records
@@ -125,10 +126,13 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 7. Seed default slots
+        // 7. Seed default slots and master catalogs
         $this->call([
             DefaultSlotsSeeder::class,
             ExtraServicesSeeder::class,
+            EventTypeSeeder::class,
+            MenuModuleSeeder::class,
+            DefaultHallsSeeder::class,
         ]);
     }
 }

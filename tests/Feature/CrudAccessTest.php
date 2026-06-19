@@ -239,4 +239,112 @@ class CrudAccessTest extends TestCase
         $response->assertRedirect(route('users.index'));
         $this->assertSoftDeleted('users', ['id' => $staff->id]);
     }
+
+    public function test_super_admin_can_create_marquee_with_owner_details()
+    {
+        $superAdmin = User::create([
+            'name' => 'Super Admin',
+            'email' => 'super@test.com',
+            'password' => bcrypt('password'),
+            'role_id' => $this->superAdminRole->id
+        ]);
+
+        $postData = [
+            'name' => 'New Premium Venue',
+            'address' => 'Test Address 123',
+            'city' => 'Lahore',
+            'province' => 'Punjab',
+            'phone' => '+923001234567',
+            'email' => 'venue@test.com',
+            'tax_authority' => 'PRA',
+            'status' => 'active',
+            'subscription_plan_id' => $this->plan->id,
+            'owner_name' => 'John Doe',
+            'owner_username' => 'johndoe',
+            'owner_email' => 'john.doe@venue.com',
+            'owner_password' => 'secretpassword123',
+            'owner_phone' => '+923007654321',
+        ];
+
+        $response = $this->actingAs($superAdmin)->post(route('marquees.store'), $postData);
+        $response->assertRedirect(route('marquees.index'));
+
+        // Assert Marquee was created
+        $this->assertDatabaseHas('marquees', [
+            'name' => 'New Premium Venue',
+            'email' => 'venue@test.com'
+        ]);
+
+        $marquee = Marquee::where('email', 'venue@test.com')->first();
+
+        // Assert Owner user account was created and linked to the marquee
+        $this->assertDatabaseHas('users', [
+            'name' => 'John Doe',
+            'email' => 'john.doe@venue.com',
+            'username' => 'johndoe',
+            'marquee_id' => $marquee->id,
+            'role_id' => $this->ownerRole->id,
+            'phone' => '+923007654321',
+            'status' => 'active'
+        ]);
+
+        // Assert Default Head Office Branch was created and linked to the marquee
+        $this->assertDatabaseHas('branches', [
+            'marquee_id' => $marquee->id,
+            'name' => 'Head Office',
+            'address' => 'Test Address 123',
+            'city' => 'Lahore',
+            'province' => 'Punjab',
+            'phone' => '+923001234567',
+            'status' => 'active'
+        ]);
+    }
+
+    public function test_super_admin_can_filter_marquees_by_active_and_suspended()
+    {
+        $superAdmin = User::create([
+            'name' => 'Super Admin',
+            'email' => 'super@test.com',
+            'password' => bcrypt('password'),
+            'role_id' => $this->superAdminRole->id
+        ]);
+
+        $activeMarquee = Marquee::create([
+            'name' => 'Active Venue',
+            'address' => 'Addr 1', 'city' => 'Lahore', 'province' => 'Punjab', 'phone' => '123', 'email' => 'active@venue.com',
+            'status' => 'active',
+            'subscription_plan_id' => $this->plan->id,
+            'subscription_ends_at' => now()->addMonth(),
+        ]);
+
+        $suspendedMarquee = Marquee::create([
+            'name' => 'Suspended Venue',
+            'address' => 'Addr 2', 'city' => 'Lahore', 'province' => 'Punjab', 'phone' => '456', 'email' => 'suspended@venue.com',
+            'status' => 'suspended',
+            'subscription_plan_id' => $this->plan->id,
+            'subscription_ends_at' => now()->addMonth(),
+        ]);
+
+        $expiredMarquee = Marquee::create([
+            'name' => 'Expired Venue',
+            'address' => 'Addr 3', 'city' => 'Lahore', 'province' => 'Punjab', 'phone' => '789', 'email' => 'expired@venue.com',
+            'status' => 'active',
+            'subscription_plan_id' => $this->plan->id,
+            'subscription_ends_at' => now()->subMonth(),
+        ]);
+
+        // 1. Get Active filter
+        $response = $this->actingAs($superAdmin)->get(route('marquees.index', ['filter' => 'active']));
+        $response->assertStatus(200);
+        $response->assertSee('Active Venue');
+        $response->assertDontSee('Suspended Venue');
+        $response->assertDontSee('Expired Venue');
+
+        // 2. Get Suspended filter
+        $response = $this->actingAs($superAdmin)->get(route('marquees.index', ['filter' => 'suspended']));
+        $response->assertStatus(200);
+        $response->assertDontSee('Active Venue');
+        $response->assertSee('Suspended Venue');
+        $response->assertSee('Expired Venue');
+    }
 }

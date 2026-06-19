@@ -70,4 +70,12 @@ Route::middleware('auth')->group(function () {
     Route::resource('halls', HallController::class);
     Route::resource('slots', SlotController::class);
     Route::get('hall-slots', [HallSlotAssignmentController::class, 'index'])->name('hall-slots.index');
+
+    // SaaS Subscription Management (Super Admin only)
+    Route::resource('subscription-plans', \App\Http\Controllers\SubscriptionPlanController::class);
+    Route::resource('plan-features', \App\Http\Controllers\PlanFeatureController::class);
+    Route::resource('billing-cycles', \App\Http\Controllers\BillingCycleController::class);
+    Route::resource('saas-invoices', \App\Http\Controllers\SaasInvoiceController::class);
+    Route::resource('saas-payments', \App\Http\Controllers\SaasPaymentController::class);
 });
+

@@ -13,8 +13,8 @@ class ExtraServicesSeeder extends Seeder
      */
     public function run(): void
     {
-        $marquee = Marquee::first();
-        if (!$marquee) {
+        $marquees = Marquee::all();
+        if ($marquees->isEmpty()) {
             return;
         }
 
@@ -45,17 +45,19 @@ class ExtraServicesSeeder extends Seeder
             ],
         ];
 
-        foreach ($services as $srv) {
-            ExtraService::updateOrCreate(
-                [
-                    'marquee_id' => $marquee->id,
-                    'service_name' => $srv['service_name']
-                ],
-                [
-                    'default_price' => $srv['default_price'],
-                    'status' => 'Active',
-                ]
-            );
+        foreach ($marquees as $marquee) {
+            foreach ($services as $srv) {
+                ExtraService::updateOrCreate(
+                    [
+                        'marquee_id' => $marquee->id,
+                        'service_name' => $srv['service_name']
+                    ],
+                    [
+                        'default_price' => $srv['default_price'],
+                        'status' => 'Active',
+                    ]
+                );
+            }
         }
     }
 }

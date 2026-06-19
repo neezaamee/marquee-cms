@@ -3,7 +3,9 @@ Features to be added
 Modifications to be done
 
 1. Analyze and Decide to add Input Masking for each appropriate field in whole project.
-2. Analyze and brief about default things to marquee and default things to branches.
-3. Brief and discuss about the project to all Stakeholders, Owners, Managers, Staffs and users.
-4. Create seeders of default data for marquee and branches.
-5. as super admin there is no option of adding owners.
+2. Brief and discuss about the project to all Stakeholders, Owners, Managers, Staffs and users.
+3. booking print slip v-2 > 1. event type not printing properly. 
+                                > 2. remove urdu name of dish /menu , only english name of dish /menu should be printed.
+                                > 3. item description > why serial number is not in series e.g after 1 there is 3?
+4. Add-ons >Serial Number is not in order, it should be in Asc Order.
+                                

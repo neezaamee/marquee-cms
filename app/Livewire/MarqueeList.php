@@ -11,15 +11,22 @@ class MarqueeList extends Component
     use WithPagination;
 
     public $search = '';
+    public $filter = '';
     public $confirmingDeletionId = null;
 
     protected $paginationTheme = 'bootstrap';
 
     protected $queryString = [
         'search' => ['except' => ''],
+        'filter' => ['except' => ''],
     ];
 
     public function updatingSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFilter()
     {
         $this->resetPage();
     }
@@ -52,6 +59,20 @@ class MarqueeList extends Component
         abort_unless(auth()->user()->isSuperAdmin(), 403);
 
         $query = Marquee::with('subscriptionPlan');
+
+        // Apply filters
+        if ($this->filter === 'active') {
+            $query->where('status', 'active')
+                  ->where(function($q) {
+                      $q->whereNull('subscription_ends_at')
+                        ->orWhere('subscription_ends_at', '>=', now()->toDateString());
+                  });
+        } elseif ($this->filter === 'suspended') {
+            $query->where(function($q) {
+                $q->whereIn('status', ['suspended', 'inactive'])
+                  ->orWhere('subscription_ends_at', '<', now()->toDateString());
+            });
+        }
 
         if (!empty($this->search)) {
             $query->where(function($q) {
