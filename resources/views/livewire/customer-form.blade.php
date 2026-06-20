@@ -197,7 +197,7 @@
 
                     <div class="col-md-4">
                         <label class="form-label" for="referred_by_contact">Referrer Contact Info</label>
-                        <input wire:model="referred_by_contact" class="form-control @error('referred_by_contact') is-invalid @enderror" id="referred_by_contact" type="text" placeholder="e.g. 03221234567 or email" />
+                        <input type="text" id="referred_by_contact" class="form-control @error('referred_by_contact') is-invalid @enderror" placeholder="e.g. 0322-1234567" x-data x-init="IMask($el, { mask: '0000-0000000' })" wire:model.blur="referred_by_contact" />
                         @error('referred_by_contact') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 

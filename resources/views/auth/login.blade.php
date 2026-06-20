@@ -16,18 +16,18 @@
 <form method="POST" action="{{ route('login') }}">
   @csrf
 
-  <!-- Email Address -->
+  <!-- Email or Username -->
   <div class="mb-3">
-    <label class="form-label" for="email">Email address</label>
-    <input class="form-control @error('email') is-invalid @enderror" 
-           id="email" 
-           type="email" 
-           name="email" 
-           placeholder="Email address" 
-           value="{{ old('email') }}" 
+    <label class="form-label" for="login">Email or Username</label>
+    <input class="form-control @error('login') is-invalid @enderror" 
+           id="login" 
+           type="text" 
+           name="login" 
+           placeholder="Email or Username" 
+           value="{{ old('login') }}" 
            required 
            autofocus />
-    @error('email')
+    @error('login')
       <div class="invalid-feedback">{{ $message }}</div>
     @enderror
   </div>

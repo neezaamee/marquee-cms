@@ -15,23 +15,10 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index()
     {
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
-
-        $query = User::with(['role', 'branch', 'marquee']);
-
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
-
-        $users = $query->paginate(10);
-        return view('users.index', compact('users'));
+        return view('users.index');
     }
 
     /**
@@ -39,16 +26,7 @@ class UserController extends Controller
      */
     public function create()
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
-
-        $roles = auth()->user()->isSuperAdmin()
-            ? Role::all()
-            : Role::where('name', '!=', 'super_admin')->get();
-
-        $branches = Branch::all(); // Scoped automatically by tenant if not super admin
-        $marquees = auth()->user()->isSuperAdmin() ? Marquee::all() : [];
-
-        return view('users.create', compact('roles', 'branches', 'marquees'));
+        return redirect()->route('staff.index')->with('error', 'Users can only be created from the Staff Management section by adding logins to a staff member.');
     }
 
     /**
@@ -56,41 +34,7 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
-
-        $rules = [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email',
-            'password' => ['required', Rules\Password::defaults()],
-            'phone' => 'nullable|string|max:50',
-            'role_id' => 'required|exists:roles,id',
-            'branch_id' => 'nullable|exists:branches,id',
-            'status' => 'required|in:active,inactive',
-        ];
-
-        if (auth()->user()->isSuperAdmin()) {
-            $rules['marquee_id'] = 'nullable|exists:marquees,id';
-        }
-
-        $validated = $request->validate($rules);
-
-        // Security check for role assignment
-        $assignedRole = Role::find($validated['role_id']);
-        if ($assignedRole->name === 'super_admin' && !auth()->user()->isSuperAdmin()) {
-            abort(403, 'Unauthorized role assignment.');
-        }
-
-        // Set marquee_id if not super admin
-        if (!auth()->user()->isSuperAdmin()) {
-            $validated['marquee_id'] = auth()->user()->marquee_id;
-        }
-
-        // Hash password
-        $validated['password'] = Hash::make($validated['password']);
-
-        User::create($validated);
-
-        return redirect()->route('users.index')->with('success', 'User created successfully.');
+        return redirect()->route('staff.index')->with('error', 'Users can only be created from the Staff Management section by adding logins to a staff member.');
     }
 
     /**

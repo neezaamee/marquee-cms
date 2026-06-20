@@ -104,12 +104,14 @@
                                     <span class="badge badge-subtle-{{ $sc }} rounded-pill">{{ ucfirst($employee->status) }}</span>
                                 </td>
                                 <td class="text-center">
-                                    @if($employee->user_id)
-                                        <span class="badge badge-subtle-primary rounded-pill">
-                                            <span class="fas fa-key me-1"></span>Active
-                                        </span>
+                                    @if($employee->users_count > 0)
+                                        <a href="{{ route('staff.logins', $employee->id) }}" class="badge badge-subtle-primary rounded-pill">
+                                            <span class="fas fa-key me-1"></span>{{ $employee->users_count }} Login(s)
+                                        </a>
                                     @else
-                                        <span class="text-muted fs-11">—</span>
+                                        <a href="{{ route('staff.logins', $employee->id) }}" class="badge badge-subtle-secondary rounded-pill">
+                                            <span class="fas fa-plus me-1"></span>Setup
+                                        </a>
                                     @endif
                                 </td>
                                 <td class="text-end px-3">
@@ -118,6 +120,9 @@
                                             <span class="text-info fas fa-eye"></span>
                                         </a>
                                         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'))
+                                            <a class="btn btn-link p-0" href="{{ route('staff.logins', $employee->id) }}" data-bs-toggle="tooltip" title="Manage Logins">
+                                                <span class="text-success fas fa-key"></span>
+                                            </a>
                                             <a class="btn btn-link p-0" href="{{ route('staff.edit', $employee->id) }}" data-bs-toggle="tooltip" title="Edit">
                                                 <span class="text-primary fas fa-edit"></span>
                                             </a>

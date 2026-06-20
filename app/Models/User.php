@@ -15,10 +15,12 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'username',
         'password',
         'marquee_id',
         'branch_id',
         'role_id',
+        'employee_id',
         'phone',
         'status',
     ];
@@ -60,7 +62,23 @@ class User extends Authenticatable
      */
     public function employee()
     {
-        return $this->hasOne(Employee::class);
+        return $this->belongsTo(Employee::class);
+    }
+
+    /**
+     * Get user's name (dynamic fallback to employee name if linked).
+     */
+    public function getNameAttribute($value)
+    {
+        return $this->employee ? $this->employee->name : $value;
+    }
+
+    /**
+     * Get user's phone (dynamic fallback to employee mobile number if linked).
+     */
+    public function getPhoneAttribute($value)
+    {
+        return $this->employee ? $this->employee->mobile_number : $value;
     }
 
     /**

@@ -20,9 +20,11 @@ class UserForm extends Component
     public $role_id = '';
     public $name = '';
     public $email = '';
+    public $username = '';
     public $password = '';
     public $phone = '';
     public $status = 'active';
+    public $employee_id = null;
 
     // Lists
     public $marquees = [];
@@ -61,8 +63,10 @@ class UserForm extends Component
             $this->role_id = $user->role_id;
             $this->name = $user->name;
             $this->email = $user->email;
+            $this->username = $user->username;
             $this->phone = $user->phone;
             $this->status = $user->status;
+            $this->employee_id = $user->employee_id;
         }
     }
 
@@ -80,13 +84,17 @@ class UserForm extends Component
     protected function rules()
     {
         $rules = [
-            'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . ($this->userId ?? 'NULL'),
-            'phone' => 'nullable|string|max:50',
+            'username' => ['required', 'string', 'min:3', 'max:50', 'unique:users,username,' . ($this->userId ?? 'NULL'), 'regex:/^[a-zA-Z0-9_\-\.]+$/'],
             'role_id' => 'required|exists:roles,id',
             'branch_id' => 'nullable|exists:branches,id',
             'status' => 'required|in:active,inactive',
         ];
+
+        if (!$this->employee_id) {
+            $rules['name'] = 'required|string|max:255';
+            $rules['phone'] = 'nullable|string|max:50';
+        }
 
         if (auth()->user()->isSuperAdmin()) {
             $rules['marquee_id'] = 'nullable|exists:marquees,id';
@@ -123,6 +131,15 @@ class UserForm extends Component
             unset($validatedData['password']);
         } else {
             $validatedData['password'] = Hash::make($validatedData['password']);
+        }
+
+        if ($this->employee_id) {
+            $employee = \App\Models\Employee::find($this->employee_id);
+            if ($employee) {
+                $validatedData['name'] = $employee->name;
+                $validatedData['phone'] = $employee->mobile_number;
+                $validatedData['employee_id'] = $this->employee_id;
+            }
         }
 
         if ($this->isEditMode) {

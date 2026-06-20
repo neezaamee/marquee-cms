@@ -75,46 +75,61 @@ class Customer extends Model
         return trim("{$this->first_name} {$this->last_name}");
     }
 
-    // ───────────────────── CRM Placeholder Accessors ─────────────────────
+    // ───────────────────── CRM Dynamic Accessors ─────────────────────
 
     public function getTotalBookingsAttribute(): int
     {
-        return 0;
+        return $this->bookings()->count();
     }
 
     public function getUpcomingEventsAttribute(): int
     {
-        return 0;
+        return $this->bookings()
+            ->whereDate('booking_date', '>=', now()->toDateString())
+            ->whereIn('booking_status', ['Reserved', 'Confirmed'])
+            ->count();
     }
 
     public function getCompletedEventsAttribute(): int
     {
-        return 0;
+        return $this->bookings()
+            ->where('booking_status', 'Completed')
+            ->count();
     }
 
     public function getCancelledEventsAttribute(): int
     {
-        return 0;
+        return $this->bookings()
+            ->where('booking_status', 'Cancelled')
+            ->count();
     }
 
     public function getTotalRevenueGeneratedAttribute(): float
     {
-        return 0.00;
+        return (float) $this->bookings()
+            ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+            ->sum('grand_total');
     }
 
     public function getTotalInvoicedAmountAttribute(): float
     {
-        return 0.00;
+        return (float) $this->bookings()
+            ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+            ->sum('grand_total');
     }
 
     public function getTotalPaidAmountAttribute(): float
     {
-        return 0.00;
+        $bookingIds = $this->bookings()
+            ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+            ->pluck('id');
+            
+        return (float) \App\Models\BookingPayment::whereIn('booking_id', $bookingIds)->sum('amount');
     }
 
     public function getOutstandingBalanceAttribute(): float
     {
-        return 0.00;
+        return max(0.00, $this->total_invoiced_amount - $this->total_paid_amount);
     }
 
     // ───────────────────── Relationships ─────────────────────

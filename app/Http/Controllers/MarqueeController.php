@@ -11,24 +11,10 @@ class MarqueeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index()
     {
         abort_unless(auth()->user()->isSuperAdmin(), 403);
-
-        $query = Marquee::with('subscriptionPlan');
-
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('city', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
-
-        $marquees = $query->paginate(10);
-        return view('marquees.index', compact('marquees'));
+        return view('marquees.index');
     }
 
     /**
@@ -49,7 +35,7 @@ class MarqueeController extends Controller
     {
         abort_unless(auth()->user()->isSuperAdmin(), 403);
 
-        $validated = $request->validate([
+        $rules = [
             'name' => 'required|string|max:255',
             'logo' => 'nullable|image|max:2048', // 2MB max
             'address' => 'required|string|max:255',
@@ -63,16 +49,64 @@ class MarqueeController extends Controller
             'status' => 'required|in:active,inactive,suspended',
             'subscription_plan_id' => 'required|exists:subscription_plans,id',
             'subscription_ends_at' => 'nullable|date',
-        ]);
+        ];
+
+        // Owner fields are required if provided in standard HTTP requests (for API/post compatibility)
+        if ($request->has('owner_name') || $request->has('owner_email')) {
+            $rules['owner_name'] = 'required|string|max:255';
+            $rules['owner_username'] = 'required|string|max:255|unique:users,username';
+            $rules['owner_email'] = 'required|email|max:255|unique:users,email';
+            $rules['owner_password'] = 'required|string|min:8';
+            $rules['owner_phone'] = 'nullable|string|max:50';
+        }
+
+        $validated = $request->validate($rules);
 
         if ($request->hasFile('logo')) {
             $path = $request->file('logo')->store('logos', 'public');
             $validated['logo'] = $path;
         }
 
-        Marquee::create($validated);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request) {
+            $marqueeData = $validated;
+            unset(
+                $marqueeData['owner_name'],
+                $marqueeData['owner_username'],
+                $marqueeData['owner_email'],
+                $marqueeData['owner_password'],
+                $marqueeData['owner_phone']
+            );
 
-        return redirect()->route('marquees.index')->with('success', 'Marquee tenant created successfully.');
+            $marquee = Marquee::create($marqueeData);
+
+            // Create Default Head Office Branch
+            \App\Models\Branch::create([
+                'marquee_id' => $marquee->id,
+                'name' => 'Head Office',
+                'address' => $marquee->address,
+                'city' => $marquee->city,
+                'province' => $marquee->province,
+                'phone' => $marquee->phone,
+                'status' => 'active',
+            ]);
+
+            if ($request->has('owner_name')) {
+                $ownerRole = \App\Models\Role::where('name', 'owner')->first();
+                \App\Models\User::create([
+                    'name' => $validated['owner_name'],
+                    'email' => $validated['owner_email'],
+                    'username' => $validated['owner_username'],
+                    'password' => \Illuminate\Support\Facades\Hash::make($validated['owner_password']),
+                    'marquee_id' => $marquee->id,
+                    'branch_id' => null,
+                    'role_id' => $ownerRole ? $ownerRole->id : null,
+                    'phone' => $validated['owner_phone'] ?? null,
+                    'status' => 'active',
+                ]);
+            }
+        });
+
+        return redirect()->route('marquees.index')->with('success', 'Marquee tenant and Owner user account created successfully.');
     }
 
     /**

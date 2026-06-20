@@ -12,6 +12,12 @@ use App\Http\Controllers\SlotController;
 use App\Http\Controllers\HallSlotAssignmentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EventTypeController;
+use App\Http\Controllers\MenuCategoryController;
+use App\Http\Controllers\MenuItemController;
+use App\Http\Controllers\PackageController;
+use App\Http\Controllers\AvailabilityController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ExtraServiceController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -36,12 +42,40 @@ Route::middleware('auth')->group(function () {
     Route::resource('marquees', MarqueeController::class);
     Route::resource('branches', BranchController::class);
     Route::resource('users', UserController::class);
+    Route::get('staff/{staff}/logins', [StaffController::class, 'logins'])->name('staff.logins');
     Route::resource('staff', StaffController::class);
     Route::resource('customers', CustomerController::class);
     Route::resource('event-types', EventTypeController::class);
+    Route::resource('extra-services', ExtraServiceController::class);
+    
+    // Booking Management
+    Route::get('bookings/report', [BookingController::class, 'report'])->name('bookings.report');
+    Route::get('bookings/{booking}/slip', [BookingController::class, 'slip'])->name('bookings.slip');
+    Route::get('bookings/{booking}/slip-v2', [BookingController::class, 'slipV2'])->name('bookings.slip-v2');
+    Route::get('bookings/payments/{payment}/receipt', [BookingController::class, 'paymentReceipt'])->name('bookings.payment-receipt');
+    Route::resource('bookings', BookingController::class);
+    
+    // Menu Management
+    Route::resource('menu-categories', MenuCategoryController::class);
+    Route::resource('menu-items', MenuItemController::class);
+    
+    Route::get('packages/{package}/builder', [PackageController::class, 'builder'])->name('packages.builder');
+    Route::get('packages/{package}/preview', [PackageController::class, 'preview'])->name('packages.preview');
+    Route::resource('packages', PackageController::class);
+    
+    // Availability Engine
+    Route::get('availability', [AvailabilityController::class, 'index'])->name('availability.index');
     
     // Halls, Slots, and Assignments
     Route::resource('halls', HallController::class);
     Route::resource('slots', SlotController::class);
     Route::get('hall-slots', [HallSlotAssignmentController::class, 'index'])->name('hall-slots.index');
+
+    // SaaS Subscription Management (Super Admin only)
+    Route::resource('subscription-plans', \App\Http\Controllers\SubscriptionPlanController::class);
+    Route::resource('plan-features', \App\Http\Controllers\PlanFeatureController::class);
+    Route::resource('billing-cycles', \App\Http\Controllers\BillingCycleController::class);
+    Route::resource('saas-invoices', \App\Http\Controllers\SaasInvoiceController::class);
+    Route::resource('saas-payments', \App\Http\Controllers\SaasPaymentController::class);
 });
+

@@ -3,13 +3,18 @@
         <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0">Marquee Tenants</h5>
             <div class="d-flex align-items-center gap-2">
+                <div class="btn-group btn-group-sm" role="group">
+                    <button wire:click="$set('filter', '')" class="btn btn-{{ $filter === '' ? 'primary' : 'falcon-default' }}" type="button">All</button>
+                    <button wire:click="$set('filter', 'active')" class="btn btn-{{ $filter === 'active' ? 'primary' : 'falcon-default' }}" type="button">Active</button>
+                    <button wire:click="$set('filter', 'suspended')" class="btn btn-{{ $filter === 'suspended' ? 'primary' : 'falcon-default' }}" type="button">Suspended</button>
+                </div>
                 <div class="input-group input-group-sm">
                     <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search marquees..." />
                     <span class="input-group-text"><span class="fas fa-search"></span></span>
                 </div>
                 @if(auth()->user()->isSuperAdmin())
                     <a class="btn btn-falcon-primary btn-sm" href="{{ route('marquees.create') }}">
-                        <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add New Marquee
+                        <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add New
                     </a>
                 @endif
             </div>
@@ -59,7 +64,11 @@
                                 </td>
                                 <td class="align-middle text-center">
                                     @if($marquee->status === 'active')
-                                        <span class="badge badge-subtle-success rounded-pill">Active</span>
+                                        @if($marquee->subscription_ends_at && $marquee->subscription_ends_at->isPast())
+                                            <span class="badge badge-subtle-warning rounded-pill" data-bs-toggle="tooltip" title="Subscription has expired">Expired</span>
+                                        @else
+                                            <span class="badge badge-subtle-success rounded-pill">Active</span>
+                                        @endif
                                     @elseif($marquee->status === 'inactive')
                                         <span class="badge badge-subtle-secondary rounded-pill">Inactive</span>
                                     @else

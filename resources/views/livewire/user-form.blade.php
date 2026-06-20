@@ -51,8 +51,13 @@
                     <!-- Name -->
                     <div class="col-md-6">
                         <label class="form-label" for="name">Full Name *</label>
-                        <input wire:model="name" class="form-control @error('name') is-invalid @enderror" id="name" type="text" required placeholder="e.g. Asif Mehmood" />
-                        @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        @if($employee_id)
+                            <input class="form-control" id="name" type="text" value="{{ $name }}" disabled />
+                            <div class="fs-11 text-muted mt-1">Profile details are managed via the linked <a href="{{ route('staff.edit', $employee_id) }}">Staff Profile</a>.</div>
+                        @else
+                            <input wire:model="name" class="form-control @error('name') is-invalid @enderror" id="name" type="text" required placeholder="e.g. Asif Mehmood" />
+                            @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        @endif
                     </div>
 
                     <!-- Email -->
@@ -60,6 +65,13 @@
                         <label class="form-label" for="email">Email Address *</label>
                         <input wire:model="email" class="form-control @error('email') is-invalid @enderror" id="email" type="email" required placeholder="e.g. manager.lh@royalmarquee.com" />
                         @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <!-- Username -->
+                    <div class="col-md-6">
+                        <label class="form-label" for="username">Username *</label>
+                        <input wire:model="username" class="form-control @error('username') is-invalid @enderror" id="username" type="text" required placeholder="e.g. asif7122" />
+                        @error('username') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
                     <!-- Password -->
@@ -72,8 +84,12 @@
                     <!-- Phone -->
                     <div class="col-md-3">
                         <label class="form-label" for="phone">Phone Number</label>
-                        <input wire:model="phone" class="form-control @error('phone') is-invalid @enderror" id="phone" type="text" placeholder="e.g. +923007654321" />
-                        @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        @if($employee_id)
+                            <input class="form-control" id="phone" type="text" value="{{ $phone }}" disabled />
+                        @else
+                            <input wire:model="phone" class="form-control @error('phone') is-invalid @enderror" id="phone" type="text" placeholder="e.g. +923007654321" />
+                            @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        @endif
                     </div>
 
                     <!-- Status -->

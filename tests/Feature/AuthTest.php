@@ -50,14 +50,30 @@ class AuthTest extends TestCase
         $this->assertAuthenticated();
     }
 
-    public function test_user_can_login()
+    public function test_user_can_login_with_email()
     {
         $user = User::factory()->create([
             'password' => bcrypt('Password123!'),
         ]);
 
         $response = $this->post('/login', [
-            'email' => $user->email,
+            'login' => $user->email,
+            'password' => 'Password123!',
+        ]);
+
+        $response->assertRedirect('/dashboard');
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_user_can_login_with_username()
+    {
+        $user = User::factory()->create([
+            'username' => 'testuser',
+            'password' => bcrypt('Password123!'),
+        ]);
+
+        $response = $this->post('/login', [
+            'login' => 'testuser',
             'password' => 'Password123!',
         ]);
 
