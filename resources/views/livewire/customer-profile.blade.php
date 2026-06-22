@@ -259,7 +259,7 @@
                                     <thead class="bg-200">
                                         <tr>
                                             <th>Booking #</th>
-                                            <th>Booking Date</th>
+                                            <th>Event Date</th>
                                             <th>Hall / Event</th>
                                             <th>Invoiced Amount</th>
                                             <th>Paid Amount</th>

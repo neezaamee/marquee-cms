@@ -8,6 +8,47 @@
         </div>
     @endif
 
+    <!-- Top Status Transition Banner -->
+    <div class="card mb-3 border border-300">
+        <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2 bg-light">
+            <div class="d-flex align-items-center gap-2">
+                <span class="fs-12 fw-bold text-600">Current Booking Status:</span>
+                @if($booking->booking_status === 'Confirmed')
+                    <span class="badge badge-subtle-success fs-11 rounded-pill">Confirmed</span>
+                @elseif($booking->booking_status === 'Reserved')
+                    <span class="badge badge-subtle-warning fs-11 rounded-pill">Reserved</span>
+                @elseif($booking->booking_status === 'Completed')
+                    <span class="badge badge-subtle-info fs-11 rounded-pill">Completed</span>
+                @elseif($booking->booking_status === 'Cancelled')
+                    <span class="badge badge-subtle-danger fs-11 rounded-pill">Cancelled</span>
+                @else
+                    <span class="badge badge-subtle-secondary fs-11 rounded-pill">{{ $booking->booking_status }}</span>
+                @endif
+            </div>
+
+            @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
+                <div class="d-flex align-items-center gap-1 flex-wrap">
+                    <span class="fs-12 text-600 fw-bold me-2">Transition Status:</span>
+                    @if($booking->booking_status !== 'Confirmed')
+                        <button wire:click="updateStatus('Confirmed')" class="btn btn-success btn-xs" type="button"><span class="fas fa-check-circle me-1"></span>Confirm</button>
+                    @endif
+                    @if($booking->booking_status !== 'Reserved')
+                        <button wire:click="updateStatus('Reserved')" class="btn btn-warning btn-xs text-white" type="button"><span class="fas fa-pause-circle me-1"></span>Reserve</button>
+                    @endif
+                    @if($booking->booking_status !== 'Completed' && $booking->booking_status !== 'Cancelled')
+                        <button wire:click="updateStatus('Completed')" class="btn btn-info btn-xs" type="button"><span class="fas fa-calendar-check me-1"></span>Complete</button>
+                    @endif
+                    @if($booking->booking_status !== 'Cancelled')
+                        <button wire:click="updateStatus('Cancelled')" class="btn btn-danger btn-xs" type="button"><span class="fas fa-times-circle me-1"></span>Cancel</button>
+                    @endif
+                    @if($booking->booking_status !== 'Rejected' && $booking->booking_status !== 'Confirmed')
+                        <button wire:click="updateStatus('Rejected')" class="btn btn-dark btn-xs" type="button"><span class="fas fa-ban me-1"></span>Reject</button>
+                    @endif
+                </div>
+            @endif
+        </div>
+    </div>
+
     <div class="row g-3">
         <!-- Main details card -->
         <div class="col-lg-8">
@@ -145,7 +186,10 @@
                         <!-- Booked Extra Services (Add-ons) -->
                         <div class="col-md-6">
                             <h6 class="text-primary font-sans-serif fw-bold mb-2">Selected Add-ons / Services</h6>
-                            @if($booking->extraServices->isNotEmpty())
+                            @php
+                                $displayAddons = $booking->finalBill ? $booking->finalBill->extraServices : $booking->extraServices;
+                            @endphp
+                            @if($displayAddons->isNotEmpty())
                                 <table class="table table-sm table-borderless fs-11 mb-0">
                                     <thead>
                                         <tr class="border-bottom text-500">
@@ -155,7 +199,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach($booking->extraServices as $savedSrv)
+                                        @foreach($displayAddons as $savedSrv)
                                             <tr>
                                                 <td class="px-0 py-1 fw-semi-bold text-800">{{ $savedSrv->service_name }}</td>
                                                 <td class="px-0 py-1 text-center text-800">{{ $savedSrv->quantity }}</td>
@@ -211,14 +255,18 @@
                                             </td>
                                         </tr>
                                     @endforeach
+                                    @php
+                                        $billingAmount = $booking->finalBill ? $booking->finalBill->grand_total : $booking->grand_total;
+                                        $balanceDue = max(0, $billingAmount - $booking->payments->sum('amount'));
+                                    @endphp
                                     <tr class="table-info fw-bold fs-11">
                                         <td colspan="6" class="text-end text-800">Total Payments Recorded:</td>
                                         <td class="text-end text-800 font-monospace">Rs. {{ number_format($booking->payments->sum('amount'), 2) }}</td>
                                     </tr>
-                                    <tr class="{{ ($booking->grand_total - $booking->payments->sum('amount')) <= 0 ? 'table-success' : 'table-warning' }} fw-bold fs-11">
+                                    <tr class="{{ $balanceDue <= 0 ? 'table-success' : 'table-warning' }} fw-bold fs-11">
                                         <td colspan="6" class="text-end text-800">Outstanding Balance:</td>
                                         <td class="text-end text-800 font-monospace">
-                                            Rs. {{ number_format(max(0, $booking->grand_total - $booking->payments->sum('amount')), 2) }}
+                                            Rs. {{ number_format($balanceDue, 2) }}
                                         </td>
                                     </tr>
                                 </tbody>
@@ -280,9 +328,78 @@
 
         <!-- Right billing breakdown column -->
         <div class="col-lg-4">
+            <!-- If Final Bill exists, show Final Bill card first, then Original Bill below it! -->
+            @if($booking->finalBill)
+            <div class="card border border-success mb-3 shadow-sm">
+                <div class="card-header bg-success text-white py-2">
+                    <h6 class="mb-0 text-white"><span class="fas fa-file-invoice-dollar me-2"></span>Event-Day Final Bill (Actual)</h6>
+                </div>
+                <div class="card-body fs-11">
+                    <table class="table table-sm table-borderless mb-0">
+                        @if(!$booking->no_food)
+                            <tr>
+                                <td class="text-500 px-0">Actual Guests:</td>
+                                <td class="px-0 text-end fw-semi-bold">{{ $booking->finalBill->guest_count }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-500 px-0">Per Plate Rate:</td>
+                                <td class="px-0 text-end fw-semi-bold">Rs. {{ number_format($booking->finalBill->per_plate_price, 2) }}</td>
+                            </tr>
+                            <tr class="border-bottom">
+                                <td class="text-500 px-0 pb-2">Package Sum:</td>
+                                <td class="px-0 text-end fw-bold pb-2">Rs. {{ number_format($booking->finalBill->package_amount, 2) }}</td>
+                            </tr>
+                        @else
+                            <tr class="border-bottom text-secondary">
+                                <td class="px-0 pb-2">Catering Plan:</td>
+                                <td class="px-0 text-end fw-bold pb-2">Sitting Plan Only (No Food)</td>
+                            </tr>
+                        @endif
+
+                        <tr>
+                            <td class="text-500 px-0 pt-2">Hall Rent:</td>
+                            <td class="px-0 text-end fw-semi-bold pt-2">Rs. {{ number_format($booking->finalBill->hall_charges, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-500 px-0">Extra Addons (Actual):</td>
+                            <td class="px-0 text-end fw-semi-bold">Rs. {{ number_format($booking->finalBill->extra_charges, 2) }}</td>
+                        </tr>
+                        <tr class="border-bottom text-danger">
+                            <td class="px-0 pb-2">Discount:</td>
+                            <td class="px-0 text-end fw-bold pb-2">- Rs. {{ number_format($booking->finalBill->discount_amount, 2) }}</td>
+                        </tr>
+
+                        <tr class="fw-bold">
+                            <td class="px-0 py-2">Subtotal:</td>
+                            <td class="px-0 text-end py-2">Rs. {{ number_format($booking->finalBill->subtotal, 2) }}</td>
+                        </tr>
+                        <tr class="border-bottom text-muted">
+                            <td class="px-0 pb-2">Tax:</td>
+                            <td class="px-0 text-end pb-2">Rs. {{ number_format($booking->finalBill->tax_amount, 2) }}</td>
+                        </tr>
+
+                        <tr class="border-bottom text-info">
+                            <td class="px-0 py-2">Refundable Deposit:</td>
+                            <td class="px-0 text-end fw-bold py-2">Rs. {{ number_format($booking->security_deposit, 2) }}</td>
+                        </tr>
+
+                        <tr class="fs-9 fw-black text-success">
+                            <td class="px-0 pt-3">Final Grand Total:</td>
+                            <td class="px-0 text-end pt-3">Rs. {{ number_format($booking->finalBill->grand_total, 2) }}</td>
+                        </tr>
+                    </table>
+                    @if($booking->finalBill->notes)
+                        <div class="border-top pt-2 mt-2 text-muted italic fs-12">
+                            <strong>Remarks:</strong> {{ $booking->finalBill->notes }}
+                        </div>
+                    @endif
+                </div>
+            </div>
+            @endif
+
             <div class="card border border-primary mb-3">
                 <div class="card-header bg-primary text-white py-2">
-                    <h6 class="mb-0 text-white"><span class="fas fa-receipt me-2"></span>Billing & Invoice Math</h6>
+                    <h6 class="mb-0 text-white"><span class="fas fa-receipt me-2"></span>Billing & Invoice Math (Original)</h6>
                 </div>
                 <div class="card-body fs-11">
                     <table class="table table-sm table-borderless mb-0">
@@ -359,30 +476,19 @@
                         <a class="btn btn-falcon-primary btn-sm w-100 mt-2" href="{{ route('bookings.slip-v2', $booking->id) }}" target="_blank">
                             <span class="fas fa-print me-1"></span> Print Booking Slip (V2)
                         </a>
-
+                        <a class="btn btn-falcon-danger btn-sm w-100 mt-2" href="{{ route('bookings.pdf', $booking->id) }}" target="_blank">
+                            <span class="fas fa-file-pdf me-1"></span> Download Invoice PDF
+                        </a>
                         <hr class="my-2" />
 
-                        <!-- Booking Status Updates -->
-                        @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
-                            <span class="text-muted fs-12 fw-bold mb-1">Update Reservation Status:</span>
-                            <div class="d-flex gap-1 flex-wrap">
-                                @if($booking->booking_status !== 'Confirmed')
-                                    <button wire:click="updateStatus('Confirmed')" class="btn btn-success btn-xs" type="button">Confirm</button>
-                                @endif
-                                @if($booking->booking_status !== 'Reserved')
-                                    <button wire:click="updateStatus('Reserved')" class="btn btn-warning btn-xs" type="button">Reserve</button>
-                                @endif
-                                @if($booking->booking_status !== 'Completed' && $booking->booking_status !== 'Cancelled')
-                                    <button wire:click="updateStatus('Completed')" class="btn btn-info btn-xs" type="button">Complete</button>
-                                @endif
-                                @if($booking->booking_status !== 'Cancelled')
-                                    <button wire:click="updateStatus('Cancelled')" class="btn btn-danger btn-xs" type="button">Cancel</button>
-                                @endif
-                                @if($booking->booking_status !== 'Rejected' && $booking->booking_status !== 'Confirmed')
-                                    <button wire:click="updateStatus('Rejected')" class="btn btn-dark btn-xs" type="button">Reject</button>
-                                @endif
-                            </div>
+                        <!-- Prepare Final Bill Button -->
+                        @if($booking->booking_status === 'Confirmed' || $booking->booking_status === 'Completed')
+                            <button wire:click="openFinalBillModal" class="btn btn-falcon-warning btn-sm w-100 mt-2" type="button">
+                                <span class="fas fa-file-invoice-dollar me-1"></span> 
+                                {{ $booking->finalBill ? 'Adjust Final Bill' : 'Prepare Final Bill' }}
+                            </button>
                         @endif
+
 
                         <!-- Refundable Security Deposit Status & Process -->
                         <hr class="my-2" />
@@ -497,4 +603,140 @@
             </div>
         </div>
     </div>
+    <!-- Final Bill Modal -->
+    @if($showFinalBillModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index:1050;">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content border-translucent shadow-lg">
+                    <div class="modal-header bg-light py-3">
+                        <h6 class="modal-title mb-0 fw-bold text-primary">
+                            <span class="fas fa-file-invoice-dollar me-2"></span>Event-Day Final Bill Adjustments
+                        </h6>
+                        <button wire:click="$set('showFinalBillModal', false)" type="button" class="btn-close fs-12" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-3 fs-12">
+                        <div class="bg-light border rounded p-3 mb-3">
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <strong>Original Booking Details:</strong>
+                                    <div class="mt-1">Guests: {{ $booking->guest_count }}</div>
+                                    <div>Per Plate: Rs. {{ number_format($booking->per_plate_price, 2) }}</div>
+                                    <div>Original Grand Total: Rs. {{ number_format($booking->grand_total, 2) }}</div>
+                                </div>
+                                <div class="col-sm-6 text-end">
+                                    <span class="badge badge-subtle-info rounded-pill">Event Day Adjustment Mode</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Grid -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold mb-1">Actual Guest Count *</label>
+                                <input wire:model.live="fbGuestCount" type="number" class="form-control form-control-sm" />
+                                @error('fbGuestCount') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold mb-1">Actual Per Plate Price (Rs.) *</label>
+                                <input wire:model.live="fbPerPlatePrice" type="number" step="0.01" class="form-control form-control-sm" />
+                                @error('fbPerPlatePrice') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold mb-1">Actual Hall Charges (Rs.) *</label>
+                                <input wire:model.live="fbHallCharges" type="number" step="0.01" class="form-control form-control-sm" />
+                                @error('fbHallCharges') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold mb-1">Discount Amount (Rs.) *</label>
+                                <input wire:model.live="fbDiscountAmount" type="number" step="0.01" class="form-control form-control-sm" />
+                                @error('fbDiscountAmount') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+
+                        <!-- Addons / Extra Services Adjustment -->
+                        <div class="card mb-3 bg-light border">
+                            <div class="card-header bg-200 py-2 d-flex justify-content-between align-items-center">
+                                <h7 class="mb-0 fw-bold fs-11 text-800">Actual Add-ons / Services consumed</h7>
+                            </div>
+                            <div class="card-body p-2 fs-11">
+                                <table class="table table-sm table-striped border-0 mb-2">
+                                    <thead>
+                                        <tr>
+                                            <th>Service Name</th>
+                                            <th class="text-center" style="width: 80px;">Rate</th>
+                                            <th class="text-center" style="width: 80px;">Qty</th>
+                                            <th class="text-end" style="width: 100px;">Total</th>
+                                            <th style="width: 50px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($fbAddonsList as $idx => $addon)
+                                            <tr>
+                                                <td class="align-middle fw-semi-bold">{{ $addon['service_name'] }}</td>
+                                                <td class="align-middle text-center font-monospace">Rs. {{ number_format($addon['unit_price'], 2) }}</td>
+                                                <td class="align-middle text-center">{{ $addon['quantity'] }}</td>
+                                                <td class="align-middle text-end font-monospace">Rs. {{ number_format($addon['total_price'], 2) }}</td>
+                                                <td class="text-center">
+                                                    <button wire:click="removeFbAddon({{ $idx }})" class="btn btn-link text-danger p-0" type="button"><span class="fas fa-trash-alt"></span></button>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">No addons added to final bill yet.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+
+                                <!-- Quick Add Addon Row -->
+                                <div class="row g-2 border-top pt-2">
+                                    <div class="col-sm-5">
+                                        <input wire:model="newAddonName" type="text" class="form-control form-control-xs" placeholder="Add-on Service Name" />
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <input wire:model="newAddonPrice" type="number" class="form-control form-control-xs" placeholder="Rate (Rs.)" />
+                                    </div>
+                                    <div class="col-sm-2">
+                                        <input wire:model="newAddonQty" type="number" class="form-control form-control-xs" placeholder="Qty" />
+                                    </div>
+                                    <div class="col-sm-2 d-grid">
+                                        <button wire:click="addFbAddon" class="btn btn-falcon-success btn-xs" type="button"><span class="fas fa-plus"></span> Add</button>
+                                    </div>
+                                </div>
+                                @error('newAddonName') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+                                @error('newAddonPrice') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+                                @error('newAddonQty') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Live Calculation Result -->
+                        <div class="bg-light border rounded p-3 mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span>Adjusted Subtotal:</span>
+                                <span class="fw-bold">Rs. {{ number_format($fbGuestCount * $fbPerPlatePrice + $fbHallCharges + $fbExtraCharges - $fbDiscountAmount, 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1">
+                                <span>Estimated Tax:</span>
+                                <span class="fw-bold">Rs. {{ number_format($fbTaxAmount, 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1 border-top pt-2 text-primary fw-bold">
+                                <span>Final Bill Grand Total:</span>
+                                <span>Rs. {{ number_format($fbGuestCount * $fbPerPlatePrice + $fbHallCharges + $fbExtraCharges - $fbDiscountAmount + $fbTaxAmount + $booking->security_deposit, 2) }}</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label fw-bold mb-1">Deduction / Final Bill Audit Remarks</label>
+                            <textarea wire:model="fbNotes" class="form-control form-control-sm" rows="2" placeholder="e.g. Guests count verified on event day. Added extra stage mic."></textarea>
+                            @error('fbNotes') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light py-2">
+                        <button wire:click="$set('showFinalBillModal', false)" type="button" class="btn btn-falcon-default btn-xs px-3">Cancel</button>
+                        <button wire:click="saveFinalBill" type="button" class="btn btn-warning btn-xs px-4">Lock Final Bill</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

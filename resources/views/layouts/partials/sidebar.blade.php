@@ -709,40 +709,27 @@
         <!-- FINANCIAL MANAGEMENT SECTION -->
         <!-- ========================================== -->
         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_payments'))
+        @php
+          $financeActive = Route::is('finance.revenue');
+          $transactionsActive = Route::is('finance.payments') || Route::is('finance.security-deposits');
+        @endphp
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
           <div class="col-auto navbar-vertical-label">Financial Management</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
         </div>
 
         <li class="nav-item">
-          <a class="nav-link dropdown-indicator collapsed" href="#financeCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="financeCollapse">
+          <a class="nav-link dropdown-indicator {{ $financeActive ? '' : 'collapsed' }}" href="#financeCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $financeActive ? 'true' : 'false' }}" aria-controls="financeCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-coins"></span></span>
               <span class="nav-link-text ps-1">Finance</span>
             </div>
           </a>
-          <ul class="nav collapse" id="financeCollapse" data-bs-parent="#navbarVerticalNav">
+          <ul class="nav collapse {{ $financeActive ? 'show' : '' }}" id="financeCollapse" data-bs-parent="#navbarVerticalNav">
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('finance.revenue') ? 'active' : '' }}" href="{{ route('finance.revenue') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Revenue Dashboard</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
-                </div>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
-                <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Subscription Revenue</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
-                </div>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
-                <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Marquee Revenue</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>
@@ -750,34 +737,24 @@
         </li>
 
         <li class="nav-item">
-          <a class="nav-link dropdown-indicator collapsed" href="#transactionsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="transactionsCollapse">
+          <a class="nav-link dropdown-indicator {{ $transactionsActive ? '' : 'collapsed' }}" href="#transactionsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $transactionsActive ? 'true' : 'false' }}" aria-controls="transactionsCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-file-invoice"></span></span>
               <span class="nav-link-text ps-1">Transactions</span>
             </div>
           </a>
-          <ul class="nav collapse" id="transactionsCollapse" data-bs-parent="#navbarVerticalNav">
+          <ul class="nav collapse {{ $transactionsActive ? 'show' : '' }}" id="transactionsCollapse" data-bs-parent="#navbarVerticalNav">
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('finance.payments') ? 'active' : '' }}" href="{{ route('finance.payments') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Payments</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                  <span class="nav-link-text ps-1">Payments Ledger</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('finance.security-deposits') ? 'active' : '' }}" href="{{ route('finance.security-deposits') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Refunds</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
-                </div>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
-                <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Pending Payments</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                  <span class="nav-link-text ps-1">Security Deposits</span>
                 </div>
               </a>
             </li>

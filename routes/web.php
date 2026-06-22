@@ -18,6 +18,7 @@ use App\Http\Controllers\PackageController;
 use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ExtraServiceController;
+use App\Http\Controllers\FinanceController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -52,6 +53,7 @@ Route::middleware('auth')->group(function () {
     Route::get('bookings/report', [BookingController::class, 'report'])->name('bookings.report');
     Route::get('bookings/{booking}/slip', [BookingController::class, 'slip'])->name('bookings.slip');
     Route::get('bookings/{booking}/slip-v2', [BookingController::class, 'slipV2'])->name('bookings.slip-v2');
+    Route::get('bookings/{booking}/pdf', [BookingController::class, 'downloadPdf'])->name('bookings.pdf');
     Route::get('bookings/payments/{payment}/receipt', [BookingController::class, 'paymentReceipt'])->name('bookings.payment-receipt');
     Route::resource('bookings', BookingController::class);
     
@@ -70,6 +72,11 @@ Route::middleware('auth')->group(function () {
     Route::resource('halls', HallController::class);
     Route::resource('slots', SlotController::class);
     Route::get('hall-slots', [HallSlotAssignmentController::class, 'index'])->name('hall-slots.index');
+
+    // Central Finance & Billing Module
+    Route::get('finance/revenue', [FinanceController::class, 'revenue'])->name('finance.revenue');
+    Route::get('finance/payments', [FinanceController::class, 'payments'])->name('finance.payments');
+    Route::get('finance/security-deposits', [FinanceController::class, 'securityDeposits'])->name('finance.security-deposits');
 
     // SaaS Subscription Management (Super Admin only)
     Route::resource('subscription-plans', \App\Http\Controllers\SubscriptionPlanController::class);

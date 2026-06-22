@@ -239,6 +239,8 @@ class BookingManagementTest extends TestCase
 
     public function test_double_booking_prevention_on_creation()
     {
+        $futureDate = Carbon::today()->addDays(5)->format('Y-m-d');
+
         // Setup existing confirmed booking
         Booking::create([
             'marquee_id' => $this->marqueeA->id,
@@ -247,9 +249,9 @@ class BookingManagementTest extends TestCase
             'hall_id' => $this->hallA->id,
             'slot_id' => $this->slotA->id,
             'package_id' => $this->packageA->id,
-            'booking_date' => '2026-06-20',
-            'start_time' => '2026-06-20 18:00:00',
-            'end_time' => '2026-06-20 23:30:00',
+            'booking_date' => $futureDate,
+            'start_time' => "{$futureDate} 18:00:00",
+            'end_time' => "{$futureDate} 23:30:00",
             'booking_status' => 'Confirmed',
         ]);
 
@@ -260,7 +262,7 @@ class BookingManagementTest extends TestCase
             ->set('selectedCustomerId', $this->customerA->id)
             ->set('selectedEventTypeId', $this->eventTypeA->id)
             ->set('selectedHallIds', [(string)$this->hallA->id])
-            ->set('selectedDate', '2026-06-20')
+            ->set('selectedDate', $futureDate)
             ->set('checkType', 'slot')
             ->set('selectedSlotId', $this->slotA->id)
             ->call('nextStep') // Step 1 to 2
@@ -713,6 +715,8 @@ class BookingManagementTest extends TestCase
 
     public function test_multi_hall_booking_and_conflict_detection()
     {
+        $futureDate = Carbon::today()->addDays(5)->format('Y-m-d');
+
         $hallB = Hall::create([
             'marquee_id' => $this->marqueeA->id,
             'branch_id' => $this->branchA->id,
@@ -732,9 +736,9 @@ class BookingManagementTest extends TestCase
             'hall_id' => $hallB->id,
             'slot_id' => $this->slotA->id,
             'package_id' => $this->packageA->id,
-            'booking_date' => '2026-06-20',
-            'start_time' => '2026-06-20 18:00:00',
-            'end_time' => '2026-06-20 23:30:00',
+            'booking_date' => $futureDate,
+            'start_time' => "{$futureDate} 18:00:00",
+            'end_time' => "{$futureDate} 23:30:00",
             'booking_status' => 'Confirmed',
         ]);
 
@@ -745,7 +749,7 @@ class BookingManagementTest extends TestCase
             ->set('selectedCustomerId', $this->customerA->id)
             ->set('selectedEventTypeId', $this->eventTypeA->id)
             ->set('selectedHallIds', [(string)$this->hallA->id, (string)$hallB->id])
-            ->set('selectedDate', '2026-06-20')
+            ->set('selectedDate', $futureDate)
             ->set('checkType', 'slot')
             ->set('selectedSlotId', $this->slotA->id)
             ->call('nextStep') // Step 1 to 2
@@ -758,7 +762,7 @@ class BookingManagementTest extends TestCase
             ->set('selectedCustomerId', $this->customerA->id)
             ->set('selectedEventTypeId', $this->eventTypeA->id)
             ->set('selectedHallIds', [(string)$this->hallA->id])
-            ->set('selectedDate', '2026-06-20')
+            ->set('selectedDate', $futureDate)
             ->set('checkType', 'slot')
             ->set('selectedSlotId', $this->slotA->id)
             ->call('nextStep') // Step 1 to 2
