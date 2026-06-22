@@ -86,6 +86,24 @@ class BookingController extends Controller
     }
 
     /**
+     * Generates and downloads a PDF of the booking slip/invoice using DomPDF.
+     */
+    public function downloadPdf(Booking $booking)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
+
+        // Tenant scoping security check
+        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
+            abort(403, 'Unauthorized access to this booking.');
+        }
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('bookings.pdf', compact('booking'))
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->stream('Booking_Invoice_' . $booking->booking_number . '.pdf');
+    }
+
+    /**
      * Renders a printable payment receipt for a specific payment.
      */
     public function paymentReceipt(\App\Models\BookingPayment $payment)

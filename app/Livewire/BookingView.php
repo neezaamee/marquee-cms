@@ -25,6 +25,20 @@ class BookingView extends Component
     public $depositDeductedAmount = 0.00;
     public $depositNotes = '';
 
+    // Event Day Final Bill Modal State
+    public $showFinalBillModal = false;
+    public $fbGuestCount = 0;
+    public $fbPerPlatePrice = 0.00;
+    public $fbHallCharges = 0.00;
+    public $fbExtraCharges = 0.00;
+    public $fbDiscountAmount = 0.00;
+    public $fbTaxAmount = 0.00;
+    public $fbNotes = '';
+    public $fbAddonsList = []; // Array of ['service_name' => string, 'unit_price' => float, 'quantity' => int, 'total_price' => float]
+    public $newAddonName = '';
+    public $newAddonPrice = 0.00;
+    public $newAddonQty = 1;
+
     public function mount(Booking $booking)
     {
         $this->booking = $booking;
@@ -60,9 +74,10 @@ class BookingView extends Component
         // 2. Sum all payments to update status
         $totalPaid = $this->booking->payments()->sum('amount');
         
+        $billingAmount = $this->booking->finalBill ? $this->booking->finalBill->grand_total : $this->booking->grand_total;
         $newPaymentStatus = 'Unpaid';
         if ($totalPaid > 0) {
-            if ($totalPaid >= $this->booking->grand_total) {
+            if ($totalPaid >= $billingAmount) {
                 $newPaymentStatus = 'Paid';
             } else {
                 $newPaymentStatus = 'Partially Paid';
@@ -92,6 +107,210 @@ class BookingView extends Component
         $this->showPaymentModal = false;
 
         session()->flash('success', 'Payment recorded successfully in transactions ledger.');
+    }
+
+    /**
+     * Open final bill modal and load original details as template.
+     */
+    public function openFinalBillModal()
+    {
+        $booking = $this->booking;
+        
+        if ($booking->finalBill) {
+            $this->fbGuestCount = $booking->finalBill->guest_count;
+            $this->fbPerPlatePrice = $booking->finalBill->per_plate_price;
+            $this->fbHallCharges = $booking->finalBill->hall_charges;
+            $this->fbDiscountAmount = $booking->finalBill->discount_amount;
+            $this->fbNotes = $booking->finalBill->notes;
+            
+            $this->fbAddonsList = [];
+            foreach ($booking->finalBill->extraServices as $addon) {
+                $this->fbAddonsList[] = [
+                    'service_name' => $addon->service_name,
+                    'unit_price' => $addon->unit_price,
+                    'quantity' => $addon->quantity,
+                    'total_price' => $addon->total_price,
+                ];
+            }
+        } else {
+            $this->fbGuestCount = $booking->guest_count;
+            $this->fbPerPlatePrice = $booking->per_plate_price;
+            $this->fbHallCharges = $booking->hall_charges;
+            $this->fbDiscountAmount = $booking->discount_amount;
+            $this->fbNotes = '';
+            
+            $this->fbAddonsList = [];
+            foreach ($booking->extraServices as $addon) {
+                $this->fbAddonsList[] = [
+                    'service_name' => $addon->service_name,
+                    'unit_price' => $addon->unit_price,
+                    'quantity' => $addon->quantity,
+                    'total_price' => $addon->total_price,
+                ];
+            }
+        }
+        
+        $this->recalculateFinalBill();
+        $this->showFinalBillModal = true;
+    }
+
+    /**
+     * Recalculate billing values of final bill.
+     */
+    public function recalculateFinalBill()
+    {
+        $this->fbGuestCount = is_numeric($this->fbGuestCount) ? intval($this->fbGuestCount) : 0;
+        $this->fbPerPlatePrice = is_numeric($this->fbPerPlatePrice) ? floatval($this->fbPerPlatePrice) : 0.00;
+        $this->fbHallCharges = is_numeric($this->fbHallCharges) ? floatval($this->fbHallCharges) : 0.00;
+        $this->fbDiscountAmount = is_numeric($this->fbDiscountAmount) ? floatval($this->fbDiscountAmount) : 0.00;
+
+        $packageAmount = $this->booking->no_food ? 0.00 : ($this->fbGuestCount * $this->fbPerPlatePrice);
+        
+        $addonsSum = 0.00;
+        foreach ($this->fbAddonsList as &$addon) {
+            $addon['total_price'] = floatval($addon['unit_price']) * intval($addon['quantity']);
+            $addonsSum += $addon['total_price'];
+        }
+        $this->fbExtraCharges = $addonsSum;
+
+        $subtotal = $packageAmount + $this->fbHallCharges + $this->fbExtraCharges - $this->fbDiscountAmount;
+        
+        // Calculate tax based on original tax rate
+        $origSubtotal = $this->booking->subtotal;
+        $taxRate = $origSubtotal > 0 ? ($this->booking->tax_amount / $origSubtotal) * 100 : 13.00;
+        
+        $this->fbTaxAmount = round(($subtotal * $taxRate) / 100, 2);
+    }
+
+    /**
+     * Add new extra service addon inside final bill modal.
+     */
+    public function addFbAddon()
+    {
+        $this->validate([
+            'newAddonName' => 'required|string|max:255',
+            'newAddonPrice' => 'required|numeric|min:0',
+            'newAddonQty' => 'required|integer|min:1',
+        ]);
+
+        $this->fbAddonsList[] = [
+            'service_name' => $this->newAddonName,
+            'unit_price' => floatval($this->newAddonPrice),
+            'quantity' => intval($this->newAddonQty),
+            'total_price' => floatval($this->newAddonPrice) * intval($this->newAddonQty),
+        ];
+
+        $this->newAddonName = '';
+        $this->newAddonPrice = 0.00;
+        $this->newAddonQty = 1;
+
+        $this->recalculateFinalBill();
+    }
+
+    /**
+     * Remove addon from final bill list.
+     */
+    public function removeFbAddon($index)
+    {
+        if (isset($this->fbAddonsList[$index])) {
+            unset($this->fbAddonsList[$index]);
+            $this->fbAddonsList = array_values($this->fbAddonsList);
+        }
+        $this->recalculateFinalBill();
+    }
+
+    /**
+     * Save the prepared final bill adjustments record.
+     */
+    public function saveFinalBill()
+    {
+        $this->recalculateFinalBill();
+
+        $this->validate([
+            'fbGuestCount' => 'required|integer|min:1',
+            'fbPerPlatePrice' => 'required|numeric|min:0',
+            'fbHallCharges' => 'required|numeric|min:0',
+            'fbDiscountAmount' => 'required|numeric|min:0',
+            'fbNotes' => 'nullable|string',
+        ]);
+
+        $packageAmount = $this->booking->no_food ? 0.00 : ($this->fbGuestCount * $this->fbPerPlatePrice);
+        $subtotal = $packageAmount + $this->fbHallCharges + $this->fbExtraCharges - $this->fbDiscountAmount;
+        $grandTotal = $subtotal + $this->fbTaxAmount + $this->booking->security_deposit;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($packageAmount, $subtotal, $grandTotal) {
+            // Remove existing final bill and its details if they exist
+            if ($this->booking->finalBill) {
+                $this->booking->finalBill->extraServices()->delete();
+                $this->booking->finalBill->delete();
+            }
+
+            // Create new final bill
+            $finalBill = \App\Models\BookingFinalBill::create([
+                'booking_id' => $this->booking->id,
+                'guest_count' => $this->fbGuestCount,
+                'per_plate_price' => $this->fbPerPlatePrice,
+                'package_amount' => $packageAmount,
+                'hall_charges' => $this->fbHallCharges,
+                'extra_charges' => $this->fbExtraCharges,
+                'discount_amount' => $this->fbDiscountAmount,
+                'tax_amount' => $this->fbTaxAmount,
+                'subtotal' => $subtotal,
+                'grand_total' => $grandTotal,
+                'notes' => $this->fbNotes ?: null,
+                'created_by' => auth()->id(),
+            ]);
+
+            // Save final bill addons
+            foreach ($this->fbAddonsList as $addon) {
+                \App\Models\BookingFinalBillExtraService::create([
+                    'final_bill_id' => $finalBill->id,
+                    'service_name' => $addon['service_name'],
+                    'unit_price' => $addon['unit_price'],
+                    'quantity' => $addon['quantity'],
+                    'total_price' => $addon['total_price'],
+                ]);
+            }
+
+            // Log history
+            BookingHistory::create([
+                'booking_id' => $this->booking->id,
+                'user_id' => auth()->id(),
+                'status_from' => $this->booking->booking_status,
+                'status_to' => $this->booking->booking_status,
+                'notes' => 'Prepared Event-Day Final Bill. Actual guests: ' . $this->fbGuestCount . '. Grand Total adjusted to Rs. ' . number_format($grandTotal, 2),
+            ]);
+        });
+
+        // Recalculate and update the booking's payment status based on the new final bill amount
+        $this->updatePaymentStatusBasedOnFinalBill();
+
+        $this->booking->refresh();
+        $this->showFinalBillModal = false;
+        
+        session()->flash('success', 'Event-day final bill has been generated and locked successfully.');
+    }
+
+    /**
+     * Recalculate and update booking's payment status.
+     */
+    public function updatePaymentStatusBasedOnFinalBill()
+    {
+        $totalPaid = $this->booking->payments()->sum('amount');
+        $billingAmount = $this->booking->finalBill ? $this->booking->finalBill->grand_total : $this->booking->grand_total;
+
+        $newPaymentStatus = 'Unpaid';
+        if ($totalPaid > 0) {
+            if ($totalPaid >= $billingAmount) {
+                $newPaymentStatus = 'Paid';
+            } else {
+                $newPaymentStatus = 'Partially Paid';
+            }
+        }
+
+        $this->booking->update([
+            'payment_status' => $newPaymentStatus
+        ]);
     }
 
     /**
