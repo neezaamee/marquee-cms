@@ -653,51 +653,104 @@
         @endif
 
         <!-- ========================================== -->
-        <!-- INVENTORY MANAGEMENT SECTION -->
+        <!-- INVENTORY & PURCHASES SECTION -->
         <!-- ========================================== -->
         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_inventory'))
+        @php
+          $inventoryActive = Route::is('inventory.categories') || Route::is('inventory.units') || Route::is('inventory.brands') || Route::is('inventory.items') || Route::is('inventory.settings') || Route::is('suppliers.*');
+          $purchasesActive = Route::is('purchase-orders.*') || Route::is('goods-receipts.*') || Route::is('purchase-invoices.*') || Route::is('purchase-returns.*');
+        @endphp
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
-          <div class="col-auto navbar-vertical-label">Inventory Management</div>
+          <div class="col-auto navbar-vertical-label">Inventory & Purchases</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
         </div>
 
         <li class="nav-item">
-          <a class="nav-link dropdown-indicator collapsed" href="#inventoryCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="inventoryCollapse">
+          <a class="nav-link dropdown-indicator {{ $inventoryActive ? '' : 'collapsed' }}" href="#inventoryCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $inventoryActive ? 'true' : 'false' }}" aria-controls="inventoryCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-boxes"></span></span>
               <span class="nav-link-text ps-1">Inventory</span>
             </div>
           </a>
-          <ul class="nav collapse" id="inventoryCollapse" data-bs-parent="#navbarVerticalNav">
+          <ul class="nav collapse {{ $inventoryActive ? 'show' : '' }}" id="inventoryCollapse" data-bs-parent="#navbarVerticalNav">
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('inventory.categories') ? 'active' : '' }}" href="{{ route('inventory.categories') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Categories</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('inventory.units') ? 'active' : '' }}" href="{{ route('inventory.units') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Items</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                  <span class="nav-link-text ps-1">Units of Measure</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('inventory.brands') ? 'active' : '' }}" href="{{ route('inventory.brands') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Stock Monitoring</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                  <span class="nav-link-text ps-1">Brands</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('inventory.items') ? 'active' : '' }}" href="{{ route('inventory.items') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Low Stock Alerts</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                  <span class="nav-link-text ps-1">Item Catalog</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('suppliers.*') ? 'active' : '' }}" href="{{ route('suppliers.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Suppliers Directory</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('inventory.settings') ? 'active' : '' }}" href="{{ route('inventory.settings') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Accounting Settings</span>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link dropdown-indicator {{ $purchasesActive ? '' : 'collapsed' }}" href="#purchasesCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $purchasesActive ? 'true' : 'false' }}" aria-controls="purchasesCollapse">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-shopping-cart"></span></span>
+              <span class="nav-link-text ps-1">Purchases</span>
+            </div>
+          </a>
+          <ul class="nav collapse {{ $purchasesActive ? 'show' : '' }}" id="purchasesCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('purchase-orders.*') ? 'active' : '' }}" href="{{ route('purchase-orders.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Purchase Orders</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('goods-receipts.*') ? 'active' : '' }}" href="{{ route('goods-receipts.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Goods Receiving (GRN)</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('purchase-invoices.*') ? 'active' : '' }}" href="{{ route('purchase-invoices.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Purchase Invoices</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('purchase-returns.*') ? 'active' : '' }}" href="{{ route('purchase-returns.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Purchase Returns</span>
                 </div>
               </a>
             </li>
@@ -708,10 +761,11 @@
         <!-- ========================================== -->
         <!-- FINANCIAL MANAGEMENT SECTION -->
         <!-- ========================================== -->
-        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_payments'))
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_payments') || auth()->user()->hasPermission('manage_accounting'))
         @php
           $financeActive = Route::is('finance.revenue');
           $transactionsActive = Route::is('finance.payments') || Route::is('finance.security-deposits');
+          $accountingActive = Route::is('finance.financial-years') || Route::is('finance.chart-of-accounts') || Route::is('finance.opening-balances') || Route::is('finance.journal-vouchers.*') || Route::is('finance.general-ledger') || Route::is('finance.trial-balance') || Route::is('finance.cash-bank');
         @endphp
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
           <div class="col-auto navbar-vertical-label">Financial Management</div>
@@ -760,6 +814,54 @@
             </li>
           </ul>
         </li>
+
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'))
+        <li class="nav-item">
+          <a class="nav-link dropdown-indicator {{ $accountingActive ? '' : 'collapsed' }}" href="#accountingCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $accountingActive ? 'true' : 'false' }}" aria-controls="accountingCollapse">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-calculator"></span></span>
+              <span class="nav-link-text ps-1">Accounting</span>
+            </div>
+          </a>
+          <ul class="nav collapse {{ $accountingActive ? 'show' : '' }}" id="accountingCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.financial-years') ? 'active' : '' }}" href="{{ route('finance.financial-years') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Financial Years</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.chart-of-accounts') ? 'active' : '' }}" href="{{ route('finance.chart-of-accounts') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Chart of Accounts</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.opening-balances') ? 'active' : '' }}" href="{{ route('finance.opening-balances') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Opening Balances</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.journal-vouchers.*') ? 'active' : '' }}" href="{{ route('finance.journal-vouchers.index') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Journal Vouchers</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.general-ledger') ? 'active' : '' }}" href="{{ route('finance.general-ledger') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">General Ledger</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.trial-balance') ? 'active' : '' }}" href="{{ route('finance.trial-balance') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Trial Balance</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.cash-bank') ? 'active' : '' }}" href="{{ route('finance.cash-bank') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Cash & Bank Accounts</span></div>
+              </a>
+            </li>
+          </ul>
+        </li>
+        @endif
         @endif
 
         <!-- ========================================== -->

@@ -114,7 +114,7 @@ class User extends Authenticatable
      */
     public function hasPermission(string $permissionName): bool
     {
-        if ($this->isSuperAdmin()) {
+        if ($this->isSuperAdmin() || $this->hasRole('owner')) {
             return true;
         }
 

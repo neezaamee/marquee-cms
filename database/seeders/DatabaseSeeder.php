@@ -133,6 +133,8 @@ class DatabaseSeeder extends Seeder
             EventTypeSeeder::class,
             MenuModuleSeeder::class,
             DefaultHallsSeeder::class,
+            AccountingModuleSeeder::class,
+            InventoryModuleSeeder::class,
         ]);
     }
 }

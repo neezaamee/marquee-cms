@@ -19,6 +19,7 @@ use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ExtraServiceController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\AccountingController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect homepage to dashboard, which will prompt authentication check
@@ -77,6 +78,63 @@ Route::middleware('auth')->group(function () {
     Route::get('finance/revenue', [FinanceController::class, 'revenue'])->name('finance.revenue');
     Route::get('finance/payments', [FinanceController::class, 'payments'])->name('finance.payments');
     Route::get('finance/security-deposits', [FinanceController::class, 'securityDeposits'])->name('finance.security-deposits');
+
+    // Accounting Foundation Module
+    Route::get('finance/financial-years', [AccountingController::class, 'financialYears'])->name('finance.financial-years');
+    Route::get('finance/chart-of-accounts', [AccountingController::class, 'chartOfAccounts'])->name('finance.chart-of-accounts');
+    Route::get('finance/opening-balances', [AccountingController::class, 'openingBalances'])->name('finance.opening-balances');
+    Route::get('finance/journal-vouchers', [AccountingController::class, 'journalVouchers'])->name('finance.journal-vouchers.index');
+    Route::get('finance/journal-vouchers/create', [AccountingController::class, 'createJournalVoucher'])->name('finance.journal-vouchers.create');
+    Route::get('finance/journal-vouchers/{id}/edit', [AccountingController::class, 'editJournalVoucher'])->name('finance.journal-vouchers.edit');
+    Route::get('finance/general-ledger', [AccountingController::class, 'generalLedger'])->name('finance.general-ledger');
+    Route::get('finance/trial-balance', [AccountingController::class, 'trialBalance'])->name('finance.trial-balance');
+    Route::get('finance/cash-bank', [AccountingController::class, 'cashBank'])->name('finance.cash-bank');
+
+    // Inventory Foundation Module
+    Route::view('inventory/categories', 'inventory.categories')->name('inventory.categories');
+    Route::view('inventory/units', 'inventory.units')->name('inventory.units');
+    Route::view('inventory/brands', 'inventory.brands')->name('inventory.brands');
+    Route::view('inventory/items', 'inventory.items')->name('inventory.items');
+    Route::view('inventory/settings', 'inventory.settings')->name('inventory.settings');
+
+    // Supplier Directory Module
+    Route::view('inventory/suppliers', 'inventory.suppliers')->name('suppliers.index');
+    Route::get('inventory/suppliers/{supplier}/ledger', function (\App\Models\Supplier $supplier) {
+        return view('inventory.supplier-ledger', compact('supplier'));
+    })->name('suppliers.ledger');
+
+    // Purchase Management Module
+    Route::view('purchases/orders', 'purchases.orders')->name('purchase-orders.index');
+    Route::get('purchases/orders/create', function () {
+        return view('purchases.order-form', ['id' => null]);
+    })->name('purchase-orders.create');
+    Route::get('purchases/orders/{id}/edit', function ($id) {
+        return view('purchases.order-form', compact('id'));
+    })->name('purchase-orders.edit');
+
+    Route::view('purchases/receipts', 'purchases.receipts')->name('goods-receipts.index');
+    Route::get('purchases/receipts/create', function () {
+        return view('purchases.receipt-form', ['id' => null]);
+    })->name('goods-receipts.create');
+    Route::get('purchases/receipts/{id}', function ($id) {
+        return view('purchases.receipt-form', compact('id'));
+    })->name('goods-receipts.show');
+
+    Route::view('purchases/invoices', 'purchases.invoices')->name('purchase-invoices.index');
+    Route::get('purchases/invoices/create', function () {
+        return view('purchases.invoice-form', ['id' => null]);
+    })->name('purchase-invoices.create');
+    Route::get('purchases/invoices/{id}/edit', function ($id) {
+        return view('purchases.invoice-form', compact('id'));
+    })->name('purchase-invoices.edit');
+
+    Route::view('purchases/returns', 'purchases.returns')->name('purchase-returns.index');
+    Route::get('purchases/returns/create', function () {
+        return view('purchases.return-form', ['id' => null]);
+    })->name('purchase-returns.create');
+    Route::get('purchases/returns/{id}/edit', function ($id) {
+        return view('purchases.return-form', compact('id'));
+    })->name('purchase-returns.edit');
 
     // SaaS Subscription Management (Super Admin only)
     Route::resource('subscription-plans', \App\Http\Controllers\SubscriptionPlanController::class);
