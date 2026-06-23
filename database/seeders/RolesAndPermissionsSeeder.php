@@ -61,6 +61,9 @@ class RolesAndPermissionsSeeder extends Seeder
             ['name' => 'create_packages', 'label' => 'Create Packages'],
             ['name' => 'edit_packages', 'label' => 'Edit Packages'],
             ['name' => 'delete_packages', 'label' => 'Delete Packages'],
+
+            // Accounting
+            ['name' => 'manage_accounting', 'label' => 'Manage Accounting & Financials'],
         ];
 
         $permissionInstances = [];
@@ -89,7 +92,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_reports', 'manage_staff', 'manage_settings',
                     'view_inventory', 'manage_inventory',
                     'event-types.view', 'event-types.create', 'event-types.edit', 'event-types.delete',
-                    'view_packages', 'create_packages', 'edit_packages', 'delete_packages'
+                    'view_packages', 'create_packages', 'edit_packages', 'delete_packages',
+                    'manage_accounting'
                 ],
             ],
             'branch_manager' => [
@@ -111,7 +115,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'permissions' => [
                     'view_bookings',
                     'view_payments', 'create_payments', 'refund_payments',
-                    'view_reports'
+                    'view_reports',
+                    'manage_accounting'
                 ],
             ],
             'booking_officer' => [
