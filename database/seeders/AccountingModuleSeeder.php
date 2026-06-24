@@ -253,6 +253,24 @@ class AccountingModuleSeeder extends Seeder
                         ]
                     );
                 }
+
+                // Seed active Financial Years (5-year window around current year)
+                $currentYear = (int) date('Y');
+                for ($year = $currentYear - 2; $year <= $currentYear + 2; $year++) {
+                    \App\Models\FinancialYear::updateOrCreate(
+                        [
+                            'marquee_id' => $marquee->id,
+                            'name' => "FY " . $year,
+                        ],
+                        [
+                            'start_date' => $year . "-01-01",
+                            'end_date' => $year . "-12-31",
+                            'status' => 'active',
+                            'is_default' => ($year === $currentYear),
+                            'created_by' => null,
+                        ]
+                    );
+                }
             });
         }
     }

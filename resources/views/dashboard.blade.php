@@ -11,7 +11,7 @@
         <img class="img-fluid" src="{{ asset('assets/img/icons/spot-illustrations/21.png') }}" alt="Welcome illustration" width="350" />
       </div>
       <div class="col-lg-6 ps-lg-4 my-5 text-center text-lg-start">
-        <h3 class="text-primary">Welcome to Marquee CMS!</h3>
+        <h3 class="text-primary">Welcome to Royal Marquee CMS!</h3>
         <p class="lead">Manage your banquet halls, customer bookings, custom menus, and payments seamlessly in one unified interface.</p>
         <a class="btn btn-falcon-primary" href="#!">Create New Booking</a>
       </div>

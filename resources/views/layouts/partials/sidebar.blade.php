@@ -657,7 +657,7 @@
         <!-- ========================================== -->
         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_inventory'))
         @php
-          $inventoryActive = Route::is('inventory.categories') || Route::is('inventory.units') || Route::is('inventory.brands') || Route::is('inventory.items') || Route::is('inventory.settings') || Route::is('suppliers.*');
+          $inventoryActive = Route::is('inventory.categories') || Route::is('inventory.units') || Route::is('inventory.brands') || Route::is('inventory.items') || Route::is('inventory.stock') || Route::is('inventory.settings') || Route::is('suppliers.*');
           $purchasesActive = Route::is('purchase-orders.*') || Route::is('goods-receipts.*') || Route::is('purchase-invoices.*') || Route::is('purchase-returns.*');
         @endphp
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
@@ -698,6 +698,13 @@
               <a class="nav-link {{ Route::is('inventory.items') ? 'active' : '' }}" href="{{ route('inventory.items') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Item Catalog</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('inventory.stock') ? 'active' : '' }}" href="{{ route('inventory.stock') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Stock View</span>
                 </div>
               </a>
             </li>

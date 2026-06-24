@@ -27,6 +27,24 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
+Route::get('/debug-cache', function () {
+    try {
+        $output = [];
+        \Artisan::call('config:clear');
+        $output[] = 'config:clear success';
+        \Artisan::call('cache:clear');
+        $output[] = 'cache:clear success';
+        
+        $output[] = 'DB Database: ' . config('database.connections.mysql.database');
+        $output[] = 'DB Username: ' . config('database.connections.mysql.username');
+        $output[] = 'DB Host: ' . config('database.connections.mysql.host');
+        
+        return response()->json($output);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()]);
+    }
+});
+
 // Authentication Guest Routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -95,6 +113,7 @@ Route::middleware('auth')->group(function () {
     Route::view('inventory/units', 'inventory.units')->name('inventory.units');
     Route::view('inventory/brands', 'inventory.brands')->name('inventory.brands');
     Route::view('inventory/items', 'inventory.items')->name('inventory.items');
+    Route::view('inventory/stock', 'inventory.stock')->name('inventory.stock');
     Route::view('inventory/settings', 'inventory.settings')->name('inventory.settings');
 
     // Supplier Directory Module
