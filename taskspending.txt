@@ -34,3 +34,8 @@ Niche un pending issues ki details di gayi hain:
 
 ---
 **Note:** Booking creation (Wizard & One-page), Status Transitions, Refundable Security Deposit release, Ledger payment entry, aur Event-Day Final Bill (separate adjustments) features **mukammal tor par complete aur operational** hain.
+
+FIXES
+
+1. Booking > Slot assignment > if a slot assign for a any of existing hall then it should not assign for another hall.
+2. Booking > 
