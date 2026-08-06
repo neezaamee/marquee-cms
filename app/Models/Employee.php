@@ -135,4 +135,12 @@ class Employee extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    /**
+     * Get the daily attendance records for this employee.
+     */
+    public function attendances()
+    {
+        return $this->hasMany(Attendance::class);
+    }
 }

@@ -22,14 +22,24 @@
                     @if($booking->marquee->phone) | <span class="fas fa-phone me-1"></span>{{ $booking->marquee->phone }} @endif
                 </p>
             </div>
-            <!-- Invoice Title & QR Code Placeholder -->
+            <!-- Invoice Title & QR Code -->
             <div class="col-6 text-end">
                 <h4 class="text-800 fw-bold mb-1 fs-9 fs-md-7">BOOKING CONFIRMATION</h4>
                 <div class="fs-12 font-monospace text-secondary">VOUCHER REFERENCE: #{{ $booking->booking_number }}</div>
-                <div class="mt-2 d-inline-block p-2 border bg-light text-center" style="width: 70px; height: 70px; border-radius: 4px;">
-                    <!-- Visual QR placeholder -->
-                    <span class="fas fa-qrcode fa-3x text-secondary"></span>
-                </div>
+                @if($booking->finalBill && $booking->finalBill->fbr_sync_status === 'synced')
+                    <div class="mt-2 d-flex flex-column align-items-end">
+                        <div class="p-1 border bg-white text-center mb-1" style="width: 80px; height: 80px; border-radius: 4px;">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data={{ urlencode($booking->finalBill->qr_code) }}" alt="FBR Verification QR" width="72" height="72" />
+                        </div>
+                        <div class="fs-11 fw-bold text-success"><span class="fas fa-check-circle me-1"></span>FBR Tax Compliant</div>
+                        <div class="fs-12 text-600 font-monospace">FBR INV: {{ $booking->finalBill->fbr_invoice_number }}</div>
+                        <div class="fs-12 text-600 font-monospace">USIN: {{ $booking->finalBill->usin }}</div>
+                    </div>
+                @else
+                    <div class="mt-2 d-inline-block p-2 border bg-light text-center" style="width: 70px; height: 70px; border-radius: 4px;">
+                        <span class="fas fa-qrcode fa-3x text-secondary"></span>
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -48,10 +58,6 @@
                         <tr>
                             <td class="text-600 px-0 py-1">Contact Phone:</td>
                             <td class="text-800 fw-bold px-0 py-1">{{ $booking->customer->phone_number }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-600 px-0 py-1">Email:</td>
-                            <td class="text-800 px-0 py-1">{{ $booking->customer->email ?? '—' }}</td>
                         </tr>
                         <tr>
                             <td class="text-600 px-0 py-1">CNIC / ID:</td>
@@ -80,7 +86,11 @@
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
                 <table class="table table-sm table-borderless fs-12 mb-0">
                     <tr>
-                        <td class="text-600 px-0 py-1" style="width: 120px;">Booking Hall(s):</td>
+                        <td class="text-600 px-0 py-1" style="width: 120px;">Event Type:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->eventType->name ?? '—' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Booking Hall(s):</td>
                         <td class="text-800 fw-bold px-0 py-1">
                             @if($booking->halls->isNotEmpty())
                                 {{ $booking->halls->pluck('hall_name')->implode(', ') }}
@@ -103,6 +113,10 @@
                             {{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }}
                         </td>
                     </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Guests Count:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->guest_count }} Guests</td>
+                    </tr>
                 </table>
             </div>
         </div>
@@ -115,7 +129,6 @@
                         <th class="ps-3" style="width: 40px;">#</th>
                         <th>Item Description</th>
                         <th class="text-center" style="width: 140px;">Rate</th>
-                        <th class="text-center" style="width: 120px;">Qty/Guests</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -127,7 +140,6 @@
                                 <div class="text-muted fs-11">Per Plate Menu Package Booking</div>
                             </td>
                             <td class="text-center font-monospace">Rs. {{ number_format($booking->per_plate_price, 2) }}</td>
-                            <td class="text-center">{{ $booking->guest_count }}</td>
                         </tr>
                     @else
                         <tr>
@@ -137,7 +149,6 @@
                                 <div class="text-muted fs-11">Sitting Plan Only (No Food Catering)</div>
                             </td>
                             <td class="text-center font-monospace">—</td>
-                            <td class="text-center">—</td>
                         </tr>
                     @endif
                     @if($booking->hall_charges > 0)
@@ -148,7 +159,6 @@
                                 <div class="text-muted fs-11">Exclusive venue occupancy charge</div>
                             </td>
                             <td class="text-center font-monospace">Rs. {{ number_format($booking->hall_charges, 2) }}</td>
-                            <td class="text-center">1</td>
                         </tr>
                     @endif
                     @if($booking->extra_charges > 0)
@@ -159,7 +169,6 @@
                                 <div class="text-muted fs-11">Custom decor setup or audiovisual additions</div>
                             </td>
                             <td class="text-center font-monospace">Rs. {{ number_format($booking->extra_charges, 2) }}</td>
-                            <td class="text-center">1</td>
                         </tr>
                     @endif
                 </tbody>
@@ -193,6 +202,13 @@
                     </div>
                 @else
                     <p class="text-muted fs-12">No customized menu items selected.</p>
+                @endif
+
+                @if(!$booking->no_food)
+                    <div class="mt-3 pt-2 border-top">
+                        <span class="text-500 fw-bold text-uppercase fs-12 d-block">Per Plate Rate</span>
+                        <span class="font-monospace fw-bold fs-11 text-primary">Rs. {{ number_format($booking->per_plate_price, 2) }}</span>
+                    </div>
                 @endif
             </div>
 

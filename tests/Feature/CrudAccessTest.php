@@ -62,11 +62,23 @@ class CrudAccessTest extends TestCase
 
     public function test_non_super_admin_cannot_access_marquees_crud()
     {
+        $marquee = Marquee::create([
+            'name' => 'Test Marquee',
+            'address' => '123 St',
+            'city' => 'Lahore',
+            'province' => 'Punjab',
+            'phone' => '+923001234567',
+            'email' => 'test@marquee.com',
+            'status' => 'active',
+            'subscription_plan_id' => $this->plan->id,
+        ]);
+
         $owner = User::create([
             'name' => 'Owner',
             'email' => 'owner@test.com',
             'password' => bcrypt('password'),
-            'role_id' => $this->ownerRole->id
+            'role_id' => $this->ownerRole->id,
+            'marquee_id' => $marquee->id,
         ]);
 
         $response = $this->actingAs($owner)->get(route('marquees.index'));

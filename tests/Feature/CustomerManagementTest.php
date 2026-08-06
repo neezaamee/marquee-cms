@@ -312,4 +312,42 @@ class CustomerManagementTest extends TestCase
             'logged_by' => $this->userA->id,
         ]);
     }
+
+    public function test_customer_list_can_search_by_referrer_name_and_contact()
+    {
+        // Create customers with referrers
+        Customer::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_type' => 'Individual',
+            'first_name' => 'Waqas',
+            'last_name' => 'Ahmed',
+            'phone_number' => '03001234567',
+            'referred_by_name' => 'Farhan Shah',
+            'referred_by_contact' => '03215551234',
+        ]);
+
+        Customer::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_type' => 'Individual',
+            'first_name' => 'Hamza',
+            'last_name' => 'Ali',
+            'phone_number' => '03007654321',
+            'referred_by_name' => 'Zubair Khan',
+            'referred_by_contact' => '03339998888',
+        ]);
+
+        Livewire::actingAs($this->userA);
+
+        // Search by referrer name "Farhan"
+        Livewire::test('customer-list')
+            ->set('search', 'Farhan')
+            ->assertSee('Waqas')
+            ->assertDontSee('Hamza');
+
+        // Search by referrer contact "0333999"
+        Livewire::test('customer-list')
+            ->set('search', '0333999')
+            ->assertSee('Hamza')
+            ->assertDontSee('Waqas');
+    }
 }

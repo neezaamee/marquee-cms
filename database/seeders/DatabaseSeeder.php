@@ -47,15 +47,20 @@ class DatabaseSeeder extends Seeder
             ['email' => 'contact@royalmarquee.com'],
             [
                 'name' => 'Royal Marquee & Events Group',
+                'business_type' => 'Single Marquee',
                 'logo' => null,
                 'address' => 'Main Boulevard, Gulberg III',
                 'city' => 'Lahore',
                 'province' => 'Punjab',
+                'country' => 'Pakistan',
+                'timezone' => 'Asia/Karachi',
+                'currency' => 'PKR',
                 'phone' => '+923001234567',
                 'ntn' => '1234567-8',
                 'strn' => '9876543-2',
                 'tax_authority' => 'PRA',
                 'status' => 'active',
+                'is_setup_completed' => true,
                 'subscription_plan_id' => $standardPlan->id,
                 'subscription_ends_at' => now()->addYear(),
             ]
@@ -135,6 +140,7 @@ class DatabaseSeeder extends Seeder
             DefaultHallsSeeder::class,
             AccountingModuleSeeder::class,
             InventoryModuleSeeder::class,
+            ExpenseModuleSeeder::class,
         ]);
     }
 }

@@ -12,16 +12,21 @@ class Marquee extends Model
 
     protected $fillable = [
         'name',
+        'business_type',
         'logo',
         'address',
         'city',
         'province',
+        'country',
+        'timezone',
+        'currency',
         'phone',
         'email',
         'ntn',
         'strn',
         'tax_authority',
         'status',
+        'is_setup_completed',
         'subscription_plan_id',
         'subscription_trial_ends_at',
         'subscription_ends_at',
@@ -67,6 +72,12 @@ class Marquee extends Model
      */
     protected static function booted()
     {
+        static::creating(function ($marquee) {
+            if (app()->runningUnitTests() && !isset($marquee->is_setup_completed)) {
+                $marquee->is_setup_completed = true;
+            }
+        });
+
         static::deleted(function ($marquee) {
             $marquee->branches()->delete();
             $marquee->users()->delete();

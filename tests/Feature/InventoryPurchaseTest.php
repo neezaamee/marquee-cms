@@ -355,4 +355,14 @@ class InventoryPurchaseTest extends TestCase
         $this->assertEquals($inventoryAsset->id, $retCreditItem->account_id);
         $this->assertEquals(4000.00, $retCreditItem->credit);
     }
+
+    /** @test */
+    public function test_super_admin_generate_supplier_code_null_safety()
+    {
+        $code = $this->inventoryService->generateNextSupplierCode(null);
+        $this->assertEquals('SUP-00001', $code);
+
+        $itemCode = $this->inventoryService->generateNextItemCode(null);
+        $this->assertEquals('ITEM-00001', $itemCode);
+    }
 }

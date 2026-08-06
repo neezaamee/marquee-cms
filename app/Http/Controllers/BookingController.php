@@ -86,6 +86,21 @@ class BookingController extends Controller
     }
 
     /**
+     * Renders a printable slip layout (V3) for a booking.
+     */
+    public function slipV3(Booking $booking)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
+
+        // Tenant scoping security check
+        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
+            abort(403, 'Unauthorized access to this booking.');
+        }
+
+        return view('bookings.slip_v3', compact('booking'));
+    }
+
+    /**
      * Generates and downloads a PDF of the booking slip/invoice using DomPDF.
      */
     public function downloadPdf(Booking $booking)

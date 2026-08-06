@@ -95,6 +95,27 @@ class Booking extends Model
                 $model->booking_number = $prefix . '-' . str_pad($count + 1, 6, '0', STR_PAD_LEFT);
             }
         });
+
+        static::updated(function ($booking) {
+            if ($booking->isDirty('booking_status')) {
+                $oldStatus = $booking->getOriginal('booking_status');
+                $newStatus = $booking->booking_status;
+
+                $customer = $booking->customer;
+                if ($customer) {
+                    // Send Email Notification dynamically to customer email
+                    if ($customer->email) {
+                        \Illuminate\Support\Facades\Notification::route('mail', $customer->email)
+                            ->notify(new \App\Notifications\BookingStatusNotification($booking, $oldStatus, $newStatus));
+                    }
+
+                    // Log simulated SMS broadcast to customer phone
+                    if ($customer->phone_number) {
+                        \Illuminate\Support\Facades\Log::info("SMS ALERT Sent to {$customer->phone_number}: Booking #{$booking->booking_number} status updated from {$oldStatus} to {$newStatus}.");
+                    }
+                }
+            }
+        });
     }
 
     /**
@@ -175,8 +196,9 @@ class Booking extends Model
     public function menuItems(): BelongsToMany
     {
         return $this->belongsToMany(MenuItem::class, 'booking_menu_items')
-                    ->withPivot(['custom_note', 'managed_by_host'])
-                    ->withTimestamps();
+                    ->withPivot(['custom_note', 'managed_by_host', 'sort_order'])
+                    ->withTimestamps()
+                    ->orderBy('booking_menu_items.sort_order', 'asc');
     }
 
     /**
@@ -194,5 +216,21 @@ class Booking extends Model
     public function finalBill(): HasOne
     {
         return $this->hasOne(BookingFinalBill::class);
+    }
+
+    /**
+     * Get the checklists (operational tasks) for this booking.
+     */
+    public function checklists(): HasMany
+    {
+        return $this->hasMany(EventChecklist::class);
+    }
+
+    /**
+     * Get the vendor commissions booked against this event.
+     */
+    public function vendorBookings(): HasMany
+    {
+        return $this->hasMany(VendorBooking::class);
     }
 }

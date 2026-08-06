@@ -82,4 +82,12 @@ class MenuItem extends Model
 
         return 'https://placehold.co/100x100?text=' . urlencode($this->item_name);
     }
+
+    /**
+     * Get the recipe linked to this menu item.
+     */
+    public function recipe()
+    {
+        return $this->hasOne(Recipe::class);
+    }
 }

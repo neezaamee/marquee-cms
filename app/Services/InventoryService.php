@@ -14,7 +14,7 @@ class InventoryService
     /**
      * Generate the next unique item code for a tenant.
      */
-    public function generateNextItemCode(int $marqueeId): string
+    public function generateNextItemCode(?int $marqueeId): string
     {
         $count = InventoryItem::withTrashed()->where('marquee_id', $marqueeId)->count();
         return 'ITEM-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
@@ -23,7 +23,7 @@ class InventoryService
     /**
      * Generate the next unique supplier code for a tenant.
      */
-    public function generateNextSupplierCode(int $marqueeId): string
+    public function generateNextSupplierCode(?int $marqueeId): string
     {
         $count = Supplier::withTrashed()->where('marquee_id', $marqueeId)->count();
         return 'SUP-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
@@ -32,7 +32,7 @@ class InventoryService
     /**
      * Get or create default inventory settings for a tenant.
      */
-    public function getOrCreateSettings(int $marqueeId): InventorySetting
+    public function getOrCreateSettings(?int $marqueeId): InventorySetting
     {
         $settings = InventorySetting::where('marquee_id', $marqueeId)->first();
 
@@ -60,7 +60,7 @@ class InventoryService
      * Record a transaction in the supplier's ledger.
      */
     public function recordSupplierTransaction(
-        int $marqueeId,
+        ?int $marqueeId,
         int $supplierId,
         string $date,
         float $debit,

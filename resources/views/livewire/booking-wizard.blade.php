@@ -618,7 +618,7 @@
                                                         <th>Dish Name</th>
                                                         <th>Custom Instructions (e.g. extra spicy, double serving)</th>
                                                         <th class="text-center" style="width: 150px;">Managed by Host</th>
-                                                        <th class="text-center" style="width: 80px;">Action</th>
+                                                        <th class="text-center" style="width: 120px;">Action</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -637,9 +637,17 @@
                                                                 <input class="form-check-input" type="checkbox" wire:model.live="bookingMenuItems.{{ $idx }}.managed_by_host" id="managed_by_host_{{ $idx }}" {{ $noFood ? 'disabled checked' : '' }} />
                                                             </td>
                                                             <td class="align-middle text-center">
-                                                                <button type="button" class="btn btn-sm btn-link text-danger p-0" wire:click="removeMenuItem({{ $idx }})">
-                                                                    <span class="fas fa-trash-alt"></span>
-                                                                </button>
+                                                                <div class="d-flex justify-content-center gap-2">
+                                                                    <button type="button" class="btn btn-sm btn-link text-secondary p-0" wire:click="moveMenuItemUp({{ $idx }})" {{ $idx === 0 ? 'disabled' : '' }} title="Move Up">
+                                                                        <span class="fas fa-arrow-up fs-11"></span>
+                                                                    </button>
+                                                                    <button type="button" class="btn btn-sm btn-link text-secondary p-0" wire:click="moveMenuItemDown({{ $idx }})" {{ $idx === count($bookingMenuItems) - 1 ? 'disabled' : '' }} title="Move Down">
+                                                                        <span class="fas fa-arrow-down fs-11"></span>
+                                                                    </button>
+                                                                    <button type="button" class="btn btn-sm btn-link text-danger p-0" wire:click="removeMenuItem({{ $idx }})" title="Remove">
+                                                                        <span class="fas fa-trash-alt fs-11"></span>
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     @endforeach

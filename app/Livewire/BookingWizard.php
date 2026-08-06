@@ -593,6 +593,24 @@ class BookingWizard extends Component
         }
     }
 
+    public function moveMenuItemUp($index)
+    {
+        if ($index > 0 && isset($this->bookingMenuItems[$index])) {
+            $temp = $this->bookingMenuItems[$index - 1];
+            $this->bookingMenuItems[$index - 1] = $this->bookingMenuItems[$index];
+            $this->bookingMenuItems[$index] = $temp;
+        }
+    }
+
+    public function moveMenuItemDown($index)
+    {
+        if ($index < count($this->bookingMenuItems) - 1 && isset($this->bookingMenuItems[$index])) {
+            $temp = $this->bookingMenuItems[$index + 1];
+            $this->bookingMenuItems[$index + 1] = $this->bookingMenuItems[$index];
+            $this->bookingMenuItems[$index] = $temp;
+        }
+    }
+
     public function updatedGuestCount()
     {
         $this->recalculatePrices();
@@ -855,12 +873,13 @@ class BookingWizard extends Component
                 }
 
                 // 5. Save customized menu items
-                foreach ($this->bookingMenuItems as $menuItem) {
+                foreach ($this->bookingMenuItems as $index => $menuItem) {
                     \App\Models\BookingMenuItem::create([
                         'booking_id' => $newBooking->id,
                         'menu_item_id' => $menuItem['id'],
                         'custom_note' => $menuItem['custom_note'] ?: null,
                         'managed_by_host' => !empty($menuItem['managed_by_host']),
+                        'sort_order' => $index,
                     ]);
                 }
 

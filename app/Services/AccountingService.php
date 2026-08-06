@@ -416,4 +416,168 @@ class AccountingService
             'is_balanced' => $isBalanced,
         ];
     }
+
+    /**
+     * Get Profit & Loss Report.
+     */
+    public function getProfitAndLoss(
+        int $marqueeId,
+        int $financialYearId,
+        ?string $startDate = null,
+        ?string $endDate = null,
+        ?int $branchId = null
+    ): array {
+        $fy = FinancialYear::findOrFail($financialYearId);
+        $defaultStart = $fy->start_date instanceof \DateTimeInterface 
+            ? $fy->start_date->format('Y-m-d') 
+            : date('Y-m-d', strtotime($fy->start_date));
+        $defaultEnd = $fy->end_date instanceof \DateTimeInterface 
+            ? $fy->end_date->format('Y-m-d') 
+            : date('Y-m-d', strtotime($fy->end_date));
+
+        $startDate = $startDate ?: $defaultStart;
+        $endDate = $endDate ?: $defaultEnd;
+
+        // Fetch all active accounts of Income and Expense natures
+        $accounts = Account::where('marquee_id', $marqueeId)
+            ->where('is_active', true)
+            ->whereIn('nature', ['Income', 'Expense'])
+            ->with(['accountType'])
+            ->get();
+
+        $incomeRows = [];
+        $expenseRows = [];
+        $totalIncome = 0.0;
+        $totalExpense = 0.0;
+
+        foreach ($accounts as $account) {
+            $gl = $this->getGeneralLedger($account->id, $startDate, $endDate, $branchId, $financialYearId);
+            $balance = (float)$gl['closing_balance'];
+
+            if ($balance == 0) {
+                continue;
+            }
+
+            $row = [
+                'account_code' => $account->account_code,
+                'account_name' => $account->name,
+                'type_name' => $account->accountType->name,
+                'balance' => $balance,
+            ];
+
+            if ($account->nature === 'Income') {
+                $incomeRows[] = $row;
+                $totalIncome += $balance;
+            } else {
+                $expenseRows[] = $row;
+                $totalExpense += $balance;
+            }
+        }
+
+        $netProfitOrLoss = $totalIncome - $totalExpense;
+
+        return [
+            'financial_year' => $fy,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'income_rows' => $incomeRows,
+            'expense_rows' => $expenseRows,
+            'total_income' => $totalIncome,
+            'total_expense' => $totalExpense,
+            'net_profit_loss' => $netProfitOrLoss,
+        ];
+    }
+
+    /**
+     * Get Balance Sheet Report.
+     */
+    public function getBalanceSheet(
+        int $marqueeId,
+        int $financialYearId,
+        ?string $asOfDate = null,
+        ?int $branchId = null
+    ): array {
+        $fy = FinancialYear::findOrFail($financialYearId);
+        $startDate = $fy->start_date instanceof \DateTimeInterface 
+            ? $fy->start_date->format('Y-m-d') 
+            : date('Y-m-d', strtotime($fy->start_date));
+        $endDate = $asOfDate ?: ($fy->end_date instanceof \DateTimeInterface 
+            ? $fy->end_date->format('Y-m-d') 
+            : date('Y-m-d', strtotime($fy->end_date)));
+
+        // Fetch all active accounts of Asset, Liability, and Equity natures
+        $accounts = Account::where('marquee_id', $marqueeId)
+            ->where('is_active', true)
+            ->whereIn('nature', ['Asset', 'Liability', 'Equity'])
+            ->with(['accountType'])
+            ->get();
+
+        $assetRows = [];
+        $liabilityRows = [];
+        $equityRows = [];
+
+        $totalAssets = 0.0;
+        $totalLiabilities = 0.0;
+        $totalEquity = 0.0;
+
+        foreach ($accounts as $account) {
+            $gl = $this->getGeneralLedger($account->id, $startDate, $endDate, $branchId, $financialYearId);
+            $balance = (float)$gl['closing_balance'];
+
+            if ($balance == 0) {
+                continue;
+            }
+
+            $row = [
+                'account_code' => $account->account_code,
+                'account_name' => $account->name,
+                'type_name' => $account->accountType->name,
+                'balance' => $balance,
+            ];
+
+            if ($account->nature === 'Asset') {
+                $assetRows[] = $row;
+                $totalAssets += $balance;
+            } elseif ($account->nature === 'Liability') {
+                $liabilityRows[] = $row;
+                $totalLiabilities += $balance;
+            } else {
+                $equityRows[] = $row;
+                $totalEquity += $balance;
+            }
+        }
+
+        // Calculate Net Profit/Loss for the current period (Income - Expenses) to keep Balance Sheet in balance
+        $pl = $this->getProfitAndLoss($marqueeId, $financialYearId, $startDate, $endDate, $branchId);
+        $currentPeriodProfitLoss = $pl['net_profit_loss'];
+
+        // Add current period profit/loss as a dynamic equity row
+        if ($currentPeriodProfitLoss != 0) {
+            $equityRows[] = [
+                'account_code' => '3999', // Dynamic placeholder code for Current Period Earnings
+                'account_name' => 'Current Period Profit/Loss',
+                'type_name' => 'Current Period Earnings',
+                'balance' => $currentPeriodProfitLoss,
+            ];
+            $totalEquity += $currentPeriodProfitLoss;
+        }
+
+        $totalLiabilitiesAndEquity = $totalLiabilities + $totalEquity;
+        $difference = $totalAssets - $totalLiabilitiesAndEquity;
+        $isBalanced = abs($difference) < 0.01;
+
+        return [
+            'financial_year' => $fy,
+            'as_of_date' => $endDate,
+            'asset_rows' => $assetRows,
+            'liability_rows' => $liabilityRows,
+            'equity_rows' => $equityRows,
+            'total_assets' => $totalAssets,
+            'total_liabilities' => $totalLiabilities,
+            'total_equity' => $totalEquity,
+            'total_liabilities_and_equity' => $totalLiabilitiesAndEquity,
+            'difference' => $difference,
+            'is_balanced' => $isBalanced,
+        ];
+    }
 }

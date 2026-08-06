@@ -1,28 +1,44 @@
-*.log
-.DS_Store
+# Enterprise Laravel Exclusions
 .env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-/.codex
-/.cursor/
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
+.env.*
+/vendor
 /node_modules
-/public/build
-/public/fonts-manifest.dev.json
-/public/hot
-/public/storage
+npm-debug.log
+yarn-error.log
+*.log
+
+# Application Specific Caches
+/bootstrap/cache/*
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
 /storage/*.key
 /storage/pail
-/vendor
-_ide_helper.php
+/public/storage
+/public/build
+/public/hot
+/public/fonts-manifest.dev.json
+
+# Local Databases
+*.sqlite
+database/*.sqlite
+
+# Testing cache
+.phpunit.result.cache
+/.phpunit.cache
+
+# IDE and System Configurations
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
 Homestead.json
 Homestead.yaml
-Thumbs.db
+_ide_helper.php
 /composer.phar
+/auth.json
+/.codex
+/.cursor/
+/.nova
+/.zed

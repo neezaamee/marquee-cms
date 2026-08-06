@@ -43,6 +43,7 @@ class BookingManagementTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Carbon::setTestNow(Carbon::parse('2026-06-25 12:00:00'));
 
         $this->plan = SubscriptionPlan::create([
             'name' => 'Enterprise Plan',
@@ -147,6 +148,12 @@ class BookingManagementTest extends TestCase
             'end_time' => '23:30:00',
             'status' => 'active',
         ]);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
     }
 
     public function test_access_controls_and_route_authorizations()
@@ -757,7 +764,7 @@ class BookingManagementTest extends TestCase
             ->call('nextStep') // Step 3 checks and fails since Hall B has conflict
             ->assertHasErrors(['availability']);
             
-        // Test that checking availability for only Hall A succeeds
+        // Test that checking availability for only Hall A fails due to venue-wide slot lockout
         Livewire::test('booking-wizard')
             ->set('selectedCustomerId', $this->customerA->id)
             ->set('selectedEventTypeId', $this->eventTypeA->id)
@@ -767,8 +774,8 @@ class BookingManagementTest extends TestCase
             ->set('selectedSlotId', $this->slotA->id)
             ->call('nextStep') // Step 1 to 2
             ->call('nextStep') // Step 2 to 3
-            ->call('nextStep') // Step 3 checks and succeeds
-            ->assertHasNoErrors();
+            ->call('nextStep') // Step 3 checks and fails
+            ->assertHasErrors(['availability']);
     }
 
     public function test_no_food_booking_recalculates_to_zero_plate_charges()
@@ -997,10 +1004,11 @@ class BookingManagementTest extends TestCase
             'booking_status' => 'Confirmed',
         ]);
 
-        // 1. Authorized user can view V1 and V2 slips
+        // 1. Authorized user can view V1, V2 and V3 slips
         $this->actingAs($this->userOwnerA);
         $this->get(route('bookings.slip', $booking->id))->assertStatus(200)->assertSeeLivewire('booking-slip');
         $this->get(route('bookings.slip-v2', $booking->id))->assertStatus(200)->assertSeeLivewire('booking-slip-v2');
+        $this->get(route('bookings.slip-v3', $booking->id))->assertStatus(200)->assertSeeLivewire('booking-slip-v3');
 
         // 2. Tenant isolation blocks access to other tenant's booking slips
         $bookingB = Booking::create([
@@ -1021,6 +1029,7 @@ class BookingManagementTest extends TestCase
 
         $this->get(route('bookings.slip', $bookingB->id))->assertStatus(404);
         $this->get(route('bookings.slip-v2', $bookingB->id))->assertStatus(404);
+        $this->get(route('bookings.slip-v3', $bookingB->id))->assertStatus(404);
     }
 
     public function test_bookings_report_view_accessibility_and_tenant_isolation()

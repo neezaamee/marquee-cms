@@ -79,6 +79,24 @@ class AccountingController extends Controller
     }
 
     /**
+     * Display the Profit & Loss statement report.
+     */
+    public function profitLoss()
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        return view('finance.profit-loss');
+    }
+
+    /**
+     * Display the Balance Sheet statement report.
+     */
+    public function balanceSheet()
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        return view('finance.balance-sheet');
+    }
+
+    /**
      * Display the cash and bank management screen.
      */
     public function cashBank()

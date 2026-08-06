@@ -476,6 +476,9 @@
                         <a class="btn btn-falcon-primary btn-sm w-100 mt-2" href="{{ route('bookings.slip-v2', $booking->id) }}" target="_blank">
                             <span class="fas fa-print me-1"></span> Print Booking Slip (V2)
                         </a>
+                        <a class="btn btn-falcon-info btn-sm w-100 mt-2" href="{{ route('bookings.slip-v3', $booking->id) }}" target="_blank">
+                            <span class="fas fa-print me-1"></span> Print Booking Slip (V3)
+                        </a>
                         <a class="btn btn-falcon-danger btn-sm w-100 mt-2" href="{{ route('bookings.pdf', $booking->id) }}" target="_blank">
                             <span class="fas fa-file-pdf me-1"></span> Download Invoice PDF
                         </a>

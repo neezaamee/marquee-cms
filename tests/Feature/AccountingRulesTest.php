@@ -123,15 +123,16 @@ class AccountingRulesTest extends TestCase
         $cashAccount = Account::where('marquee_id', $this->marquee->id)->where('account_code', '1001')->first();
         $retainedEarnings = Account::where('marquee_id', $this->marquee->id)->where('account_code', '3501')->first();
 
-        // Create a closed financial year
-        FinancialYear::create([
-            'marquee_id' => $this->marquee->id,
-            'name' => 'FY 2025',
-            'start_date' => '2025-01-01',
-            'end_date' => '2025-12-31',
-            'status' => 'closed',
-            'is_default' => false,
-        ]);
+        // Update seeded 2025 financial year to be closed
+        FinancialYear::updateOrCreate(
+            ['marquee_id' => $this->marquee->id, 'name' => 'FY 2025'],
+            [
+                'start_date' => '2025-01-01',
+                'end_date' => '2025-12-31',
+                'status' => 'closed',
+                'is_default' => false,
+            ]
+        );
 
         $items = [
             ['account_id' => $cashAccount->id, 'debit' => 100, 'credit' => 0],

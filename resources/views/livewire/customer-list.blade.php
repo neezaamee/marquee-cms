@@ -60,6 +60,7 @@
                             <th>Company</th>
                             <th>Email</th>
                             <th>Phone</th>
+                            <th class="text-center">Total Bookings</th>
                             <th>City</th>
                             <th class="text-center">Status</th>
                             <th class="text-end px-3">Actions</th>
@@ -89,6 +90,9 @@
                                 <td>{{ $customer->company_name ?? '—' }}</td>
                                 <td>{{ $customer->email ?? '—' }}</td>
                                 <td>{{ $customer->phone_number }}</td>
+                                <td class="text-center fw-semi-bold">
+                                    <span class="badge badge-subtle-primary fs-11">{{ $customer->total_bookings }}</span>
+                                </td>
                                 <td>{{ $customer->city ?? '—' }}</td>
                                 <td class="text-center">
                                     @php

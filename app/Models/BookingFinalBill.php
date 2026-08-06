@@ -24,10 +24,17 @@ class BookingFinalBill extends Model
         'grand_total',
         'notes',
         'created_by',
+        'fbr_invoice_number',
+        'fbr_sync_status',
+        'fbr_sync_time',
+        'usin',
+        'qr_code',
+        'fbr_response_message',
     ];
 
     protected $casts = [
         'guest_count' => 'integer',
+        'fbr_sync_time' => 'datetime',
         'per_plate_price' => 'float',
         'package_amount' => 'float',
         'hall_charges' => 'float',

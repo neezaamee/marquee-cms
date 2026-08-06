@@ -57,6 +57,17 @@
           </a>
         </li>
 
+        @if(auth()->user()->hasRole('owner') || auth()->user()->isSuperAdmin())
+        <li class="nav-item">
+          <a class="nav-link {{ Route::is('billing.*') ? 'active' : '' }}" href="{{ route('billing.index') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-file-invoice-dollar text-primary"></span></span>
+              <span class="nav-link-text ps-1">Billing & Subscription</span>
+            </div>
+          </a>
+        </li>
+        @endif
+
         <!-- ========================================== -->
         <!-- SAAS MANAGEMENT SECTION (Super Admin Only) -->
         <!-- ========================================== -->
@@ -365,7 +376,7 @@
         </div>
 
         @php
-          $bookingsActive = Route::is('bookings.*', 'slots.*', 'hall-slots.*', 'availability.*');
+          $bookingsActive = Route::is('bookings.*', 'slots.*', 'hall-slots.*', 'availability.*', 'operations.checklists');
         @endphp
         <li class="nav-item">
           <a class="nav-link dropdown-indicator {{ $bookingsActive ? '' : 'collapsed' }}" href="#bookingsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $bookingsActive ? 'true' : 'false' }}" aria-controls="bookingsCollapse">
@@ -379,6 +390,13 @@
               <a class="nav-link {{ Route::is('bookings.index') ? 'active' : '' }}" href="{{ route('bookings.index') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">All Bookings</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('operations.checklists') ? 'active' : '' }}" href="{{ route('operations.checklists') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Event Day Checklist</span>
                 </div>
               </a>
             </li>
@@ -510,7 +528,7 @@
         </div>
 
         @php
-          $menuActive = Route::is('menu-categories.*', 'menu-items.*', 'packages.*', 'extra-services.*');
+          $menuActive = Route::is('menu-categories.*', 'menu-items.*', 'recipes.index', 'packages.*', 'extra-services.*');
         @endphp
         <li class="nav-item">
           <a class="nav-link dropdown-indicator {{ $menuActive ? '' : 'collapsed' }}" href="#cateringCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $menuActive ? 'true' : 'false' }}" aria-controls="cateringCollapse">
@@ -532,6 +550,13 @@
               <a class="nav-link {{ Route::is('menu-items.index') ? 'active' : '' }}" href="{{ route('menu-items.index') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Menu Items</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('recipes.index') ? 'active' : '' }}" href="{{ route('recipes.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Recipe & Ingredient Calc</span>
                 </div>
               </a>
             </li>
@@ -586,6 +611,13 @@
               </a>
             </li>
             <li class="nav-item">
+              <a class="nav-link {{ Route::is('customers.referral-analytics') ? 'active' : '' }}" href="{{ route('customers.referral-analytics') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Referral Analytics</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
               <a class="nav-link text-muted" href="#!">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Customer Feedback</span>
@@ -615,7 +647,7 @@
         </div>
 
         @php
-          $staffActive = Route::is('staff.*');
+          $staffActive = Route::is('staff.*', 'staff.attendance');
         @endphp
         <li class="nav-item">
           <a class="nav-link dropdown-indicator {{ $staffActive ? '' : 'collapsed' }}" href="#staffCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $staffActive ? 'true' : 'false' }}" aria-controls="staffCollapse">
@@ -633,10 +665,9 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('staff.attendance') ? 'active' : '' }}" href="{{ route('staff.attendance') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Attendance</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                  <span class="nav-link-text ps-1">Attendance Register</span>
                 </div>
               </a>
             </li>
@@ -772,12 +803,34 @@
         @php
           $financeActive = Route::is('finance.revenue');
           $transactionsActive = Route::is('finance.payments') || Route::is('finance.security-deposits');
-          $accountingActive = Route::is('finance.financial-years') || Route::is('finance.chart-of-accounts') || Route::is('finance.opening-balances') || Route::is('finance.journal-vouchers.*') || Route::is('finance.general-ledger') || Route::is('finance.trial-balance') || Route::is('finance.cash-bank');
+          $accountingActive = Route::is('finance.financial-years') || Route::is('finance.chart-of-accounts') || Route::is('finance.opening-balances') || Route::is('finance.journal-vouchers.*') || Route::is('finance.general-ledger') || Route::is('finance.trial-balance') || Route::is('finance.profit-loss') || Route::is('finance.balance-sheet') || Route::is('finance.cash-bank');
+          $expensesActive = Route::is('expenses.*');
         @endphp
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
           <div class="col-auto navbar-vertical-label">Financial Management</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
         </div>
+
+        @php
+          $vendorsActive = Route::is('vendors.index');
+        @endphp
+        <li class="nav-item">
+          <a class="nav-link dropdown-indicator {{ $vendorsActive ? '' : 'collapsed' }}" href="#vendorsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $vendorsActive ? 'true' : 'false' }}" aria-controls="vendorsCollapse">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-handshake text-warning"></span></span>
+              <span class="nav-link-text ps-1">Event Vendors</span>
+            </div>
+          </a>
+          <ul class="nav collapse {{ $vendorsActive ? 'show' : '' }}" id="vendorsCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('vendors.index') ? 'active' : '' }}" href="{{ route('vendors.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Vendors & Commissions</span>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </li>
 
         <li class="nav-item">
           <a class="nav-link dropdown-indicator {{ $financeActive ? '' : 'collapsed' }}" href="#financeCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $financeActive ? 'true' : 'false' }}" aria-controls="financeCollapse">
@@ -862,13 +915,72 @@
               </a>
             </li>
             <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.profit-loss') ? 'active' : '' }}" href="{{ route('finance.profit-loss') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Profit & Loss</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.balance-sheet') ? 'active' : '' }}" href="{{ route('finance.balance-sheet') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Balance Sheet</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
               <a class="nav-link {{ Route::is('finance.cash-bank') ? 'active' : '' }}" href="{{ route('finance.cash-bank') }}">
                 <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Cash & Bank Accounts</span></div>
+              </a>
+        @endif
+        @endif
+
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_expenses'))
+        <li class="nav-item">
+          <a class="nav-link dropdown-indicator {{ $expensesActive ? '' : 'collapsed' }}" href="#expensesCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $expensesActive ? 'true' : 'false' }}" aria-controls="expensesCollapse">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-file-invoice-dollar"></span></span>
+              <span class="nav-link-text ps-1">Expenses</span>
+            </div>
+          </a>
+          <ul class="nav collapse {{ $expensesActive ? 'show' : '' }}" id="expensesCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('expenses.dashboard') ? 'active' : '' }}" href="{{ route('expenses.dashboard') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Dashboard</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('expenses.index') || Route::is('expenses.show') || Route::is('expenses.create') || Route::is('expenses.edit') ? 'active' : '' }}" href="{{ route('expenses.index') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Expense Register</span></div>
+              </a>
+            </li>
+            @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_expense_settings'))
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('expenses.categories') ? 'active' : '' }}" href="{{ route('expenses.categories') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Categories</span></div>
+              </a>
+            </li>
+            @endif
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('expenses.petty-cash') ? 'active' : '' }}" href="{{ route('expenses.petty-cash') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Petty Cash</span></div>
+              </a>
+            </li>
+            @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_expense_settings'))
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('expenses.budgets') ? 'active' : '' }}" href="{{ route('expenses.budgets') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Budget Tracker</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('expenses.recurring') ? 'active' : '' }}" href="{{ route('expenses.recurring') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Recurring Expenses</span></div>
+              </a>
+            </li>
+            @endif
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('expenses.reports') ? 'active' : '' }}" href="{{ route('expenses.reports') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Expense Reports</span></div>
               </a>
             </li>
           </ul>
         </li>
-        @endif
         @endif
 
         <!-- ========================================== -->

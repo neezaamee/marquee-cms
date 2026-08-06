@@ -213,8 +213,8 @@ class HallSlotTest extends TestCase
         // Rule #2: Same Date + Same Hall + Different Slot = ALLOWED
         $this->assertTrue($service->checkAvailability(1, '2026-07-10', 2));
 
-        // Rule #3: Different Hall + Same Date + Same Slot = ALLOWED
-        $this->assertTrue($service->checkAvailability(2, '2026-07-10', 1));
+        // Rule #3: Different Hall + Same Date + Same Slot = NOT ALLOWED (Venue-wide slot lockout)
+        $this->assertFalse($service->checkAvailability(2, '2026-07-10', 1));
 
         // Clean up temporary table
         Schema::dropIfExists('bookings');

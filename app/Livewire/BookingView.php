@@ -238,7 +238,7 @@ class BookingView extends Component
         $subtotal = $packageAmount + $this->fbHallCharges + $this->fbExtraCharges - $this->fbDiscountAmount;
         $grandTotal = $subtotal + $this->fbTaxAmount + $this->booking->security_deposit;
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($packageAmount, $subtotal, $grandTotal) {
+        $finalBill = \Illuminate\Support\Facades\DB::transaction(function () use ($packageAmount, $subtotal, $grandTotal) {
             // Remove existing final bill and its details if they exist
             if ($this->booking->finalBill) {
                 $this->booking->finalBill->extraServices()->delete();
@@ -280,7 +280,15 @@ class BookingView extends Component
                 'status_to' => $this->booking->booking_status,
                 'notes' => 'Prepared Event-Day Final Bill. Actual guests: ' . $this->fbGuestCount . '. Grand Total adjusted to Rs. ' . number_format($grandTotal, 2),
             ]);
+
+            return $finalBill;
         });
+
+        // Trigger FBR Sync if POS configuration exists
+        if ($finalBill) {
+            $fbrService = app(\App\Services\FbrPosService::class);
+            $fbrService->syncFinalBill($finalBill);
+        }
 
         // Recalculate and update the booking's payment status based on the new final bill amount
         $this->updatePaymentStatusBasedOnFinalBill();
@@ -288,7 +296,7 @@ class BookingView extends Component
         $this->booking->refresh();
         $this->showFinalBillModal = false;
         
-        session()->flash('success', 'Event-day final bill has been generated and locked successfully.');
+        session()->flash('success', 'Event-day final bill has been generated and validated with FBR successfully.');
     }
 
     /**

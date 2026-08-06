@@ -81,7 +81,9 @@ class CustomerList extends Component
                   ->orWhere('email', 'like', '%' . $this->search . '%')
                   ->orWhere('phone_number', 'like', '%' . $this->search . '%')
                   ->orWhere('cnic_national_id', 'like', '%' . $this->search . '%')
-                  ->orWhere('company_name', 'like', '%' . $this->search . '%');
+                  ->orWhere('company_name', 'like', '%' . $this->search . '%')
+                  ->orWhere('referred_by_name', 'like', '%' . $this->search . '%')
+                  ->orWhere('referred_by_contact', 'like', '%' . $this->search . '%');
             });
         }
 
@@ -95,7 +97,7 @@ class CustomerList extends Component
             $query->where('status', $this->filterStatus);
         }
 
-        $customers = $query->latest()->paginate(10);
+        $customers = $query->withCount('bookings')->latest()->paginate(10);
 
         return view('livewire.customer-list', compact('customers'));
     }

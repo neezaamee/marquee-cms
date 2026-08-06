@@ -54,4 +54,13 @@ class CustomerController extends Controller
 
         return view('customers.edit', compact('customer'));
     }
+
+    /**
+     * Display customer referral analytics report.
+     */
+    public function referralAnalytics()
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
+        return view('customers.referral-analytics');
+    }
 }

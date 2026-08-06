@@ -137,7 +137,7 @@ class BookingEnhancementsTest extends TestCase
             ->set('selectedCustomerId', $this->customer->id)
             ->set('selectedEventTypeId', $this->eventType->id)
             ->set('selectedHallIds', [(string)$this->hall->id])
-            ->set('selectedDate', '2026-06-25')
+            ->set('selectedDate', '2026-12-25')
             ->set('checkType', 'slot')
             ->set('selectedSlotId', $this->slot->id)
             ->set('selectedPackageId', $this->package->id)
@@ -265,5 +265,106 @@ class BookingEnhancementsTest extends TestCase
         $totalPaid = $booking->payments()->sum('amount');
         $outstanding = $booking->finalBill ? ($booking->finalBill->grand_total - $totalPaid) : ($booking->grand_total - $totalPaid);
         $this->assertEquals(255125.00, $outstanding);
+    }
+
+    public function test_menu_items_sorting_and_sequence_ordering()
+    {
+        // 1. Create a customer, package, category, and menu items
+        $customer = \App\Models\Customer::create([
+            'marquee_id' => $this->marquee->id,
+            'customer_type' => 'Individual',
+            'first_name' => 'Sort',
+            'last_name' => 'Tester',
+            'phone_number' => '03001234567',
+        ]);
+
+        $category = \App\Models\MenuCategory::create([
+            'marquee_id' => $this->marquee->id,
+            'category_name' => 'Main course',
+            'category_code' => 'MC',
+            'status' => 'active',
+        ]);
+
+        $itemA = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marquee->id,
+            'category_id' => $category->id,
+            'item_name' => 'Chicken Biryani',
+            'item_code' => 'CB',
+            'selling_price' => 200,
+            'status' => 'active',
+        ]);
+
+        $itemB = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marquee->id,
+            'category_id' => $category->id,
+            'item_name' => 'Mutton Karahi',
+            'item_code' => 'MK',
+            'selling_price' => 500,
+            'status' => 'active',
+        ]);
+
+        $itemC = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marquee->id,
+            'category_id' => $category->id,
+            'item_name' => 'Kheer',
+            'item_code' => 'KH',
+            'selling_price' => 100,
+            'status' => 'active',
+        ]);
+
+        Livewire::actingAs($this->userOwner);
+
+        // 2. Test One-Page Booking Wizard Component sorting helper methods
+        $component = Livewire::test('booking-one-page')
+            ->set('selectedCustomerId', $customer->id)
+            ->set('selectedEventTypeId', $this->eventType->id)
+            ->set('selectedHallIds', [(string)$this->hall->id])
+            ->set('selectedDate', '2026-12-26')
+            ->set('checkType', 'slot')
+            ->set('selectedSlotId', $this->slot->id)
+            ->set('selectedPackageId', $this->package->id)
+            ->set('noFood', false);
+
+        // Simulate adding menu items: Item A, Item B, Item C
+        $component->set('bookingMenuItems', [
+            ['id' => $itemA->id, 'item_name' => 'Chicken Biryani', 'custom_note' => '', 'managed_by_host' => false],
+            ['id' => $itemB->id, 'item_name' => 'Mutton Karahi', 'custom_note' => '', 'managed_by_host' => false],
+            ['id' => $itemC->id, 'item_name' => 'Kheer', 'custom_note' => '', 'managed_by_host' => false],
+        ]);
+
+        // Move Item B (index 1) up -> Should become: B, A, C
+        $component->call('moveMenuItemUp', 1);
+        $menuItems = $component->get('bookingMenuItems');
+        $this->assertEquals($itemB->id, $menuItems[0]['id']);
+        $this->assertEquals($itemA->id, $menuItems[1]['id']);
+
+        // Move Item C (index 2) up -> Should become: B, C, A
+        $component->call('moveMenuItemUp', 2);
+        $menuItems = $component->get('bookingMenuItems');
+        $this->assertEquals($itemC->id, $menuItems[1]['id']);
+
+        // Move Item B (index 0) down -> Should become: C, B, A
+        $component->call('moveMenuItemDown', 0);
+        $menuItems = $component->get('bookingMenuItems');
+        $this->assertEquals($itemC->id, $menuItems[0]['id']);
+        $this->assertEquals($itemB->id, $menuItems[1]['id']);
+
+        // Submit the form
+        $component->call('submitBooking')
+            ->assertHasNoErrors();
+
+        // 3. Retrieve the created booking and assert it loads menu items sorted by sort_order pivot
+        $booking = \App\Models\Booking::latest()->first();
+        $this->assertCount(3, $booking->menuItems);
+
+        // It should be C (Kheer), B (Mutton Karahi), A (Chicken Biryani)
+        $this->assertEquals($itemC->id, $booking->menuItems[0]->id);
+        $this->assertEquals(0, $booking->menuItems[0]->pivot->sort_order);
+
+        $this->assertEquals($itemB->id, $booking->menuItems[1]->id);
+        $this->assertEquals(1, $booking->menuItems[1]->pivot->sort_order);
+
+        $this->assertEquals($itemA->id, $booking->menuItems[2]->id);
+        $this->assertEquals(2, $booking->menuItems[2]->pivot->sort_order);
     }
 }

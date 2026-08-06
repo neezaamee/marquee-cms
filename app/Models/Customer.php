@@ -79,7 +79,7 @@ class Customer extends Model
 
     public function getTotalBookingsAttribute(): int
     {
-        return $this->bookings()->count();
+        return $this->bookings_count ?? $this->bookings()->count();
     }
 
     public function getUpcomingEventsAttribute(): int

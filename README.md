@@ -1,58 +1,147 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# MarqueeCMS — Enterprise Multi-Tenant Marquee & Banquet ERP SaaS
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+MarqueeCMS is a comprehensive, enterprise-grade Multi-Tenant Software-as-a-Service (SaaS) ERP designed specifically for marquee owners, wedding hall operators, and banquet managers. It provides a complete workflow from online bookings and CRM to kitchen inventory management, daily staff attendance, petty cash accounting, event checklisting, and vendor commission tracking.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🚀 Key Features
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+* **Multi-Tenant SaaS Architecture**: Dynamic onboarding setup wizard, isolated databases (tenant and branch level query scoping), and Stripe multi-currency subscriptions.
+* **CRM & Bookings Manager**: Client referrals, availability engine, slot booking calendars, and custom packages builder.
+* **Kitchen & Catering Recipes**: Linked dish menus to raw inventory items, with automated per-head material requirement calculations (`RecipeService`).
+* **HR & Staff Attendance**: Employees directory, monthly payroll overview, and branch-isolated daily check-in/out attendance logging.
+* **Financial Ledger & Accounting**: General ledger, chart of accounts, journal vouchers, trial balance, profit & loss, and balance sheets.
+* **Expense Management**: Multi-branch petty cash drawers, recurring templates, and role-based approval rules.
+* **Operational Event Checklists**: Coordination checksheets (stage setup, sound check, catering prep) assigned to staff.
+* **Vendor Commissions**: Third-party event vendor profile directories and booking commission paybacks tracker.
+* **Regional Integrations**: FBR (Federal Board of Revenue) sandbox POS synchronization client with QR codes verification.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## 🛠️ Technology Stack
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+* **Backend**: Laravel 12 (PHP 8.2+)
+* **Frontend**: Livewire 3, Tailwind CSS, Bootstrap 5
+* **Theme**: Falcon Admin Template
+* **Database**: MySQL / SQLite (for unit tests)
+* **Integrations**: Stripe API (Subscriptions), FBR POS API
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## 💻 Installation & Local Development
 
-## Agentic Development
+### 1. Prerequisites
+Ensure you have the following installed locally:
+* PHP 8.2 or higher
+* Composer
+* Node.js & NPM
+* MySQL Server (WAMP/XAMPP or Docker)
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### 2. Setup Steps
 
+Clone the repository and install dependencies:
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/neezaamee/marquee-cms.git
+cd MarqueeCMS
+composer install
+npm install
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Configure the environment file:
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-## Contributing
+Open `.env` and set your local database and Stripe parameters:
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=marquee_cms
+DB_USERNAME=root
+DB_PASSWORD=
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+STRIPE_KEY=your-stripe-pk
+STRIPE_SECRET=your-stripe-sk
+STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
+```
 
-## Code of Conduct
+Create database, run migrations, and seed default plans/roles:
+```bash
+php artisan migrate
+php artisan db:seed
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Generate the storage symlink:
+```bash
+php artisan storage:link
+```
 
-## Security Vulnerabilities
+Compile assets and start the local development server:
+```bash
+npm run dev
+php artisan serve
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## 🔐 Default Login Information
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+For testing, seed the system defaults using the main database seeder which initializes the SaaS plans and basic administration credentials.
+
+* **Super Admin Login (Central Platform)**:
+  * **Email**: `admin@marqueecms.com` (or as configured in seeders)
+  * **Password**: `password`
+
+---
+
+## ⚙️ Queue & Scheduler Configuration
+
+### 1. Queues
+MarqueeCMS uses background job queues to dispatch automated FBR POS sync requests, email templates, and invoice notifications.
+* Local development: `QUEUE_CONNECTION=sync`
+* Production: `QUEUE_CONNECTION=database` or `redis`
+
+Start the queue worker:
+```bash
+php artisan queue:work
+```
+
+### 2. Task Scheduler
+For recurring expenses and trial expiration checks, configure a CRON job on your hosting server to run the Laravel scheduler every minute:
+```bash
+* * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
+```
+
+---
+
+## 📂 Project Directory Structure
+
+```text
+├── app/
+│   ├── Console/            # Commands & Scheduler
+│   ├── Http/
+│   │   ├── Controllers/    # CRM, Billing & Branch controllers
+│   │   └── Middleware/     # Wizard checks & route security
+│   ├── Livewire/           # Interactive components (Wizard, Finance, Booking)
+│   ├── Models/             # Eloquent schema models (Booking, Recipe, Vendor, etc.)
+│   ├── Services/           # RecipeService, FbrPosService, StripeBillingService
+│   └── Traits/             # BelongsToTenant & BelongsToBranch isolation scopes
+├── config/                 # Services and application configs
+├── database/
+│   ├── migrations/         # ERP database tables schemas
+│   └── seeders/            # Plans and roles seeders
+├── docs/                   # Full system architecture documentation
+├── resources/
+│   └── views/              # Blade layouts and subviews templates
+├── routes/
+│   └── web.php             # SaaS & tenant routes
+└── tests/
+    └── Feature/            # Automated test suite (127 tests)
+```
+
+---
+
+## 📄 License
+This project is licensed under the terms of the [MIT License](LICENSE).

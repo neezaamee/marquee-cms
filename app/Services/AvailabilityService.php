@@ -64,13 +64,8 @@ class AvailabilityService
     {
         [$start, $end] = $this->parseTimeRange($date, $startTime, $endTime);
 
-        $query = Booking::where(function ($q) use ($hallId) {
-                $q->where('hall_id', $hallId)
-                  ->orWhereHas('halls', function ($sub) use ($hallId) {
-                      $sub->where('halls.id', $hallId);
-                  });
-            })
-            ->whereIn('booking_status', ['Reserved', 'Confirmed'])
+        // Venue-wide conflict constraint: any booking in the marquee blocks the slot across all halls
+        $query = Booking::whereIn('booking_status', ['Reserved', 'Confirmed'])
             ->where(function ($q) use ($start, $end) {
                 // requested_start < existing_end AND requested_end > existing_start
                 $q->where('start_time', '<', $end)
@@ -107,7 +102,6 @@ class AvailabilityService
         if (!\Illuminate\Support\Facades\Schema::hasColumn('bookings', 'start_time')) {
             $statusCheck = ['confirmed', 'reserved', 'Confirmed', 'Reserved'];
             return !\Illuminate\Support\Facades\DB::table('bookings')
-                ->where('hall_id', $hallId)
                 ->where('booking_date', $date)
                 ->where('slot_id', $startTimeOrSlotId)
                 ->whereIn('status', $statusCheck)
