@@ -459,6 +459,9 @@
                                         <a class="btn btn-falcon-default btn-xs" href="{{ route('bookings.slip', $booking->id) }}" data-bs-toggle="tooltip" title="Print Slip" target="_blank">
                                             <span class="text-success fas fa-print"></span> Slip
                                         </a>
+                                        <a class="btn btn-falcon-default btn-xs" href="{{ route('bookings.kitchen-slip', ['booking' => $booking->id, 'lang' => 'bilingual']) }}" data-bs-toggle="tooltip" title="Print Kitchen Menu Slip" target="_blank">
+                                            <span class="text-warning fas fa-utensils"></span> Kitchen
+                                        </a>
 
                                         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings'))
                                             @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))

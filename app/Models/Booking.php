@@ -49,6 +49,10 @@ class Booking extends Model
         'deposit_deducted_amount',
         'deposit_notes',
         'no_food',
+        'kitchen_printed_at',
+        'kitchen_print_version',
+        'kitchen_menu_hash',
+        'kitchen_special_instructions',
     ];
 
     protected $casts = [
@@ -70,6 +74,8 @@ class Booking extends Model
         'deposit_refunded_amount' => 'float',
         'deposit_deducted_amount' => 'float',
         'no_food' => 'boolean',
+        'kitchen_printed_at' => 'datetime',
+        'kitchen_print_version' => 'integer',
     ];
 
     /**
@@ -287,5 +293,40 @@ class Booking extends Model
     public function vendorBookings(): HasMany
     {
         return $this->hasMany(VendorBooking::class);
+    }
+
+    /**
+     * Get the print audit logs for kitchen slips.
+     */
+    public function kitchenPrintLogs(): HasMany
+    {
+        return $this->hasMany(KitchenPrintLog::class)->orderBy('printed_at', 'desc');
+    }
+
+    /**
+     * Compute a hash of booked menu items and effective guest count.
+     */
+    public function computeMenuHash(): string
+    {
+        $items = $this->menuItems()
+            ->select('menu_items.id')
+            ->orderBy('menu_items.id')
+            ->get()
+            ->pluck('id')
+            ->toArray();
+
+        return md5(implode('-', $items) . ':' . $this->effective_guest_count . ':' . ($this->kitchen_special_instructions ?? ''));
+    }
+
+    /**
+     * Determine if the booking menu was modified after the last kitchen print.
+     */
+    public function getIsKitchenMenuModifiedAttribute(): bool
+    {
+        if (empty($this->kitchen_printed_at) || empty($this->kitchen_menu_hash)) {
+            return false;
+        }
+
+        return $this->computeMenuHash() !== $this->kitchen_menu_hash;
     }
 }

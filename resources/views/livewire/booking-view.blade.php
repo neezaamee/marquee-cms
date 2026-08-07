@@ -8,6 +8,22 @@
         </div>
     @endif
 
+    <!-- Menu Modification Alert for Kitchen Slip -->
+    @if($booking->is_kitchen_menu_modified)
+        <div class="alert alert-warning border-3 border-warning d-flex align-items-center m-3 shadow-sm" role="alert">
+            <div class="bg-warning text-dark me-3 icon-item rounded-circle p-2"><span class="fas fa-exclamation-triangle fs-7"></span></div>
+            <div class="flex-grow-1">
+                <h6 class="alert-heading mb-1 fw-bold text-dark">Kitchen Menu Modified! / کچن مینو تبدیل ہو چکا ہے</h6>
+                <p class="mb-0 fs-12 text-800">
+                    The menu items or guest headcount for this booking have been modified since Kitchen Slip <strong>V{{ $booking->kitchen_print_version }}</strong> was printed on <strong>{{ $booking->kitchen_printed_at?->format('d-M-Y h:i A') }}</strong>. Please print an updated Kitchen Slip.
+                </p>
+            </div>
+            <button wire:click="openKitchenSlipModal" class="btn btn-dark btn-sm ms-3 fw-bold text-nowrap">
+                <i class="fas fa-print me-1"></i> Print Updated Slip (V{{ ($booking->kitchen_print_version ?? 0) + 1 }})
+            </button>
+        </div>
+    @endif
+
     <!-- Top Status Transition Banner -->
     <div class="card mb-3 border border-300">
         <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2 bg-light">
@@ -528,6 +544,12 @@
                         <a class="btn btn-falcon-danger btn-sm w-100 mt-2" href="{{ route('bookings.pdf', $booking->id) }}" target="_blank">
                             <span class="fas fa-file-pdf me-1"></span> Download Invoice PDF
                         </a>
+                        <button wire:click="openKitchenSlipModal" class="btn btn-warning btn-sm w-100 mt-2 text-dark fw-bold shadow-xs" type="button">
+                            <span class="fas fa-utensils me-1"></span> Print Kitchen Menu
+                            @if(!empty($booking->kitchen_print_version))
+                                <span class="badge bg-dark text-white ms-1 fs-11">V{{ $booking->kitchen_print_version }}</span>
+                            @endif
+                        </button>
                         <hr class="my-2" />
 
                         <!-- Prepare Final Bill Button -->
@@ -821,4 +843,65 @@
             </div>
         </div>
     @endif
+
+    <!-- Kitchen Slip Selection & Instructions Modal -->
+    @if($showKitchenSlipModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content shadow-lg border-0">
+                    <div class="modal-header bg-warning text-dark py-2">
+                        <h5 class="modal-title fw-bold fs-14">
+                            <i class="fas fa-utensils me-2"></i>Print Kitchen Menu Slip (کچن مینو آرڈر سلپ)
+                        </h5>
+                        <button wire:click="$set('showKitchenSlipModal', false)" type="button" class="btn-close" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-3">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-700 fs-12">Select Print Language Mode / زبان کا انتخاب:</label>
+                            <div class="d-flex flex-column gap-2 fs-12">
+                                <div class="form-check p-2 ps-4 border rounded bg-light">
+                                    <input wire:model="kitchenLang" class="form-check-input" type="radio" name="kitchenLang" id="langBilingual" value="bilingual">
+                                    <label class="form-check-label fw-bold text-primary" for="langBilingual">
+                                        <i class="fas fa-globe me-1"></i> Bilingual — English + Urdu (Recommended / تجویز کردہ)
+                                        <div class="text-muted fs-11 fw-normal">Displays dual English and Urdu labels for items, headings, and headcount.</div>
+                                    </label>
+                                </div>
+                                <div class="form-check p-2 ps-4 border rounded">
+                                    <input wire:model="kitchenLang" class="form-check-input" type="radio" name="kitchenLang" id="langEnglish" value="english">
+                                    <label class="form-check-label fw-bold text-dark" for="langEnglish">
+                                        English Only
+                                    </label>
+                                </div>
+                                <div class="form-check p-2 ps-4 border rounded">
+                                    <input wire:model="kitchenLang" class="form-check-input" type="radio" name="kitchenLang" id="langUrdu" value="urdu">
+                                    <label class="form-check-label fw-bold text-dark" for="langUrdu">
+                                        اردو (Urdu RTL Format)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label fw-bold text-700 fs-12">Special Kitchen Preparation Notes / خصوصیات:</label>
+                            <textarea wire:model="kitchenInstructions" class="form-control fs-12" rows="3" placeholder="e.g. Less spicy, VIP table setup, Separate naan preparation..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light py-2">
+                        <button wire:click="$set('showKitchenSlipModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Cancel</button>
+                        <button wire:click="saveKitchenInstructionsAndPrint" type="button" class="btn btn-warning btn-sm px-4 fw-bold text-dark">
+                            <i class="fas fa-print me-1"></i> Generate & Print Slip (V{{ ($booking->kitchen_print_version ?? 0) + 1 }})
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <script>
+        document.addEventListener('livewire:initialized', () => {
+            Livewire.on('open-print-window', (data) => {
+                window.open(data.url, '_blank');
+            });
+        });
+    </script>
 </div>

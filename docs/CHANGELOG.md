@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0] - 2026-08-08
+### Added
+- Formulated Kitchen Menu Slip Printing System integrated into Booking Management (`kitchen_print_logs` table & migration, `KitchenPrintLog` model).
+- Added `department_id` foreign key link on `menu_categories` to support department-wise menu item grouping (`BBQ Station`, `Pakistani Kitchen`, `Tandoor & Bakery`, `Sweets & Desserts`, `Chinese & Continental`, `Other`).
+- Developed printable A4 portrait Blade view `bookings.kitchen_slip` featuring 3 language options: **Bilingual (English + Urdu)** [Default], **English**, and **Urdu** (with RTL orientation & Unicode Noto Nastaliq Urdu / Noto Sans Arabic typography).
+- Enforced complete financial transparency on Kitchen Slips (strictly excludes prices, subtotal, grand total, advance payments, balances, margins, and customer CNICs).
+- Built Kitchen Slip Versioning (`V1`, `V2`) and Audit Log History tracking print timestamp, printer user ID, and language mode.
+- Programmed Menu Modification Detection (`is_kitchen_menu_modified` accessor & menu hash computation) rendering an operational **Menu Modification Warning Alert** if booking items or guest counts change post-printing.
+- Created `KitchenMenuSlipTest` feature test suite verifying route authorization, financial data omission, department grouping, version logs, menu modification alerts, and tenant isolation (5/5 tests passing).
+
 ## [1.7.0] - 2026-08-08
 ### Added
 - Formulated Global Default Data Management System (`GlobalDefaultMaster` model and migration) establishing central master templates across 9 categories (Event Types, Menu Categories, Inventory Categories, Inventory Units, Expense Categories, Department Types, Vendor Types, Customer Types, Payment Methods).

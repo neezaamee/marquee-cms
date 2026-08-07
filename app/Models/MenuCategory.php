@@ -15,6 +15,7 @@ class MenuCategory extends Model
 
     protected $fillable = [
         'marquee_id',
+        'department_id',
         'category_name',
         'category_code',
         'description',
@@ -26,6 +27,14 @@ class MenuCategory extends Model
     protected $casts = [
         'sort_order' => 'integer',
     ];
+
+    /**
+     * Get the department associated with this menu category.
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
 
     /**
      * Boot the model.

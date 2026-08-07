@@ -45,6 +45,11 @@ class BookingView extends Component
     public $newAddonPrice = 0.00;
     public $newAddonQty = 1;
 
+    // Kitchen Slip Modal State
+    public $showKitchenSlipModal = false;
+    public $kitchenLang = 'bilingual';
+    public $kitchenInstructions = '';
+
     public function mount(Booking $booking)
     {
         $this->booking = $booking;
@@ -475,6 +480,34 @@ class BookingView extends Component
         $this->booking->refresh();
         $this->showGuestModal = false;
         session()->flash('success', 'Guest headcount and status updated successfully.');
+    }
+
+    /**
+     * Open Kitchen Slip printing options modal.
+     */
+    public function openKitchenSlipModal()
+    {
+        $this->kitchenInstructions = $this->booking->kitchen_special_instructions ?? $this->booking->special_instructions ?? '';
+        $this->showKitchenSlipModal = true;
+    }
+
+    /**
+     * Save special kitchen instructions and trigger print window redirect.
+     */
+    public function saveKitchenInstructionsAndPrint()
+    {
+        $this->booking->update([
+            'kitchen_special_instructions' => $this->kitchenInstructions,
+        ]);
+
+        $this->showKitchenSlipModal = false;
+        $url = route('bookings.kitchen-slip', [
+            'booking' => $this->booking->id,
+            'lang' => $this->kitchenLang,
+            'kitchen_special_instructions' => $this->kitchenInstructions
+        ]);
+
+        $this->dispatch('open-print-window', url: $url);
     }
 
     public function render()

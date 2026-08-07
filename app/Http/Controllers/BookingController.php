@@ -184,5 +184,115 @@ class BookingController extends Controller
 
         return view('bookings.report', compact('bookings', 'marquee'));
     }
+
+    /**
+     * Renders a printable Kitchen Menu Slip layout for a booking.
+     */
+    public function kitchenSlip(Request $request, Booking $booking)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
+
+        // Tenant scoping security check
+        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
+            abort(403, 'Unauthorized access to this kitchen slip.');
+        }
+
+        // Language selection (bilingual, english, urdu)
+        $lang = $request->input('lang', 'bilingual');
+        if (!in_array($lang, ['bilingual', 'english', 'urdu'])) {
+            $lang = 'bilingual';
+        }
+
+        // Update special kitchen instructions if provided
+        if ($request->filled('kitchen_special_instructions')) {
+            $booking->kitchen_special_instructions = $request->input('kitchen_special_instructions');
+        }
+
+        // Eager load menu items & relations
+        $booking->load([
+            'menuItems.category.department',
+            'halls',
+            'hall.branch',
+            'customer',
+            'eventType',
+            'slot',
+            'package',
+            'kitchenPrintLogs.printer'
+        ]);
+
+        // Calculate menu hash and manage versioning
+        $currentHash = $booking->computeMenuHash();
+        if (empty($booking->kitchen_printed_at) || $booking->kitchen_menu_hash !== $currentHash) {
+            $booking->kitchen_print_version = ($booking->kitchen_print_version ?? 0) + 1;
+            $booking->kitchen_printed_at = now();
+            $booking->kitchen_menu_hash = $currentHash;
+            $booking->save();
+        }
+
+        // Audit log print history
+        \App\Models\KitchenPrintLog::create([
+            'booking_id' => $booking->id,
+            'marquee_id' => $booking->marquee_id,
+            'printed_by' => auth()->id(),
+            'language' => $lang,
+            'version_number' => $booking->kitchen_print_version,
+            'printed_at' => now(),
+        ]);
+
+        // Group Menu Items by Department
+        $groupedMenuItems = [];
+        $deptTranslations = [
+            'Pakistani Kitchen' => ['en' => 'Pakistani Kitchen', 'ur' => 'پاکستانی کچن'],
+            'BBQ Station' => ['en' => 'BBQ Station & Grill', 'ur' => 'باربی کیو سٹیشن'],
+            'Chinese & Continental Kitchen' => ['en' => 'Chinese & Continental', 'ur' => 'چائنیز اور کانٹی نینٹل'],
+            'Tandoor & Bakery' => ['en' => 'Tandoor & Breads', 'ur' => 'تندور اور روٹی'],
+            'Sweets & Desserts Section' => ['en' => 'Sweets & Desserts', 'ur' => 'میٹھے اور سویٹس'],
+            'Housekeeping & Janitorial' => ['en' => 'Housekeeping & Supplies', 'ur' => 'صفائی اور برتن'],
+        ];
+
+        foreach ($booking->menuItems as $item) {
+            $deptObj = $item->category?->department;
+            $deptName = $deptObj?->name;
+
+            // Smart Department Fallback Resolution based on category name
+            if (empty($deptName)) {
+                $catName = $item->category?->category_name ?? '';
+                if (stripos($catName, 'BBQ') !== false || stripos($item->item_name, 'Tikka') !== false || stripos($item->item_name, 'Kabab') !== false) {
+                    $deptName = 'BBQ Station';
+                } elseif (stripos($catName, 'Bread') !== false || stripos($item->item_name, 'Naan') !== false || stripos($item->item_name, 'Roti') !== false) {
+                    $deptName = 'Tandoor & Bakery';
+                } elseif (stripos($catName, 'Chinese') !== false || stripos($catName, 'Continental') !== false) {
+                    $deptName = 'Chinese & Continental Kitchen';
+                } elseif (stripos($catName, 'Sweet') !== false || stripos($catName, 'Dessert') !== false || stripos($item->item_name, 'Kheer') !== false || stripos($item->item_name, 'Halwa') !== false) {
+                    $deptName = 'Sweets & Desserts Section';
+                } elseif (stripos($catName, 'Pakistani') !== false || stripos($catName, 'Main') !== false || stripos($catName, 'Rice') !== false || stripos($item->item_name, 'Biryani') !== false || stripos($item->item_name, 'Karahi') !== false) {
+                    $deptName = 'Pakistani Kitchen';
+                } else {
+                    $deptName = 'General Kitchen / دیگر';
+                }
+            }
+
+            if (!isset($groupedMenuItems[$deptName])) {
+                $groupedMenuItems[$deptName] = [
+                    'title_en' => $deptTranslations[$deptName]['en'] ?? $deptName,
+                    'title_ur' => $deptTranslations[$deptName]['ur'] ?? '',
+                    'items' => [],
+                ];
+            }
+
+            $groupedMenuItems[$deptName]['items'][] = $item;
+        }
+
+        $marquee = auth()->user()->marquee;
+        $branch = $booking->hall->branch ?? null;
+
+        return view('bookings.kitchen_slip', compact(
+            'booking',
+            'groupedMenuItems',
+            'lang',
+            'marquee',
+            'branch'
+        ));
+    }
 }
 
