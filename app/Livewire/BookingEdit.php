@@ -68,6 +68,11 @@ class BookingEdit extends Component
     // Rent / Sitting Plan only state
     public $noFood = false;
 
+    // Guest confirmation fields
+    public $tentativeGuests = 100;
+    public $confirmedGuests = null;
+    public $guestStatus = 'Tentative';
+
     public $specialInstructions = '';
     public $bookingStatus = '';
     public $paymentStatus = '';
@@ -119,7 +124,10 @@ class BookingEdit extends Component
         $this->customEnd = $booking->end_time->format('H:i');
 
         $this->selectedPackageId = $booking->package_id;
-        $this->guestCount = $booking->guest_count;
+        $this->tentativeGuests = $booking->tentative_guests ?? $booking->guest_count;
+        $this->confirmedGuests = $booking->confirmed_guests;
+        $this->guestStatus = $booking->guest_status ?? ($booking->confirmed_guests ? 'Confirmed' : 'Tentative');
+        $this->guestCount = $booking->confirmed_guests ?? $booking->tentative_guests ?? $booking->guest_count;
         $this->perPlatePrice = $booking->per_plate_price ?? 0.00;
         $this->hallCharges = $booking->hall_charges ?? 0.00;
         $this->extraCharges = $booking->extra_charges ?? 0.00;
@@ -452,13 +460,50 @@ class BookingEdit extends Component
         $this->recalculatePrices();
     }
 
-    public function updatedGuestCount() { $this->recalculatePrices(); }
     public function updatedPerPlatePrice() { $this->recalculatePrices(); }
     public function updatedHallCharges() { $this->recalculatePrices(); }
     public function updatedExtraCharges() { $this->recalculatePrices(); }
     public function updatedDiscountAmount() { $this->recalculatePrices(); }
     public function updatedSecurityDeposit() { $this->recalculatePrices(); }
     public function updatedTaxRate() { $this->recalculatePrices(); }
+
+    public function updatedTentativeGuests() { $this->syncGuestCounts(); $this->recalculatePrices(); }
+    public function updatedConfirmedGuests() { $this->syncGuestCounts(); $this->recalculatePrices(); }
+
+    public function syncGuestCounts()
+    {
+        if ($this->guestCount === '' || $this->guestCount === 0 || $this->guestCount === '0') {
+            $this->tentativeGuests = 0;
+        }
+
+        $tentative = is_numeric($this->tentativeGuests)
+            ? intval($this->tentativeGuests)
+            : (is_numeric($this->guestCount) ? intval($this->guestCount) : 0);
+
+        $confirmed = (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0) ? intval($this->confirmedGuests) : null;
+
+        $this->tentativeGuests = $tentative;
+        $this->confirmedGuests = $confirmed;
+
+        if (!is_null($confirmed)) {
+            $this->guestCount = $confirmed;
+            $this->guestStatus = 'Confirmed';
+
+            if ($confirmed > $tentative) {
+                session()->flash('warning', "Notice: Confirmed guests ({$confirmed}) exceed tentative guest estimate ({$tentative}).");
+            }
+        } else {
+            $this->guestCount = $tentative;
+            $this->guestStatus = 'Tentative';
+        }
+    }
+
+    public function updatedGuestCount()
+    {
+        $this->tentativeGuests = is_numeric($this->guestCount) ? intval($this->guestCount) : 0;
+        $this->syncGuestCounts();
+        $this->recalculatePrices();
+    }
 
     public function updatedSelectedAddons()
     {
@@ -469,16 +514,15 @@ class BookingEdit extends Component
     {
         $marqueeId = auth()->user()->marquee_id;
         if (empty($this->menuItemSearch)) {
-            $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)
-                ->orderBy('item_name')
-                ->get();
-        } else {
-            $term = '%' . $this->menuItemSearch . '%';
-            $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)
-                ->where('item_name', 'like', $term)
-                ->orderBy('item_name')
-                ->get();
+            $this->menuItemsAutocomplete = [];
+            return;
         }
+
+        $term = '%' . $this->menuItemSearch . '%';
+        $this->menuItemsAutocomplete = \App\Models\MenuItem::with('category')->where('marquee_id', $marqueeId)
+            ->where('item_name', 'like', $term)
+            ->orderBy('item_name')
+            ->get();
     }
 
     public function selectMenuItem($id)
@@ -564,7 +608,13 @@ class BookingEdit extends Component
                 $addonsSum += $price * $quantity;
             }
         }
-        $this->extraCharges = $addonsSum;
+        if ($this->guestCount === '' || $this->guestCount === 0 || $this->guestCount === '0') {
+            $this->tentativeGuests = 0;
+        } elseif (is_numeric($this->guestCount) && is_null($this->confirmedGuests)) {
+            $this->tentativeGuests = intval($this->guestCount);
+        }
+
+        $this->syncGuestCounts();
 
         // Typecast/sanitize inputs to numeric types to prevent TypeError in number_format()
         $this->guestCount = is_numeric($this->guestCount) ? intval($this->guestCount) : 0;
@@ -677,6 +727,9 @@ class BookingEdit extends Component
                     'start_time' => $this->startTime,
                     'end_time' => $this->endTime,
                     'guest_count' => $this->guestCount,
+                    'tentative_guests' => is_numeric($this->tentativeGuests) ? intval($this->tentativeGuests) : $this->guestCount,
+                    'confirmed_guests' => (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0) ? intval($this->confirmedGuests) : null,
+                    'guest_status' => $this->guestStatus ?: 'Tentative',
                     'per_plate_price' => $this->perPlatePrice,
                     'package_amount' => $this->packageAmount,
                     'hall_charges' => $this->hallCharges,

@@ -147,6 +147,52 @@
                 </div>
             </div>
 
+            <!-- Guest Information Card -->
+            <div class="card mb-3 border border-200 shadow-sm">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold"><span class="fas fa-users me-2 text-primary"></span>Guest Headcount & Confirmation Status</h6>
+                    <button wire:click="openGuestModal" class="btn btn-falcon-primary btn-sm">
+                        <span class="fas fa-user-edit me-1"></span> Update Headcount
+                    </button>
+                </div>
+                <div class="card-body fs-11">
+                    <div class="row g-3 text-center">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border">
+                                <div class="text-500 fw-bold text-uppercase fs-11">Tentative Guests</div>
+                                <div class="fs-3 font-monospace fw-bold text-primary">{{ number_format($booking->tentative_guests ?? $booking->guest_count) }}</div>
+                                <div class="text-muted fs-12">Initial Headcount Estimate</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border">
+                                <div class="text-500 fw-bold text-uppercase fs-11">Confirmed Guests</div>
+                                @if($booking->confirmed_guests)
+                                    <div class="fs-3 font-monospace fw-bold text-success">{{ number_format($booking->confirmed_guests) }}</div>
+                                    <div class="text-muted fs-12">Confirmed Customer Headcount</div>
+                                @else
+                                    <div class="fs-3 font-monospace fw-bold text-muted">—</div>
+                                    <div class="text-muted fs-12">Pending Confirmation</div>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border">
+                                <div class="text-500 fw-bold text-uppercase fs-11">Confirmation Status</div>
+                                <div class="mt-2">
+                                    @if($booking->is_guest_confirmed)
+                                        <span class="badge bg-success-subtle text-success fs-10 px-3 py-2"><span class="fas fa-check-circle me-1"></span>Confirmed</span>
+                                    @else
+                                        <span class="badge bg-warning-subtle text-warning fs-10 px-3 py-2"><span class="fas fa-clock me-1"></span>Tentative</span>
+                                    @endif
+                                </div>
+                                <div class="text-muted fs-12 mt-2">Effective: <strong>{{ number_format($booking->effective_guest_count) }} Guests</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Customize Menu and Add-ons Details -->
             <div class="card mb-3">
                 <div class="card-header bg-light">
@@ -738,6 +784,39 @@
                         <button wire:click="$set('showFinalBillModal', false)" type="button" class="btn btn-falcon-default btn-xs px-3">Cancel</button>
                         <button wire:click="saveFinalBill" type="button" class="btn btn-warning btn-xs px-4">Lock Final Bill</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Guest Headcount Modal -->
+    @if($showGuestModal)
+        <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title"><span class="fas fa-user-edit me-2 text-primary"></span>Update Guest Headcount</h5>
+                        <button type="button" class="btn-close" wire:click="$set('showGuestModal', false)"></button>
+                    </div>
+                    <form wire:submit.prevent="confirmGuestCount">
+                        <div class="modal-body p-3">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Tentative Guests (Estimated)</label>
+                                <input type="number" wire:model="modalTentativeGuests" class="form-control @error('modalTentativeGuests') is-invalid @enderror" min="1">
+                                @error('modalTentativeGuests') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Confirmed Guests (Customer Count)</label>
+                                <input type="number" wire:model="modalConfirmedGuests" class="form-control @error('modalConfirmedGuests') is-invalid @enderror" placeholder="Leave empty if still tentative" min="0">
+                                <small class="text-muted d-block mt-1">Entering a confirmed guest count automatically updates the headcount status to <strong>Confirmed</strong>.</small>
+                                @error('modalConfirmedGuests') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light">
+                            <button type="button" class="btn btn-secondary btn-sm" wire:click="$set('showGuestModal', false)">Cancel</button>
+                            <button type="submit" class="btn btn-primary btn-sm"><span class="fas fa-save me-1"></span>Save & Recalculate</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

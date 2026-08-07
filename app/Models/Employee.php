@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
@@ -15,6 +16,8 @@ class Employee extends Model
         'employee_id',
         'marquee_id',
         'branch_id',
+        'department_id',
+        'reporting_manager_id',
         'name',
         'cnic',
         'mobile_number',
@@ -142,5 +145,37 @@ class Employee extends Model
     public function attendances()
     {
         return $this->hasMany(Attendance::class);
+    }
+
+    /**
+     * Get the department this employee belongs to.
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Get the reporting manager of this employee.
+     */
+    public function reportingManager(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'reporting_manager_id');
+    }
+
+    /**
+     * Get the employees reporting to this manager.
+     */
+    public function subordinates()
+    {
+        return $this->hasMany(Employee::class, 'reporting_manager_id');
+    }
+
+    /**
+     * Get department-level attendance logs.
+     */
+    public function departmentAttendances()
+    {
+        return $this->hasMany(DepartmentAttendance::class);
     }
 }

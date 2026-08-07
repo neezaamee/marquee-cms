@@ -1,6 +1,7 @@
 # Enterprise Laravel Exclusions
 .env
 .env.*
+!.env.example
 /vendor
 /node_modules
 npm-debug.log
@@ -9,10 +10,15 @@ yarn-error.log
 
 # Application Specific Caches
 /bootstrap/cache/*
+!/bootstrap/cache/.gitkeep
 /storage/logs/*
+!/storage/logs/.gitkeep
 /storage/framework/cache/*
+!/storage/framework/cache/.gitkeep
 /storage/framework/sessions/*
+!/storage/framework/sessions/.gitkeep
 /storage/framework/views/*
+!/storage/framework/views/.gitkeep
 /storage/*.key
 /storage/pail
 /public/storage

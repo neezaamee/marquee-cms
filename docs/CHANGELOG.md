@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-08-08
+### Added
+- Formulated Global Default Data Management System (`GlobalDefaultMaster` model and migration) establishing central master templates across 9 categories (Event Types, Menu Categories, Inventory Categories, Inventory Units, Expense Categories, Department Types, Vendor Types, Customer Types, Payment Methods).
+- Developed Super Admin Global Default Manager portal (`/admin/global-defaults`) with category tab navigation, live search, status toggles, metrics overview, and CRUD modal controls.
+- Developed Marquee Owner Master Data Portal (`/settings/default-data`) featuring a one-click "Import Missing Global Defaults" button cloning templates to tenant tables with `marquee_id = tenant_id`.
+- Integrated automatic master template provisioning into `SetupWizard` to seed default records for newly registered tenants upon onboarding completion.
+- Added Booking Readiness pre-requisite validation (`missingDependencies` check in `BookingWizard`) detecting unconfigured branches, halls, or event types and rendering actionable setup links.
+- Created `GlobalDefaultDataSeeder` with standard production templates for Pakistani & Global Marquee management.
+- Authored integration test suite `tests/Feature/GlobalDefaultDataTest.php` verifying template CRUD, onboarding auto-seeding, one-click importer, booking readiness banner, and tenant isolation.
+
+## [1.6.0] - 2026-08-07
+### Added
+- Developed complete Department Management Module (`Department`, `DepartmentAttendance`, `DepartmentEmployee`, `DepartmentStockRequest`, `DepartmentStockIssue`, `DepartmentStockReturn`, `DepartmentStockLedger`, `DepartmentProduction` models and migrations).
+- Built interactive Department Management Livewire components (`DepartmentDashboard`, `DepartmentManager`, `DepartmentEmployeeManager`, `DepartmentAttendanceManager`, `DepartmentRequestManager`, `DepartmentIssueManager`, `DepartmentReturnManager`, `DepartmentLedgerView`, `DepartmentProductionManager`, `DepartmentReports`).
+- Enhanced Booking Management UI with interactive operational metric summary cards (Total Bookings, Confirmed, Tentative, Today's Events, Upcoming, This Month, Pending Approvals, Payment Outstanding) with `wire:click` filters.
+- Segregated Booking Status from Guest Confirmation Headcounts (`tentative_guests`, `confirmed_guests`, `guest_status`).
+- Added inline quick `Approve` and `Reject` actions for pending draft bookings with `BookingHistory` audit logging.
+- Created test suites `DepartmentManagementTest`, `OperationalBookingDashboardTest`, and `GuestConfirmationTest`.
+
 ## [1.5.0] - 2026-08-06
 ### Added
 - Developed Staff Attendance System (`Attendance` model and migration) enabling daily check-in/out and attendance status (Present, Absent, Late, Leave) logging for employees, fully isolated at the branch and tenant scopes.

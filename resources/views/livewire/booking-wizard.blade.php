@@ -26,6 +26,25 @@
     </div>
 
     <!-- Alert / Validation / Status Warnings -->
+    @if(!empty($missingDependencies))
+        <div class="alert alert-warning border-2 mb-3" role="alert">
+            <div class="d-flex align-items-center">
+                <div class="bg-warning me-3 icon-item"><span class="fas fa-exclamation-triangle text-white fs-8"></span></div>
+                <div class="flex-grow-1">
+                    <h6 class="fw-bold text-warning-900 mb-1">Booking Readiness Setup Required</h6>
+                    <p class="mb-2 fs-11 text-warning-800">You must configure the following mandatory master data before completing new bookings:</p>
+                    <div class="d-flex gap-2 flex-wrap">
+                        @foreach($missingDependencies as $dep)
+                            <a href="{{ $dep['route'] }}" class="btn btn-falcon-warning btn-xs text-nowrap">
+                                <span class="fas fa-wrench me-1"></span>{{ $dep['action_label'] }}
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     @if($errors->has('submission'))
         <div class="alert alert-danger border-2 d-flex align-items-center mb-3" role="alert">
             <div class="bg-danger me-3 icon-item"><span class="fas fa-times-circle text-white fs-8"></span></div>

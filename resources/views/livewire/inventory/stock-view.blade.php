@@ -100,16 +100,17 @@
                             <th>Unit</th>
                             <th>Brand</th>
                             <th class="text-end" style="width: 110px;">Min / Reorder</th>
-                            <th class="text-end" style="width: 110px;">Total Received</th>
-                            <th class="text-end" style="width: 110px;">Total Returned</th>
-                            <th class="text-end" style="width: 110px;">Current Stock</th>
+                            <th class="text-end" style="width: 100px;">Total Received</th>
+                            <th class="text-end" style="width: 100px;">Total Returned</th>
+                            <th class="text-end" style="width: 100px;">Issued to Dept</th>
+                            <th class="text-end" style="width: 100px;">Current Stock</th>
                             <th class="text-center" style="width: 130px;">Stock Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($items as $item)
                             @php
-                                $stock = $item->total_received - $item->total_returned;
+                                $stock = $item->total_received - $item->total_returned - ($item->total_issued ?? 0) + ($item->total_dept_returned ?? 0);
                                 
                                 if ($stock <= 0) {
                                     $badgeColor = 'danger';
@@ -137,7 +138,8 @@
                                     {{ number_format($item->minimum_stock_level, 2) }} / {{ number_format($item->reorder_level, 2) }}
                                 </td>
                                 <td class="text-end font-monospace text-success">{{ number_format($item->total_received, 2) }}</td>
-                                <td class="text-end font-monospace text-danger">{{ number_format($item->total_returned, 2) }}</td>
+                                <td class="text-end font-monospace text-warning">{{ number_format($item->total_returned, 2) }}</td>
+                                <td class="text-end font-monospace text-danger">{{ number_format(($item->total_issued ?? 0) - ($item->total_dept_returned ?? 0), 2) }}</td>
                                 <td class="text-end font-monospace fw-bold {{ $stock <= $item->minimum_stock_level ? 'text-danger' : 'text-primary' }}">
                                     {{ number_format($stock, 2) }}
                                 </td>

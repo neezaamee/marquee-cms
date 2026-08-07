@@ -25,6 +25,12 @@ class BookingView extends Component
     public $depositDeductedAmount = 0.00;
     public $depositNotes = '';
 
+    // Guest Confirmation Modal State
+    public $showGuestModal = false;
+    public $modalTentativeGuests = 100;
+    public $modalConfirmedGuests = null;
+    public $modalGuestStatus = 'Tentative';
+
     // Event Day Final Bill Modal State
     public $showFinalBillModal = false;
     public $fbGuestCount = 0;
@@ -410,6 +416,65 @@ class BookingView extends Component
 
         $this->booking->refresh();
         session()->flash('success', 'Booking status updated to ' . $newStatus);
+    }
+
+    public function openGuestModal()
+    {
+        $this->modalTentativeGuests = $this->booking->tentative_guests ?? $this->booking->guest_count;
+        $this->modalConfirmedGuests = $this->booking->confirmed_guests;
+        $this->modalGuestStatus = $this->booking->guest_status ?? ($this->booking->confirmed_guests ? 'Confirmed' : 'Tentative');
+        $this->showGuestModal = true;
+    }
+
+    public function confirmGuestCount()
+    {
+        $this->validate([
+            'modalTentativeGuests' => 'required|integer|min:1',
+            'modalConfirmedGuests' => 'nullable|integer|min:0',
+        ]);
+
+        $tentative = intval($this->modalTentativeGuests);
+        $confirmed = (is_numeric($this->modalConfirmedGuests) && intval($this->modalConfirmedGuests) > 0) ? intval($this->modalConfirmedGuests) : null;
+        
+        $effectiveCount = $confirmed ?? $tentative;
+        $status = !is_null($confirmed) ? 'Confirmed' : 'Tentative';
+
+        // Recalculate package amount if applicable
+        $perPlatePrice = $this->booking->per_plate_price ?? 0.00;
+        $packageAmount = $this->booking->no_food ? 0.00 : ($effectiveCount * $perPlatePrice);
+
+        $pricing = \App\Services\BookingPricingService::calculate([
+            'guest_count' => $effectiveCount,
+            'per_plate_price' => $perPlatePrice,
+            'hall_charges' => $this->booking->hall_charges,
+            'extra_charges' => $this->booking->extra_charges,
+            'discount_amount' => $this->booking->discount_amount,
+            'security_deposit' => $this->booking->security_deposit,
+            'tax_rate' => $this->booking->subtotal > 0 ? round(($this->booking->tax_amount * 100) / $this->booking->subtotal, 2) : 13.00,
+        ]);
+
+        $this->booking->update([
+            'tentative_guests' => $tentative,
+            'confirmed_guests' => $confirmed,
+            'guest_status' => $status,
+            'guest_count' => $effectiveCount,
+            'package_amount' => $pricing['package_amount'],
+            'subtotal' => $pricing['subtotal'],
+            'tax_amount' => $pricing['tax_amount'],
+            'grand_total' => $pricing['grand_total'],
+        ]);
+
+        BookingHistory::create([
+            'booking_id' => $this->booking->id,
+            'user_id' => auth()->id(),
+            'status_from' => $this->booking->booking_status,
+            'status_to' => $this->booking->booking_status,
+            'notes' => "Updated Guest Headcount: Tentative={$tentative}, Confirmed=" . ($confirmed ?? 'None') . ", Status={$status}. Effective Headcount: {$effectiveCount}.",
+        ]);
+
+        $this->booking->refresh();
+        $this->showGuestModal = false;
+        session()->flash('success', 'Guest headcount and status updated successfully.');
     }
 
     public function render()

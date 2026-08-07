@@ -729,7 +729,10 @@ class SetupWizard extends Component
                 ]);
             }
 
-            // 12. Assign user marquee, branch, and role
+            // 12. Seed active global default masters into new tenant
+            $this->seedGlobalDefaultsForTenant($marquee->id);
+
+            // 13. Assign user marquee, branch, and role
             $ownerRole = Role::where('name', 'owner')->first();
 
             $user->marquee_id = $marquee->id;
@@ -744,6 +747,58 @@ class SetupWizard extends Component
 
         session()->flash('success', 'Congratulations! Initial business setup completed successfully. Your CMS is ready.');
         return redirect()->route('dashboard');
+    }
+
+    /**
+     * Clone active global default masters into new tenant setup.
+     */
+    protected function seedGlobalDefaultsForTenant($marqueeId)
+    {
+        $globalMasters = \App\Models\GlobalDefaultMaster::active()->get();
+        foreach ($globalMasters as $gt) {
+            if ($gt->category_type === 'event_type') {
+                $extra = $gt->extra_attributes ?? [];
+                \App\Models\EventType::firstOrCreate(
+                    ['marquee_id' => $marqueeId, 'event_type_name' => $gt->name],
+                    ['event_type_code' => $gt->code, 'description' => $gt->description, 'color_code' => $extra['color'] ?? '#3b82f6', 'status' => 'active']
+                );
+            } elseif ($gt->category_type === 'menu_category') {
+                \App\Models\MenuCategory::firstOrCreate(
+                    ['marquee_id' => $marqueeId, 'category_name' => $gt->name],
+                    ['category_code' => $gt->code, 'description' => $gt->description, 'status' => 'Active']
+                );
+            } elseif ($gt->category_type === 'inventory_category') {
+                \App\Models\InventoryCategory::firstOrCreate(
+                    ['marquee_id' => $marqueeId, 'name' => $gt->name],
+                    ['code' => $gt->code, 'description' => $gt->description, 'status' => 'Active']
+                );
+            } elseif ($gt->category_type === 'inventory_unit') {
+                $extra = $gt->extra_attributes ?? [];
+                \App\Models\InventoryUnit::firstOrCreate(
+                    ['marquee_id' => $marqueeId, 'name' => $gt->name],
+                    ['short_code' => $extra['short_code'] ?? $gt->code, 'description' => $gt->description, 'status' => 'Active']
+                );
+            } elseif ($gt->category_type === 'expense_category') {
+                \App\Models\ExpenseCategory::firstOrCreate(
+                    ['marquee_id' => $marqueeId, 'name' => $gt->name],
+                    ['category_code' => $gt->code ?: ('EXP-' . strtoupper(substr(md5($gt->name), 0, 4))), 'description' => $gt->description, 'is_active' => true]
+                );
+            } elseif ($gt->category_type === 'department_type') {
+                $branch = \App\Models\Branch::where('marquee_id', $marqueeId)->first();
+                if ($branch) {
+                    \App\Models\Department::firstOrCreate(
+                        ['marquee_id' => $marqueeId, 'name' => $gt->name],
+                        [
+                            'branch_id' => $branch->id,
+                            'department_code' => $gt->code ?: ('DEP-' . strtoupper(substr(md5($gt->name), 0, 4))),
+                            'department_type' => 'Operations',
+                            'description' => $gt->description,
+                            'status' => 'Active'
+                        ]
+                    );
+                }
+            }
+        }
     }
 
     public function render()

@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             SubscriptionPlanSeeder::class,
             RolesAndPermissionsSeeder::class,
             SaasModuleSeeder::class,
+            GlobalDefaultDataSeeder::class,
         ]);
 
         // Retrieve seeded records
@@ -32,9 +33,9 @@ class DatabaseSeeder extends Seeder
 
         // 2. Seed default Super Admin user (unscoped SaaS admin)
         User::updateOrCreate(
-            ['email' => 'superadmin@marquee.cms'],
+            ['email' => 'superadmin@elaftech.com'],
             [
-                'name' => 'SaaS Super Admin',
+                'name' => 'Super Admin',
                 'username' => 'superadmin',
                 'password' => Hash::make('Password123!'),
                 'role_id' => $superAdminRole->id,
@@ -44,18 +45,18 @@ class DatabaseSeeder extends Seeder
 
         // 3. Seed a default Marquee company tenant
         $marquee = Marquee::updateOrCreate(
-            ['email' => 'contact@royalmarquee.com'],
+            ['email' => 'contact@thesheraton.com'],
             [
-                'name' => 'Royal Marquee & Events Group',
+                'name' => 'The Sheraton Marquee',
                 'business_type' => 'Single Marquee',
                 'logo' => null,
-                'address' => 'Main Boulevard, Gulberg III',
-                'city' => 'Lahore',
+                'address' => 'Canal Road near Toyota Motors',
+                'city' => 'Faisalabad',
                 'province' => 'Punjab',
                 'country' => 'Pakistan',
                 'timezone' => 'Asia/Karachi',
                 'currency' => 'PKR',
-                'phone' => '+923001234567',
+                'phone' => '+923218662726',
                 'ntn' => '1234567-8',
                 'strn' => '9876543-2',
                 'tax_authority' => 'PRA',
@@ -67,16 +68,16 @@ class DatabaseSeeder extends Seeder
         );
 
         // 4. Seed default branches for the Marquee tenant
-        $branchLahore = Branch::updateOrCreate(
+        $branchMain = Branch::updateOrCreate(
             [
                 'marquee_id' => $marquee->id,
-                'name' => 'Lahore Gulberg Branch',
+                'name' => 'Main Branch',
             ],
             [
-                'address' => 'Gulberg III, Near Ghalib Market',
-                'city' => 'Lahore',
+                'address' => 'Canal Road near Toyota Motors',
+                'city' => 'Faisalabad',
                 'province' => 'Punjab',
-                'phone' => '+92423123456',
+                'phone' => '+923218662726',
                 'status' => 'active',
                 'fbr_pos_id' => 'PRA-LHR-GUL-01',
                 'fbr_pos_key' => 'key_lhr_gulberg_secret',
@@ -101,32 +102,32 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 5. Seed default Owner user (belongs to Royal Marquee, no specific branch)
+        // 5. Seed default Owner user (belongs to The Sheraton Marquee, no specific branch)
         User::updateOrCreate(
-            ['email' => 'owner@royalmarquee.com'],
+            ['email' => 'ghulamabbas@thesheraton.com'],
             [
-                'name' => 'Mian Akbar (Owner)',
-                'username' => 'owner',
+                'name' => 'Ghulam Abbas',
+                'username' => 'ghulamabbas',
                 'password' => Hash::make('Password123!'),
                 'marquee_id' => $marquee->id,
                 'branch_id' => null,
                 'role_id' => $ownerRole->id,
-                'phone' => '+923007654321',
+                'phone' => '+923006690391',
                 'status' => 'active',
             ]
         );
 
-        // 6. Seed default Manager user (belongs to Royal Marquee, assigned to Lahore Branch)
+        // 6. Seed default Manager user (belongs to The Sheraton Marquee, assigned to Main Branch)
         User::updateOrCreate(
-            ['email' => 'manager.lh@royalmarquee.com'],
+            ['email' => 'asif@thesheraton.com'],
             [
-                'name' => 'Asif Mehmood (Manager)',
-                'username' => 'manager',
+                'name' => 'Asif',
+                'username' => 'asif',
                 'password' => Hash::make('Password123!'),
                 'marquee_id' => $marquee->id,
-                'branch_id' => $branchLahore->id,
+                'branch_id' => $branchMain->id,
                 'role_id' => $managerRole->id,
-                'phone' => '+923009876543',
+                'phone' => '+923218662726',
                 'status' => 'active',
             ]
         );
@@ -141,6 +142,7 @@ class DatabaseSeeder extends Seeder
             AccountingModuleSeeder::class,
             InventoryModuleSeeder::class,
             ExpenseModuleSeeder::class,
+            DepartmentSeeder::class,
         ]);
     }
 }

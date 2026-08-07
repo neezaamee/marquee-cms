@@ -81,6 +81,7 @@
 
           <!-- Main View Content -->
           @yield('content')
+          {{ $slot ?? '' }}
 
           <!-- Footer -->
           @include('layouts.partials.footer')

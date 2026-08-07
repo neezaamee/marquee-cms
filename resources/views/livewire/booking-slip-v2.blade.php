@@ -115,7 +115,7 @@
                     </tr>
                     <tr>
                         <td class="text-600 px-0 py-1">Guests Count:</td>
-                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->guest_count }} Guests</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->effective_guest_count }} Guests (Tentative: {{ $booking->tentative_guests ?? $booking->guest_count }}, Confirmed: {{ $booking->confirmed_guests ?? 'Pending' }})</td>
                     </tr>
                 </table>
             </div>

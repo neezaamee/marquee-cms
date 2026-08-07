@@ -1,10 +1,21 @@
 <div>
+    <!-- Top Header Bar -->
     <div class="card mb-3">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h5 class="mb-0"><span class="fas fa-ticket-alt me-2 text-primary"></span>Booking Management</h5>
+        <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
+            <div>
+                <h5 class="mb-0 text-primary fw-bold">
+                    <span class="fas fa-calendar-alt me-2"></span>Booking Management Operational Dashboard
+                </h5>
+                <div class="text-muted fs-11 mt-1">
+                    Manage bookings, guest confirmations, event schedules, and financial balance tracking.
+                </div>
+            </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button wire:click="$refresh" class="btn btn-falcon-default btn-sm" type="button" data-bs-toggle="tooltip" title="Refresh Dashboard">
+                    <span class="fas fa-sync-alt me-1"></span>Refresh
+                </button>
                 <button wire:click="exportExcel" class="btn btn-falcon-default btn-sm text-nowrap" type="button">
-                    <span class="fas fa-file-excel me-1 text-success"></span>Export Excel
+                    <span class="fas fa-file-excel me-1 text-success"></span>Export CSV
                 </button>
                 <a href="{{ route('bookings.report', [
                     'search' => $search,
@@ -23,13 +34,150 @@
                 @endif
             </div>
         </div>
+    </div>
 
+    <!-- Interactive Operational Metrics Cards (Grid of 8 Real DB Metrics) -->
+    <div class="row g-2 mb-3">
+        <!-- 1. Total Bookings -->
+        <div class="col-6 col-sm-4 col-md-3 col-lg-3 col-xl">
+            <div class="card card-span h-100 cursor-pointer border {{ $filterQuickShortcut === 'all' || empty($filterQuickShortcut) ? 'border-primary shadow-sm bg-primary-subtle' : 'border-200' }}" wire:click="applyShortcutFilter('all')">
+                <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-500 fw-bold text-uppercase fs-12">Total Bookings</div>
+                        <h4 class="mb-0 font-monospace text-primary fw-bold">{{ number_format($totalBookingsCount) }}</h4>
+                    </div>
+                    <div class="icon-item bg-primary-subtle text-primary rounded-3"><span class="fas fa-calendar-alt fs-9"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Confirmed Bookings -->
+        <div class="col-6 col-sm-4 col-md-3 col-lg-3 col-xl">
+            <div class="card card-span h-100 cursor-pointer border {{ $filterStatus === 'Confirmed' || $filterQuickShortcut === 'confirmed' ? 'border-success shadow-sm bg-success-subtle' : 'border-200' }}" wire:click="applyShortcutFilter('confirmed')">
+                <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-500 fw-bold text-uppercase fs-12">Confirmed</div>
+                        <h4 class="mb-0 font-monospace text-success fw-bold">{{ number_format($confirmedBookingsCount) }}</h4>
+                    </div>
+                    <div class="icon-item bg-success-subtle text-success rounded-3"><span class="fas fa-check-circle fs-9"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Tentative Bookings -->
+        <div class="col-6 col-sm-4 col-md-3 col-lg-3 col-xl">
+            <div class="card card-span h-100 cursor-pointer border {{ $filterQuickShortcut === 'tentative' || $filterStatus === 'Reserved' ? 'border-warning shadow-sm bg-warning-subtle' : 'border-200' }}" wire:click="applyShortcutFilter('tentative')">
+                <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-500 fw-bold text-uppercase fs-12">Tentative</div>
+                        <h4 class="mb-0 font-monospace text-warning fw-bold">{{ number_format($tentativeBookingsCount) }}</h4>
+                    </div>
+                    <div class="icon-item bg-warning-subtle text-warning rounded-3"><span class="fas fa-clock fs-9"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Today's Events -->
+        <div class="col-6 col-sm-4 col-md-3 col-lg-3 col-xl">
+            <div class="card card-span h-100 cursor-pointer border {{ $filterQuickShortcut === 'today' ? 'border-danger shadow-sm bg-danger-subtle' : ($todaysEventsCount > 0 ? 'border-danger-subtle' : 'border-200') }}" wire:click="applyShortcutFilter('today')">
+                <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-500 fw-bold text-uppercase fs-12">Today's Events</div>
+                        <div class="d-flex align-items-center gap-1">
+                            <h4 class="mb-0 font-monospace text-danger fw-bold">{{ number_format($todaysEventsCount) }}</h4>
+                            @if($todaysEventsCount > 0)
+                                <span class="badge bg-danger rounded-pill fs-12 ms-1">Today</span>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="icon-item bg-danger-subtle text-danger rounded-3"><span class="fas fa-glass-cheers fs-9"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Upcoming Events -->
+        <div class="col-6 col-sm-4 col-md-3 col-lg-3 col-xl">
+            <div class="card card-span h-100 cursor-pointer border {{ $filterQuickShortcut === 'upcoming' ? 'border-info shadow-sm bg-info-subtle' : 'border-200' }}" wire:click="applyShortcutFilter('upcoming')">
+                <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-500 fw-bold text-uppercase fs-12">Upcoming Events</div>
+                        <h4 class="mb-0 font-monospace text-info fw-bold">{{ number_format($upcomingEventsCount) }}</h4>
+                    </div>
+                    <div class="icon-item bg-info-subtle text-info rounded-3"><span class="fas fa-calendar-day fs-9"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. This Month -->
+        <div class="col-6 col-sm-4 col-md-3 col-lg-3 col-xl">
+            <div class="card card-span h-100 cursor-pointer border {{ $filterQuickShortcut === 'this_month' ? 'border-primary shadow-sm bg-primary-subtle' : 'border-200' }}" wire:click="applyShortcutFilter('this_month')">
+                <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-500 fw-bold text-uppercase fs-12">This Month</div>
+                        <h4 class="mb-0 font-monospace text-secondary fw-bold">{{ number_format($thisMonthCount) }}</h4>
+                    </div>
+                    <div class="icon-item bg-secondary-subtle text-secondary rounded-3"><span class="fas fa-calendar-week fs-9"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. Pending Approvals -->
+        <div class="col-6 col-sm-4 col-md-3 col-lg-3 col-xl">
+            <div class="card card-span h-100 cursor-pointer border {{ $filterQuickShortcut === 'pending' || $filterStatus === 'Draft' ? 'border-secondary shadow-sm bg-secondary-subtle' : 'border-200' }}" wire:click="applyShortcutFilter('pending')">
+                <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-500 fw-bold text-uppercase fs-12">Pending Approval</div>
+                        <h4 class="mb-0 font-monospace text-dark fw-bold">{{ number_format($pendingApprovalsCount) }}</h4>
+                    </div>
+                    <div class="icon-item bg-secondary-subtle text-dark rounded-3"><span class="fas fa-user-clock fs-9"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. Payment Outstanding -->
+        <div class="col-12 col-sm-8 col-md-6 col-lg-4 col-xl-3">
+            <div class="card card-span h-100 cursor-pointer border {{ $filterQuickShortcut === 'outstanding' || $filterBalanceStatus === 'outstanding' ? 'border-danger shadow-sm bg-danger-subtle' : 'border-200' }}" wire:click="applyShortcutFilter('outstanding')">
+                <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-500 fw-bold text-uppercase fs-12">Payment Outstanding</div>
+                        <div class="d-flex align-items-baseline gap-2">
+                            <h4 class="mb-0 font-monospace text-danger fw-bold">{{ number_format($outstandingPaymentsCount) }}</h4>
+                            <span class="text-muted fs-11 font-monospace">Rs. {{ number_format($outstandingAmountSum, 0) }}</span>
+                        </div>
+                    </div>
+                    <div class="icon-item bg-danger-subtle text-danger rounded-3"><span class="fas fa-exclamation-triangle fs-9"></span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shortcut Navigation Pills & Filter Toolbar -->
+    <div class="card mb-3">
         <div class="card-body bg-light border-top border-bottom py-2">
+            <!-- Shortcut Pills Row -->
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                <div class="nav nav-pills flex-wrap gap-1 fs-11">
+                    <button wire:click="applyShortcutFilter('all')" class="nav-link px-2 py-1 {{ empty($filterQuickShortcut) ? 'active' : '' }}" type="button">All Bookings</button>
+                    <button wire:click="applyShortcutFilter('today')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'today' ? 'active bg-danger text-white' : '' }}" type="button">Today's Events</button>
+                    <button wire:click="applyShortcutFilter('upcoming')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'upcoming' ? 'active' : '' }}" type="button">Upcoming Events</button>
+                    <button wire:click="applyShortcutFilter('next_7_days')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'next_7_days' ? 'active' : '' }}" type="button">Next 7 Days</button>
+                    <button wire:click="applyShortcutFilter('this_month')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'this_month' ? 'active' : '' }}" type="button">This Month</button>
+                    <button wire:click="applyShortcutFilter('pending')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'pending' ? 'active bg-secondary text-white' : '' }}" type="button">Pending Approvals</button>
+                    <button wire:click="applyShortcutFilter('outstanding')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'outstanding' ? 'active bg-warning text-dark' : '' }}" type="button">Outstanding Balance</button>
+                </div>
+                <div>
+                    <button wire:click="toggleAdvancedFilters" class="btn btn-falcon-default btn-xs" type="button">
+                        <span class="fas fa-sliders-h me-1"></span>{{ $showAdvancedFilters ? 'Hide Advanced Filters' : 'Advanced Filters' }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Primary Filters Row -->
             <div class="row g-2">
-                <!-- Search -->
-                <div class="col-lg-2 col-md-4 col-12">
+                <!-- Search Box -->
+                <div class="col-lg-3 col-md-4 col-12">
                     <div class="input-group input-group-sm">
-                        <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search number, customer..." />
+                        <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search Booking #, Customer, Phone..." />
                         <span class="input-group-text"><span class="fas fa-search"></span></span>
                     </div>
                 </div>
@@ -44,12 +192,12 @@
                     </select>
                 </div>
 
-                <!-- Status Filter -->
+                <!-- Booking Status Filter -->
                 <div class="col-lg-2 col-md-4 col-6">
                     <select wire:model.live="filterStatus" class="form-select form-select-sm">
-                        <option value="">All Statuses</option>
-                        <option value="Draft">Draft</option>
-                        <option value="Reserved">Reserved</option>
+                        <option value="">All Booking Statuses</option>
+                        <option value="Draft">Draft (Pending Approval)</option>
+                        <option value="Reserved">Reserved (Tentative)</option>
                         <option value="Confirmed">Confirmed</option>
                         <option value="Completed">Completed</option>
                         <option value="Cancelled">Cancelled</option>
@@ -60,7 +208,7 @@
                 <!-- Payment Status Filter -->
                 <div class="col-lg-2 col-md-4 col-6">
                     <select wire:model.live="filterPaymentStatus" class="form-select form-select-sm">
-                        <option value="">All Payments</option>
+                        <option value="">All Payment Statuses</option>
                         <option value="Unpaid">Unpaid</option>
                         <option value="Partially Paid">Partially Paid</option>
                         <option value="Paid">Paid</option>
@@ -69,24 +217,82 @@
                 </div>
 
                 <!-- Start Date Filter -->
-                <div class="col-lg-2 col-md-4 col-6">
-                    <input wire:model.live="filterDateStart" type="date" class="form-control form-control-sm font-monospace" placeholder="From Date" title="From Booking Date" />
+                <div class="col-lg-1.5 col-md-4 col-6">
+                    <input wire:model.live="filterDateStart" type="date" class="form-control form-control-sm font-monospace" placeholder="From Date" title="From Date" />
                 </div>
 
                 <!-- End Date Filter -->
-                <div class="col-lg-2 col-md-4 col-6">
-                    <input wire:model.live="filterDateEnd" type="date" class="form-control form-control-sm font-monospace" placeholder="To Date" title="To Booking Date" />
-                </div>
-
-                <!-- Reset Filters -->
-                <div class="col-lg-2 col-md-4 col-12">
-                    <button wire:click="resetFilters" class="btn btn-falcon-default btn-sm w-100" type="button">
-                        <span class="fas fa-undo me-1"></span>Reset Filters
-                    </button>
+                <div class="col-lg-1.5 col-md-4 col-6">
+                    <input wire:model.live="filterDateEnd" type="date" class="form-control form-control-sm font-monospace" placeholder="To Date" title="To Date" />
                 </div>
             </div>
+
+            <!-- Advanced Collapsible Filter Drawer -->
+            @if($showAdvancedFilters)
+                <div class="row g-2 mt-2 border-top pt-2">
+                    <!-- Branch Filter -->
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fs-11 text-700 mb-1">Branch</label>
+                        <select wire:model.live="filterBranch" class="form-select form-select-sm">
+                            <option value="">All Branches</option>
+                            @foreach($branches as $b)
+                                <option value="{{ $b->id }}">{{ $b->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Event Type Filter -->
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fs-11 text-700 mb-1">Event Type</label>
+                        <select wire:model.live="filterEventType" class="form-select form-select-sm">
+                            <option value="">All Event Types</option>
+                            @foreach($eventTypes as $et)
+                                <option value="{{ $et->id }}">{{ $et->event_type_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Guest Confirmation Filter -->
+                    <div class="col-md-2 col-6">
+                        <label class="form-label fs-11 text-700 mb-1">Guest Status</label>
+                        <select wire:model.live="filterGuestStatus" class="form-select form-select-sm">
+                            <option value="">All Guest Statuses</option>
+                            <option value="Tentative">Tentative Headcount</option>
+                            <option value="Confirmed">Confirmed Headcount</option>
+                        </select>
+                    </div>
+
+                    <!-- Balance Status Filter -->
+                    <div class="col-md-2 col-6">
+                        <label class="form-label fs-11 text-700 mb-1">Balance Status</label>
+                        <select wire:model.live="filterBalanceStatus" class="form-select form-select-sm">
+                            <option value="">All Balances</option>
+                            <option value="outstanding">Outstanding Balance (> 0)</option>
+                            <option value="fully_paid">Fully Settled (0)</option>
+                        </select>
+                    </div>
+
+                    <!-- Created By Filter -->
+                    <div class="col-md-2 col-6">
+                        <label class="form-label fs-11 text-700 mb-1">Created By</label>
+                        <select wire:model.live="filterCreatedBy" class="form-select form-select-sm">
+                            <option value="">All Operators</option>
+                            @foreach($operators as $op)
+                                <option value="{{ $op->id }}">{{ $op->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-12 d-flex justify-content-end gap-2 mt-2">
+                        <button wire:click="resetFilters" class="btn btn-falcon-default btn-xs" type="button">
+                            <span class="fas fa-undo me-1"></span>Reset All Filters
+                        </button>
+                    </div>
+                </div>
+            @endif
         </div>
 
+        <!-- Main Bookings Table -->
         <div class="card-body p-0">
             @if(session('success'))
                 <div class="alert alert-success border-2 d-flex align-items-center m-3" role="alert">
@@ -104,82 +310,99 @@
                 </div>
             @endif
 
-            <div class="table-responsive scrollbar">
+            <!-- Loading Spinner Indicator -->
+            <div wire:loading.flex class="justify-content-center align-items-center py-4">
+                <div class="spinner-border text-primary me-2" role="status"></div>
+                <span class="text-muted fs-11 fw-bold">Updating booking records...</span>
+            </div>
+
+            <div wire:loading.remove class="table-responsive scrollbar">
                 <table class="table table-sm table-striped fs-10 mb-0 align-middle table-hover">
                     <thead class="bg-200 text-900">
                         <tr>
                             <th class="px-3">Booking #</th>
-                            <th>Customer</th>
-                            <th>Event Type</th>
-                            <th>Hall & Slot</th>
-                            <th>Event Date</th>
-                            <th>Guest Count</th>
-                            <th>Per Head Rate</th>
-                            <th>Total Amount</th>
-                            <th>Received Amount</th>
-                            <th>Balance Amount</th>
-                            <th class="text-center">Status</th>
-                            <th class="text-center">Payment</th>
+                            <th>Customer Profile</th>
+                            <th>Venue / Branch & Hall</th>
+                            <th>Event Details</th>
+                            <th>Headcount & Confirmation</th>
+                            <th>Booking Status</th>
+                            <th>Payment & Balance</th>
                             <th class="text-end px-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($bookings as $booking)
-                            <tr>
+                            @php
+                                $received = $booking->paid_amount ?? 0.00;
+                                $balance = max(0.00, $booking->grand_total - $received);
+                                $isToday = $booking->booking_date->isToday();
+                            @endphp
+                            <tr class="{{ $isToday ? 'table-warning' : '' }}">
+                                <!-- Booking # -->
                                 <td class="px-3">
-                                    <span class="badge badge-subtle-secondary fs-11 font-monospace">{{ $booking->booking_number }}</span>
+                                    <a href="{{ route('bookings.show', $booking->id) }}" class="badge badge-subtle-primary fs-11 font-monospace text-decoration-none">
+                                        {{ $booking->booking_number }}
+                                    </a>
+                                    @if($isToday)
+                                        <span class="d-block badge bg-danger text-white fs-12 mt-1">TODAY</span>
+                                    @endif
                                 </td>
+
+                                <!-- Customer Profile -->
                                 <td class="fw-semi-bold">
                                     @if($booking->customer)
-                                        <a href="{{ route('customers.show', $booking->customer->id) }}">{{ $booking->customer->full_name }}</a>
-                                        <div class="text-muted fs-11">{{ $booking->customer->phone_number }}</div>
+                                        <a href="{{ route('customers.show', $booking->customer->id) }}" class="text-900 fw-bold">{{ $booking->customer->full_name }}</a>
+                                        <div class="text-muted fs-11"><span class="fas fa-phone me-1"></span>{{ $booking->customer->phone_number }}</div>
                                     @else
                                         <span class="text-muted">—</span>
                                     @endif
                                 </td>
+
+                                <!-- Venue / Branch & Hall -->
                                 <td>
-                                    {{ $booking->eventType->event_type_name ?? '—' }}
-                                </td>
-                                <td>
-                                    <div class="fw-semi-bold">
+                                    <div class="fw-bold text-800">
                                         @if($booking->halls->isNotEmpty())
                                             {{ $booking->halls->pluck('hall_name')->implode(', ') }}
                                         @else
                                             {{ $booking->hall->hall_name ?? '—' }}
                                         @endif
                                     </div>
-                                    <div class="text-muted fs-11">{{ $booking->slot->slot_name ?? 'Custom Time' }}</div>
+                                    <div class="text-muted fs-12">
+                                        <span class="fas fa-building me-1"></span>{{ $booking->hall->branch->name ?? 'Main Branch' }}
+                                    </div>
                                 </td>
+
+                                <!-- Event Details -->
                                 <td>
-                                    <div>{{ $booking->booking_date->format('M d, Y') }}</div>
+                                    <div class="fw-bold text-primary">{{ $booking->eventType->event_type_name ?? '—' }}</div>
+                                    <div><span class="fas fa-calendar-alt me-1 text-500"></span>{{ $booking->booking_date->format('M d, Y') }}</div>
                                     <div class="text-muted fs-11 font-monospace">
                                         {{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }}
                                     </div>
                                 </td>
+
+                                <!-- Headcount & Confirmation -->
                                 <td>
-                                    {{ number_format($booking->guest_count) }}
+                                    <div class="fw-bold font-monospace fs-10 text-800">
+                                        {{ number_format($booking->effective_guest_count) }} Guests
+                                    </div>
+                                    <div class="mt-1">
+                                        @if($booking->is_guest_confirmed)
+                                            <span class="badge bg-success-subtle text-success fs-12"><span class="fas fa-check-circle me-1"></span>Confirmed</span>
+                                        @else
+                                            <span class="badge bg-warning-subtle text-warning fs-12"><span class="fas fa-clock me-1"></span>Tentative</span>
+                                        @endif
+                                    </div>
+                                    <div class="text-muted fs-12 mt-1">
+                                        Est: {{ number_format($booking->tentative_guests ?? $booking->guest_count) }}
+                                        @if($booking->confirmed_guests)
+                                            | Conf: {{ number_format($booking->confirmed_guests) }}
+                                        @endif
+                                    </div>
                                 </td>
-                                <td class="font-monospace">
-                                    @if($booking->no_food)
-                                        <span class="text-muted fs-11">No Food</span>
-                                    @else
-                                        {{ number_format($booking->per_plate_price) }}
-                                    @endif
-                                </td>
-                                <td class="fw-semi-bold font-monospace">
-                                    {{ number_format($booking->grand_total) }}
-                                </td>
-                                <td class="font-monospace">
-                                    @php
-                                        $received = $booking->payments->sum('amount');
-                                        $balance = max(0.00, $booking->grand_total - $received);
-                                    @endphp
-                                    {{ number_format($received) }}
-                                </td>
-                                <td class="fw-bold font-monospace text-{{ $balance > 0 ? 'danger' : 'success' }}">
-                                    {{ number_format($balance) }}
-                                </td>
-                                <td class="text-center">
+
+                                <!-- Booking Status -->
+                                <td>
                                     @php
                                         $statusColors = [
                                             'Draft' => 'secondary',
@@ -191,39 +414,64 @@
                                         ];
                                         $sc = $statusColors[$booking->booking_status] ?? 'secondary';
                                     @endphp
-                                    <span class="badge badge-subtle-{{ $sc }} rounded-pill">{{ $booking->booking_status }}</span>
+                                    <span class="badge badge-subtle-{{ $sc }} rounded-pill px-2 py-1 fs-11">{{ $booking->booking_status }}</span>
+
+                                    <!-- Quick Pending Action for Drafts -->
+                                    @if($booking->booking_status === 'Draft' && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings') || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin']))))
+                                        <div class="mt-1 d-flex gap-1">
+                                            <button wire:click="approveBooking({{ $booking->id }})" class="btn btn-falcon-success btn-xs" type="button" data-bs-toggle="tooltip" title="Approve Booking">
+                                                <span class="fas fa-check"></span> Approve
+                                            </button>
+                                            <button wire:click="rejectBooking({{ $booking->id }})" class="btn btn-falcon-danger btn-xs" type="button" data-bs-toggle="tooltip" title="Reject Booking">
+                                                <span class="fas fa-times"></span>
+                                            </button>
+                                        </div>
+                                    @endif
                                 </td>
-                                <td class="text-center">
-                                    @php
-                                        $paymentColors = [
-                                            'Unpaid' => 'danger',
-                                            'Partially Paid' => 'warning',
-                                            'Paid' => 'success',
-                                            'Refunded' => 'secondary'
-                                        ];
-                                        $pc = $paymentColors[$booking->payment_status] ?? 'secondary';
-                                    @endphp
-                                    <span class="badge badge-subtle-{{ $pc }} rounded-pill">{{ $booking->payment_status }}</span>
+
+                                <!-- Payment & Balance -->
+                                <td>
+                                    <div class="font-monospace fw-bold text-800">Rs. {{ number_format($booking->grand_total, 0) }}</div>
+                                    <div class="fs-11 font-monospace text-success">Paid: Rs. {{ number_format($received, 0) }}</div>
+                                    <div class="fs-11 font-monospace fw-bold text-{{ $balance > 0 ? 'danger' : 'success' }}">
+                                        Bal: Rs. {{ number_format($balance, 0) }}
+                                    </div>
+                                    <div class="mt-1">
+                                        @php
+                                            $paymentColors = [
+                                                'Unpaid' => 'danger',
+                                                'Partially Paid' => 'warning',
+                                                'Paid' => 'success',
+                                                'Refunded' => 'secondary'
+                                            ];
+                                            $pc = $paymentColors[$booking->payment_status] ?? 'secondary';
+                                        @endphp
+                                        <span class="badge badge-subtle-{{ $pc }} fs-12">{{ $booking->payment_status }}</span>
+                                    </div>
                                 </td>
+
+                                <!-- Actions -->
                                 <td class="text-end px-3">
-                                    <div class="d-flex justify-content-end gap-2">
-                                        <a class="btn btn-link p-0" href="{{ route('bookings.show', $booking->id) }}" data-bs-toggle="tooltip" title="View Details">
-                                            <span class="text-info fas fa-eye"></span>
+                                    <div class="btn-group btn-group-sm">
+                                        <a class="btn btn-falcon-default btn-xs" href="{{ route('bookings.show', $booking->id) }}" data-bs-toggle="tooltip" title="View Details">
+                                            <span class="text-info fas fa-eye"></span> View
                                         </a>
-                                        <a class="btn btn-link p-0" href="{{ route('bookings.slip', $booking->id) }}" data-bs-toggle="tooltip" title="Print Slip" target="_blank">
-                                            <span class="text-success fas fa-print"></span>
+                                        <a class="btn btn-falcon-default btn-xs" href="{{ route('bookings.slip', $booking->id) }}" data-bs-toggle="tooltip" title="Print Slip" target="_blank">
+                                            <span class="text-success fas fa-print"></span> Slip
                                         </a>
+
                                         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings'))
                                             @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
-                                                <a class="btn btn-link p-0" href="{{ route('bookings.edit', $booking->id) }}" data-bs-toggle="tooltip" title="Edit Booking">
-                                                    <span class="text-primary fas fa-edit"></span>
+                                                <a class="btn btn-falcon-default btn-xs" href="{{ route('bookings.edit', $booking->id) }}" data-bs-toggle="tooltip" title="Edit Booking">
+                                                    <span class="text-primary fas fa-edit"></span> Edit
                                                 </a>
                                             @endif
                                         @endif
+
                                         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('cancel_bookings'))
                                             @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
-                                                <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $booking->id }})" title="Cancel Booking">
-                                                    <span class="text-danger fas fa-ban"></span>
+                                                <button class="btn btn-falcon-default btn-xs text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $booking->id }})" data-bs-toggle="tooltip" title="Cancel Booking">
+                                                    <span class="fas fa-ban"></span>
                                                 </button>
                                             @endif
                                         @endif
@@ -232,9 +480,13 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="13" class="text-center py-5 text-muted">
-                                    <span class="fas fa-ticket-alt fa-2x mb-2 d-block"></span>
-                                    No bookings found.
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <span class="fas fa-calendar-times fa-3x mb-2 d-block text-400"></span>
+                                    <h6 class="fw-bold text-700">No bookings match the selected criteria.</h6>
+                                    <p class="fs-11 mb-2">Try clearing search terms or resetting operational filters.</p>
+                                    <button wire:click="resetFilters" class="btn btn-falcon-primary btn-sm" type="button">
+                                        <span class="fas fa-undo me-1"></span>Reset All Filters
+                                    </button>
                                 </td>
                             </tr>
                         @endforelse

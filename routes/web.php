@@ -183,12 +183,26 @@ Route::middleware('auth')->group(function () {
         Route::get('recipes', \App\Livewire\RecipeList::class)->name('recipes.index');
         Route::get('operations/checklists', \App\Livewire\EventChecklistManager::class)->name('operations.checklists');
         Route::get('vendors', \App\Livewire\VendorList::class)->name('vendors.index');
+
+        // Department Management Module
+        Route::get('departments/dashboard', \App\Livewire\DepartmentDashboard::class)->name('departments.dashboard');
+        Route::get('departments', \App\Livewire\DepartmentManager::class)->name('departments.index');
+        Route::get('departments/employees', \App\Livewire\DepartmentEmployeeManager::class)->name('departments.employees');
+        Route::get('departments/attendance', \App\Livewire\DepartmentAttendanceManager::class)->name('departments.attendance');
+        Route::get('departments/requests', \App\Livewire\DepartmentRequestManager::class)->name('departments.requests');
+        Route::get('departments/issue', \App\Livewire\DepartmentIssueManager::class)->name('departments.issue');
+        Route::get('departments/returns', \App\Livewire\DepartmentReturnManager::class)->name('departments.returns');
+        Route::get('departments/ledger', \App\Livewire\DepartmentLedgerView::class)->name('departments.ledger');
+        Route::get('departments/production', \App\Livewire\DepartmentProductionManager::class)->name('departments.production');
+        Route::get('departments/reports', \App\Livewire\DepartmentReports::class)->name('departments.reports');
     });
 
-    // SaaS Subscription Management (Super Admin only)
+    // SaaS Subscription Management & Global Defaults (Super Admin only)
     Route::resource('subscription-plans', \App\Http\Controllers\SubscriptionPlanController::class);
     Route::resource('plan-features', \App\Http\Controllers\PlanFeatureController::class);
     Route::resource('billing-cycles', \App\Http\Controllers\BillingCycleController::class);
     Route::resource('saas-invoices', \App\Http\Controllers\SaasInvoiceController::class);
     Route::resource('saas-payments', \App\Http\Controllers\SaasPaymentController::class);
+    Route::get('admin/global-defaults', \App\Livewire\SuperAdmin\GlobalDefaultManager::class)->name('super-admin.global-defaults');
+    Route::get('settings/default-data', \App\Livewire\Owner\TenantDefaultManager::class)->name('owner.default-data');
 });

@@ -105,7 +105,9 @@
         <!-- Metrics Overview -->
         @php
             $totalBookings = $bookings->count();
-            $totalGuests = $bookings->sum('guest_count');
+            $totalGuests = $bookings->sum(fn($b) => $b->effective_guest_count);
+            $tentativeGuestsSum = $bookings->sum(fn($b) => $b->tentative_guests ?? $b->guest_count);
+            $confirmedGuestsSum = $bookings->sum(fn($b) => $b->confirmed_guests ?? 0);
             $totalAmount = $bookings->sum('grand_total');
             $receivedAmount = $bookings->sum(fn($b) => $b->payments->sum('amount'));
             $balanceAmount = max(0.00, $totalAmount - $receivedAmount);
@@ -119,8 +121,14 @@
             </div>
             <div class="col">
                 <div class="summary-card">
-                    <h4 class="text-info">{{ number_format($totalGuests) }}</h4>
-                    <p>Total Guests</p>
+                    <h4 class="text-info">{{ number_format($tentativeGuestsSum) }}</h4>
+                    <p>Tentative Guests</p>
+                </div>
+            </div>
+            <div class="col">
+                <div class="summary-card">
+                    <h4 class="text-success">{{ number_format($confirmedGuestsSum) }}</h4>
+                    <p>Confirmed Guests</p>
                 </div>
             </div>
             <div class="col">
@@ -183,7 +191,10 @@
                         </td>
                         <td>{{ $booking->slot->slot_name ?? 'Custom Time' }}</td>
                         <td>{{ $booking->booking_date->format('d-M-Y') }}</td>
-                        <td class="text-end">{{ number_format($booking->guest_count) }}</td>
+                        <td class="text-end">
+                            <div>{{ number_format($booking->effective_guest_count) }}</div>
+                            <small class="text-muted fs-12">T: {{ $booking->tentative_guests ?? $booking->guest_count }} | C: {{ $booking->confirmed_guests ?? '—' }}</small>
+                        </td>
                         <td class="text-end font-monospace">
                             @if($booking->no_food)
                                 No Food

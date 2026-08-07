@@ -62,6 +62,9 @@ class BookingOnePage extends Component
     // Package & Pricing
     public $selectedPackageId = '';
     public $guestCount = 100;
+    public $tentativeGuests = 100;
+    public $confirmedGuests = null;
+    public $guestStatus = 'Tentative';
     public $perPlatePrice = 0.00;
     public $hallCharges = 0.00;
     public $extraCharges = 0.00;
@@ -517,7 +520,34 @@ class BookingOnePage extends Component
         }
     }
 
-    public function updatedGuestCount() { $this->recalculatePrices(); }
+    public function updatedTentativeGuests() { $this->syncGuestCounts(); $this->recalculatePrices(); }
+    public function updatedConfirmedGuests() { $this->syncGuestCounts(); $this->recalculatePrices(); }
+
+    public function syncGuestCounts()
+    {
+        $tentative = is_numeric($this->tentativeGuests) && intval($this->tentativeGuests) > 0
+            ? intval($this->tentativeGuests)
+            : (is_numeric($this->guestCount) && intval($this->guestCount) > 0 ? intval($this->guestCount) : 100);
+
+        $confirmed = (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0) ? intval($this->confirmedGuests) : null;
+
+        $this->tentativeGuests = $tentative;
+        $this->confirmedGuests = $confirmed;
+
+        if (!is_null($confirmed)) {
+            $this->guestCount = $confirmed;
+            $this->guestStatus = 'Confirmed';
+
+            if ($confirmed > $tentative) {
+                session()->flash('warning', "Notice: Confirmed guests ({$confirmed}) exceed tentative guest estimate ({$tentative}).");
+            }
+        } else {
+            $this->guestCount = $tentative;
+            $this->guestStatus = 'Tentative';
+        }
+    }
+
+    public function updatedGuestCount() { $this->tentativeGuests = is_numeric($this->guestCount) ? intval($this->guestCount) : 100; $this->syncGuestCounts(); $this->recalculatePrices(); }
     public function updatedPerPlatePrice() { $this->recalculatePrices(); }
     public function updatedHallCharges() { $this->recalculatePrices(); }
     public function updatedExtraCharges() { $this->recalculatePrices(); }
@@ -545,6 +575,12 @@ class BookingOnePage extends Component
             }
         }
         $this->extraCharges = $addonsSum;
+
+        if (is_numeric($this->guestCount) && intval($this->guestCount) > 0 && is_null($this->confirmedGuests)) {
+            $this->tentativeGuests = intval($this->guestCount);
+        }
+
+        $this->syncGuestCounts();
 
         $this->guestCount = is_numeric($this->guestCount) ? intval($this->guestCount) : 0;
         $this->perPlatePrice = is_numeric($this->perPlatePrice) ? floatval($this->perPlatePrice) : 0.00;
@@ -638,6 +674,9 @@ class BookingOnePage extends Component
                     'start_time' => $this->startTime,
                     'end_time' => $this->endTime,
                     'guest_count' => $this->guestCount,
+                    'tentative_guests' => is_numeric($this->tentativeGuests) ? intval($this->tentativeGuests) : $this->guestCount,
+                    'confirmed_guests' => (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0) ? intval($this->confirmedGuests) : null,
+                    'guest_status' => $this->guestStatus ?: 'Tentative',
                     'per_plate_price' => $this->perPlatePrice,
                     'package_amount' => $this->packageAmount,
                     'hall_charges' => $this->hallCharges,

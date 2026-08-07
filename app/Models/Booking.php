@@ -28,6 +28,9 @@ class Booking extends Model
         'start_time',
         'end_time',
         'guest_count',
+        'tentative_guests',
+        'confirmed_guests',
+        'guest_status', // Tentative, Confirmed
         'per_plate_price',
         'package_amount',
         'hall_charges',
@@ -53,6 +56,8 @@ class Booking extends Model
         'start_time' => 'datetime',
         'end_time' => 'datetime',
         'guest_count' => 'integer',
+        'tentative_guests' => 'integer',
+        'confirmed_guests' => 'integer',
         'per_plate_price' => 'float',
         'package_amount' => 'float',
         'hall_charges' => 'float',
@@ -66,6 +71,22 @@ class Booking extends Model
         'deposit_deducted_amount' => 'float',
         'no_food' => 'boolean',
     ];
+
+    /**
+     * Get the effective guest headcount used for pricing and operations.
+     */
+    public function getEffectiveGuestCountAttribute(): int
+    {
+        return $this->confirmed_guests ?? $this->tentative_guests ?? $this->guest_count ?? 0;
+    }
+
+    /**
+     * Determine if guest headcount is confirmed.
+     */
+    public function getIsGuestConfirmedAttribute(): bool
+    {
+        return $this->guest_status === 'Confirmed' || !is_null($this->confirmed_guests);
+    }
 
     /**
      * Boot the model.
@@ -224,6 +245,40 @@ class Booking extends Model
     public function checklists(): HasMany
     {
         return $this->hasMany(EventChecklist::class);
+    }
+
+    /**
+     * Scope query for today's events.
+     */
+    public function scopeToday($query)
+    {
+        return $query->whereDate('booking_date', Carbon::today());
+    }
+
+    /**
+     * Scope query for upcoming events.
+     */
+    public function scopeUpcoming($query)
+    {
+        return $query->whereDate('booking_date', '>=', Carbon::today())
+                     ->whereNotIn('booking_status', ['Cancelled', 'Completed']);
+    }
+
+    /**
+     * Scope query for events in the next 7 days.
+     */
+    public function scopeNext7Days($query)
+    {
+        return $query->whereBetween('booking_date', [Carbon::today(), Carbon::today()->addDays(7)])
+                     ->whereNotIn('booking_status', ['Cancelled']);
+    }
+
+    /**
+     * Scope query for pending approval bookings.
+     */
+    public function scopePendingApproval($query)
+    {
+        return $query->whereIn('booking_status', ['Draft', 'Pending']);
     }
 
     /**

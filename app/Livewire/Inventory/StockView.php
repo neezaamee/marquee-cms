@@ -77,18 +77,36 @@ class StockView extends Component
             ->whereNull('purchase_returns.deleted_at')
             ->whereColumn('purchase_return_details.item_id', 'inventory_items.id');
 
+        // 4. Subquery for Issued Qty to Departments
+        $issuedSubquery = DB::table('department_stock_issue_items')
+            ->join('department_stock_issues', 'department_stock_issues.id', '=', 'department_stock_issue_items.department_stock_issue_id')
+            ->whereNull('department_stock_issues.deleted_at')
+            ->whereColumn('department_stock_issue_items.item_id', 'inventory_items.id');
+
+        // 5. Subquery for Returned Qty from Departments (Good stock)
+        $deptReturnedSubquery = DB::table('department_stock_return_items')
+            ->join('department_stock_returns', 'department_stock_returns.id', '=', 'department_stock_return_items.department_stock_return_id')
+            ->where('department_stock_returns.status', 'Received')
+            ->where('department_stock_return_items.status', 'Good')
+            ->whereNull('department_stock_returns.deleted_at')
+            ->whereColumn('department_stock_return_items.item_id', 'inventory_items.id');
+
         // Apply branch filter to subqueries if set
         $branchId = $user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : $this->filterBranch;
 
         if ($branchId) {
             $receivedSubquery->where('goods_receiving_notes.branch_id', $branchId);
             $returnedSubquery->where('purchase_returns.branch_id', $branchId);
+            $issuedSubquery->where('department_stock_issues.branch_id', $branchId);
+            $deptReturnedSubquery->where('department_stock_returns.branch_id', $branchId);
         }
 
         // Select attributes
         $query->select('inventory_items.*')
             ->selectSub($receivedSubquery->selectRaw('COALESCE(SUM(goods_receiving_note_details.received_qty), 0)'), 'total_received')
-            ->selectSub($returnedSubquery->selectRaw('COALESCE(SUM(purchase_return_details.quantity), 0)'), 'total_returned');
+            ->selectSub($returnedSubquery->selectRaw('COALESCE(SUM(purchase_return_details.quantity), 0)'), 'total_returned')
+            ->selectSub($issuedSubquery->selectRaw('COALESCE(SUM(department_stock_issue_items.quantity), 0)'), 'total_issued')
+            ->selectSub($deptReturnedSubquery->selectRaw('COALESCE(SUM(department_stock_return_items.quantity), 0)'), 'total_dept_returned');
 
         // Apply filters
         if (!empty($this->search)) {

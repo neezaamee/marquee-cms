@@ -156,6 +156,16 @@
           </ul>
         </li>
 
+        <!-- Global Default Data Management -->
+        <li class="nav-item">
+          <a class="nav-link {{ Route::is('super-admin.global-defaults') ? 'active' : '' }}" href="{{ route('super-admin.global-defaults') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-globe text-primary"></span></span>
+              <span class="nav-link-text ps-1">Global Default Data</span>
+            </div>
+          </a>
+        </li>
+
         <!-- Trial Management -->
         <li class="nav-item">
           <a class="nav-link dropdown-indicator collapsed" href="#trialsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="trialsCollapse">
@@ -826,6 +836,90 @@
               <a class="nav-link {{ Route::is('vendors.index') ? 'active' : '' }}" href="{{ route('vendors.index') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Vendors & Commissions</span>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </li>
+
+        @php
+          $deptActive = Route::is('departments.*');
+        @endphp
+        <li class="nav-item">
+          <a class="nav-link dropdown-indicator {{ $deptActive ? '' : 'collapsed' }}" href="#departmentsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $deptActive ? 'true' : 'false' }}" aria-controls="departmentsCollapse">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-sitemap"></span></span>
+              <span class="nav-link-text ps-1">Departments</span>
+            </div>
+          </a>
+          <ul class="nav collapse {{ $deptActive ? 'show' : '' }}" id="departmentsCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('departments.dashboard') ? 'active' : '' }}" href="{{ route('departments.dashboard') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Overview Dashboard</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('departments.index') ? 'active' : '' }}" href="{{ route('departments.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Department Master</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('departments.employees') ? 'active' : '' }}" href="{{ route('departments.employees') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Department Staff Roster</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('departments.attendance') ? 'active' : '' }}" href="{{ route('departments.attendance') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Attendance Register</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('departments.requests') ? 'active' : '' }}" href="{{ route('departments.requests') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Stock Requisitions</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('departments.issue') ? 'active' : '' }}" href="{{ route('departments.issue') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Stock Issue / Dispatch</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('departments.returns') ? 'active' : '' }}" href="{{ route('departments.returns') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Stock Returns</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('departments.ledger') ? 'active' : '' }}" href="{{ route('departments.ledger') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Stock Ledgers</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('departments.production') ? 'active' : '' }}" href="{{ route('departments.production') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Kitchen Production</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('departments.reports') ? 'active' : '' }}" href="{{ route('departments.reports') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Department Reports</span>
                 </div>
               </a>
             </li>

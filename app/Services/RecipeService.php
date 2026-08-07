@@ -59,4 +59,36 @@ class RecipeService
 
         return array_values($requirements);
     }
+
+    /**
+     * Get raw ingredients list for a specific recipe (for production form auto-fill).
+     *
+     * @param int $recipeId
+     * @return array  [['item_id' => x, 'quantity_per_head' => y, 'name' => z, 'unit' => u], ...]
+     */
+    public function getIngredients(int $recipeId): array
+    {
+        $recipe = Recipe::with('details.inventoryItem.unit')->find($recipeId);
+
+        if (!$recipe) {
+            return [];
+        }
+
+        $ingredients = [];
+        foreach ($recipe->details as $detail) {
+            $invItem = $detail->inventoryItem;
+            if (!$invItem) {
+                continue;
+            }
+
+            $ingredients[] = [
+                'item_id' => $invItem->id,
+                'quantity_per_head' => (float) $detail->quantity_per_head,
+                'name' => $invItem->name,
+                'unit' => $invItem->unit ? $invItem->unit->short_code : 'Pcs',
+            ];
+        }
+
+        return $ingredients;
+    }
 }

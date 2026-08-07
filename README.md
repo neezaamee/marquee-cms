@@ -1,13 +1,15 @@
 # MarqueeCMS — Enterprise Multi-Tenant Marquee & Banquet ERP SaaS
 
-MarqueeCMS is a comprehensive, enterprise-grade Multi-Tenant Software-as-a-Service (SaaS) ERP designed specifically for marquee owners, wedding hall operators, and banquet managers. It provides a complete workflow from online bookings and CRM to kitchen inventory management, daily staff attendance, petty cash accounting, event checklisting, and vendor commission tracking.
+**MarqueeCMS** is a comprehensive, enterprise-grade Multi-Tenant Software-as-a-Service (SaaS) ERP designed specifically for marquee owners, wedding hall operators, banquet managers, and catering businesses. It provides an end-to-end operational workflow covering online bookings, guest confirmation tracking, operational summary dashboards, global default master data provisioning, kitchen inventory management, department stock requests/issues/productions, daily staff attendance, petty cash accounting, event checklisting, and vendor commission tracking.
 
 ---
 
 ## 🚀 Key Features
 
 * **Multi-Tenant SaaS Architecture**: Dynamic onboarding setup wizard, isolated databases (tenant and branch level query scoping), and Stripe multi-currency subscriptions.
-* **CRM & Bookings Manager**: Client referrals, availability engine, slot booking calendars, and custom packages builder.
+* **Global Default Data Management System**: Super Admin portal (`/admin/global-defaults`) managing standard templates across 9 categories (Event Types, Menu Categories, Inventory Categories, Units, Expense Categories, Department Types, Vendor Types, Customer Types, Payment Methods) with automated onboarding cloning and Marquee Owner one-click importer (`/settings/default-data`).
+* **Operational Booking Dashboard**: Real-time DB summary cards (Total Bookings, Confirmed, Tentative, Today's Events, Upcoming, This Month, Pending Approvals, Payment Outstanding) with `wire:click` automatic filtering, segregated booking status vs guest confirmation headcounts, and quick inline approval workflows.
+* **Department Management Module**: Complete department hierarchy (BBQ Kitchen, Housekeeping, Accounts, IT, Procurement), department employee assignments, daily attendance, stock requests, stock issues, stock returns, ledger tracking, and production batch logs.
 * **Kitchen & Catering Recipes**: Linked dish menus to raw inventory items, with automated per-head material requirement calculations (`RecipeService`).
 * **HR & Staff Attendance**: Employees directory, monthly payroll overview, and branch-isolated daily check-in/out attendance logging.
 * **Financial Ledger & Accounting**: General ledger, chart of accounts, journal vouchers, trial balance, profit & loss, and balance sheets.
@@ -23,7 +25,7 @@ MarqueeCMS is a comprehensive, enterprise-grade Multi-Tenant Software-as-a-Servi
 * **Backend**: Laravel 12 (PHP 8.2+)
 * **Frontend**: Livewire 3, Tailwind CSS, Bootstrap 5
 * **Theme**: Falcon Admin Template
-* **Database**: MySQL / SQLite (for unit tests)
+* **Database**: MySQL / SQLite (for unit & feature tests)
 * **Integrations**: Stripe API (Subscriptions), FBR POS API
 
 ---
@@ -35,7 +37,7 @@ Ensure you have the following installed locally:
 * PHP 8.2 or higher
 * Composer
 * Node.js & NPM
-* MySQL Server (WAMP/XAMPP or Docker)
+* MySQL Server (WAMP/XAMPP, Laragon, or Docker)
 
 ### 2. Setup Steps
 
@@ -53,7 +55,7 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Open `.env` and set your local database and Stripe parameters:
+Open `.env` and set your local database credentials:
 ```env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
@@ -61,19 +63,15 @@ DB_PORT=3306
 DB_DATABASE=marquee_cms
 DB_USERNAME=root
 DB_PASSWORD=
-
-STRIPE_KEY=your-stripe-pk
-STRIPE_SECRET=your-stripe-sk
-STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
 ```
 
-Create database, run migrations, and seed default plans/roles:
+Create database, run migrations, and seed global default masters, plans, and roles:
 ```bash
 php artisan migrate
 php artisan db:seed
 ```
 
-Generate the storage symlink:
+Generate the public storage symlink:
 ```bash
 php artisan storage:link
 ```
@@ -84,24 +82,30 @@ npm run dev
 php artisan serve
 ```
 
+Go to `http://127.0.0.1:8000` in your web browser to access the platform.
+
 ---
 
-## 🔐 Default Login Information
+## 🔐 Default Login Credentials
 
-For testing, seed the system defaults using the main database seeder which initializes the SaaS plans and basic administration credentials.
+For testing and local development, the main database seeder initializes the platform credentials:
 
 * **Super Admin Login (Central Platform)**:
-  * **Email**: `admin@marqueecms.com` (or as configured in seeders)
-  * **Password**: `password`
+  * **Email**: `superadmin@elaftech.com`
+  * **Password**: `Password123!`
+
+* **Marquee Tenant Owner Login (The Sheraton Marquee)**:
+  * **Email**: `ghulamabbas@thesheraton.com`
+  * **Password**: `Password123!`
 
 ---
 
 ## ⚙️ Queue & Scheduler Configuration
 
 ### 1. Queues
-MarqueeCMS uses background job queues to dispatch automated FBR POS sync requests, email templates, and invoice notifications.
-* Local development: `QUEUE_CONNECTION=sync`
-* Production: `QUEUE_CONNECTION=database` or `redis`
+MarqueeCMS uses background job queues to dispatch automated FBR POS sync requests, email notifications, and invoice generation.
+* Local development: `QUEUE_CONNECTION=database` or `sync`
+* Production: `QUEUE_CONNECTION=redis` or `database`
 
 Start the queue worker:
 ```bash
@@ -120,25 +124,24 @@ For recurring expenses and trial expiration checks, configure a CRON job on your
 
 ```text
 ├── app/
-│   ├── Console/            # Commands & Scheduler
 │   ├── Http/
-│   │   ├── Controllers/    # CRM, Billing & Branch controllers
+│   │   ├── Controllers/    # CRM, Billing, Expense & Department controllers
 │   │   └── Middleware/     # Wizard checks & route security
-│   ├── Livewire/           # Interactive components (Wizard, Finance, Booking)
-│   ├── Models/             # Eloquent schema models (Booking, Recipe, Vendor, etc.)
-│   ├── Services/           # RecipeService, FbrPosService, StripeBillingService
+│   ├── Livewire/           # Interactive components (SuperAdmin, Owner, Booking, Department)
+│   ├── Models/             # Eloquent schema models (Booking, GlobalDefaultMaster, Department, etc.)
+│   ├── Services/           # RecipeService, DepartmentStockService, FbrPosService
 │   └── Traits/             # BelongsToTenant & BelongsToBranch isolation scopes
 ├── config/                 # Services and application configs
 ├── database/
-│   ├── migrations/         # ERP database tables schemas
-│   └── seeders/            # Plans and roles seeders
-├── docs/                   # Full system architecture documentation
+│   ├── migrations/         # ERP database table schemas
+│   └── seeders/            # Global defaults, plans, and role seeders
+├── docs/                   # Developer & architecture documentation
 ├── resources/
-│   └── views/              # Blade layouts and subviews templates
+│   └── views/              # Blade layouts and Falcon Admin subviews templates
 ├── routes/
-│   └── web.php             # SaaS & tenant routes
+│   └── web.php             # Web & Livewire routes
 └── tests/
-    └── Feature/            # Automated test suite (127 tests)
+    └── Feature/            # Automated test suite (Department, GlobalDefaults, Booking, etc.)
 ```
 
 ---

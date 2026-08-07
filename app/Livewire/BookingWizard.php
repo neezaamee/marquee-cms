@@ -63,6 +63,9 @@ class BookingWizard extends Component
     // Step 4: Package & Pricing
     public $selectedPackageId = '';
     public $guestCount = 100;
+    public $tentativeGuests = 100;
+    public $confirmedGuests = null;
+    public $guestStatus = 'Tentative';
     public $perPlatePrice = 0.00;
     public $hallCharges = 0.00;
     public $extraCharges = 0.00;
@@ -115,10 +118,46 @@ class BookingWizard extends Component
     public $cities = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Gujranwala', 'Sialkot'];
     public $provinces = ['Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan', 'Islamabad Capital Territory'];
 
+    public $missingDependencies = [];
+
     public function mount()
     {
         $this->selectedDate = Carbon::today()->addDay()->format('Y-m-d');
         $this->loadDropdowns();
+        $this->checkBookingReadiness();
+    }
+
+    public function checkBookingReadiness()
+    {
+        $marqueeId = auth()->user()->marquee_id;
+        $this->missingDependencies = [];
+
+        $branchCount = \App\Models\Branch::where('marquee_id', $marqueeId)->where('status', 'active')->count();
+        if ($branchCount === 0) {
+            $this->missingDependencies[] = [
+                'name' => 'Active Branch',
+                'action_label' => 'Configure Branch',
+                'route' => route('branches.index'),
+            ];
+        }
+
+        $hallCount = Hall::where('marquee_id', $marqueeId)->whereIn('status', ['active', 'Active'])->count();
+        if ($hallCount === 0) {
+            $this->missingDependencies[] = [
+                'name' => 'Active Hall / Venue',
+                'action_label' => 'Configure Halls',
+                'route' => route('halls.index'),
+            ];
+        }
+
+        $eventTypeCount = EventType::where('marquee_id', $marqueeId)->whereIn('status', ['active', 'Active'])->count();
+        if ($eventTypeCount === 0) {
+            $this->missingDependencies[] = [
+                'name' => 'Active Event Type',
+                'action_label' => 'Import / Configure Event Types',
+                'route' => route('owner.default-data'),
+            ];
+        }
     }
 
     public function loadDropdowns()
@@ -611,8 +650,46 @@ class BookingWizard extends Component
         }
     }
 
+    public function updatedTentativeGuests()
+    {
+        $this->syncGuestCounts();
+        $this->recalculatePrices();
+    }
+
+    public function updatedConfirmedGuests()
+    {
+        $this->syncGuestCounts();
+        $this->recalculatePrices();
+    }
+
+    public function syncGuestCounts()
+    {
+        $tentative = is_numeric($this->tentativeGuests) && intval($this->tentativeGuests) > 0
+            ? intval($this->tentativeGuests)
+            : (is_numeric($this->guestCount) && intval($this->guestCount) > 0 ? intval($this->guestCount) : 100);
+
+        $confirmed = (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0) ? intval($this->confirmedGuests) : null;
+
+        $this->tentativeGuests = $tentative;
+        $this->confirmedGuests = $confirmed;
+
+        if (!is_null($confirmed)) {
+            $this->guestCount = $confirmed;
+            $this->guestStatus = 'Confirmed';
+
+            if ($confirmed > $tentative) {
+                session()->flash('warning', "Notice: Confirmed guests ({$confirmed}) exceed tentative guest estimate ({$tentative}).");
+            }
+        } else {
+            $this->guestCount = $tentative;
+            $this->guestStatus = 'Tentative';
+        }
+    }
+
     public function updatedGuestCount()
     {
+        $this->tentativeGuests = is_numeric($this->guestCount) ? intval($this->guestCount) : 100;
+        $this->syncGuestCounts();
         $this->recalculatePrices();
     }
 
@@ -667,6 +744,13 @@ class BookingWizard extends Component
             }
         }
         $this->extraCharges = $addonsSum;
+
+        // If guestCount was set directly without tentativeGuests, sync tentativeGuests
+        if (is_numeric($this->guestCount) && intval($this->guestCount) > 0 && is_null($this->confirmedGuests)) {
+            $this->tentativeGuests = intval($this->guestCount);
+        }
+
+        $this->syncGuestCounts();
 
         // Typecast/sanitize inputs to numeric types to prevent TypeError in number_format()
         $this->guestCount = is_numeric($this->guestCount) ? intval($this->guestCount) : 0;
@@ -836,6 +920,9 @@ class BookingWizard extends Component
                     'start_time' => $this->startTime,
                     'end_time' => $this->endTime,
                     'guest_count' => $this->guestCount,
+                    'tentative_guests' => is_numeric($this->tentativeGuests) ? intval($this->tentativeGuests) : $this->guestCount,
+                    'confirmed_guests' => (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0) ? intval($this->confirmedGuests) : null,
+                    'guest_status' => $this->guestStatus ?: 'Tentative',
                     'per_plate_price' => $this->perPlatePrice,
                     'package_amount' => $this->packageAmount,
                     'hall_charges' => $this->hallCharges,

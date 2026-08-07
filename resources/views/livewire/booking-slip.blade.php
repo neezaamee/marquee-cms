@@ -209,7 +209,7 @@
                         <h6 class="text-primary fw-bold mb-2"><span class="fas fa-file-invoice-dollar me-2"></span>Rate & Occupancy Details</h6>
                         @if(!$booking->no_food)
                             <div class="fs-10">Rate per Head/Plate: <strong class="text-800">Rs. {{ number_format($booking->per_plate_price) }} per plate</strong></div>
-                            <div class="fs-11 text-600 mt-1">Total Guaranteed Guest Headcount: <strong>{{ $booking->guest_count }}</strong></div>
+                            <div class="fs-11 text-600 mt-1">Tentative Guests: <strong>{{ $booking->tentative_guests ?? $booking->guest_count }}</strong> | Confirmed Guests: <strong>{{ $booking->confirmed_guests ?? 'Pending Confirmation' }}</strong> (Status: <strong>{{ $booking->guest_status ?? 'Tentative' }}</strong>)</div>
                         @else
                             <div class="fs-10 text-success fw-bold">Sitting Plan Only (No Catering Food)</div>
                             <div class="fs-11 text-600 mt-1">Hall Setup / Occupancy Rent: <strong>Rs. {{ number_format($booking->hall_charges) }}</strong></div>
