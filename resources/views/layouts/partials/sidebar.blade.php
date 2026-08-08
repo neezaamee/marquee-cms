@@ -645,9 +645,12 @@
             </li>
           </ul>
         </li>
+        @endif
+
         <!-- ========================================== -->
         <!-- VENDOR & PARTNERSHIP MANAGEMENT SECTION -->
         <!-- ========================================== -->
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings') || auth()->user()->hasPermission('manage_settings'))
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
           <div class="col-auto navbar-vertical-label">Vendor & Partnerships</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
@@ -722,6 +725,7 @@
             </li>
           </ul>
         </li>
+        @endif
 
         <!-- ========================================== -->
         <!-- STAFF MANAGEMENT SECTION -->
