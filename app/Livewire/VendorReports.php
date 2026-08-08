@@ -106,6 +106,6 @@ class VendorReports extends Component
         return view('livewire.vendor-reports', [
             'vendors' => $vendors,
             'reportData' => $data,
-        ]);
+        ])->layout('layouts.admin');
     }
 }

@@ -59,6 +59,6 @@ class VendorDashboard extends Component
             'outstandingPayable' => $outstandingPayable,
             'recentSales' => $recentSales,
             'topVendors' => $topVendors,
-        ]);
+        ])->layout('layouts.admin');
     }
 }

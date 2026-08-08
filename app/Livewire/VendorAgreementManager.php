@@ -143,6 +143,6 @@ class VendorAgreementManager extends Component
             'agreements' => $agreements,
             'vendors' => $vendors,
             'services' => $services,
-        ]);
+        ])->layout('layouts.admin');
     }
 }

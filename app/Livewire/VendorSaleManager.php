@@ -156,6 +156,6 @@ class VendorSaleManager extends Component
             'vendors' => $vendors,
             'vendorServices' => $vendorServices,
             'bookings' => $bookings,
-        ]);
+        ])->layout('layouts.admin');
     }
 }

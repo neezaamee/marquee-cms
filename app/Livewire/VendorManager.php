@@ -185,6 +185,6 @@ class VendorManager extends Component
             'vendors' => $vendors,
             'branches' => $branches,
             'vendorTypes' => $vendorTypes,
-        ]);
+        ])->layout('layouts.admin');
     }
 }

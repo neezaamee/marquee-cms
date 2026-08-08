@@ -32,6 +32,6 @@ class VendorDetail extends Component
 
         return view('livewire.vendor-detail', [
             'activeAgreement' => $activeAgreement,
-        ]);
+        ])->layout('layouts.admin');
     }
 }

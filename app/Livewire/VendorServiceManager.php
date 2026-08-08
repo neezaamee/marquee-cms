@@ -105,6 +105,6 @@ class VendorServiceManager extends Component
         return view('livewire.vendor-service-manager', [
             'services' => $services,
             'vendors' => $vendors,
-        ]);
+        ])->layout('layouts.admin');
     }
 }

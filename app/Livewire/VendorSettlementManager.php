@@ -102,12 +102,12 @@ class VendorSettlementManager extends Component
 
         $settlements = $query->orderBy('settlement_date', 'desc')->get();
         $vendors = Vendor::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
-        $accounts = Account::where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('account_name')->get();
+        $accounts = Account::where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
 
         return view('livewire.vendor-settlement-manager', [
             'settlements' => $settlements,
             'vendors' => $vendors,
             'accounts' => $accounts,
-        ]);
+        ])->layout('layouts.admin');
     }
 }

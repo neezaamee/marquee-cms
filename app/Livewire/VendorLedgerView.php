@@ -47,6 +47,6 @@ class VendorLedgerView extends Component
         return view('livewire.vendor-ledger-view', [
             'ledgers' => $ledgers,
             'vendors' => $vendors,
-        ]);
+        ])->layout('layouts.admin');
     }
 }

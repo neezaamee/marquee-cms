@@ -45,12 +45,12 @@
                             <td>
                                 <span class="badge badge-subtle-primary"><i class="fas fa-university me-1"></i>{{ $set->payment_method }}</span>
                                 @if($set->account)
-                                    <div class="text-secondary fs-11 mt-1">{{ $set->account->account_name }}</div>
+                                    <div class="text-secondary fs-11 mt-1">{{ $set->account->name }}</div>
                                 @endif
                             </td>
                             <td>
                                 @if($set->journalVoucher)
-                                    <span class="badge badge-subtle-info font-monospace">{{ $set->journalVoucher->voucher_number }}</span>
+                                    <span class="badge badge-subtle-info font-monospace">{{ $set->journalVoucher->voucher_no }}</span>
                                 @else
                                     <span class="text-muted">—</span>
                                 @endif
@@ -121,7 +121,7 @@
                                     <select wire:model="account_id" class="form-select form-select-sm">
                                         <option value="">-- Select Cash/Bank Account --</option>
                                         @foreach($accounts as $acc)
-                                            <option value="{{ $acc->id }}">{{ $acc->account_name }} ({{ $acc->account_code }})</option>
+                                            <option value="{{ $acc->id }}">{{ $acc->name }} ({{ $acc->account_code }})</option>
                                         @endforeach
                                     </select>
                                 </div>
