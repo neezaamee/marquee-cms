@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0] - 2026-08-09
+### Added
+- Formulated Enterprise Vendor & Partnership Management Module (`vendor_services`, `vendor_commission_agreements`, `vendor_sales`, `vendor_settlements`, `vendor_ledgers` tables & migration).
+- Extended `Vendor` model with auto-generated vendor codes (`VEN-000001`), contact profiles, tax NTN, bank accounts, payment terms, and running balance accessors.
+- Developed `VendorCommissionService` domain calculation engine supporting 4 Commission Types (**Percentage**, **Fixed Per Event**, **Fixed Monthly**, **Hybrid** with min/max caps) and priority agreement resolution (Service-specific → Vendor-wide → None).
+- Built Historical Commission Rate Preservation: Sales snapshot commission rates and agreement IDs at confirmation to permanently insulate past financial transactions from future contract changes.
+- Integrated automated Accounting Journal Voucher posting (`Vendor Commission Income` revenue account and `Vendor Payable Clearing` liability account).
+- Created Livewire components & views: `VendorDashboard`, `VendorManager`, `VendorDetail` (tabbed profile), `VendorServiceManager`, `VendorAgreementManager`, `VendorSaleManager`, `VendorLedgerView`, `VendorSettlementManager`, and `VendorReports` (5 printable report types).
+- Integrated Vendor Services directly into `BookingView` with quick vendor assignment modal and live commission calculations.
+- Created `VendorPartnershipModuleTest` feature test suite verifying registration, services, contracts, historical rate preservation, running balance ledgers, settlement payouts, accounting JV integration, and multi-tenant isolation (6/6 tests passing).
+
 ## [1.8.0] - 2026-08-08
 ### Added
 - Formulated Kitchen Menu Slip Printing System integrated into Booking Management (`kitchen_print_logs` table & migration, `KitchenPrintLog` model).

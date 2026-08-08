@@ -645,7 +645,83 @@
             </li>
           </ul>
         </li>
-        @endif
+        <!-- ========================================== -->
+        <!-- VENDOR & PARTNERSHIP MANAGEMENT SECTION -->
+        <!-- ========================================== -->
+        <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
+          <div class="col-auto navbar-vertical-label">Vendor & Partnerships</div>
+          <div class="col ps-0"><hr class="mb-0 text-300" /></div>
+        </div>
+
+        @php
+          $vendorActive = Route::is('vendors.*', 'vendor-services.*', 'vendor-agreements.*', 'vendor-sales.*', 'vendor-ledger.*', 'vendor-settlements.*', 'vendor-reports.*');
+        @endphp
+        <li class="nav-item">
+          <a class="nav-link dropdown-indicator {{ $vendorActive ? '' : 'collapsed' }}" href="#vendorManagementCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $vendorActive ? 'true' : 'false' }}" aria-controls="vendorManagementCollapse">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-handshake"></span></span>
+              <span class="nav-link-text ps-1">Vendor Partners</span>
+            </div>
+          </a>
+          <ul class="nav collapse {{ $vendorActive ? 'show' : '' }}" id="vendorManagementCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('vendors.dashboard') ? 'active' : '' }}" href="{{ route('vendors.dashboard') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Dashboard</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('vendors.index') || Route::is('vendors.show') ? 'active' : '' }}" href="{{ route('vendors.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">All Vendors</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('vendor-services.*') ? 'active' : '' }}" href="{{ route('vendor-services.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Vendor Services</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('vendor-agreements.*') ? 'active' : '' }}" href="{{ route('vendor-agreements.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Commission Agreements</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('vendor-sales.*') ? 'active' : '' }}" href="{{ route('vendor-sales.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Vendor Sales</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('vendor-ledger.*') ? 'active' : '' }}" href="{{ route('vendor-ledger.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Vendor Ledger</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('vendor-settlements.*') ? 'active' : '' }}" href="{{ route('vendor-settlements.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Settlements & Payouts</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('vendor-reports.*') ? 'active' : '' }}" href="{{ route('vendor-reports.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Vendor Reports</span>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </li>
 
         <!-- ========================================== -->
         <!-- STAFF MANAGEMENT SECTION -->

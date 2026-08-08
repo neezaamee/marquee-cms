@@ -50,10 +50,55 @@ class BookingView extends Component
     public $kitchenLang = 'bilingual';
     public $kitchenInstructions = '';
 
+    // Vendor Service Sale Modal State
+    public $showVendorSaleModal = false;
+    public $vsVendorId = '';
+    public $vsServiceId = '';
+    public $vsSaleAmount = 0.00;
+    public $vsCommissionRate = null;
+    public $vsNotes = '';
+
     public function mount(Booking $booking)
     {
         $this->booking = $booking;
         $this->paymentDate = date('Y-m-d');
+    }
+
+    public function openVendorSaleModal()
+    {
+        $this->vsVendorId = '';
+        $this->vsServiceId = '';
+        $this->vsSaleAmount = 0.00;
+        $this->vsCommissionRate = null;
+        $this->vsNotes = '';
+        $this->showVendorSaleModal = true;
+    }
+
+    public function saveBookingVendorSale()
+    {
+        $this->validate([
+            'vsVendorId' => 'required|exists:vendors,id',
+            'vsSaleAmount' => 'required|numeric|min:1',
+        ]);
+
+        $serviceEngine = app(\App\Services\VendorCommissionService::class);
+        $serviceEngine->createVendorSale([
+            'vendor_id' => $this->vsVendorId,
+            'vendor_service_id' => $this->vsServiceId ?: null,
+            'booking_id' => $this->booking->id,
+            'customer_id' => $this->booking->customer_id,
+            'event_date' => $this->booking->booking_date->format('Y-m-d'),
+            'sale_date' => date('Y-m-d'),
+            'quantity' => 1,
+            'unit' => 'Event',
+            'sale_amount' => floatval($this->vsSaleAmount),
+            'commission_rate' => $this->vsCommissionRate !== null && $this->vsCommissionRate !== '' ? floatval($this->vsCommissionRate) : null,
+            'notes' => $this->vsNotes,
+        ]);
+
+        $this->booking->refresh();
+        $this->showVendorSaleModal = false;
+        session()->flash('success', 'Vendor service linked to booking successfully.');
     }
 
     /**
@@ -513,9 +558,26 @@ class BookingView extends Component
     public function render()
     {
         $histories = $this->booking->histories()->with('user')->get();
+        $marqueeId = auth()->user()->marquee_id;
+
+        $vendorSales = \App\Models\VendorSale::where('booking_id', $this->booking->id)
+            ->with(['vendor', 'service'])
+            ->get();
+
+        $allVendors = \App\Models\Vendor::where('marquee_id', $marqueeId)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get();
+
+        $vsVendorServices = $this->vsVendorId
+            ? \App\Models\VendorService::where('marquee_id', $marqueeId)->where('vendor_id', $this->vsVendorId)->get()
+            : collect();
 
         return view('livewire.booking-view', [
-            'histories' => $histories
+            'histories' => $histories,
+            'vendorSales' => $vendorSales,
+            'allVendors' => $allVendors,
+            'vsVendorServices' => $vsVendorServices,
         ]);
     }
 }

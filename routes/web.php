@@ -183,7 +183,17 @@ Route::middleware('auth')->group(function () {
         Route::get('staff-attendance', \App\Livewire\StaffAttendance::class)->name('staff.attendance');
         Route::get('recipes', \App\Livewire\RecipeList::class)->name('recipes.index');
         Route::get('operations/checklists', \App\Livewire\EventChecklistManager::class)->name('operations.checklists');
-        Route::get('vendors', \App\Livewire\VendorList::class)->name('vendors.index');
+
+        // Vendor & Partnership Management Module
+        Route::get('vendors/dashboard', \App\Livewire\VendorDashboard::class)->name('vendors.dashboard');
+        Route::get('vendors', \App\Livewire\VendorManager::class)->name('vendors.index');
+        Route::get('vendors/services', \App\Livewire\VendorServiceManager::class)->name('vendor-services.index');
+        Route::get('vendors/agreements', \App\Livewire\VendorAgreementManager::class)->name('vendor-agreements.index');
+        Route::get('vendors/sales', \App\Livewire\VendorSaleManager::class)->name('vendor-sales.index');
+        Route::get('vendors/ledger', \App\Livewire\VendorLedgerView::class)->name('vendor-ledger.index');
+        Route::get('vendors/settlements', \App\Livewire\VendorSettlementManager::class)->name('vendor-settlements.index');
+        Route::get('vendors/reports', \App\Livewire\VendorReports::class)->name('vendor-reports.index');
+        Route::get('vendors/{vendor}', \App\Livewire\VendorDetail::class)->name('vendors.show');
 
         // Department Management Module
         Route::get('departments/dashboard', \App\Livewire\DepartmentDashboard::class)->name('departments.dashboard');

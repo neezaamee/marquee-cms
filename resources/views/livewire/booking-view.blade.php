@@ -278,6 +278,55 @@
                 </div>
             </div>
 
+            <!-- Event Vendor Services & Commission Card -->
+            <div class="card mb-3">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold"><span class="fas fa-handshake me-2 text-primary"></span>Event Vendor Services & Partnerships</h6>
+                    <button wire:click="openVendorSaleModal" class="btn btn-falcon-success btn-xs"><i class="fas fa-plus me-1"></i> Add Vendor Service</button>
+                </div>
+                <div class="card-body fs-12">
+                    @if($vendorSales->isNotEmpty())
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 fs-12">
+                                <thead class="bg-200">
+                                    <tr>
+                                        <th>Vendor</th>
+                                        <th>Service</th>
+                                        <th>Sale Amount</th>
+                                        <th>Commission %</th>
+                                        <th>Commission Income</th>
+                                        <th>Net Vendor Payable</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($vendorSales as $vs)
+                                        <tr>
+                                            <td class="fw-bold text-dark">{{ $vs->vendor->name ?? '—' }} <span class="badge badge-subtle-secondary fs-10">{{ $vs->vendor->vendor_type ?? '' }}</span></td>
+                                            <td><span class="badge badge-subtle-info">{{ $vs->service->service_name ?? 'Custom Service' }}</span></td>
+                                            <td class="fw-bold">Rs. {{ number_format($vs->sale_amount) }}</td>
+                                            <td><span class="badge badge-subtle-success">{{ $vs->commission_rate }}%</span></td>
+                                            <td class="fw-bold text-success">Rs. {{ number_format($vs->commission_amount) }}</td>
+                                            <td class="fw-bold text-primary">Rs. {{ number_format($vs->vendor_net_amount) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="bg-light fw-bold">
+                                    <tr>
+                                        <td colspan="2" class="text-end">Vendor Totals:</td>
+                                        <td class="text-dark">Rs. {{ number_format($vendorSales->sum('sale_amount')) }}</td>
+                                        <td>—</td>
+                                        <td class="text-success">Rs. {{ number_format($vendorSales->sum('commission_amount')) }}</td>
+                                        <td class="text-primary">Rs. {{ number_format($vendorSales->sum('vendor_net_amount')) }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    @else
+                        <p class="text-muted fs-11 mb-0">No external vendor services attached to this booking. Click "Add Vendor Service" to assign a florist, sound system, photographer, or decorator.</p>
+                    @endif
+                </div>
+            </div>
+
             <!-- Payment Transactions Ledger -->
             <div class="card mb-3">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
@@ -892,6 +941,61 @@
                             <i class="fas fa-print me-1"></i> Generate & Print Slip (V{{ ($booking->kitchen_print_version ?? 0) + 1 }})
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Add Vendor Service Modal -->
+    @if($showVendorSaleModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-success text-white py-2">
+                        <h6 class="modal-title fw-bold fs-13"><i class="fas fa-handshake me-2"></i>Add Vendor Service to Booking #{{ $booking->booking_number }}</h6>
+                        <button wire:click="$set('showVendorSaleModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <form wire:submit.prevent="saveBookingVendorSale">
+                        <div class="modal-body p-3 fs-12">
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Select Vendor Partner <span class="text-danger">*</span></label>
+                                <select wire:model.live="vsVendorId" class="form-select form-select-sm">
+                                    <option value="">-- Choose Vendor Partner --</option>
+                                    @foreach($allVendors as $v)
+                                        <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->vendor_type }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Vendor Service (Optional)</label>
+                                <select wire:model="vsServiceId" class="form-select form-select-sm">
+                                    <option value="">-- Custom / Direct Service --</option>
+                                    @foreach($vsVendorServices as $vs)
+                                        <option value="{{ $vs->id }}">{{ $vs->service_name }} (Default Price: Rs. {{ number_format($vs->default_sale_price) }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Sale Amount (Rs.) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" wire:model="vsSaleAmount" class="form-control form-control-sm @error('vsSaleAmount') is-invalid @enderror" placeholder="80000">
+                                    @error('vsSaleAmount') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Custom Commission % (Override)</label>
+                                    <input type="number" step="0.01" wire:model="vsCommissionRate" class="form-control form-control-sm" placeholder="Auto-resolved if blank">
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Notes / Requirements</label>
+                                <textarea wire:model="vsNotes" class="form-control form-control-sm" rows="2" placeholder="Specific arrangement details, setup instructions..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light py-2">
+                            <button wire:click="$set('showVendorSaleModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Cancel</button>
+                            <button type="submit" class="btn btn-success btn-sm px-4"><i class="fas fa-check-circle me-1"></i> Attach Vendor Service</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
