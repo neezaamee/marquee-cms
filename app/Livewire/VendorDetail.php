@@ -14,7 +14,7 @@ class VendorDetail extends Component
     {
         // Tenant security check
         if (!auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this vendor.');
+            abort(403, 'Unauthorized access to this Service Provider.');
         }
 
         $this->vendor = $vendor;

@@ -7,11 +7,11 @@
                 <span class="badge badge-subtle-primary font-monospace">{{ $vendor->vendor_code }}</span>
                 <h4 class="fw-bold mb-0 text-dark">{{ $vendor->name }}</h4>
                 @if($vendor->status === 'active')
-                    <span class="badge badge-subtle-success">Active</span>
+                     <span class="badge badge-subtle-success">Active</span>
                 @elseif($vendor->status === 'suspended')
-                    <span class="badge badge-subtle-warning">Suspended</span>
+                     <span class="badge badge-subtle-warning">Suspended</span>
                 @else
-                    <span class="badge badge-subtle-secondary">Inactive</span>
+                     <span class="badge badge-subtle-secondary">Inactive</span>
                 @endif
             </div>
             <div class="text-secondary fs-12 mt-1">
@@ -69,7 +69,7 @@
             <div class="col-lg-6">
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-header bg-light py-2">
-                        <h6 class="mb-0 fw-bold"><i class="fas fa-id-card me-2 text-primary"></i>Vendor Contact & Tax Profile</h6>
+                        <h6 class="mb-0 fw-bold"><i class="fas fa-id-card me-2 text-primary"></i>Provider Contact & Tax Profile</h6>
                     </div>
                     <div class="card-body">
                         <table class="table table-sm table-borderless mb-0">

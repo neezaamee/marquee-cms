@@ -38,6 +38,9 @@ class VendorSaleManager extends Component
 
     public function mount(?Vendor $vendor = null)
     {
+        if ($vendor && !auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
+            abort(403, 'Unauthorized access to this Service Provider.');
+        }
         $this->vendor = $vendor;
         if ($vendor) {
             $this->filterVendorId = $vendor->id;
@@ -66,7 +69,8 @@ class VendorSaleManager extends Component
     public function updatedBookingId($val)
     {
         if ($val) {
-            $booking = Booking::find($val);
+            $marqueeId = auth()->user()->marquee_id;
+            $booking = Booking::where('marquee_id', $marqueeId)->find($val);
             if ($booking) {
                 $this->customer_id = $booking->customer_id;
                 $this->event_date = $booking->booking_date->format('Y-m-d');
@@ -82,6 +86,9 @@ class VendorSaleManager extends Component
             'event_date' => 'required|date',
             'sale_date' => 'required|date',
         ]);
+
+        $marqueeId = auth()->user()->marquee_id;
+        Vendor::where('marquee_id', $marqueeId)->findOrFail($this->vendor_id);
 
         $serviceEngine = app(VendorCommissionService::class);
 

@@ -1109,4 +1109,123 @@ class BookingManagementTest extends TestCase
 
         $response->assertFileDownloaded();
     }
+
+    public function test_booking_privacy_partition_configuration_workflow()
+    {
+        Livewire::actingAs($this->userOwnerA);
+
+        // 1. Test Privacy OFF creates booking successfully
+        $wizard1 = Livewire::test('booking-wizard')
+            ->set('selectedCustomerId', $this->customerA->id)
+            ->call('nextStep') // Step 1 -> 2
+            ->set('selectedEventTypeId', $this->eventTypeA->id)
+            ->set('selectedHallIds', [(string)$this->hallA->id])
+            ->set('selectedDate', '2026-06-25')
+            ->call('nextStep') // Step 2 -> 3
+            ->set('checkType', 'slot')
+            ->set('selectedSlotId', $this->slotA->id)
+            ->call('nextStep') // Step 3 -> 4
+            ->set('selectedPackageId', $this->packageA->id)
+            ->set('privacyRequired', false)
+            ->call('nextStep') // Step 4 -> 5
+            ->set('bookingStatus', 'Confirmed')
+            ->call('submitBooking')
+            ->assertHasNoErrors();
+
+        $booking1 = Booking::orderBy('id', 'desc')->first();
+        $this->assertFalse($booking1->privacy_required);
+        $this->assertNull($booking1->privacy_ladies_percentage);
+        $this->assertNull($booking1->privacy_gents_percentage);
+
+        // Verify V1 slip view has Privacy/Partition: No
+        $responseSlip1 = $this->get(route('bookings.slip', $booking1->id));
+        $responseSlip1->assertStatus(200);
+        $responseSlip1->assertSee('Privacy / Partition:');
+        $responseSlip1->assertSee('No');
+
+        // 2. Test Invalid Percentages fails validation
+        $wizard2 = Livewire::test('booking-wizard')
+            ->set('selectedCustomerId', $this->customerA->id)
+            ->call('nextStep') // Step 1 -> 2
+            ->set('selectedEventTypeId', $this->eventTypeA->id)
+            ->set('selectedHallIds', [(string)$this->hallA->id])
+            ->set('selectedDate', '2026-06-26')
+            ->call('nextStep') // Step 2 -> 3
+            ->set('checkType', 'slot')
+            ->set('selectedSlotId', $this->slotA->id)
+            ->call('nextStep') // Step 3 -> 4
+            ->set('selectedPackageId', $this->packageA->id)
+            ->set('privacyRequired', true)
+            ->set('privacyLadiesPercentage', 60)
+            ->set('privacyGentsPercentage', 30) // Total 90% (Invalid)
+            ->call('nextStep')
+            ->assertHasErrors(['privacyLadiesPercentage', 'privacyGentsPercentage']);
+
+        // 3. Test Privacy ON with correct percentages (60/40) saves successfully
+        $wizard3 = Livewire::test('booking-wizard')
+            ->set('selectedCustomerId', $this->customerA->id)
+            ->call('nextStep') // Step 1 -> 2
+            ->set('selectedEventTypeId', $this->eventTypeA->id)
+            ->set('selectedHallIds', [(string)$this->hallA->id])
+            ->set('selectedDate', '2026-06-27')
+            ->call('nextStep') // Step 2 -> 3
+            ->set('checkType', 'slot')
+            ->set('selectedSlotId', $this->slotA->id)
+            ->call('nextStep') // Step 3 -> 4
+            ->set('selectedPackageId', $this->packageA->id)
+            ->set('privacyRequired', true)
+            ->set('privacyLadiesPercentage', 60)
+            ->set('privacyGentsPercentage', 40)
+            ->call('nextStep') // Step 4 -> 5
+            ->set('bookingStatus', 'Confirmed')
+            ->call('submitBooking')
+            ->assertHasNoErrors();
+
+        $booking2 = Booking::orderBy('id', 'desc')->first();
+        $this->assertTrue($booking2->privacy_required);
+        $this->assertEquals(60, $booking2->privacy_ladies_percentage);
+        $this->assertEquals(40, $booking2->privacy_gents_percentage);
+
+        // Verify V2 slip view has Privacy/Partition: Yes (Ladies: 60%, Gents: 40%)
+        $responseSlip2 = $this->get(route('bookings.slip-v2', $booking2->id));
+        $responseSlip2->assertStatus(200);
+        $responseSlip2->assertSee('Privacy / Partition:');
+        $responseSlip2->assertSee('Yes (Ladies: 60%, Gents: 40%)');
+
+        // 4. Test Edit Booking correctly loads and updates privacy options
+        $edit = Livewire::test('booking-edit', ['booking' => $booking2])
+            ->assertSet('privacyRequired', true)
+            ->assertSet('privacyLadiesPercentage', 60)
+            ->assertSet('privacyGentsPercentage', 40)
+            ->set('privacyLadiesPercentage', 55)
+            ->set('privacyGentsPercentage', 45)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $booking2->refresh();
+        $this->assertEquals(55, $booking2->privacy_ladies_percentage);
+        $this->assertEquals(45, $booking2->privacy_gents_percentage);
+
+        // 5. Test Old Booking behaviour
+        $oldBooking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-25',
+            'start_time' => '2026-06-25 18:00:00',
+            'end_time' => '2026-06-25 23:30:00',
+            'guest_count' => 150,
+            'per_plate_price' => 1500.00,
+            'grand_total' => 225000.00,
+            'booking_status' => 'Confirmed',
+        ]);
+
+        $this->assertFalse((bool) $oldBooking->privacy_required);
+        $this->assertNull($oldBooking->privacy_ladies_percentage);
+        $this->assertNull($oldBooking->privacy_gents_percentage);
+    }
 }
+

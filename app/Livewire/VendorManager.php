@@ -61,7 +61,7 @@ class VendorManager extends Component
 
     public function editVendor($id)
     {
-        $vendor = Vendor::findOrFail($id);
+        $vendor = Vendor::where('marquee_id', auth()->user()->marquee_id)->findOrFail($id);
         $this->vendorId = $vendor->id;
         $this->name = $vendor->name;
         $this->vendor_type = $vendor->vendor_type;
@@ -95,6 +95,10 @@ class VendorManager extends Component
         ]);
 
         $marqueeId = auth()->user()->marquee_id;
+
+        if ($this->vendorId) {
+            Vendor::where('marquee_id', $marqueeId)->findOrFail($this->vendorId);
+        }
 
         Vendor::updateOrCreate(
             ['id' => $this->vendorId, 'marquee_id' => $marqueeId],
@@ -149,9 +153,7 @@ class VendorManager extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
-
-        $query = Vendor::where('marquee_id', $marqueeId);
+        $query = Vendor::query();
 
         if (!empty($this->search)) {
             $term = '%' . $this->search . '%';
@@ -173,7 +175,7 @@ class VendorManager extends Component
         }
 
         $vendors = $query->orderBy('name')->paginate(12);
-        $branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
+        $branches = Branch::where('status', 'active')->get();
 
         $vendorTypes = [
             'Florist', 'Sound System', 'Photography', 'Videography', 'Decoration',

@@ -55,6 +55,12 @@ class Vendor extends Model
                 $vendor->created_by = auth()->id();
             }
         });
+
+        static::saving(function (Vendor $vendor) {
+            if ($vendor->status) {
+                $vendor->status = strtolower($vendor->status);
+            }
+        });
     }
 
     /**
@@ -63,6 +69,14 @@ class Vendor extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * Get the bookings/commissions mapped to this vendor.
+     */
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(VendorBooking::class);
     }
 
     /**

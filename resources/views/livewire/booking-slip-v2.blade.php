@@ -117,63 +117,20 @@
                         <td class="text-600 px-0 py-1">Guests Count:</td>
                         <td class="text-800 fw-bold px-0 py-1">{{ $booking->effective_guest_count }} Guests (Tentative: {{ $booking->tentative_guests ?? $booking->guest_count }}, Confirmed: {{ $booking->confirmed_guests ?? 'Pending' }})</td>
                     </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Privacy / Partition:</td>
+                        <td class="text-800 fw-bold px-0 py-1">
+                            @if($booking->privacy_required)
+                                Yes (Ladies: {{ $booking->privacy_ladies_percentage }}%, Gents: {{ $booking->privacy_gents_percentage }}%)
+                            @else
+                                No
+                            @endif
+                        </td>
+                    </tr>
                 </table>
             </div>
         </div>
 
-        <!-- Financial Itemized Summary Table -->
-        <div class="table-responsive my-4">
-            <table class="table table-sm table-striped border fs-12 align-middle mb-0">
-                <thead class="bg-light text-900">
-                    <tr>
-                        <th class="ps-3" style="width: 40px;">#</th>
-                        <th>Item Description</th>
-                        <th class="text-center" style="width: 140px;">Rate</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if(!$booking->no_food)
-                        <tr>
-                            <td class="ps-3">1</td>
-                            <td>
-                                <div class="fw-bold">{{ $booking->package->package_name ?? 'Catering Package' }}</div>
-                                <div class="text-muted fs-11">Per Plate Menu Package Booking</div>
-                            </td>
-                            <td class="text-center font-monospace">Rs. {{ number_format($booking->per_plate_price, 2) }}</td>
-                        </tr>
-                    @else
-                        <tr>
-                            <td class="ps-3">1</td>
-                            <td>
-                                <div class="fw-bold">Catering Plan</div>
-                                <div class="text-muted fs-11">Sitting Plan Only (No Food Catering)</div>
-                            </td>
-                            <td class="text-center font-monospace">—</td>
-                        </tr>
-                    @endif
-                    @if($booking->hall_charges > 0)
-                        <tr>
-                            <td class="ps-3">2</td>
-                            <td>
-                                <div class="fw-bold">Hall rent & Setup</div>
-                                <div class="text-muted fs-11">Exclusive venue occupancy charge</div>
-                            </td>
-                            <td class="text-center font-monospace">Rs. {{ number_format($booking->hall_charges, 2) }}</td>
-                        </tr>
-                    @endif
-                    @if($booking->extra_charges > 0)
-                        <tr>
-                            <td class="ps-3">3</td>
-                            <td>
-                                <div class="fw-bold">Extra Amenities / Decor Addons</div>
-                                <div class="text-muted fs-11">Custom decor setup or audiovisual additions</div>
-                            </td>
-                            <td class="text-center font-monospace">Rs. {{ number_format($booking->extra_charges, 2) }}</td>
-                        </tr>
-                    @endif
-                </tbody>
-            </table>
-        </div>
 
         <!-- Event Menu Details & Instructions (Split Layout) -->
         <div class="row g-4 my-2">
@@ -206,8 +163,8 @@
 
                 @if(!$booking->no_food)
                     <div class="mt-3 pt-2 border-top">
-                        <span class="text-500 fw-bold text-uppercase fs-12 d-block">Per Plate Rate</span>
-                        <span class="font-monospace fw-bold fs-11 text-primary">Rs. {{ number_format($booking->per_plate_price, 2) }}</span>
+                        <span class="text-500 fw-bold text-uppercase fs-12 d-block">Per Head Rate</span>
+                        <span class="font-monospace fw-bold fs-18 text-primary">Rs. {{ number_format($booking->per_plate_price, 2) }}</span>
                     </div>
                 @endif
             </div>

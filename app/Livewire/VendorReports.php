@@ -29,6 +29,9 @@ class VendorReports extends Component
     public function render()
     {
         $marqueeId = auth()->user()->marquee_id;
+        if (!empty($this->vendor_id)) {
+            Vendor::where('marquee_id', $marqueeId)->findOrFail($this->vendor_id);
+        }
         $vendors = Vendor::where('marquee_id', $marqueeId)->orderBy('name')->get();
 
         $data = [];

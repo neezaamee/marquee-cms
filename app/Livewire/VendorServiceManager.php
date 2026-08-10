@@ -22,6 +22,9 @@ class VendorServiceManager extends Component
 
     public function mount(?Vendor $vendor = null)
     {
+        if ($vendor && !auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
+            abort(403, 'Unauthorized access to this Service Provider.');
+        }
         $this->vendor = $vendor;
         if ($vendor) {
             $this->selectedVendorId = $vendor->id;
@@ -39,7 +42,7 @@ class VendorServiceManager extends Component
 
     public function editService($id)
     {
-        $service = VendorService::findOrFail($id);
+        $service = VendorService::where('marquee_id', auth()->user()->marquee_id)->findOrFail($id);
         $this->serviceId = $service->id;
         $this->selectedVendorId = $service->vendor_id;
         $this->service_name = $service->service_name;
@@ -62,6 +65,11 @@ class VendorServiceManager extends Component
         ]);
 
         $marqueeId = auth()->user()->marquee_id;
+        Vendor::where('marquee_id', $marqueeId)->findOrFail($this->selectedVendorId);
+
+        if ($this->serviceId) {
+            VendorService::where('marquee_id', $marqueeId)->findOrFail($this->serviceId);
+        }
 
         VendorService::updateOrCreate(
             ['id' => $this->serviceId, 'marquee_id' => $marqueeId],

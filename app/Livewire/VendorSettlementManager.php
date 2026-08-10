@@ -24,6 +24,9 @@ class VendorSettlementManager extends Component
 
     public function mount(?Vendor $vendor = null)
     {
+        if ($vendor && !auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
+            abort(403, 'Unauthorized access to this Service Provider.');
+        }
         $this->vendor = $vendor;
         if ($vendor) {
             $this->vendor_id = $vendor->id;
@@ -35,7 +38,8 @@ class VendorSettlementManager extends Component
     public function updatedVendorId($val)
     {
         if ($val) {
-            $v = Vendor::find($val);
+            $marqueeId = auth()->user()->marquee_id;
+            $v = Vendor::where('marquee_id', $marqueeId)->find($val);
             if ($v) {
                 $this->paid_amount = $v->current_balance;
             }
@@ -62,9 +66,10 @@ class VendorSettlementManager extends Component
             'payment_method' => 'required|string',
         ]);
 
-        $vendorObj = Vendor::findOrFail($this->vendor_id);
+        $marqueeId = auth()->user()->marquee_id;
+        $vendorObj = Vendor::where('marquee_id', $marqueeId)->findOrFail($this->vendor_id);
         if (floatval($this->paid_amount) > $vendorObj->current_balance) {
-            $this->addError('paid_amount', 'Payout amount cannot exceed current vendor outstanding balance (Rs. ' . number_format($vendorObj->current_balance) . ').');
+            $this->addError('paid_amount', 'Payout amount cannot exceed current service provider outstanding balance (Rs. ' . number_format($vendorObj->current_balance) . ').');
             return;
         }
 

@@ -64,6 +64,16 @@
                             {{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }}
                         </td>
                     </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Privacy / Partition:</td>
+                        <td class="text-800 fw-bold px-0 py-1">
+                            @if($booking->privacy_required)
+                                Yes (Ladies: {{ $booking->privacy_ladies_percentage }}%, Gents: {{ $booking->privacy_gents_percentage }}%)
+                            @else
+                                No
+                            @endif
+                        </td>
+                    </tr>
                 </table>
             </div>
 

@@ -53,6 +53,9 @@ class Booking extends Model
         'kitchen_print_version',
         'kitchen_menu_hash',
         'kitchen_special_instructions',
+        'privacy_required',
+        'privacy_ladies_percentage',
+        'privacy_gents_percentage',
     ];
 
     protected $casts = [
@@ -76,6 +79,9 @@ class Booking extends Model
         'no_food' => 'boolean',
         'kitchen_printed_at' => 'datetime',
         'kitchen_print_version' => 'integer',
+        'privacy_required' => 'boolean',
+        'privacy_ladies_percentage' => 'integer',
+        'privacy_gents_percentage' => 'integer',
     ];
 
     /**

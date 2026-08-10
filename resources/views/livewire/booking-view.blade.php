@@ -206,6 +206,33 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="border-top pt-3 mt-3">
+                        <h6 class="text-primary font-sans-serif fw-bold mb-2">Guest Privacy & Partition Arrangement</h6>
+                        @if($booking->privacy_required)
+                            <div class="row g-2">
+                                <div class="col-sm-4">
+                                    <span class="text-500 fw-bold text-uppercase fs-11">Privacy Required:</span>
+                                    <span class="badge bg-danger-subtle text-danger px-2 py-1 ms-2 fs-12"><i class="fas fa-lock me-1"></i>Yes</span>
+                                </div>
+                                <div class="col-sm-4">
+                                    <span class="text-500 fw-bold text-uppercase fs-11">Ladies Ratio:</span>
+                                    <strong class="text-800 font-monospace fs-12">{{ $booking->privacy_ladies_percentage }}%</strong>
+                                </div>
+                                <div class="col-sm-4">
+                                    <span class="text-500 fw-bold text-uppercase fs-11">Gents Ratio:</span>
+                                    <strong class="text-800 font-monospace fs-12">{{ $booking->privacy_gents_percentage }}%</strong>
+                                </div>
+                            </div>
+                        @else
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <span class="text-500 fw-bold text-uppercase fs-11">Privacy Required:</span>
+                                    <span class="badge bg-secondary-subtle text-secondary px-2 py-1 ms-2 fs-12"><i class="fas fa-lock-open me-1"></i>No</span>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
                 </div>
             </div>
 

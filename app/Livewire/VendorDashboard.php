@@ -26,9 +26,7 @@ class VendorDashboard extends Component
         $totalCommission = (float) (clone $salesQuery)->sum('commission_amount');
         $monthlyCommission = (float) (clone $salesQuery)->whereBetween('sale_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->sum('commission_amount');
 
-        $totalSettled = (float) VendorSettlement::where('marquee_id', $marqueeId)->where('status', 'fully_settled')->sum('paid_amount');
-        $totalNetPayable = (float) (clone $salesQuery)->sum('vendor_net_amount');
-        $outstandingPayable = max(0.00, $totalNetPayable - $totalSettled);
+        $outstandingPayable = (float) Vendor::where('marquee_id', $marqueeId)->get()->sum('current_balance');
 
         // 2. Recent Sales
         $recentSales = VendorSale::where('marquee_id', $marqueeId)

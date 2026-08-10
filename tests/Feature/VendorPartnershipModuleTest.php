@@ -299,4 +299,129 @@ class VendorPartnershipModuleTest extends TestCase
         $response = $this->get(route('vendors.show', $vendor1->id));
         $this->assertTrue(in_array($response->status(), [403, 404]));
     }
+
+    public function test_vendor_manager_prevents_editing_cross_tenant_vendor()
+    {
+        $plan2 = SubscriptionPlan::create([
+            'name' => 'Plan 2',
+            'slug' => 'plan-2-' . uniqid(),
+            'price' => 1000,
+            'billing_cycle' => 'monthly',
+            'status' => 'active',
+        ]);
+        $marquee2 = Marquee::create([
+            'name' => 'Other Tenant Marquee',
+            'subscription_plan_id' => $plan2->id,
+            'slug' => 'other-tenant-' . uniqid(),
+            'address' => '45 Model Town',
+            'city' => 'Lahore',
+            'province' => 'Punjab',
+            'phone' => '03009998877',
+            'email' => 'contact@othertenant.test',
+            'status' => 'active',
+        ]);
+        $owner2 = User::create([
+            'name' => 'Owner Other',
+            'email' => 'owner@other.com',
+            'password' => bcrypt('password'),
+            'role' => 'owner',
+            'marquee_id' => $marquee2->id,
+        ]);
+
+        $vendor1 = Vendor::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'Tenant 1 Vendor',
+            'vendor_type' => 'Florist',
+            'phone' => '03000000001',
+        ]);
+
+        $this->actingAs($owner2);
+
+        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+        \Livewire\Livewire::test(\App\Livewire\VendorManager::class)
+            ->call('editVendor', $vendor1->id);
+    }
+
+    public function test_vendor_service_manager_prevents_cross_tenant_mount_and_edit()
+    {
+        $plan2 = SubscriptionPlan::create([
+            'name' => 'Plan 2',
+            'slug' => 'plan-2-' . uniqid(),
+            'price' => 1000,
+            'billing_cycle' => 'monthly',
+            'status' => 'active',
+        ]);
+        $marquee2 = Marquee::create([
+            'name' => 'Other Tenant Marquee',
+            'subscription_plan_id' => $plan2->id,
+            'slug' => 'other-tenant-' . uniqid(),
+            'address' => '45 Model Town',
+            'city' => 'Lahore',
+            'province' => 'Punjab',
+            'phone' => '03009998877',
+            'email' => 'contact@othertenant.test',
+            'status' => 'active',
+        ]);
+        $owner2 = User::create([
+            'name' => 'Owner Other',
+            'email' => 'owner@other.com',
+            'password' => bcrypt('password'),
+            'role' => 'owner',
+            'marquee_id' => $marquee2->id,
+        ]);
+
+        $vendor1 = Vendor::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'Tenant 1 Vendor',
+            'vendor_type' => 'Florist',
+            'phone' => '03000000001',
+        ]);
+
+        $service1 = VendorService::create([
+            'marquee_id' => $this->marquee->id,
+            'vendor_id' => $vendor1->id,
+            'service_name' => 'Florist service',
+            'unit' => 'Event',
+            'default_sale_price' => 1000.00,
+        ]);
+
+        $this->actingAs($owner2);
+
+        // Mount check
+        \Livewire\Livewire::test(\App\Livewire\VendorServiceManager::class, ['vendor' => $vendor1])
+            ->assertForbidden();
+
+        // Edit check
+        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+        \Livewire\Livewire::test(\App\Livewire\VendorServiceManager::class)
+            ->call('editService', $service1->id);
+    }
+
+    public function test_vendor_agreement_manager_allows_nullable_commission_rates()
+    {
+        $this->actingAs($this->owner);
+
+        $vendor = Vendor::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'Test Vendor',
+            'vendor_type' => 'Florist',
+            'phone' => '03000000001',
+        ]);
+
+        \Livewire\Livewire::test(\App\Livewire\VendorAgreementManager::class, ['vendor' => $vendor])
+            ->set('selectedVendorId', $vendor->id)
+            ->set('commission_type', 'fixed_per_event')
+            ->set('fixed_commission_amount', 5000.00)
+            ->set('commission_percentage', '') // should be allowed as nullable
+            ->set('monthly_fixed_amount', '')   // should be allowed as nullable
+            ->set('status', 'active')
+            ->call('saveAgreement')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('vendor_commission_agreements', [
+            'vendor_id' => $vendor->id,
+            'commission_type' => 'fixed_per_event',
+            'fixed_commission_amount' => 5000.00,
+        ]);
+    }
 }

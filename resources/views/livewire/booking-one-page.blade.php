@@ -504,6 +504,33 @@
                             </div>
                             @error('taxRate') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                         </div>
+
+                        <!-- Privacy / Partition -->
+                        <div class="col-12 mt-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="onepage_privacyRequired" wire:model.live="privacyRequired" />
+                                <label class="form-check-label fw-bold cursor-pointer" for="onepage_privacyRequired">Privacy / Partition Required?</label>
+                            </div>
+                        </div>
+
+                        @if($privacyRequired)
+                            <div class="col-md-6">
+                                <label class="form-label font-sans-serif fw-bold text-700" for="privacyLadiesPercentage">Ladies Percentage (%) *</label>
+                                <div class="input-group">
+                                    <input wire:model.live="privacyLadiesPercentage" class="form-control @error('privacyLadiesPercentage') is-invalid @enderror" type="number" id="privacyLadiesPercentage" min="0" max="100" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                @error('privacyLadiesPercentage') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label font-sans-serif fw-bold text-700" for="privacyGentsPercentage">Gents Percentage (%) *</label>
+                                <div class="input-group">
+                                    <input wire:model.live="privacyGentsPercentage" class="form-control @error('privacyGentsPercentage') is-invalid @enderror" type="number" id="privacyGentsPercentage" min="0" max="100" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                @error('privacyGentsPercentage') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>

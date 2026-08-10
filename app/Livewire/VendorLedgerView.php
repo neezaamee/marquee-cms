@@ -15,6 +15,9 @@ class VendorLedgerView extends Component
 
     public function mount(?Vendor $vendor = null)
     {
+        if ($vendor && !auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
+            abort(403, 'Unauthorized access to this Service Provider.');
+        }
         $this->vendor = $vendor;
         if ($vendor) {
             $this->filterVendorId = $vendor->id;

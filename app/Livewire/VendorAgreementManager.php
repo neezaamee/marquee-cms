@@ -30,6 +30,9 @@ class VendorAgreementManager extends Component
 
     public function mount(?Vendor $vendor = null)
     {
+        if ($vendor && !auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
+            abort(403, 'Unauthorized access to this Service Provider.');
+        }
         $this->vendor = $vendor;
         if ($vendor) {
             $this->selectedVendorId = $vendor->id;
@@ -49,7 +52,7 @@ class VendorAgreementManager extends Component
 
     public function editAgreement($id)
     {
-        $agr = VendorCommissionAgreement::findOrFail($id);
+        $agr = VendorCommissionAgreement::where('marquee_id', auth()->user()->marquee_id)->findOrFail($id);
         $this->agreementId = $agr->id;
         $this->selectedVendorId = $agr->vendor_id;
         $this->vendor_service_id = $agr->vendor_service_id;
@@ -73,15 +76,20 @@ class VendorAgreementManager extends Component
         $this->validate([
             'selectedVendorId' => 'required|exists:vendors,id',
             'commission_type' => 'required|string|in:percentage,fixed_per_event,fixed_monthly,hybrid',
-            'commission_percentage' => 'numeric|min:0|max:100',
-            'fixed_commission_amount' => 'numeric|min:0',
-            'monthly_fixed_amount' => 'numeric|min:0',
+            'commission_percentage' => 'nullable|numeric|min:0|max:100',
+            'fixed_commission_amount' => 'nullable|numeric|min:0',
+            'monthly_fixed_amount' => 'nullable|numeric|min:0',
             'effective_from' => 'required|date',
             'effective_to' => 'nullable|date|after_or_equal:effective_from',
             'status' => 'required|string|in:active,expired,draft,terminated',
         ]);
 
         $marqueeId = auth()->user()->marquee_id;
+        Vendor::where('marquee_id', $marqueeId)->findOrFail($this->selectedVendorId);
+
+        if ($this->agreementId) {
+            VendorCommissionAgreement::where('marquee_id', $marqueeId)->findOrFail($this->agreementId);
+        }
 
         VendorCommissionAgreement::updateOrCreate(
             ['id' => $this->agreementId, 'marquee_id' => $marqueeId],

@@ -648,11 +648,11 @@
         @endif
 
         <!-- ========================================== -->
-        <!-- VENDOR & PARTNERSHIP MANAGEMENT SECTION -->
+        <!-- SERVICE PROVIDER MANAGEMENT SECTION -->
         <!-- ========================================== -->
         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings') || auth()->user()->hasPermission('manage_settings'))
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
-          <div class="col-auto navbar-vertical-label">Vendor & Partnerships</div>
+          <div class="col-auto navbar-vertical-label">Service Providers</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
         </div>
 
@@ -663,7 +663,7 @@
           <a class="nav-link dropdown-indicator {{ $vendorActive ? '' : 'collapsed' }}" href="#vendorManagementCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $vendorActive ? 'true' : 'false' }}" aria-controls="vendorManagementCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-handshake"></span></span>
-              <span class="nav-link-text ps-1">Vendor Partners</span>
+              <span class="nav-link-text ps-1">Service Providers</span>
             </div>
           </a>
           <ul class="nav collapse {{ $vendorActive ? 'show' : '' }}" id="vendorManagementCollapse" data-bs-parent="#navbarVerticalNav">
@@ -677,49 +677,49 @@
             <li class="nav-item">
               <a class="nav-link {{ Route::is('vendors.index') || Route::is('vendors.show') ? 'active' : '' }}" href="{{ route('vendors.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">All Vendors</span>
+                  <span class="nav-link-text ps-1">All Providers</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('vendor-services.*') ? 'active' : '' }}" href="{{ route('vendor-services.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Vendor Services</span>
+                  <span class="nav-link-text ps-1">Services Catalog</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('vendor-agreements.*') ? 'active' : '' }}" href="{{ route('vendor-agreements.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Commission Agreements</span>
+                  <span class="nav-link-text ps-1">Agreements</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('vendor-sales.*') ? 'active' : '' }}" href="{{ route('vendor-sales.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Vendor Sales</span>
+                  <span class="nav-link-text ps-1">Provider Sales</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('vendor-ledger.*') ? 'active' : '' }}" href="{{ route('vendor-ledger.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Vendor Ledger</span>
+                  <span class="nav-link-text ps-1">Ledger</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('vendor-settlements.*') ? 'active' : '' }}" href="{{ route('vendor-settlements.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Settlements & Payouts</span>
+                  <span class="nav-link-text ps-1">Settlements</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('vendor-reports.*') ? 'active' : '' }}" href="{{ route('vendor-reports.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Vendor Reports</span>
+                  <span class="nav-link-text ps-1">Reports</span>
                 </div>
               </a>
             </li>

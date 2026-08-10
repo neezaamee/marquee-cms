@@ -2,7 +2,7 @@
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h6 class="fw-bold mb-0"><i class="fas fa-book text-primary me-2"></i>Vendor Financial Ledger</h6>
+            <h6 class="fw-bold mb-0"><i class="fas fa-book text-primary me-2"></i>Service Provider Financial Ledger</h6>
             <div class="text-secondary fs-11">Running financial transaction history, credits, commission debits, and payouts.</div>
         </div>
     </div>
@@ -14,7 +14,7 @@
                 @if(!$vendor)
                     <div class="col-md-5">
                         <select wire:model.live="filterVendorId" class="form-select form-select-sm">
-                            <option value="">-- All Vendors --</option>
+                            <option value="">-- All Service Providers --</option>
                             @foreach($vendors as $v)
                                 <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->vendor_code }})</option>
                             @endforeach
@@ -42,7 +42,7 @@
                     <tr>
                         <th>Date</th>
                         <th>Reference #</th>
-                        @if(!$vendor) <th>Vendor</th> @endif
+                        @if(!$vendor) <th>Service Provider</th> @endif
                         <th>Booking #</th>
                         <th>Transaction Description</th>
                         <th>Sale Amount</th>

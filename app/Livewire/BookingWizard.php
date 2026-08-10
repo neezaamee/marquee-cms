@@ -93,6 +93,19 @@ class BookingWizard extends Component
     // Rent / Sitting Plan only state
     public $noFood = false;
 
+    // Privacy / Partition properties
+    public $privacyRequired = false;
+    public $privacyLadiesPercentage = '';
+    public $privacyGentsPercentage = '';
+
+    public function updatedPrivacyRequired($value)
+    {
+        if (!$value) {
+            $this->privacyLadiesPercentage = '';
+            $this->privacyGentsPercentage = '';
+        }
+    }
+
     // Pricing calculation outputs
     public $packageAmount = 0.00;
     public $subtotal = 0.00;
@@ -823,7 +836,22 @@ class BookingWizard extends Component
                 $rules['selectedPackageId'] = 'required|exists:packages,id';
             }
 
+            if ($this->privacyRequired) {
+                $rules['privacyLadiesPercentage'] = 'required|integer|min:0|max:100';
+                $rules['privacyGentsPercentage'] = 'required|integer|min:0|max:100';
+            }
+
             $this->validate($rules);
+
+            if ($this->privacyRequired) {
+                $ladies = intval($this->privacyLadiesPercentage);
+                $gents = intval($this->privacyGentsPercentage);
+                if (($ladies + $gents) !== 100) {
+                    $this->addError('privacyLadiesPercentage', 'Ladies and Gents percentages must total exactly 100%.');
+                    $this->addError('privacyGentsPercentage', 'Ladies and Gents percentages must total exactly 100%.');
+                    return;
+                }
+            }
 
             if (!$this->noFood) {
                 // Package guest bounds warning check
@@ -875,7 +903,22 @@ class BookingWizard extends Component
             $rules['selectedPackageId'] = 'required|exists:packages,id';
         }
 
+        if ($this->privacyRequired) {
+            $rules['privacyLadiesPercentage'] = 'required|integer|min:0|max:100';
+            $rules['privacyGentsPercentage'] = 'required|integer|min:0|max:100';
+        }
+
         $this->validate($rules);
+
+        if ($this->privacyRequired) {
+            $ladies = intval($this->privacyLadiesPercentage);
+            $gents = intval($this->privacyGentsPercentage);
+            if (($ladies + $gents) !== 100) {
+                $this->addError('privacyLadiesPercentage', 'Ladies and Gents percentages must total exactly 100%.');
+                $this->addError('privacyGentsPercentage', 'Ladies and Gents percentages must total exactly 100%.');
+                return;
+            }
+        }
 
         $marqueeId = auth()->user()->marquee_id;
         $userId = auth()->id();
@@ -938,6 +981,9 @@ class BookingWizard extends Component
                     'created_by' => $userId,
                     'deposit_status' => 'Held',
                     'no_food' => $this->noFood,
+                    'privacy_required' => $this->privacyRequired,
+                    'privacy_ladies_percentage' => $this->privacyRequired ? intval($this->privacyLadiesPercentage) : null,
+                    'privacy_gents_percentage' => $this->privacyRequired ? intval($this->privacyGentsPercentage) : null,
                 ]);
 
                 // 3.5 Sync allocated halls

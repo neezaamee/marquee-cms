@@ -2,8 +2,8 @@
     <!-- Header Toolbar -->
     <div class="d-flex justify-content-between align-items-center mb-3 no-print">
         <div>
-            <h4 class="fw-bold mb-1"><i class="fas fa-chart-bar text-primary me-2"></i>Vendor & Partnership Financial Reports</h4>
-            <p class="text-secondary fs-12 mb-0">Filter, inspect, and print vendor sales, commission income, ledgers, and payouts.</p>
+            <h4 class="fw-bold mb-1"><i class="fas fa-chart-bar text-primary me-2"></i>Service Provider Financial Reports</h4>
+            <p class="text-secondary fs-12 mb-0">Filter, inspect, and print provider sales, commission income, ledgers, and payouts.</p>
         </div>
         <button onclick="window.print()" class="btn btn-primary btn-sm"><i class="fas fa-print me-1"></i> Print Report</button>
     </div>
@@ -15,17 +15,17 @@
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Report Type</label>
                     <select wire:model.live="reportType" class="form-select form-select-sm">
-                        <option value="sales">1. Vendor Sales Report</option>
+                        <option value="sales">1. Provider Sales Report</option>
                         <option value="commission">2. Commission Income Report</option>
-                        <option value="ledger">3. Vendor Ledger Statement</option>
-                        <option value="settlement">4. Vendor Settlement Report</option>
+                        <option value="ledger">3. Provider Ledger Statement</option>
+                        <option value="settlement">4. Provider Settlement Report</option>
                         <option value="monthly">5. Monthly Commission Summary</option>
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-bold">Vendor Filter</label>
+                    <label class="form-label fw-bold">Service Provider Filter</label>
                     <select wire:model.live="vendor_id" class="form-select form-select-sm">
-                        <option value="">-- All Vendors --</option>
+                        <option value="">-- All Service Providers --</option>
                         @foreach($vendors as $v)
                             <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->vendor_type }})</option>
                         @endforeach
@@ -79,10 +79,10 @@
         <div class="card-header bg-light py-3 border-bottom d-flex justify-content-between align-items-center">
             <div>
                 <h5 class="fw-bold mb-0 text-uppercase">
-                    @if($reportType === 'sales') VENDOR SALES REPORT
-                    @elseif($reportType === 'commission') VENDOR COMMISSION INCOME REPORT
-                    @elseif($reportType === 'ledger') VENDOR LEDGER STATEMENT
-                    @elseif($reportType === 'settlement') VENDOR SETTLEMENT REPORT
+                    @if($reportType === 'sales') SERVICE PROVIDER SALES REPORT
+                    @elseif($reportType === 'commission') SERVICE PROVIDER COMMISSION INCOME REPORT
+                    @elseif($reportType === 'ledger') SERVICE PROVIDER LEDGER STATEMENT
+                    @elseif($reportType === 'settlement') SERVICE PROVIDER SETTLEMENT REPORT
                     @elseif($reportType === 'monthly') MONTHLY COMMISSION SUMMARY REPORT
                     @endif
                 </h5>
@@ -101,12 +101,12 @@
                             <tr>
                                 <th>Date</th>
                                 <th>Sale #</th>
-                                <th>Vendor</th>
+                                <th>Service Provider</th>
                                 <th>Booking #</th>
                                 <th>Sale Amount</th>
                                 <th>Commission %</th>
                                 <th>Commission Income</th>
-                                <th>Vendor Net Payable</th>
+                                <th>Provider Net Payable</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -144,7 +144,7 @@
                             <tr>
                                 <th>Date</th>
                                 <th>Ref #</th>
-                                <th>Vendor</th>
+                                <th>Service Provider</th>
                                 <th>Description</th>
                                 <th>Sale Credit</th>
                                 <th>Commission Debit</th>
@@ -176,7 +176,7 @@
                             <tr>
                                 <th>Settlement Date</th>
                                 <th>Settlement #</th>
-                                <th>Vendor</th>
+                                <th>Service Provider</th>
                                 <th>Net Payable</th>
                                 <th>Paid Amount</th>
                                 <th>Remaining Balance</th>
@@ -206,11 +206,11 @@
                     <table class="table table-hover align-middle mb-0 fs-12">
                         <thead class="bg-200">
                             <tr>
-                                <th>Vendor</th>
+                                <th>Service Provider</th>
                                 <th>Event Sales Count</th>
                                 <th>Total Sales Amount</th>
                                 <th>Commission Income</th>
-                                <th>Net Vendor Payable</th>
+                                <th>Net Provider Payable</th>
                             </tr>
                         </thead>
                         <tbody>

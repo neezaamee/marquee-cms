@@ -68,6 +68,19 @@ class BookingEdit extends Component
     // Rent / Sitting Plan only state
     public $noFood = false;
 
+    // Privacy / Partition properties
+    public $privacyRequired = false;
+    public $privacyLadiesPercentage = '';
+    public $privacyGentsPercentage = '';
+
+    public function updatedPrivacyRequired($value)
+    {
+        if (!$value) {
+            $this->privacyLadiesPercentage = '';
+            $this->privacyGentsPercentage = '';
+        }
+    }
+
     // Guest confirmation fields
     public $tentativeGuests = 100;
     public $confirmedGuests = null;
@@ -133,6 +146,10 @@ class BookingEdit extends Component
         $this->extraCharges = $booking->extra_charges ?? 0.00;
         $this->discountAmount = $booking->discount_amount ?? 0.00;
         $this->securityDeposit = $booking->security_deposit ?? 0.00;
+
+        $this->privacyRequired = (bool) $booking->privacy_required;
+        $this->privacyLadiesPercentage = $booking->privacy_required ? $booking->privacy_ladies_percentage : '';
+        $this->privacyGentsPercentage = $booking->privacy_required ? $booking->privacy_gents_percentage : '';
         $this->noFood = (bool)$booking->no_food;
         
         // Calculate original tax rate
@@ -678,7 +695,22 @@ class BookingEdit extends Component
             $rules['selectedPackageId'] = 'required|exists:packages,id';
         }
 
+        if ($this->privacyRequired) {
+            $rules['privacyLadiesPercentage'] = 'required|integer|min:0|max:100';
+            $rules['privacyGentsPercentage'] = 'required|integer|min:0|max:100';
+        }
+
         $this->validate($rules);
+
+        if ($this->privacyRequired) {
+            $ladies = intval($this->privacyLadiesPercentage);
+            $gents = intval($this->privacyGentsPercentage);
+            if (($ladies + $gents) !== 100) {
+                $this->addError('privacyLadiesPercentage', 'Ladies and Gents percentages must total exactly 100%.');
+                $this->addError('privacyGentsPercentage', 'Ladies and Gents percentages must total exactly 100%.');
+                return;
+            }
+        }
 
         $marqueeId = auth()->user()->marquee_id;
         $userId = auth()->id();
@@ -743,6 +775,9 @@ class BookingEdit extends Component
                     'booking_status' => $this->bookingStatus,
                     'payment_status' => $this->paymentStatus,
                     'no_food' => $this->noFood,
+                    'privacy_required' => $this->privacyRequired,
+                    'privacy_ladies_percentage' => $this->privacyRequired ? intval($this->privacyLadiesPercentage) : null,
+                    'privacy_gents_percentage' => $this->privacyRequired ? intval($this->privacyGentsPercentage) : null,
                 ]);
 
                 // Sync allocated halls pivot table
