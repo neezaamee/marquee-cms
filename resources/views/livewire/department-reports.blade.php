@@ -105,8 +105,8 @@
                                             <span class="badge bg-danger-subtle text-danger">Wastage</span>
                                         @endif
                                     </td>
-                                    <td class="text-end font-monospace fw-bold">{{ number_format($row->quantity, 2) }}</td>
-                                    <td class="font-monospace text-muted">{{ $row->reference_number }}</td>
+                                    <td class="text-end font-monospace fw-bold">{{ number_format($row->qty_in > 0 ? $row->qty_in : $row->qty_out, 2) }}</td>
+                                    <td class="font-monospace text-muted">{{ $row->reference_type ? (str_replace(['App\\Models\\', 'DepartmentStock'], '', $row->reference_type) . ' #' . $row->reference_id) : '—' }}</td>
                                 </tr>
                             @empty
                                 <tr>

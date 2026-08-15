@@ -95,7 +95,12 @@
 
                             <div class="d-flex justify-content-end gap-2">
                                 <button type="button" wire:click="$set('isFormOpen', false)" class="btn btn-secondary btn-sm">Cancel</button>
-                                <button type="submit" class="btn btn-primary btn-sm">Submit Return</button>
+                                <button type="submit"
+                                    wire:loading.attr="disabled"
+                                    class="btn btn-primary btn-sm">
+                                    <span wire:loading.remove>Submit Return</span>
+                                    <span wire:loading><span class="fas fa-spinner fa-spin me-1"></span>Submitting...</span>
+                                </button>
                             </div>
                         </form>
                     </div>

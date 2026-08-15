@@ -19,11 +19,15 @@ class InventoryItem extends Model
         'name',
         'category_id',
         'unit_id',
+        'purchase_unit_id',
         'brand_id',
         'description',
         'minimum_stock_level',
         'reorder_level',
         'default_purchase_rate',
+        'average_cost',
+        'last_purchase_cost',
+        'conversion_factor',
         'status',
         'created_by',
         'updated_by',
@@ -33,6 +37,9 @@ class InventoryItem extends Model
         'minimum_stock_level' => 'float',
         'reorder_level' => 'float',
         'default_purchase_rate' => 'float',
+        'average_cost' => 'float',
+        'last_purchase_cost' => 'float',
+        'conversion_factor' => 'float',
     ];
 
     /**

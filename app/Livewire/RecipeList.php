@@ -30,7 +30,8 @@ class RecipeList extends Component
 
     public function mount()
     {
-        $firstItem = MenuItem::first();
+        $marqueeId = auth()->user()->marquee_id;
+        $firstItem = MenuItem::where('marquee_id', $marqueeId)->first();
         if ($firstItem) {
             $this->selectedMenuItemId = $firstItem->id;
             $this->calcMenuItemId = $firstItem->id;
@@ -102,7 +103,7 @@ class RecipeList extends Component
         $recipe = Recipe::updateOrCreate(
             ['menu_item_id' => $this->selectedMenuItemId],
             [
-                'marquee_id' => auth()->user()->marquee_id ?? 1,
+                'marquee_id' => auth()->user()->marquee_id,
                 'description' => $this->recipeDescription,
             ]
         );
@@ -156,8 +157,9 @@ class RecipeList extends Component
 
     public function render()
     {
-        $menuItems = MenuItem::where('status', 'Active')->get();
-        $inventoryItems = InventoryItem::where('status', 'Active')->get();
+        $marqueeId = auth()->user()->marquee_id;
+        $menuItems = MenuItem::where('marquee_id', $marqueeId)->where('status', 'Active')->get();
+        $inventoryItems = InventoryItem::where('marquee_id', $marqueeId)->where('status', 'Active')->get();
 
         return view('livewire.recipe-list', [
             'menuItems' => $menuItems,

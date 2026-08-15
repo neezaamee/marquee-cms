@@ -34,58 +34,18 @@ class DepartmentStockService
      */
     public function getCentralWarehouseStock(int $marqueeId, ?int $branchId, int $itemId): float
     {
-        // 1. Total Received via GRN
-        $grnQuery = DB::table('goods_receiving_note_details')
-            ->join('goods_receiving_notes', 'goods_receiving_notes.id', '=', 'goods_receiving_note_details.goods_receiving_note_id')
-            ->where('goods_receiving_note_details.item_id', $itemId)
-            ->where('goods_receiving_notes.marquee_id', $marqueeId)
-            ->whereNull('goods_receiving_notes.deleted_at');
+        $query = \App\Models\InventoryStockLedger::where('marquee_id', $marqueeId)
+            ->where('item_id', $itemId);
 
         if ($branchId) {
-            $grnQuery->where('goods_receiving_notes.branch_id', $branchId);
+            $query->where('branch_id', $branchId);
         }
-        $totalReceived = $grnQuery->sum('goods_receiving_note_details.received_qty');
 
-        // 2. Total Returned to Suppliers
-        $returnQuery = DB::table('purchase_return_details')
-            ->join('purchase_returns', 'purchase_returns.id', '=', 'purchase_return_details.purchase_return_id')
-            ->where('purchase_return_details.item_id', $itemId)
-            ->where('purchase_returns.marquee_id', $marqueeId)
-            ->where('purchase_returns.status', 'Posted')
-            ->whereNull('purchase_returns.deleted_at');
+        $lastLedger = $query->orderBy('transaction_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
 
-        if ($branchId) {
-            $returnQuery->where('purchase_returns.branch_id', $branchId);
-        }
-        $totalReturned = $returnQuery->sum('purchase_return_details.quantity');
-
-        // 3. Total Issued to Departments
-        $issuedQuery = DB::table('department_stock_issue_items')
-            ->join('department_stock_issues', 'department_stock_issues.id', '=', 'department_stock_issue_items.department_stock_issue_id')
-            ->where('department_stock_issue_items.item_id', $itemId)
-            ->where('department_stock_issues.marquee_id', $marqueeId)
-            ->whereNull('department_stock_issues.deleted_at');
-
-        if ($branchId) {
-            $issuedQuery->where('department_stock_issues.branch_id', $branchId);
-        }
-        $totalIssued = $issuedQuery->sum('department_stock_issue_items.quantity');
-
-        // 4. Total Returned from Departments (Good stock only)
-        $deptReturnQuery = DB::table('department_stock_return_items')
-            ->join('department_stock_returns', 'department_stock_returns.id', '=', 'department_stock_return_items.department_stock_return_id')
-            ->where('department_stock_return_items.item_id', $itemId)
-            ->where('department_stock_returns.marquee_id', $marqueeId)
-            ->where('department_stock_returns.status', 'Received')
-            ->where('department_stock_return_items.status', 'Good')
-            ->whereNull('department_stock_returns.deleted_at');
-
-        if ($branchId) {
-            $deptReturnQuery->where('department_stock_returns.branch_id', $branchId);
-        }
-        $totalDeptReturned = $deptReturnQuery->sum('department_stock_return_items.quantity');
-
-        return (float) ($totalReceived - $totalReturned - $totalIssued + $totalDeptReturned);
+        return $lastLedger ? (float) $lastLedger->running_balance : 0.0;
     }
 
     /**
@@ -156,6 +116,36 @@ class DepartmentStockService
                     'total_cost' => $qty * $unitPrice,
                     'created_by' => $userId,
                 ]);
+
+                // Log Central Store OUT movement (idempotency guarded)
+                $centralAlreadyLogged = \App\Models\InventoryStockLedger::where('marquee_id', $marqueeId)
+                    ->where('branch_id', $branchId)
+                    ->where('item_id', $itemId)
+                    ->where('transaction_type', 'Issue')
+                    ->where('reference_type', 'App\\Models\\DepartmentStockIssue')
+                    ->where('reference_id', $issue->id)
+                    ->exists();
+
+                if (!$centralAlreadyLogged) {
+                    $prevCentralBalance = $this->getCentralWarehouseStock($marqueeId, $branchId, $itemId);
+                    $newCentralBalance = $prevCentralBalance - $qty;
+
+                    \App\Models\InventoryStockLedger::create([
+                        'marquee_id'       => $marqueeId,
+                        'branch_id'        => $branchId,
+                        'item_id'          => $itemId,
+                        'transaction_date' => now()->format('Y-m-d'),
+                        'transaction_type' => 'Issue',
+                        'reference_type'   => 'App\\Models\\DepartmentStockIssue',
+                        'reference_id'     => $issue->id,
+                        'qty_in'           => 0.00,
+                        'qty_out'          => $qty,
+                        'running_balance'  => $newCentralBalance,
+                        'unit_price'       => $unitPrice,
+                        'total_cost'       => $qty * $unitPrice,
+                        'created_by'       => $userId,
+                    ]);
+                }
 
                 // Update Request Item status
                 $requestItem = DepartmentStockRequestItem::where('department_stock_request_id', $request->id)
@@ -252,6 +242,38 @@ class DepartmentStockService
                     'total_cost' => $qty * $unitPrice,
                     'created_by' => $userId,
                 ]);
+
+                if ($status === 'Good') {
+                    // Log Central Store IN movement (idempotency guarded)
+                    $centralAlreadyLogged = \App\Models\InventoryStockLedger::where('marquee_id', $marqueeId)
+                        ->where('branch_id', $branchId)
+                        ->where('item_id', $itemId)
+                        ->where('transaction_type', 'Return')
+                        ->where('reference_type', 'App\\Models\\DepartmentStockReturn')
+                        ->where('reference_id', $ret->id)
+                        ->exists();
+
+                    if (!$centralAlreadyLogged) {
+                        $prevCentralBalance = $this->getCentralWarehouseStock($marqueeId, $branchId, $itemId);
+                        $newCentralBalance = $prevCentralBalance + $qty;
+
+                        \App\Models\InventoryStockLedger::create([
+                            'marquee_id'       => $marqueeId,
+                            'branch_id'        => $branchId,
+                            'item_id'          => $itemId,
+                            'transaction_date' => now()->format('Y-m-d'),
+                            'transaction_type' => 'Return',
+                            'reference_type'   => 'App\\Models\\DepartmentStockReturn',
+                            'reference_id'     => $ret->id,
+                            'qty_in'           => $qty,
+                            'qty_out'          => 0.00,
+                            'running_balance'  => $newCentralBalance,
+                            'unit_price'       => $unitPrice,
+                            'total_cost'       => $qty * $unitPrice,
+                            'created_by'       => $userId,
+                        ]);
+                    }
+                }
             }
 
             return $ret;

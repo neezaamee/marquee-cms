@@ -473,7 +473,7 @@
 
                                         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('cancel_bookings'))
                                             @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
-                                                <button class="btn btn-falcon-default btn-xs text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $booking->id }})" data-bs-toggle="tooltip" title="Cancel Booking">
+                                                <button class="btn btn-falcon-default btn-xs text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $booking->id }})" data-bs-toggle="tooltip" title="Delete Booking">
                                                     <span class="fas fa-ban"></span>
                                                 </button>
                                             @endif

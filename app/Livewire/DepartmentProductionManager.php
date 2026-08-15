@@ -13,6 +13,7 @@ use App\Services\DepartmentStockService;
 use App\Services\RecipeService;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Illuminate\Support\Facades\DB;
 
 class DepartmentProductionManager extends Component
 {
@@ -154,56 +155,70 @@ class DepartmentProductionManager extends Component
         $stockService = app(DepartmentStockService::class);
         $department = Department::findOrFail($this->department_id);
 
-        // Validate department stock for raw materials
+        // Validate department stock for raw materials + wastage
+        // TASK 4 FIX: wastage_qty is deducted from the first item's stock,
+        // so we must include it in the stock check for item[0].
         foreach ($this->formItems as $idx => $formItem) {
+            $requiredQty = (float)$formItem['quantity'];
+
+            // The first item also absorbs the wastage deduction
+            if ($idx === 0 && $this->wastage_qty > 0) {
+                $requiredQty += (float)$this->wastage_qty;
+            }
+
             $currentBalance = $stockService->getDepartmentStockBalance($department->id, $formItem['item_id']);
-            if ((float)$formItem['quantity'] > $currentBalance) {
+            if ($requiredQty > $currentBalance) {
                 $item = InventoryItem::find($formItem['item_id']);
-                $this->addError("formItems.{$idx}.quantity",
-                    "Insufficient dept stock for {$item->name}. Available: " . number_format($currentBalance, 2));
+                $label = $idx === 0 && $this->wastage_qty > 0
+                    ? "Insufficient dept stock for {$item->name} (consumption + wastage = {$requiredQty}). Available: "
+                    : "Insufficient dept stock for {$item->name}. Available: ";
+                $this->addError("formItems.{$idx}.quantity", $label . number_format($currentBalance, 2));
                 return;
             }
         }
 
-        // Create production record
-        $production = DepartmentProduction::create([
-            'marquee_id' => $marqueeId,
-            'branch_id' => $branchId,
-            'department_id' => $this->department_id,
-            'batch_number' => $this->batch_number,
-            'production_date' => $this->production_date,
-            'booking_id' => $this->booking_id ?: null,
-            'recipe_id' => $this->recipe_id ?: null,
-            'produced_qty' => $this->produced_qty,
-            'wastage_qty' => $this->wastage_qty,
-            'prepared_by' => $this->prepared_by ?: null,
-            'approved_by' => auth()->id(),
-            'production_time' => $this->production_time,
-            'notes' => $this->notes,
-            'created_by' => auth()->id(),
-        ]);
-
-        // Record production items
-        $consumeItems = [];
-        foreach ($this->formItems as $formItem) {
-            DepartmentProductionItem::create([
-                'department_production_id' => $production->id,
-                'item_id' => $formItem['item_id'],
-                'quantity' => $formItem['quantity'],
+        // TASK 3 FIX: Wrap entire save in one atomic DB transaction
+        DB::transaction(function () use ($marqueeId, $branchId, $stockService, $department) {
+            // Create production record
+            $production = DepartmentProduction::create([
+                'marquee_id'      => $marqueeId,
+                'branch_id'       => $branchId,
+                'department_id'   => $this->department_id,
+                'batch_number'    => $this->batch_number,
+                'production_date' => $this->production_date,
+                'booking_id'      => $this->booking_id ?: null,
+                'recipe_id'       => $this->recipe_id ?: null,
+                'produced_qty'    => $this->produced_qty,
+                'wastage_qty'     => $this->wastage_qty,
+                'prepared_by'     => $this->prepared_by ?: null,
+                'approved_by'     => auth()->id(),
+                'production_time' => $this->production_time,
+                'notes'           => $this->notes,
+                'created_by'      => auth()->id(),
             ]);
-            $consumeItems[$formItem['item_id']] = $formItem['quantity'];
-        }
 
-        // Record wastage consumption from department stock
-        if ($this->wastage_qty > 0) {
-            $firstItemId = $this->formItems[0]['item_id'] ?? null;
-            if ($firstItemId) {
-                $stockService->recordConsumption($department, [$firstItemId => $this->wastage_qty], auth()->id(), 'Wastage');
+            // Record production items
+            $consumeItems = [];
+            foreach ($this->formItems as $formItem) {
+                DepartmentProductionItem::create([
+                    'department_production_id' => $production->id,
+                    'item_id'                  => $formItem['item_id'],
+                    'quantity'                 => $formItem['quantity'],
+                ]);
+                $consumeItems[$formItem['item_id']] = $formItem['quantity'];
             }
-        }
 
-        // Deduct all raw material consumption from department stock ledger
-        $stockService->recordConsumption($department, $consumeItems, auth()->id(), 'Consumption');
+            // Record wastage consumption from department stock (first item)
+            if ($this->wastage_qty > 0) {
+                $firstItemId = $this->formItems[0]['item_id'] ?? null;
+                if ($firstItemId) {
+                    $stockService->recordConsumption($department, [$firstItemId => $this->wastage_qty], auth()->id(), 'Wastage');
+                }
+            }
+
+            // Deduct all raw material consumption from department stock ledger
+            $stockService->recordConsumption($department, $consumeItems, auth()->id(), 'Consumption');
+        });
 
         session()->flash('message', 'Production batch logged and raw material consumption recorded.');
         $this->isFormOpen = false;

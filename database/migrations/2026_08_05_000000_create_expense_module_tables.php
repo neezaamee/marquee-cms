@@ -197,15 +197,15 @@ return new class extends Migration
             $table->foreign('supplier_id')->references('id')->on('suppliers')->onDelete('set null');
             $table->foreign('employee_id')->references('id')->on('employees')->onDelete('set null');
             
-            $table->index(['marquee_id', 'is_active', 'next_generation_date']);
+            $table->index(['marquee_id', 'is_active', 'next_generation_date'], 're_marquee_active_next_gen_idx');
         });
 
         // 8. Utility Bills details
         Schema::create('expense_utility_bills', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('expense_id');
-            $table->string('utility_type'); // Electricity, Gas, Water, Internet, Telephone
-            $table->string('consumer_number');
+            $table->string('utility_type', 100); // Electricity, Gas, Water, Internet, Telephone
+            $table->string('consumer_number', 100);
             $table->string('account_number')->nullable();
             $table->string('billing_period'); // e.g. July 2026
             $table->decimal('previous_reading', 15, 2)->nullable();

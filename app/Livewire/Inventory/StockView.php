@@ -124,16 +124,16 @@ class StockView extends Component
         if (!empty($this->filterStatus)) {
             switch ($this->filterStatus) {
                 case 'out_of_stock':
-                    $query->havingRaw('(total_received - total_returned) <= 0');
+                    $query->havingRaw('(total_received - total_returned - total_issued + total_dept_returned) <= 0');
                     break;
                 case 'low_stock':
-                    $query->havingRaw('(total_received - total_returned) > 0 AND (total_received - total_returned) <= minimum_stock_level');
+                    $query->havingRaw('(total_received - total_returned - total_issued + total_dept_returned) > 0 AND (total_received - total_returned - total_issued + total_dept_returned) <= minimum_stock_level');
                     break;
                 case 'reorder_required':
-                    $query->havingRaw('(total_received - total_returned) > minimum_stock_level AND (total_received - total_returned) <= reorder_level');
+                    $query->havingRaw('(total_received - total_returned - total_issued + total_dept_returned) > minimum_stock_level AND (total_received - total_returned - total_issued + total_dept_returned) <= reorder_level');
                     break;
                 case 'good':
-                    $query->havingRaw('(total_received - total_returned) > reorder_level');
+                    $query->havingRaw('(total_received - total_returned - total_issued + total_dept_returned) > reorder_level');
                     break;
             }
         }
@@ -164,14 +164,30 @@ class StockView extends Component
             ->whereNull('purchase_returns.deleted_at')
             ->whereColumn('purchase_return_details.item_id', 'inventory_items.id');
 
+        $issSubSummary = DB::table('department_stock_issue_items')
+            ->join('department_stock_issues', 'department_stock_issues.id', '=', 'department_stock_issue_items.department_stock_issue_id')
+            ->whereNull('department_stock_issues.deleted_at')
+            ->whereColumn('department_stock_issue_items.item_id', 'inventory_items.id');
+
+        $deptRetSubSummary = DB::table('department_stock_return_items')
+            ->join('department_stock_returns', 'department_stock_returns.id', '=', 'department_stock_return_items.department_stock_return_id')
+            ->where('department_stock_returns.status', 'Received')
+            ->where('department_stock_return_items.status', 'Good')
+            ->whereNull('department_stock_returns.deleted_at')
+            ->whereColumn('department_stock_return_items.item_id', 'inventory_items.id');
+
         if ($branchId) {
             $recSubSummary->where('goods_receiving_notes.branch_id', $branchId);
             $retSubSummary->where('purchase_returns.branch_id', $branchId);
+            $issSubSummary->where('department_stock_issues.branch_id', $branchId);
+            $deptRetSubSummary->where('department_stock_returns.branch_id', $branchId);
         }
 
         $summaryQuery->select('inventory_items.id', 'inventory_items.reorder_level', 'inventory_items.minimum_stock_level')
             ->selectSub($recSubSummary->selectRaw('COALESCE(SUM(goods_receiving_note_details.received_qty), 0)'), 'total_received')
-            ->selectSub($retSubSummary->selectRaw('COALESCE(SUM(purchase_return_details.quantity), 0)'), 'total_returned');
+            ->selectSub($retSubSummary->selectRaw('COALESCE(SUM(purchase_return_details.quantity), 0)'), 'total_returned')
+            ->selectSub($issSubSummary->selectRaw('COALESCE(SUM(department_stock_issue_items.quantity), 0)'), 'total_issued')
+            ->selectSub($deptRetSubSummary->selectRaw('COALESCE(SUM(department_stock_return_items.quantity), 0)'), 'total_dept_returned');
 
         $allSummaryItems = $summaryQuery->get();
 
@@ -184,7 +200,7 @@ class StockView extends Component
         ];
 
         foreach ($allSummaryItems as $si) {
-            $stock = $si->total_received - $si->total_returned;
+            $stock = $si->total_received - $si->total_returned - $si->total_issued + $si->total_dept_returned;
             if ($stock <= 0) {
                 $stats['out']++;
             } elseif ($stock <= $si->minimum_stock_level) {

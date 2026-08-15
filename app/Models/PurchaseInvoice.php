@@ -18,6 +18,8 @@ class PurchaseInvoice extends Model
         'marquee_id',
         'branch_id',
         'supplier_id',
+        'purchase_order_id',
+        'goods_receiving_note_id',
         'invoice_number',
         'purchase_date',
         'reference_number',
@@ -54,6 +56,22 @@ class PurchaseInvoice extends Model
     public function journalVoucher()
     {
         return $this->belongsTo(JournalVoucher::class, 'journal_voucher_id');
+    }
+
+    /**
+     * Get the referenced Purchase Order.
+     */
+    public function purchaseOrder()
+    {
+        return $this->belongsTo(PurchaseOrder::class, 'purchase_order_id');
+    }
+
+    /**
+     * Get the referenced Goods Receiving Note.
+     */
+    public function goodsReceivingNote()
+    {
+        return $this->belongsTo(GoodsReceivingNote::class, 'goods_receiving_note_id');
     }
 
     /**

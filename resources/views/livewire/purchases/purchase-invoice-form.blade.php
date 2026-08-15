@@ -85,6 +85,31 @@
                 </div>
             </div>
 
+            @if($supplier_id && $branch_id)
+                <div class="row g-3 mb-4 border-top pt-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semi-bold text-700" for="purchase-order"><span class="fas fa-link me-1"></span>Reference Purchase Order (PO)</label>
+                        <select wire:model="purchase_order_id" class="form-select form-select-sm" id="purchase-order" {{ $status !== 'Draft' ? 'disabled' : '' }}>
+                            <option value="">Select PO (Direct Invoice without PO)</option>
+                            @foreach($purchaseOrders as $po)
+                                <option value="{{ $po->id }}">{{ $po->po_number }} (Order Date: {{ $po->order_date->format('Y-m-d') }}, Status: {{ $po->status }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semi-bold text-700" for="goods-receipt"><span class="fas fa-receipt me-1"></span>Reference Goods Receiving Note (GRN)</label>
+                        <select wire:model.live="goods_receiving_note_id" class="form-select form-select-sm" id="goods-receipt" {{ $status !== 'Draft' ? 'disabled' : '' }}>
+                            <option value="">Select GRN (Direct Invoice without GRN)</option>
+                            @foreach($goodsReceipts as $grn)
+                                <option value="{{ $grn->id }}">{{ $grn->grn_number }} (Received Date: {{ $grn->received_date->format('Y-m-d') }})</option>
+                            @endforeach
+                        </select>
+                        <div class="form-text fs-12 text-muted mt-1">Selecting a GRN will auto-populate billed items and validate quantities.</div>
+                    </div>
+                </div>
+            @endif
+
             <!-- Mapped JV summary (if posted) -->
             @if($status === 'Posted' && $invoice->journalVoucher)
                 <div class="alert alert-info border-translucent d-flex align-items-center mb-4" role="alert">

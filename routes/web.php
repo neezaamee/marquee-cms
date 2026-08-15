@@ -124,6 +124,8 @@ Route::middleware('auth')->group(function () {
         Route::view('inventory/brands', 'inventory.brands')->name('inventory.brands');
         Route::view('inventory/items', 'inventory.items')->name('inventory.items');
         Route::view('inventory/stock', 'inventory.stock')->name('inventory.stock');
+        Route::view('inventory/stock-takes', 'inventory.stock-takes')->name('inventory.stock-takes.index');
+        Route::get('inventory/stock-ledger', \App\Livewire\Inventory\StockLedgerView::class)->name('inventory.stock-ledger');
         Route::view('inventory/settings', 'inventory.settings')->name('inventory.settings');
 
         // Supplier Directory Module

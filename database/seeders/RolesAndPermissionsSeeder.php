@@ -64,6 +64,14 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Accounting
             ['name' => 'manage_accounting', 'label' => 'Manage Accounting & Financials'],
+
+            // Inventory & Procurement Advanced Permissions
+            ['name' => 'inventory.adjust', 'label' => 'Post Stock Adjustments'],
+            ['name' => 'inventory.stock-take', 'label' => 'Perform Physical Counts'],
+            ['name' => 'inventory.view-costs', 'label' => 'View Item Costs'],
+            ['name' => 'inventory.override-negative', 'label' => 'Override Negative Stock'],
+            ['name' => 'purchase.approve-po', 'label' => 'Approve Purchase Orders'],
+            ['name' => 'purchase.invoice-post', 'label' => 'Post Bills and Invoices'],
         ];
 
         $permissionInstances = [];
@@ -93,7 +101,9 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_inventory', 'manage_inventory',
                     'event-types.view', 'event-types.create', 'event-types.edit', 'event-types.delete',
                     'view_packages', 'create_packages', 'edit_packages', 'delete_packages',
-                    'manage_accounting'
+                    'manage_accounting',
+                    'inventory.adjust', 'inventory.stock-take', 'inventory.view-costs', 'inventory.override-negative',
+                    'purchase.approve-po', 'purchase.invoice-post'
                 ],
             ],
             'branch_manager' => [
@@ -106,7 +116,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_reports', 'manage_staff', 'manage_settings',
                     'view_inventory',
                     'event-types.view', 'event-types.create', 'event-types.edit',
-                    'view_packages', 'create_packages', 'edit_packages'
+                    'view_packages', 'create_packages', 'edit_packages',
+                    'inventory.adjust', 'inventory.stock-take', 'inventory.view-costs', 'purchase.approve-po'
                 ],
             ],
             'accountant' => [
@@ -116,7 +127,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_bookings',
                     'view_payments', 'create_payments', 'refund_payments',
                     'view_reports',
-                    'manage_accounting'
+                    'manage_accounting',
+                    'inventory.view-costs', 'purchase.invoice-post'
                 ],
             ],
             'booking_officer' => [
@@ -133,7 +145,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'label' => 'Store Keeper / Inventory Manager',
                 'description' => 'Manages physical warehouse inventory, tables, chairs, and cutlery counts.',
                 'permissions' => [
-                    'view_inventory', 'manage_inventory'
+                    'view_inventory', 'manage_inventory', 'inventory.stock-take'
                 ],
             ],
             'staff' => [

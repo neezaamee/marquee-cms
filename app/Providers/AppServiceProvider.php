@@ -13,6 +13,7 @@ use App\Models\PurchaseInvoice;
 use App\Models\PurchaseReturn;
 use App\Policies\InventoryPolicy;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Pagination\Paginator;
 
@@ -34,6 +35,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Fix MySQL utf8mb4 key length limit for older MySQL/MariaDB servers
+        Schema::defaultStringLength(191);
+
         Paginator::useBootstrapFive();
 
         Gate::policy(InventoryCategory::class, InventoryPolicy::class);

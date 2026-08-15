@@ -56,14 +56,16 @@ class DepartmentReports extends Component
             if ($this->filterDepartment) $query->where('department_id', $this->filterDepartment);
 
             foreach ($query->lazy() as $row) {
+                $qty = $row->qty_in > 0 ? $row->qty_in : $row->qty_out;
+                $ref = $row->reference_type ? (str_replace(['App\\Models\\', 'DepartmentStock'], '', $row->reference_type) . ' #' . $row->reference_id) : '—';
                 fputcsv($output, [
                     $row->transaction_date->format('Y-m-d'),
                     $row->department->name ?? 'N/A',
                     $row->inventoryItem->item_code ?? 'N/A',
                     $row->inventoryItem->name ?? 'N/A',
                     $row->transaction_type,
-                    $row->quantity,
-                    $row->reference_number,
+                    $qty,
+                    $ref,
                 ]);
             }
         } elseif ($this->reportType === 'attendance') {
@@ -151,10 +153,10 @@ class DepartmentReports extends Component
             $query = DepartmentStockLedger::where('marquee_id', $marqueeId)
                 ->whereBetween('transaction_date', [$this->dateFrom, $this->dateTo])
                 ->selectRaw('department_id, item_id, 
-                    SUM(CASE WHEN transaction_type = "Issue" THEN quantity ELSE 0 END) as total_issued,
-                    SUM(CASE WHEN transaction_type = "Return" THEN quantity ELSE 0 END) as total_returned,
-                    SUM(CASE WHEN transaction_type = "Consumption" THEN quantity ELSE 0 END) as total_consumed,
-                    SUM(CASE WHEN transaction_type = "Wastage" THEN quantity ELSE 0 END) as total_wastage')
+                    SUM(CASE WHEN transaction_type = "Issue" THEN qty_in ELSE 0 END) as total_issued,
+                    SUM(CASE WHEN transaction_type = "Return" THEN qty_out ELSE 0 END) as total_returned,
+                    SUM(CASE WHEN transaction_type = "Consumption" THEN qty_out ELSE 0 END) as total_consumed,
+                    SUM(CASE WHEN transaction_type = "Wastage" THEN qty_out ELSE 0 END) as total_wastage')
                 ->groupBy('department_id', 'item_id')
                 ->with(['department', 'inventoryItem']);
             if ($branchId) $query->where('branch_id', $branchId);

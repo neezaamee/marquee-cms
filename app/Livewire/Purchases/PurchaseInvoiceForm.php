@@ -18,6 +18,8 @@ class PurchaseInvoiceForm extends Component
     // Header fields
     public $invoice_number = '';
     public $supplier_id = '';
+    public $purchase_order_id = '';
+    public $goods_receiving_note_id = '';
     public $branch_id = '';
     public $purchase_date = '';
     public $reference_number = '';
@@ -29,6 +31,10 @@ class PurchaseInvoiceForm extends Component
     public $discount = 0.00;
     public $tax = 0.00;
     public $net_amount = 0.00;
+
+    // Master list data
+    public $purchaseOrders = [];
+    public $goodsReceipts = [];
 
     // Item line grid
     public $items = [];
@@ -46,6 +52,8 @@ class PurchaseInvoiceForm extends Component
     protected $rules = [
         'invoice_number' => 'required|string|max:100',
         'supplier_id' => 'required|exists:suppliers,id',
+        'purchase_order_id' => 'nullable|exists:purchase_orders,id',
+        'goods_receiving_note_id' => 'nullable|exists:goods_receiving_notes,id',
         'branch_id' => 'required|exists:branches,id',
         'purchase_date' => 'required|date',
         'reference_number' => 'nullable|string|max:100',
@@ -84,6 +92,9 @@ class PurchaseInvoiceForm extends Component
             $this->notes = $this->invoice->notes ?? '';
             $this->status = $this->invoice->status;
 
+            $this->purchase_order_id = $this->invoice->purchase_order_id ?? '';
+            $this->goods_receiving_note_id = $this->invoice->goods_receiving_note_id ?? '';
+
             $this->gross_amount = $this->invoice->gross_amount;
             $this->discount = $this->invoice->discount;
             $this->tax = $this->invoice->tax;
@@ -111,6 +122,81 @@ class PurchaseInvoiceForm extends Component
             // Auto generate draft invoice number
             $count = PurchaseInvoice::withTrashed()->where('marquee_id', $marqueeId)->count();
             $this->invoice_number = 'PINV-' . date('Y') . '-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
+        }
+
+        $this->loadPendingReferences();
+    }
+
+    public function loadPendingReferences()
+    {
+        $marqueeId = auth()->user()->marquee_id;
+        if ($this->supplier_id && $this->branch_id) {
+            $this->purchaseOrders = \App\Models\PurchaseOrder::where('marquee_id', $marqueeId)
+                ->where('supplier_id', $this->supplier_id)
+                ->where('branch_id', $this->branch_id)
+                ->whereIn('status', ['Approved', 'Partially Received', 'Completed'])
+                ->orderBy('po_number', 'desc')
+                ->get();
+
+            $this->goodsReceipts = \App\Models\GoodsReceivingNote::where('marquee_id', $marqueeId)
+                ->where('supplier_id', $this->supplier_id)
+                ->where('branch_id', $this->branch_id)
+                ->orderBy('grn_number', 'desc')
+                ->get();
+        } else {
+            $this->purchaseOrders = [];
+            $this->goodsReceipts = [];
+        }
+    }
+
+    public function updatedSupplierId()
+    {
+        $this->loadPendingReferences();
+    }
+
+    public function updatedBranchId()
+    {
+        $this->loadPendingReferences();
+    }
+
+    public function updatedGoodsReceivingNoteId()
+    {
+        if ($this->goods_receiving_note_id) {
+            $grn = \App\Models\GoodsReceivingNote::with(['details.item.unit', 'purchaseOrder.details'])->findOrFail($this->goods_receiving_note_id);
+            $this->purchase_order_id = $grn->purchase_order_id;
+            
+            $this->items = [];
+            foreach ($grn->details as $det) {
+                // Find matching PO detail unit cost
+                $poDetail = $grn->purchaseOrder ? $grn->purchaseOrder->details->firstWhere('item_id', $det->item_id) : null;
+                $unitCost = $poDetail ? $poDetail->unit_price : ($det->item->default_purchase_rate ?: 0.00);
+
+                // Fetch other already invoiced quantities for this GRN item to get remaining balance
+                $alreadyInvoicedQty = \App\Models\PurchaseInvoiceDetail::whereHas('purchaseInvoice', function ($q) use ($grn) {
+                        $q->where('goods_receiving_note_id', $grn->id)
+                          ->where('status', '!=', 'Cancelled');
+                        if ($this->editId) {
+                            $q->where('id', '!=', $this->editId);
+                        }
+                    })
+                    ->where('item_id', $det->item_id)
+                    ->sum('quantity');
+
+                $remainingQty = (float) $det->received_qty - $alreadyInvoicedQty;
+
+                if ($remainingQty > 0) {
+                    $this->items[] = [
+                        'item_id' => $det->item_id,
+                        'item_code' => $det->item->item_code,
+                        'item_name' => $det->item->name,
+                        'unit' => $det->item->unit->short_code ?? 'Pcs',
+                        'quantity' => $remainingQty,
+                        'unit_cost' => $unitCost,
+                        'amount' => $remainingQty * $unitCost,
+                    ];
+                }
+            }
+            $this->recalculateAmounts();
         }
     }
 
@@ -206,6 +292,34 @@ class PurchaseInvoiceForm extends Component
         }
 
         $this->validate();
+
+        // 3-way matching validation
+        if ($this->goods_receiving_note_id) {
+            $grn = \App\Models\GoodsReceivingNote::with('details')->findOrFail($this->goods_receiving_note_id);
+            foreach ($this->items as $item) {
+                $grnDetail = $grn->details->firstWhere('item_id', $item['item_id']);
+                $receivedQty = $grnDetail ? (float) $grnDetail->received_qty : 0.00;
+                
+                // Fetch other already invoiced quantities for this GRN item to get remaining uninvoiced balance
+                $alreadyInvoicedQty = \App\Models\PurchaseInvoiceDetail::whereHas('purchaseInvoice', function ($q) use ($grn) {
+                        $q->where('goods_receiving_note_id', $grn->id)
+                          ->where('status', '!=', 'Cancelled');
+                        if ($this->editId) {
+                            $q->where('id', '!=', $this->editId);
+                        }
+                    })
+                    ->where('item_id', $item['item_id'])
+                    ->sum('quantity');
+
+                $remainingQty = $receivedQty - $alreadyInvoicedQty;
+
+                if ((float)$item['quantity'] > $remainingQty) {
+                    $this->addError('items', "Quantity for item '" . $item['item_name'] . "' exceeds the remaining GRN quantity (Remaining: " . number_format($remainingQty, 2) . ").");
+                    return;
+                }
+            }
+        }
+
         $marqueeId = auth()->user()->marquee_id;
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($marqueeId) {
@@ -216,6 +330,8 @@ class PurchaseInvoiceForm extends Component
                 $invoice->update([
                     'invoice_number' => $this->invoice_number,
                     'supplier_id' => $this->supplier_id,
+                    'purchase_order_id' => $this->purchase_order_id ?: null,
+                    'goods_receiving_note_id' => $this->goods_receiving_note_id ?: null,
                     'branch_id' => $this->branch_id,
                     'purchase_date' => $this->purchase_date,
                     'reference_number' => $this->reference_number ?: null,
@@ -233,6 +349,8 @@ class PurchaseInvoiceForm extends Component
                     'marquee_id' => $marqueeId,
                     'branch_id' => $this->branch_id,
                     'supplier_id' => $this->supplier_id,
+                    'purchase_order_id' => $this->purchase_order_id ?: null,
+                    'goods_receiving_note_id' => $this->goods_receiving_note_id ?: null,
                     'invoice_number' => $this->invoice_number,
                     'purchase_date' => $this->purchase_date,
                     'reference_number' => $this->reference_number ?: null,

@@ -101,6 +101,40 @@ class PurchaseService
                 // Update PO detail quantity
                 $newReceivedQty = $poDetail->received_quantity + $receivedQty;
                 $poDetail->update(['received_quantity' => $newReceivedQty]);
+
+                // Compute stock values (needed for running_balance even with idempotency check)
+                $stockService = app(\App\Services\DepartmentStockService::class);
+                $invItem = \App\Models\InventoryItem::findOrFail($itemId);
+                $unitCost = $invItem->average_cost ?: ($invItem->default_purchase_rate ?: 1.0);
+                $prevCentralBalance = $stockService->getCentralWarehouseStock($marqueeId, $branchId, $itemId);
+                $newCentralBalance = $prevCentralBalance + $receivedQty;
+
+                // Check for duplicate ledger entry (idempotency guard)
+                $alreadyLogged = \App\Models\InventoryStockLedger::where('marquee_id', $marqueeId)
+                    ->where('branch_id', $branchId)
+                    ->where('item_id', $itemId)
+                    ->where('transaction_type', 'GRN')
+                    ->where('reference_type', 'App\\Models\\GoodsReceivingNote')
+                    ->where('reference_id', $grn->id)
+                    ->exists();
+
+                if (!$alreadyLogged) {
+                    \App\Models\InventoryStockLedger::create([
+                        'marquee_id'       => $marqueeId,
+                        'branch_id'        => $branchId,
+                        'item_id'          => $itemId,
+                        'transaction_date' => $grnData['received_date'],
+                        'transaction_type' => 'GRN',
+                        'reference_type'   => 'App\\Models\\GoodsReceivingNote',
+                        'reference_id'     => $grn->id,
+                        'qty_in'           => $receivedQty,
+                        'qty_out'          => 0.00,
+                        'running_balance'  => $newCentralBalance,
+                        'unit_price'       => $unitCost,
+                        'total_cost'       => $receivedQty * $unitCost,
+                        'created_by'       => auth()->id(),
+                    ]);
+                }
             }
 
             // Reload details to verify overall statuses
@@ -182,7 +216,32 @@ class PurchaseService
                 "Billed under Purchase Invoice: #{$invoice->invoice_number}"
             );
 
-            // 4. Update Invoice Status
+            // 4. Calculate and update Weighted Average Cost (WAC) for each item in the invoice
+            $invoice->load('details');
+            $stockService = app(\App\Services\DepartmentStockService::class);
+            foreach ($invoice->details as $detail) {
+                $item = \App\Models\InventoryItem::findOrFail($detail->item_id);
+                
+                $currentStock = $stockService->getCentralWarehouseStock($marqueeId, $invoice->branch_id, $detail->item_id);
+                $currentWac = (float) $item->average_cost ?: ((float) $item->default_purchase_rate ?: 0.0);
+                $invoicedQty = (float) $detail->quantity;
+                $invoicedUnitCost = (float) $detail->unit_cost;
+
+                $totalQty = $currentStock;
+                $prevStock = $currentStock - $invoicedQty;
+                if ($totalQty > 0) {
+                    $newWac = (($prevStock * $currentWac) + ($invoicedQty * $invoicedUnitCost)) / $totalQty;
+                } else {
+                    $newWac = $invoicedUnitCost;
+                }
+
+                $item->update([
+                    'average_cost' => $newWac,
+                    'last_purchase_cost' => $invoicedUnitCost,
+                ]);
+            }
+
+            // 5. Update Invoice Status
             $invoice->update([
                 'status' => 'Posted',
                 'journal_voucher_id' => $voucher->id,
@@ -254,6 +313,40 @@ class PurchaseService
                 $voucher->voucher_no,
                 "Returned under Purchase Return: #{$return->return_number}"
             );
+
+            // Update Central Store Stock Ledger for returned items (idempotency guarded)
+            $stockService = app(\App\Services\DepartmentStockService::class);
+            $return->load('details.item');
+            foreach ($return->details as $detail) {
+                $alreadyLogged = \App\Models\InventoryStockLedger::where('marquee_id', $marqueeId)
+                    ->where('branch_id', $return->branch_id)
+                    ->where('item_id', $detail->item_id)
+                    ->where('transaction_type', 'PurchaseReturn')
+                    ->where('reference_type', 'App\\Models\\PurchaseReturn')
+                    ->where('reference_id', $return->id)
+                    ->exists();
+
+                if (!$alreadyLogged) {
+                    $prevCentralBalance = $stockService->getCentralWarehouseStock($marqueeId, $return->branch_id, $detail->item_id);
+                    $newCentralBalance = $prevCentralBalance - $detail->quantity;
+
+                    \App\Models\InventoryStockLedger::create([
+                        'marquee_id'       => $marqueeId,
+                        'branch_id'        => $return->branch_id,
+                        'item_id'          => $detail->item_id,
+                        'transaction_date' => $return->return_date->format('Y-m-d'),
+                        'transaction_type' => 'PurchaseReturn',
+                        'reference_type'   => 'App\\Models\\PurchaseReturn',
+                        'reference_id'     => $return->id,
+                        'qty_in'           => 0.00,
+                        'qty_out'          => $detail->quantity,
+                        'running_balance'  => $newCentralBalance,
+                        'unit_price'       => $detail->unit_cost,
+                        'total_cost'       => $detail->amount,
+                        'created_by'       => auth()->id(),
+                    ]);
+                }
+            }
 
             // 4. Update Return Status
             $return->update([

@@ -119,7 +119,12 @@
 
                             <div class="d-flex justify-content-end gap-2 mt-3">
                                 <button type="button" wire:click="$set('isFormOpen', false)" class="btn btn-secondary btn-sm">Cancel</button>
-                                <button type="submit" class="btn btn-primary btn-sm">Dispatch Stock</button>
+                                <button type="submit"
+                                    wire:loading.attr="disabled"
+                                    class="btn btn-primary btn-sm">
+                                    <span wire:loading.remove>Dispatch Stock</span>
+                                    <span wire:loading><span class="fas fa-spinner fa-spin me-1"></span>Dispatching...</span>
+                                </button>
                             </div>
                         </form>
                     </div>

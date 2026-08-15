@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('global_default_masters', function (Blueprint $table) {
             $table->id();
-            $table->string('category_type'); // event_type, menu_category, inventory_category, inventory_unit, expense_category, department_type, vendor_type, customer_type, payment_method
-            $table->string('name');
+            $table->string('category_type', 100); // event_type, menu_category, inventory_category, inventory_unit, expense_category, department_type, vendor_type, customer_type, payment_method
+            $table->string('name', 100);
             $table->string('code')->nullable();
             $table->text('description')->nullable();
             $table->json('extra_attributes')->nullable(); // short_code, color_code, sort_order, expense_type_names
