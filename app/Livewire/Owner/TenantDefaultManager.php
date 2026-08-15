@@ -128,13 +128,21 @@ class TenantDefaultManager extends Component
         // 4. Inventory Units
         $globalUnits = GlobalDefaultMaster::active()->category('inventory_unit')->get();
         foreach ($globalUnits as $gt) {
-            $exists = InventoryUnit::where('marquee_id', $marqueeId)->where('name', $gt->name)->exists();
+            $extra = $gt->extra_attributes ?? [];
+            $sCode = $extra['short_code'] ?? $gt->code;
+            
+            $exists = InventoryUnit::where('marquee_id', $marqueeId)
+                ->where(function ($query) use ($gt, $sCode) {
+                    $query->where('name', $gt->name)
+                          ->orWhere('short_code', $sCode);
+                })
+                ->exists();
+
             if (!$exists) {
-                $extra = $gt->extra_attributes ?? [];
                 InventoryUnit::create([
                     'marquee_id' => $marqueeId,
                     'name' => $gt->name,
-                    'short_code' => $extra['short_code'] ?? $gt->code,
+                    'short_code' => $sCode,
                     'description' => $gt->description,
                     'status' => 'Active',
                 ]);

@@ -774,10 +774,24 @@ class SetupWizard extends Component
                 );
             } elseif ($gt->category_type === 'inventory_unit') {
                 $extra = $gt->extra_attributes ?? [];
-                \App\Models\InventoryUnit::firstOrCreate(
-                    ['marquee_id' => $marqueeId, 'name' => $gt->name],
-                    ['short_code' => $extra['short_code'] ?? $gt->code, 'description' => $gt->description, 'status' => 'Active']
-                );
+                $sCode = $extra['short_code'] ?? $gt->code;
+                
+                $exists = \App\Models\InventoryUnit::where('marquee_id', $marqueeId)
+                    ->where(function ($query) use ($gt, $sCode) {
+                        $query->where('name', $gt->name)
+                              ->orWhere('short_code', $sCode);
+                    })
+                    ->exists();
+
+                if (!$exists) {
+                    \App\Models\InventoryUnit::create([
+                        'marquee_id' => $marqueeId,
+                        'name' => $gt->name,
+                        'short_code' => $sCode,
+                        'description' => $gt->description,
+                        'status' => 'Active'
+                    ]);
+                }
             } elseif ($gt->category_type === 'expense_category') {
                 \App\Models\ExpenseCategory::firstOrCreate(
                     ['marquee_id' => $marqueeId, 'name' => $gt->name],
