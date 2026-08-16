@@ -824,6 +824,8 @@ class BookingWizard extends Component
         } elseif ($this->currentStep === 4) {
             $rules = [
                 'guestCount' => 'required|integer|min:1',
+                'tentativeGuests' => 'required|integer|min:1',
+                'confirmedGuests' => 'nullable|integer|min:0',
                 'perPlatePrice' => 'required|numeric|min:0',
                 'hallCharges' => 'required|numeric|min:0',
                 'extraCharges' => 'required|numeric|min:0',
@@ -890,6 +892,8 @@ class BookingWizard extends Component
             'startTime' => 'required',
             'endTime' => 'required',
             'guestCount' => 'required|integer|min:1',
+            'tentativeGuests' => 'required|integer|min:1',
+            'confirmedGuests' => 'nullable|integer|min:0',
             'perPlatePrice' => 'required|numeric|min:0',
             'hallCharges' => 'required|numeric|min:0',
             'extraCharges' => 'required|numeric|min:0',

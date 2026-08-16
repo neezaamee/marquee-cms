@@ -88,7 +88,7 @@
                     <tr>
                         <td class="text-600 px-0 py-1" style="width: 120px;">Event / Hall:</td>
                         <td class="text-800 fw-bold px-0 py-1">
-                            {{ $booking->eventType->name ?? '—' }}
+                            {{ $booking->eventType->event_type_name ?? '—' }}
                             @if($booking->halls->isNotEmpty())
                                 / {{ $booking->halls->pluck('hall_name')->implode(', ') }}
                             @else
@@ -147,7 +147,18 @@
         @if(!$booking->no_food)
             <div class="mt-2 pt-1 border-top" id="rate-block">
                {{--<span class="text-500 fw-bold text-uppercase fs-12 d-block">Rate</span>--}} 
-                <span class="font-monospace fw-bold fs-18 text-primary">Rate: Rs. {{ number_format($booking->per_plate_price) }}/-</span>
+                @php
+                    $taxPercent = 13.00;
+                    if ($booking->subtotal > 0 && $booking->tax_amount > 0) {
+                        $taxPercent = round(($booking->tax_amount / $booking->subtotal) * 100, 2);
+                    }
+                    if (floor($taxPercent) == $taxPercent) {
+                        $taxPercentStr = number_format($taxPercent, 0);
+                    } else {
+                        $taxPercentStr = number_format($taxPercent, 1);
+                    }
+                @endphp
+                <span class="font-monospace fw-bold fs-18 text-primary">Rate: Rs. {{ number_format($booking->per_plate_price) }}/- + ({{ $taxPercentStr }}% Tax)</span>
             </div>
         @endif
 

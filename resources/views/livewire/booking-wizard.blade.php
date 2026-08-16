@@ -492,11 +492,34 @@
                                 </div>
                             @endif
 
-                            <!-- Headcount -->
-                            <div class="col-md-6">
-                                <label class="form-label font-sans-serif fw-bold text-700" for="guestCount">Guest Count *</label>
-                                <input wire:model.live="guestCount" class="form-control" type="number" id="guestCount" min="1" />
-                                @error('guestCount') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                            <!-- Headcount Section (Tentative & Confirmed) -->
+                            <div class="col-md-3">
+                                <label class="form-label font-sans-serif fw-bold text-700" for="tentativeGuests">Tentative Guests *</label>
+                                <input wire:model.live="tentativeGuests" class="form-control" type="number" id="tentativeGuests" min="1" placeholder="Initial estimate" />
+                                @error('tentativeGuests') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label font-sans-serif fw-bold text-700" for="confirmedGuests">Confirmed Guests</label>
+                                <input wire:model.live="confirmedGuests" class="form-control" type="number" id="confirmedGuests" min="0" placeholder="Confirmed count" />
+                                @error('confirmedGuests') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                            </div>
+
+                            <div class="col-md-6 d-flex align-items-center">
+                                <div class="p-2 bg-light rounded border w-100 mt-3 mt-md-0">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="fs-11 text-muted fw-bold">EFFECTIVE HEADCOUNT:</span>
+                                        <span class="font-monospace fw-bold text-primary fs-9">{{ number_format($guestCount) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-1">
+                                        <span class="fs-11 text-muted">Status:</span>
+                                        @if($guestStatus === 'Confirmed')
+                                            <span class="badge bg-success-subtle text-success fs-12">Confirmed</span>
+                                        @else
+                                            <span class="badge bg-warning-subtle text-warning fs-12">Tentative</span>
+                                        @endif
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Per Plate Price -->

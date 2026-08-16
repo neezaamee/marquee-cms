@@ -367,4 +367,249 @@ class BookingEnhancementsTest extends TestCase
         $this->assertEquals($itemA->id, $booking->menuItems[2]->id);
         $this->assertEquals(2, $booking->menuItems[2]->pivot->sort_order);
     }
+
+    public function test_cannot_complete_future_booking()
+    {
+        Livewire::actingAs($this->userOwner);
+
+        $futureBooking = Booking::create([
+            'marquee_id' => $this->marquee->id,
+            'customer_id' => $this->customer->id,
+            'event_type_id' => $this->eventType->id,
+            'hall_id' => $this->hall->id,
+            'slot_id' => $this->slot->id,
+            'package_id' => $this->package->id,
+            'booking_date' => Carbon::tomorrow(),
+            'start_time' => Carbon::tomorrow()->setHour(12),
+            'end_time' => Carbon::tomorrow()->setHour(16),
+            'guest_count' => 100,
+            'tentative_guests' => 100,
+            'per_plate_price' => 1000,
+            'hall_charges' => 50000,
+            'booking_status' => 'Confirmed',
+            'payment_status' => 'Unpaid',
+        ]);
+
+        // Try completing from BookingView component
+        Livewire::test('booking-view', ['booking' => $futureBooking])
+            ->call('updateStatus', 'Completed');
+
+        $futureBooking->refresh();
+        $this->assertEquals('Confirmed', $futureBooking->booking_status);
+
+        // Try completing from BookingEdit component
+        Livewire::test('booking-edit', ['booking' => $futureBooking])
+            ->set('bookingStatus', 'Completed')
+            ->call('save')
+            ->assertHasErrors(['bookingStatus']);
+            
+        $futureBooking->refresh();
+        $this->assertEquals('Confirmed', $futureBooking->booking_status);
+    }
+
+    public function test_role_and_permissions_sidebar_hidden_on_owner_profile()
+    {
+        $this->actingAs($this->userOwner);
+
+        // 1. Check Owner profile
+        $response = $this->get(route('users.show', $this->userOwner->id));
+        $response->assertStatus(200);
+        $response->assertSee('User Profile');
+        $response->assertDontSee('Role & Access Level', false);
+
+        // 2. Check Manager (non-owner) profile
+        $managerRole = Role::where('name', 'manager')->first();
+        if (!$managerRole) {
+            $managerRole = Role::create([
+                'name' => 'manager',
+                'label' => 'Store Manager',
+            ]);
+        }
+        $managerUser = User::create([
+            'name' => 'Manager Imran',
+            'email' => 'manager.imran@emerald.com',
+            'password' => bcrypt('password'),
+            'role_id' => $managerRole->id,
+            'marquee_id' => $this->marquee->id,
+        ]);
+
+        $response2 = $this->get(route('users.show', $managerUser->id));
+        $response2->assertStatus(200);
+        $response2->assertSee('User Profile');
+        $response2->assertSee('Role & Access Level', false);
+    }
+
+    public function test_wizard_tentative_and_confirmed_guests_step4()
+    {
+        Livewire::actingAs($this->userOwner);
+
+        Livewire::test('booking-wizard')
+            ->set('currentStep', 4)
+            ->set('selectedCustomerId', $this->customer->id)
+            ->set('selectedEventTypeId', $this->eventType->id)
+            ->set('selectedHallIds', [(string)$this->hall->id])
+            ->set('selectedDate', '2026-12-26')
+            ->set('selectedSlotId', $this->slot->id)
+            ->set('selectedPackageId', $this->package->id)
+            ->set('tentativeGuests', 150)
+            ->set('confirmedGuests', 120)
+            // recalculation triggers and sets guestCount to 120 (confirmed)
+            ->assertSet('guestCount', 120)
+            ->assertSet('guestStatus', 'Confirmed')
+            ->call('nextStep')
+            ->assertHasNoErrors()
+            ->assertSet('currentStep', 5);
+    }
+
+    public function test_soft_deleted_booking_handling()
+    {
+        Livewire::actingAs($this->userOwner);
+
+        $softDeletedBooking = Booking::create([
+            'marquee_id' => $this->marquee->id,
+            'customer_id' => $this->customer->id,
+            'event_type_id' => $this->eventType->id,
+            'hall_id' => $this->hall->id,
+            'slot_id' => $this->slot->id,
+            'package_id' => $this->package->id,
+            'booking_date' => Carbon::today(),
+            'start_time' => Carbon::today()->setHour(12),
+            'end_time' => Carbon::today()->setHour(16),
+            'guest_count' => 100,
+            'tentative_guests' => 100,
+            'per_plate_price' => 1000,
+            'hall_charges' => 50000,
+            'booking_status' => 'Cancelled',
+            'payment_status' => 'Unpaid',
+        ]);
+        
+        $softDeletedBooking->delete();
+
+        // 1. Assert is soft deleted
+        $this->assertSoftDeleted('bookings', ['id' => $softDeletedBooking->id]);
+
+        // 2. Assert can view the detail page (since route uses withTrashed())
+        $response = $this->get(route('bookings.show', $softDeletedBooking->id));
+        $response->assertStatus(200);
+        $response->assertSee('Booking Deleted'); // warning alert
+
+        // 3. Assert soft deleted booking is retrieved in BookingList Livewire component
+        Livewire::test('booking-list')
+            ->assertSee($softDeletedBooking->booking_number);
+    }
+
+    public function test_app_version_is_configurable()
+    {
+        // Set configuration value
+        config(['app.version' => '2.5.9-alpha']);
+
+        $this->actingAs($this->userOwner);
+
+        $response = $this->get(route('dashboard'));
+        $response->assertStatus(200);
+        $response->assertSee('v2.5.9-alpha');
+    }
+
+    public function test_event_type_is_displayed_on_booking_slips()
+    {
+        $this->actingAs($this->userOwner);
+
+        $booking = Booking::create([
+            'marquee_id' => $this->marquee->id,
+            'customer_id' => $this->customer->id,
+            'event_type_id' => $this->eventType->id,
+            'hall_id' => $this->hall->id,
+            'slot_id' => $this->slot->id,
+            'package_id' => $this->package->id,
+            'booking_date' => Carbon::today(),
+            'start_time' => Carbon::today()->setHour(12),
+            'end_time' => Carbon::today()->setHour(16),
+            'guest_count' => 100,
+            'tentative_guests' => 100,
+            'per_plate_price' => 1000,
+            'hall_charges' => 50000,
+            'booking_status' => 'Confirmed',
+            'payment_status' => 'Unpaid',
+        ]);
+
+        // Assert Event Type is shown on V1 slip
+        $response = $this->get(route('bookings.slip', $booking->id));
+        $response->assertStatus(200);
+        $response->assertSee('Event Type:');
+        $response->assertSee($this->eventType->event_type_name);
+
+        // Assert Event Type is shown on V2 slip
+        $response2 = $this->get(route('bookings.slip-v2', $booking->id));
+        $response2->assertStatus(200);
+        $response2->assertSee($this->eventType->event_type_name);
+    }
+
+    public function test_booking_calendar_displays_bookings()
+    {
+        $this->actingAs($this->userOwner);
+
+        $booking = Booking::create([
+            'marquee_id' => $this->marquee->id,
+            'customer_id' => $this->customer->id,
+            'event_type_id' => $this->eventType->id,
+            'hall_id' => $this->hall->id,
+            'slot_id' => $this->slot->id,
+            'package_id' => $this->package->id,
+            'booking_date' => Carbon::today(),
+            'start_time' => Carbon::today()->setHour(12),
+            'end_time' => Carbon::today()->setHour(16),
+            'guest_count' => 100,
+            'tentative_guests' => 100,
+            'per_plate_price' => 1000,
+            'hall_charges' => 50000,
+            'booking_status' => 'Confirmed',
+            'payment_status' => 'Unpaid',
+        ]);
+
+        // Get bookings calendar route
+        $response = $this->get(route('bookings.calendar'));
+        $response->assertStatus(200);
+        $response->assertSee('Booking Calendar');
+        $response->assertSee('bookingCalendar'); // element ID for Calendar container
+        
+        // Assert customer name and event type are present in the response (events json array)
+        $response->assertSee($this->customer->full_name);
+        $response->assertSee($this->eventType->event_type_name);
+    }
+
+    public function test_booking_slip_v2_and_kitchen_slip_adjustments()
+    {
+        $this->actingAs($this->userOwner);
+
+        $booking = Booking::create([
+            'marquee_id' => $this->marquee->id,
+            'customer_id' => $this->customer->id,
+            'event_type_id' => $this->eventType->id,
+            'hall_id' => $this->hall->id,
+            'slot_id' => $this->slot->id,
+            'package_id' => $this->package->id,
+            'booking_date' => Carbon::today(),
+            'start_time' => Carbon::today()->setHour(12),
+            'end_time' => Carbon::today()->setHour(16),
+            'guest_count' => 100,
+            'tentative_guests' => 100,
+            'per_plate_price' => 1000,
+            'hall_charges' => 50000,
+            'booking_status' => 'Confirmed',
+            'payment_status' => 'Unpaid',
+            'subtotal' => 150000,
+            'tax_amount' => 19500, // 13% of subtotal
+        ]);
+
+        // 1. Assert tax rate is shown on V2 slip next to rate
+        $response = $this->get(route('bookings.slip-v2', $booking->id));
+        $response->assertStatus(200);
+        $response->assertSee('Rate: Rs. 1,000/- + (13% Tax)', false);
+
+        // 2. Assert quantity column is removed from kitchen slip
+        $response2 = $this->get(route('bookings.kitchen-slip', $booking->id));
+        $response2->assertStatus(200);
+        $response2->assertDontSee('Required Quantity');
+        $response2->assertDontSee('Quantity / مقدار');
+    }
 }

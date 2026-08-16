@@ -230,7 +230,7 @@
                     </div>
                 </td>
                 <td>
-                    <div class="title-invoice">{{ $isFinal ? 'Final Invoice' : 'Booking Invoice' }}</div>
+                    <div class="title-invoice">{{ $isFinal ? 'Final Invoice' : 'Invoice' }}</div>
                     <div class="ref-text">
                         <strong>Invoice Ref:</strong> #INV-{{ str_pad($booking->id, 6, '0', STR_PAD_LEFT) }}<br>
                         <strong>Booking Number:</strong> #{{ $booking->booking_number }}<br>
@@ -318,7 +318,7 @@
                         <td class="text-center">{{ $rowNo++ }}</td>
                         <td>
                             <strong>{{ $booking->package->package_name ?? 'Catering Plan' }}</strong>
-                            <div style="font-size: 9px; color: #777;">Per Plate Catering Menu Package</div>
+                            <div style="font-size: 9px; color: #777;">Per Head Menu Package</div>
                         </td>
                         <td class="text-right font-monospace">Rs. {{ number_format($billing->per_plate_price, 2) }}</td>
                         <td class="text-center">{{ $billing->guest_count }}</td>
@@ -480,55 +480,9 @@
             </div>
         </div>
 
-        <!-- Custom Selected Menu Details -->
-        @if($booking->menuItems->isNotEmpty())
-            <div style="page-break-inside: avoid; margin-bottom: 20px;">
-                <div class="section-title">Menu Setup Selection Details</div>
-                <div style="border: 1px solid #dee2e6; border-radius: 4px; padding: 10px; background-color: #fafafa;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        @foreach($booking->menuItems->chunk(2) as $chunk)
-                            <tr>
-                                @foreach($chunk as $item)
-                                    <td style="width: 50%; padding: 3px 10px; font-size: 10px; vertical-align: top;">
-                                        &#8226; <strong style="color: #222;">{{ $item->item_name }}</strong>
-                                        @if($item->urdu_name)
-                                            <span style="color: #777;">({{ $item->urdu_name }})</span>
-                                        @endif
-                                        @if($item->pivot->custom_note)
-                                            <span style="color: #888; font-style: italic;">({{ $item->pivot->custom_note }})</span>
-                                        @endif
-                                        @if(!empty($item->pivot->managed_by_host))
-                                            <span style="color: #d39e00; font-weight: bold;">(By Host)</span>
-                                        @endif
-                                    </td>
-                                @endforeach
-                                @if($chunk->count() < 2)
-                                    <td style="width: 50%;"></td>
-                                @endif
-                            </tr>
-                        @endforeach
-                    </table>
-                </div>
-            </div>
-        @endif
-
-        <!-- Terms and Signatures -->
-        <div class="terms-box" style="page-break-inside: avoid;">
-            <strong>Terms & Conditions:</strong>
-            <ol style="margin: 3px 0 0 15px; padding: 0;">
-                <li>The refundable security deposit remains strictly separate from event revenue and will be refunded post-event after evaluating damage losses.</li>
-                <li>Final payments must be cleared at least 3 days prior to the event date.</li>
-                <li>All tax items are based on governmental marquee regulations and will be updated dynamically.</li>
-            </ol>
-        </div>
-
-        <!-- Signature Lines -->
+        <!-- Signature Lines --><br>
         <table class="signature-table" style="page-break-inside: avoid;">
-            <tr>
-                <td>
-                    <div class="signature-line"></div>
-                    Customer / Host Signature
-                </td>
+            <tr> 
                 <td>
                     <div class="signature-line"></div>
                     Received By (Authorized Officer Stamp & Sign)

@@ -702,6 +702,11 @@ class BookingEdit extends Component
 
         $this->validate($rules);
 
+        if ($this->bookingStatus === 'Completed' && Carbon::parse($this->selectedDate)->startOfDay()->gt(Carbon::today())) {
+            $this->addError('bookingStatus', 'Future bookings cannot be marked as Completed.');
+            return;
+        }
+
         if ($this->privacyRequired) {
             $ladies = intval($this->privacyLadiesPercentage);
             $gents = intval($this->privacyGentsPercentage);

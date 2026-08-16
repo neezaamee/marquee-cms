@@ -294,5 +294,62 @@ class BookingController extends Controller
             'branch'
         ));
     }
+
+    /**
+     * Display a calendar view of all bookings.
+     */
+    public function calendar()
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
+
+        $marqueeId = auth()->user()->marquee_id;
+
+        // Retrieve bookings (including soft deleted so cancelled/deleted are visible but color-coded)
+        $bookings = Booking::withTrashed()
+            ->with(['customer', 'eventType', 'hall'])
+            ->where('marquee_id', $marqueeId)
+            ->get();
+
+        $events = $bookings->map(function($booking) {
+            $customerName = $booking->customer->full_name ?? 'Walk-in / Guest';
+            $eventName = $booking->eventType->event_type_name ?? 'Event';
+            $hallName = $booking->hall->hall_name ?? 'General Hall';
+
+            $title = "{$customerName} - {$eventName} ({$hallName})";
+            if ($booking->trashed()) {
+                $title .= ' [DELETED]';
+            }
+
+            // Determine class name based on status
+            $className = 'bg-secondary-subtle';
+            if ($booking->trashed()) {
+                $className = 'bg-danger-subtle text-danger border-danger';
+            } elseif ($booking->booking_status === 'Confirmed') {
+                $className = 'bg-success-subtle text-success border-success';
+            } elseif ($booking->booking_status === 'Completed') {
+                $className = 'bg-info-subtle text-info border-info';
+            } elseif ($booking->booking_status === 'Cancelled') {
+                $className = 'bg-danger-subtle text-danger border-danger';
+            } elseif (in_array($booking->booking_status, ['Reserved', 'Draft'])) {
+                $className = 'bg-warning-subtle text-warning border-warning';
+            }
+
+            // Standardize format: YYYY-MM-DDTHH:MM:SS
+            $start = $booking->booking_date->format('Y-m-d') . 'T' . $booking->start_time->format('H:i:s');
+            $end = $booking->booking_date->format('Y-m-d') . 'T' . $booking->end_time->format('H:i:s');
+
+            return [
+                'id' => $booking->id,
+                'title' => $title,
+                'start' => $start,
+                'end' => $end,
+                'url' => route('bookings.show', $booking->id),
+                'className' => $className,
+                'description' => "Booking #: {$booking->booking_number}\nStatus: {$booking->booking_status}\nHall: {$hallName}",
+            ];
+        });
+
+        return view('bookings.calendar', compact('events'));
+    }
 }
 

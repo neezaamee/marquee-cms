@@ -19,19 +19,20 @@
             font-family: 'Inter', 'Noto Sans Arabic', sans-serif;
             background-color: #f8f9fa;
             color: #1a1a1a;
-            font-size: 13px;
+            font-size: 11px;
+            line-height: 1.25;
         }
 
         .urdu-font {
             font-family: 'Noto Nastaliq Urdu', 'Noto Sans Arabic', serif;
-            line-height: 1.8;
+            line-height: 1.35;
         }
 
         .slip-container {
             max-width: 800px;
-            margin: 20px auto;
+            margin: 5px auto;
             background: #ffffff;
-            padding: 30px;
+            padding: 15px 25px;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             border: 1px solid #e0e0e0;
@@ -39,18 +40,18 @@
 
         .header-border {
             border-bottom: 2px solid #2b3445;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
         }
 
         .dept-header {
             background-color: #2b3445;
             color: #ffffff;
-            padding: 8px 14px;
+            padding: 4px 10px;
             font-weight: 700;
             border-radius: 4px;
-            margin-top: 20px;
-            margin-bottom: 10px;
+            margin-top: 10px;
+            margin-bottom: 5px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -60,20 +61,20 @@
             background-color: #f4f6f9;
             border: 1px solid #e1e6ed;
             border-radius: 6px;
-            padding: 12px 16px;
-            margin-bottom: 20px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
         }
 
         .info-label {
-            font-size: 11px;
+            font-size: 9px;
             text-transform: uppercase;
             color: #6c757d;
             font-weight: 700;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
 
         .info-value {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 700;
             color: #1a202c;
         }
@@ -82,8 +83,8 @@
             background-color: #dc3545;
             color: #ffffff;
             font-weight: 800;
-            font-size: 12px;
-            padding: 4px 10px;
+            font-size: 11px;
+            padding: 3px 8px;
             border-radius: 20px;
         }
 
@@ -97,21 +98,28 @@
             color: #2d3748;
             font-weight: 700;
             border-bottom: 2px solid #cbd5e0;
+            padding: 3px 6px !important;
+            font-size: 10px;
+        }
+
+        .table-kitchen td {
+            padding: 3px 6px !important;
+            font-size: 10px;
         }
 
         .instructions-box {
             background-color: #fff8e6;
-            border: 2px dashed #f6ad55;
+            border: 1.5px dashed #f6ad55;
             border-radius: 6px;
-            padding: 14px;
-            margin-top: 25px;
+            padding: 8px 12px;
+            margin-top: 10px;
         }
 
         .print-footer {
             border-top: 1px solid #e2e8f0;
-            margin-top: 30px;
-            padding-top: 15px;
-            font-size: 11px;
+            margin-top: 15px;
+            padding-top: 8px;
+            font-size: 9px;
             color: #718096;
         }
 
@@ -119,6 +127,7 @@
             body {
                 background-color: #ffffff;
                 color: #000000;
+                font-size: 9px;
             }
             .slip-container {
                 box-shadow: none;
@@ -136,12 +145,35 @@
                 color: #ffffff !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
+                margin-top: 6px !important;
+                margin-bottom: 3px !important;
+                padding: 3px 8px !important;
             }
             .version-badge {
                 background-color: #dc3545 !important;
                 color: #ffffff !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
+            }
+            .table-kitchen th, .table-kitchen td {
+                padding: 2px 4px !important;
+                font-size: 9px !important;
+            }
+            .info-card {
+                padding: 4px 8px !important;
+                margin-bottom: 6px !important;
+            }
+            .header-border {
+                padding-bottom: 3px !important;
+                margin-bottom: 6px !important;
+            }
+            .print-footer {
+                margin-top: 8px !important;
+                padding-top: 4px !important;
+            }
+            .instructions-box {
+                padding: 6px 10px !important;
+                margin-top: 6px !important;
             }
         }
     </style>
@@ -260,17 +292,12 @@
                 <thead>
                     <tr>
                         <th style="width: 8%;" class="text-center">#</th>
-                        <th style="width: 45%;">
+                        <th style="width: 52%;">
                             @if($lang === 'english') Dish / Item Name @endif
                             @if($lang === 'urdu') <span class="urdu-font">ڈش / مینو ائٹم</span> @endif
                             @if($lang === 'bilingual') Dish Name / ڈش کا نام @endif
                         </th>
-                        <th style="width: 22%;" class="text-center">
-                            @if($lang === 'english') Required Quantity @endif
-                            @if($lang === 'urdu') <span class="urdu-font">مطلوبہ مقدار</span> @endif
-                            @if($lang === 'bilingual') Quantity / مقدار @endif
-                        </th>
-                        <th style="width: 25%;">
+                        <th style="width: 40%;">
                             @if($lang === 'english') Serving Notes @endif
                             @if($lang === 'urdu') <span class="urdu-font">خصوصی ہدایت</span> @endif
                             @if($lang === 'bilingual') Instructions / ہدایت @endif
@@ -296,9 +323,6 @@
                                         <div class="urdu-font text-secondary fs-12 mt-n1">{{ $item->urdu_name }}</div>
                                     @endif
                                 @endif
-                            </td>
-                            <td class="text-center fw-bold font-monospace text-primary fs-13">
-                                {{ number_format($qty) }} {{ $unit }}
                             </td>
                             <td class="fs-12 text-600">
                                 {{ $item->pivot->custom_note ?? 'Standard Preparation' }}

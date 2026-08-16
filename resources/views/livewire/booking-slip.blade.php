@@ -48,6 +48,10 @@
                         </td>
                     </tr>
                     <tr>
+                        <td class="text-600 px-0 py-1">Event Type:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->eventType->event_type_name ?? '—' }}</td>
+                    </tr>
+                    <tr>
                         <td class="text-600 px-0 py-1">Booking Date:</td>
                         <td class="text-800 fw-bold px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
                     </tr>

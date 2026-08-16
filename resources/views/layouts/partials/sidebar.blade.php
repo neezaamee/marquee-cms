@@ -269,11 +269,13 @@
 
         <!-- Visual Booking Calendar -->
         <li class="nav-item">
-          <a class="nav-link text-muted" href="#!" role="button">
+          @php
+            $calendarActive = Route::is('bookings.calendar');
+          @endphp
+          <a class="nav-link {{ $calendarActive ? 'active' : '' }}" href="{{ route('bookings.calendar') }}" role="button">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-calendar text-400"></span></span>
+              <span class="nav-link-icon"><span class="fas fa-calendar text-primary"></span></span>
               <span class="nav-link-text ps-1">Booking Calendar</span>
-              <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
             </div>
           </a>
         </li>

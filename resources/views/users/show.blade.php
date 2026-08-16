@@ -3,9 +3,17 @@
 @section('title', 'User Profile')
 
 @section('content')
+@php
+  $isOwnerProfile = false;
+  if ($user->role) {
+      $roleNameLower = strtolower($user->role->name);
+      $roleLabelLower = strtolower($user->role->label);
+      $isOwnerProfile = ($roleNameLower === 'owner') || (str_contains($roleLabelLower, 'owner'));
+  }
+@endphp
 <div class="row g-3 mb-3">
   <!-- Profile info card -->
-  <div class="col-lg-8">
+  <div class="{{ $isOwnerProfile ? 'col-lg-12' : 'col-lg-8' }}">
     <div class="card h-100">
       <div class="card-header bg-light d-flex justify-content-between align-items-center">
         <h5 class="mb-0">User Profile</h5>
@@ -56,6 +64,7 @@
     </div>
   </div>
 
+  @if(!$isOwnerProfile)
   <!-- Role & Permissions card -->
   <div class="col-lg-4">
     <div class="card h-100">
@@ -86,5 +95,6 @@
       </div>
     </div>
   </div>
+  @endif
 </div>
 @endsection

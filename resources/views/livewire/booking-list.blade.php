@@ -414,7 +414,12 @@
                                         ];
                                         $sc = $statusColors[$booking->booking_status] ?? 'secondary';
                                     @endphp
-                                    <span class="badge badge-subtle-{{ $sc }} rounded-pill px-2 py-1 fs-11">{{ $booking->booking_status }}</span>
+                                    <span class="badge badge-subtle-{{ $sc }} rounded-pill px-2 py-1 fs-11">
+                                        {{ $booking->booking_status }}
+                                    </span>
+                                    @if($booking->trashed())
+                                        <span class="badge bg-danger rounded-pill px-2 py-1 fs-11 ms-1" data-bs-toggle="tooltip" title="Soft Deleted">Deleted</span>
+                                    @endif
 
                                     <!-- Quick Pending Action for Drafts -->
                                     @if($booking->booking_status === 'Draft' && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings') || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin']))))
@@ -451,33 +456,41 @@
                                 </td>
 
                                 <!-- Actions -->
-                                <td class="text-end px-3">
-                                    <div class="btn-group btn-group-sm">
-                                        <a class="btn btn-falcon-default btn-xs" href="{{ route('bookings.show', $booking->id) }}" data-bs-toggle="tooltip" title="View Details">
-                                            <span class="text-info fas fa-eye"></span> View
-                                        </a>
-                                        <a class="btn btn-falcon-default btn-xs" href="{{ route('bookings.slip', $booking->id) }}" data-bs-toggle="tooltip" title="Print Slip" target="_blank">
-                                            <span class="text-success fas fa-print"></span> Slip
-                                        </a>
-                                        <a class="btn btn-falcon-default btn-xs" href="{{ route('bookings.kitchen-slip', ['booking' => $booking->id, 'lang' => 'bilingual']) }}" data-bs-toggle="tooltip" title="Print Kitchen Menu Slip" target="_blank">
-                                            <span class="text-warning fas fa-utensils"></span> Kitchen
-                                        </a>
-
-                                        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings'))
-                                            @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
-                                                <a class="btn btn-falcon-default btn-xs" href="{{ route('bookings.edit', $booking->id) }}" data-bs-toggle="tooltip" title="Edit Booking">
-                                                    <span class="text-primary fas fa-edit"></span> Edit
+                                <td class="align-middle text-end px-3">
+                                    <div class="dropdown font-sans-serif d-inline-block">
+                                        <button class="btn btn-link text-600 dropdown-toggle dropdown-caret-none transition-none btn-sm" type="button" id="booking-actions-{{ $booking->id }}" data-bs-toggle="dropdown" data-boundary="viewport" aria-haspopup="true" aria-expanded="false">
+                                            <span class="fas fa-ellipsis-h fs-10"></span>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end border py-0" aria-labelledby="booking-actions-{{ $booking->id }}">
+                                            <div class="bg-white dark__bg-1000 py-2 text-start">
+                                                <a class="dropdown-item" href="{{ route('bookings.show', $booking->id) }}">
+                                                    <span class="text-info fas fa-eye me-2"></span>View Details
                                                 </a>
-                                            @endif
-                                        @endif
+                                                <a class="dropdown-item" href="{{ route('bookings.slip', $booking->id) }}" target="_blank">
+                                                    <span class="text-success fas fa-print me-2"></span>Print Slip
+                                                </a>
+                                                <a class="dropdown-item" href="{{ route('bookings.kitchen-slip', ['booking' => $booking->id, 'lang' => 'bilingual']) }}" target="_blank">
+                                                    <span class="text-warning fas fa-utensils me-2"></span>Kitchen Slip
+                                                </a>
 
-                                        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('cancel_bookings'))
-                                            @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
-                                                <button class="btn btn-falcon-default btn-xs text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $booking->id }})" data-bs-toggle="tooltip" title="Delete Booking">
-                                                    <span class="fas fa-ban"></span>
-                                                </button>
-                                            @endif
-                                        @endif
+                                                @if(!$booking->trashed() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings')))
+                                                    @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
+                                                        <a class="dropdown-item" href="{{ route('bookings.edit', $booking->id) }}">
+                                                            <span class="text-primary fas fa-edit me-2"></span>Edit Booking
+                                                        </a>
+                                                    @endif
+                                                @endif
+
+                                                @if(!$booking->trashed() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('cancel_bookings')))
+                                                    @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
+                                                        <div class="dropdown-divider"></div>
+                                                        <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $booking->id }})">
+                                                            <span class="fas fa-ban me-2"></span>Cancel & Delete
+                                                        </button>
+                                                    @endif
+                                                @endif
+                                            </div>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>

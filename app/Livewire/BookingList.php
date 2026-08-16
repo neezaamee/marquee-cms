@@ -246,7 +246,7 @@ class BookingList extends Component
         // ----------------------------------------------------
         // Real Database Summary Metrics (Tenant-scoped)
         // ----------------------------------------------------
-        $baseQuery = Booking::where('marquee_id', $marqueeId);
+        $baseQuery = Booking::withTrashed()->where('marquee_id', $marqueeId);
         if (!empty($this->filterBranch)) {
             $baseQuery->whereHas('hall', fn($q) => $q->where('branch_id', $this->filterBranch));
         }
@@ -277,7 +277,7 @@ class BookingList extends Component
         // ----------------------------------------------------
         // Main Filtered Table Query
         // ----------------------------------------------------
-        $query = Booking::with(['customer', 'hall', 'hall.branch', 'halls', 'slot', 'package', 'payments', 'eventType', 'creator', 'finalBill'])
+        $query = Booking::withTrashed()->with(['customer', 'hall', 'hall.branch', 'halls', 'slot', 'package', 'payments', 'eventType', 'creator', 'finalBill'])
             ->withSum('payments as paid_amount', 'amount')
             ->where('marquee_id', $marqueeId);
 
@@ -378,7 +378,7 @@ class BookingList extends Component
     {
         $marqueeId = auth()->user()->marquee_id;
 
-        $query = Booking::with(['customer', 'hall', 'hall.branch', 'halls', 'slot', 'package', 'payments', 'eventType', 'creator', 'finalBill'])
+        $query = Booking::withTrashed()->with(['customer', 'hall', 'hall.branch', 'halls', 'slot', 'package', 'payments', 'eventType', 'creator', 'finalBill'])
             ->withSum('payments as paid_amount', 'amount')
             ->where('marquee_id', $marqueeId);
 

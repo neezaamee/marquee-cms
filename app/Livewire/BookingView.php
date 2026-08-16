@@ -436,6 +436,11 @@ class BookingView extends Component
             return;
         }
 
+        if ($newStatus === 'Completed' && \Carbon\Carbon::parse($this->booking->booking_date)->startOfDay()->gt(\Carbon\Carbon::today())) {
+            session()->flash('error', 'Future bookings cannot be marked as Completed.');
+            return;
+        }
+
         $user = auth()->user();
         $isOwner = $user->role && in_array($user->role->name, ['owner', 'super_admin']);
 

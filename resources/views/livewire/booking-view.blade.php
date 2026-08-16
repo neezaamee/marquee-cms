@@ -8,6 +8,19 @@
         </div>
     @endif
 
+    <!-- Soft Deleted Alert -->
+    @if($booking->trashed())
+        <div class="alert alert-danger border-3 border-danger d-flex align-items-center m-3 shadow-sm" role="alert">
+            <div class="bg-danger text-white me-3 icon-item rounded-circle p-2"><span class="fas fa-exclamation-triangle fs-7"></span></div>
+            <div class="flex-grow-1">
+                <h6 class="alert-heading mb-1 fw-bold text-danger">Booking Deleted / بکنگ حذف ہو چکی ہے</h6>
+                <p class="mb-0 fs-12 text-800">
+                    This booking has been cancelled and soft-deleted. It is kept in the system for historical logs and audit trail but cannot be edited or modified.
+                </p>
+            </div>
+        </div>
+    @endif
+
     <!-- Menu Modification Alert for Kitchen Slip -->
     @if($booking->is_kitchen_menu_modified)
         <div class="alert alert-warning border-3 border-warning d-flex align-items-center m-3 shadow-sm" role="alert">
@@ -42,7 +55,7 @@
                 @endif
             </div>
 
-            @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
+            @if(!$booking->trashed() && ($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin']))))
                 <div class="d-flex align-items-center gap-1 flex-wrap">
                     <span class="fs-12 text-600 fw-bold me-2">Transition Status:</span>
                     @if($booking->booking_status !== 'Confirmed')

@@ -76,13 +76,14 @@ Route::middleware('auth')->group(function () {
         
         // Booking Management
         Route::get('bookings/report', [BookingController::class, 'report'])->name('bookings.report');
-        Route::get('bookings/{booking}/slip', [BookingController::class, 'slip'])->name('bookings.slip');
-        Route::get('bookings/{booking}/slip-v2', [BookingController::class, 'slipV2'])->name('bookings.slip-v2');
-        Route::get('bookings/{booking}/slip-v3', [BookingController::class, 'slipV3'])->name('bookings.slip-v3');
-        Route::get('bookings/{booking}/kitchen-slip', [BookingController::class, 'kitchenSlip'])->name('bookings.kitchen-slip');
-        Route::get('bookings/{booking}/pdf', [BookingController::class, 'downloadPdf'])->name('bookings.pdf');
+        Route::get('bookings/calendar', [BookingController::class, 'calendar'])->name('bookings.calendar');
+        Route::get('bookings/{booking}/slip', [BookingController::class, 'slip'])->name('bookings.slip')->withTrashed();
+        Route::get('bookings/{booking}/slip-v2', [BookingController::class, 'slipV2'])->name('bookings.slip-v2')->withTrashed();
+        Route::get('bookings/{booking}/slip-v3', [BookingController::class, 'slipV3'])->name('bookings.slip-v3')->withTrashed();
+        Route::get('bookings/{booking}/kitchen-slip', [BookingController::class, 'kitchenSlip'])->name('bookings.kitchen-slip')->withTrashed();
+        Route::get('bookings/{booking}/pdf', [BookingController::class, 'downloadPdf'])->name('bookings.pdf')->withTrashed();
         Route::get('bookings/payments/{payment}/receipt', [BookingController::class, 'paymentReceipt'])->name('bookings.payment-receipt');
-        Route::resource('bookings', BookingController::class);
+        Route::resource('bookings', BookingController::class)->withTrashed();
         
         // Menu Management
         Route::resource('menu-categories', MenuCategoryController::class);
