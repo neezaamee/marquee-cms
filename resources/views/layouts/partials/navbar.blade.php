@@ -61,7 +61,15 @@
     <li class="nav-item dropdown">
       <a class="nav-link pe-0 ps-2" id="navbarDropdownUser" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
         <div class="avatar avatar-xl">
-          <img class="rounded-circle" src="{{ asset('assets/img/team/3-thumb.png') }}" alt="User Profile" />
+          @if(auth()->user()->profile_photo)
+            <img class="rounded-circle" src="{{ asset('storage/' . auth()->user()->profile_photo) }}" alt="User Profile" style="object-fit: cover;" />
+          @elseif(auth()->user()->employee && auth()->user()->employee->photo)
+            <img class="rounded-circle" src="{{ asset('storage/' . auth()->user()->employee->photo) }}" alt="User Profile" style="object-fit: cover;" />
+          @else
+            <div class="avatar-name rounded-circle bg-subtle-primary text-primary d-flex align-items-center justify-content-center fw-bold" style="width: 100%; height: 100%; font-size: 0.85rem;">
+              <span>{{ strtoupper(substr(auth()->user()->name, 0, 2)) }}</span>
+            </div>
+          @endif
         </div>
       </a>
       <div class="dropdown-menu dropdown-caret dropdown-menu-end py-0" aria-labelledby="navbarDropdownUser">
@@ -71,8 +79,8 @@
             <p class="fs-11 text-600 mb-0">{{ auth()->user()->email ?? 'admin@marquee.cms' }}</p>
           </div>
           <div class="dropdown-divider"></div>
-          <a class="dropdown-item" href="#!">Profile &amp; Account</a>
-          <a class="dropdown-item" href="#!">Settings</a>
+          <a class="dropdown-item" href="{{ route('profile.show') }}">Profile &amp; Account</a>
+          <a class="dropdown-item" href="{{ route('profile.show') . '#tab-personal' }}">Settings</a>
           <div class="dropdown-divider"></div>
           
           <!-- Manual Post Request for Logout -->

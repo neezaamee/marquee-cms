@@ -7,6 +7,7 @@ use App\Http\Controllers\MarqueeController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\HallController;
 use App\Http\Controllers\SlotController;
 use App\Http\Controllers\HallSlotAssignmentController;
@@ -61,6 +62,11 @@ Route::middleware('auth')->group(function () {
 
     // Onboarding Setup Wizard Route
     Route::get('/setup', \App\Livewire\SetupWizard::class)->name('setup.wizard');
+
+    // User Profile Routes
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
     // Operational Routes (Blocked unless initial setup is completed)
     Route::middleware('setup.completed')->group(function () {
@@ -211,12 +217,15 @@ Route::middleware('auth')->group(function () {
         Route::get('departments/reports', \App\Livewire\DepartmentReports::class)->name('departments.reports');
     });
 
-    // SaaS Subscription Management & Global Defaults (Super Admin only)
+    // SaaS Subscription Management, Backup Management & Global Defaults (Super Admin only)
     Route::resource('subscription-plans', \App\Http\Controllers\SubscriptionPlanController::class);
     Route::resource('plan-features', \App\Http\Controllers\PlanFeatureController::class);
     Route::resource('billing-cycles', \App\Http\Controllers\BillingCycleController::class);
     Route::resource('saas-invoices', \App\Http\Controllers\SaasInvoiceController::class);
     Route::resource('saas-payments', \App\Http\Controllers\SaasPaymentController::class);
     Route::get('admin/global-defaults', \App\Livewire\SuperAdmin\GlobalDefaultManager::class)->name('super-admin.global-defaults');
+    Route::get('admin/backups', \App\Livewire\SuperAdmin\BackupManager::class)->name('super-admin.backups');
+    Route::get('admin/backups/{backup}/download', [\App\Http\Controllers\SuperAdmin\BackupDownloadController::class, 'download'])->name('super-admin.backups.download');
     Route::get('settings/default-data', \App\Livewire\Owner\TenantDefaultManager::class)->name('owner.default-data');
 });
+

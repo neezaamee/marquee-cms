@@ -1572,35 +1572,42 @@
           </ul>
         </li>
 
+        @php
+          $backupsActive = Route::is('super-admin.backups');
+        @endphp
         <li class="nav-item">
-          <a class="nav-link dropdown-indicator collapsed" href="#backupsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="backupsCollapse">
+          <a class="nav-link dropdown-indicator {{ $backupsActive ? '' : 'collapsed' }}" href="#backupsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $backupsActive ? 'true' : 'false' }}" aria-controls="backupsCollapse">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-database"></span></span>
+              <span class="nav-link-icon"><span class="fas fa-database text-primary"></span></span>
               <span class="nav-link-text ps-1">Backup Mgmt</span>
             </div>
           </a>
-          <ul class="nav collapse" id="backupsCollapse" data-bs-parent="#navbarVerticalNav">
+          <ul class="nav collapse {{ $backupsActive ? 'show' : '' }}" id="backupsCollapse" data-bs-parent="#navbarVerticalNav">
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ $backupsActive && request('activeTab', 'manual') === 'manual' ? 'active' : '' }}" href="{{ route('super-admin.backups', ['activeTab' => 'manual']) }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Manual Backup</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ $backupsActive && request('activeTab') === 'scheduled' ? 'active' : '' }}" href="{{ route('super-admin.backups', ['activeTab' => 'scheduled']) }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Scheduled Backups</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ $backupsActive && request('activeTab') === 'restore' ? 'active' : '' }}" href="{{ route('super-admin.backups', ['activeTab' => 'restore']) }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Restore Backup</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ $backupsActive && request('activeTab') === 'activity_logs' ? 'active' : '' }}" href="{{ route('super-admin.backups', ['activeTab' => 'activity_logs']) }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Audit & Activity Logs</span>
                 </div>
               </a>
             </li>
@@ -1660,20 +1667,18 @@
         </div>
 
         <li class="nav-item">
-          <a class="nav-link text-muted" href="#!" role="button">
+          <a class="nav-link" href="{{ route('profile.show') }}" role="button">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-user text-400"></span></span>
+              <span class="nav-link-icon"><span class="fas fa-user"></span></span>
               <span class="nav-link-text ps-1">My Profile</span>
-              <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
             </div>
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-muted" href="#!" role="button">
+          <a class="nav-link" href="{{ route('profile.show') . '#tab-security' }}" role="button">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-key text-400"></span></span>
+              <span class="nav-link-icon"><span class="fas fa-key"></span></span>
               <span class="nav-link-text ps-1">Change Password</span>
-              <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
             </div>
           </a>
         </li>
