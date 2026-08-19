@@ -22,6 +22,11 @@ class Branch extends Model
         'fbr_pos_id',
         'fbr_pos_key',
         'fbr_sandbox_mode',
+        'is_head_office',
+    ];
+
+    protected $casts = [
+        'is_head_office' => 'boolean',
     ];
 
     /**
@@ -30,5 +35,20 @@ class Branch extends Model
     public function users()
     {
         return $this->hasMany(User::class);
+    }
+
+    /**
+     * Boot the model.
+     */
+    protected static function booted()
+    {
+        static::saving(function ($branch) {
+            if ($branch->is_head_office) {
+                // Ensure only one head office exists per marquee
+                static::where('marquee_id', $branch->marquee_id)
+                    ->where('id', '!=', $branch->id)
+                    ->update(['is_head_office' => false]);
+            }
+        });
     }
 }

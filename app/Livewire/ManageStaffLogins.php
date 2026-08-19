@@ -28,7 +28,7 @@ class ManageStaffLogins extends Component
     public function mount(Employee $staff)
     {
         $currentUser = auth()->user();
-        abort_unless($currentUser->isSuperAdmin() || $currentUser->hasRole(['owner', 'branch_manager']) || $currentUser->hasPermission('manage_staff'), 403);
+        abort_unless($currentUser->isSuperAdmin() || $currentUser->isBusinessOwner() || $currentUser->hasRole('branch_manager') || $currentUser->hasPermission('manage_staff'), 403);
 
         $this->staff = $staff;
 
@@ -61,7 +61,7 @@ class ManageStaffLogins extends Component
     public function addLogin()
     {
         $currentUser = auth()->user();
-        abort_unless($currentUser->isSuperAdmin() || $currentUser->hasRole(['owner', 'branch_manager']) || $currentUser->hasPermission('manage_staff'), 403);
+        abort_unless($currentUser->isSuperAdmin() || $currentUser->isBusinessOwner() || $currentUser->hasRole('branch_manager') || $currentUser->hasPermission('manage_staff'), 403);
 
         $this->validate();
 
@@ -72,7 +72,7 @@ class ManageStaffLogins extends Component
 
         // Security check for role assignment
         $assignedRole = Role::findOrFail($this->role_id);
-        if ($assignedRole->name === 'super_admin' || ($currentUser->hasRole('branch_manager') && $assignedRole->name === 'branch_manager')) {
+        if ($assignedRole->name === 'super_admin' || ($currentUser->hasRole('branch_manager') && in_array($assignedRole->name, ['business_owner', 'owner', 'area_manager', 'branch_manager']))) {
             abort(403, 'Unauthorized role assignment.');
         }
 
@@ -106,7 +106,7 @@ class ManageStaffLogins extends Component
     public function toggleStatus(int $userId)
     {
         $currentUser = auth()->user();
-        abort_unless($currentUser->isSuperAdmin() || $currentUser->hasRole(['owner', 'branch_manager']) || $currentUser->hasPermission('manage_staff'), 403);
+        abort_unless($currentUser->isSuperAdmin() || $currentUser->isBusinessOwner() || $currentUser->hasRole('branch_manager') || $currentUser->hasPermission('manage_staff'), 403);
 
         $user = User::where('employee_id', $this->staff->id)->findOrFail($userId);
 
@@ -125,7 +125,7 @@ class ManageStaffLogins extends Component
     public function deleteLogin(int $userId)
     {
         $currentUser = auth()->user();
-        abort_unless($currentUser->isSuperAdmin() || $currentUser->hasRole(['owner', 'branch_manager']) || $currentUser->hasPermission('manage_staff'), 403);
+        abort_unless($currentUser->isSuperAdmin() || $currentUser->isBusinessOwner() || $currentUser->hasRole('branch_manager') || $currentUser->hasPermission('manage_staff'), 403);
 
         $user = User::where('employee_id', $this->staff->id)->findOrFail($userId);
 
@@ -158,7 +158,7 @@ class ManageStaffLogins extends Component
     public function saveEdit()
     {
         $currentUser = auth()->user();
-        abort_unless($currentUser->isSuperAdmin() || $currentUser->hasRole(['owner', 'branch_manager']) || $currentUser->hasPermission('manage_staff'), 403);
+        abort_unless($currentUser->isSuperAdmin() || $currentUser->isBusinessOwner() || $currentUser->hasRole('branch_manager') || $currentUser->hasPermission('manage_staff'), 403);
 
         $user = User::where('employee_id', $this->staff->id)->findOrFail($this->editingUserId);
 
@@ -171,7 +171,7 @@ class ManageStaffLogins extends Component
 
         // Security check for role assignment
         $assignedRole = Role::findOrFail($this->edit_role_id);
-        if ($assignedRole->name === 'super_admin' || ($currentUser->hasRole('branch_manager') && $assignedRole->name === 'branch_manager')) {
+        if ($assignedRole->name === 'super_admin' || ($currentUser->hasRole('branch_manager') && in_array($assignedRole->name, ['business_owner', 'owner', 'area_manager', 'branch_manager']))) {
             abort(403, 'Unauthorized role assignment.');
         }
 
@@ -202,7 +202,7 @@ class ManageStaffLogins extends Component
     {
         $currentUser = auth()->user();
         if ($currentUser->hasRole('branch_manager')) {
-            return Role::whereNotIn('name', ['super_admin', 'branch_manager', 'owner'])->orderBy('label')->get();
+            return Role::whereNotIn('name', ['super_admin', 'business_owner', 'owner', 'area_manager', 'branch_manager'])->orderBy('label')->get();
         } else {
             return Role::where('name', '!=', 'super_admin')->orderBy('label')->get();
         }

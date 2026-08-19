@@ -16,8 +16,26 @@ class InventoryService
      */
     public function generateNextItemCode(?int $marqueeId): string
     {
-        $count = InventoryItem::withTrashed()->where('marquee_id', $marqueeId)->count();
-        return 'ITEM-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
+        $existingCodes = InventoryItem::withTrashed()
+            ->where('marquee_id', $marqueeId)
+            ->pluck('item_code');
+
+        $maxNum = 0;
+        foreach ($existingCodes as $c) {
+            if (preg_match('/ITEM-(\d+)/', (string) $c, $m)) {
+                $num = (int) $m[1];
+                if ($num > $maxNum) {
+                    $maxNum = $num;
+                }
+            }
+        }
+
+        do {
+            $maxNum++;
+            $code = 'ITEM-' . str_pad($maxNum, 5, '0', STR_PAD_LEFT);
+        } while ($existingCodes->contains($code));
+
+        return $code;
     }
 
     /**
@@ -25,8 +43,26 @@ class InventoryService
      */
     public function generateNextSupplierCode(?int $marqueeId): string
     {
-        $count = Supplier::withTrashed()->where('marquee_id', $marqueeId)->count();
-        return 'SUP-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
+        $existingCodes = Supplier::withTrashed()
+            ->where('marquee_id', $marqueeId)
+            ->pluck('supplier_code');
+
+        $maxNum = 0;
+        foreach ($existingCodes as $c) {
+            if (preg_match('/SUP-(\d+)/', (string) $c, $m)) {
+                $num = (int) $m[1];
+                if ($num > $maxNum) {
+                    $maxNum = $num;
+                }
+            }
+        }
+
+        do {
+            $maxNum++;
+            $code = 'SUP-' . str_pad($maxNum, 5, '0', STR_PAD_LEFT);
+        } while ($existingCodes->contains($code));
+
+        return $code;
     }
 
     /**

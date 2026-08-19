@@ -108,13 +108,15 @@ class BookingEdit extends Component
 
         // Owner/Superadmin lock validation
         $user = auth()->user();
-        $isOwner = $user->role && in_array($user->role->name, ['owner', 'super_admin']);
+        $isOwner = $user && ($user->isSuperAdmin() || $user->isBusinessOwner());
         $isLocked = in_array($booking->booking_status, ['Completed', 'Cancelled']);
 
         if ($isLocked && !$isOwner) {
             session()->flash('error', 'Only owners or super admins can edit Completed or Cancelled bookings.');
             return redirect()->route('bookings.show', $booking->id);
         }
+
+        abort_unless($user && $user->can('update', $booking), 403, 'Unauthorized access to edit this booking.');
 
         $this->selectedCustomerId = $booking->customer_id;
         $this->selectedEventTypeId = $booking->event_type_id;
@@ -221,7 +223,7 @@ class BookingEdit extends Component
 
     public function loadDropdowns()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->booking->marquee_id ?? auth()->user()->getActiveMarqueeId();
 
         $this->customersList = Customer::where('marquee_id', $marqueeId)
             ->whereIn('status', ['active', 'Active'])
@@ -717,11 +719,15 @@ class BookingEdit extends Component
             }
         }
 
-        $marqueeId = auth()->user()->marquee_id;
-        $userId = auth()->id();
+        $user = auth()->user();
+        $marqueeId = $this->booking->marquee_id ?? $user->getActiveMarqueeId();
+        $userId = $user->id;
+        $primaryHallId = reset($this->selectedHallIds);
+        $primaryHall = Hall::find($primaryHallId);
+        $branchId = $this->booking->branch_id ?? ($primaryHall ? $primaryHall->branch_id : $user->branch_id);
 
         try {
-            DB::transaction(function () use ($marqueeId, $userId) {
+            DB::transaction(function () use ($marqueeId, $userId, $branchId, $primaryHallId) {
                 $service = new AvailabilityService();
 
                 // Shared lock checking & availability verification
@@ -755,9 +761,10 @@ class BookingEdit extends Component
 
                 // Update
                 $this->booking->update([
+                    'branch_id' => $branchId,
                     'customer_id' => $this->selectedCustomerId,
                     'event_type_id' => $this->selectedEventTypeId,
-                    'hall_id' => reset($this->selectedHallIds), // primary hall fallback
+                    'hall_id' => $primaryHallId, // primary hall fallback
                     'slot_id' => $this->selectedSlotId ?: null,
                     'package_id' => $this->noFood ? null : $this->selectedPackageId,
                     'booking_date' => $this->selectedDate,

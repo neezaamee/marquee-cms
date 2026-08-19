@@ -58,8 +58,6 @@ class SaasStripeBillingTest extends TestCase
             'city' => 'New York',
             'province' => 'NY',
             'status' => 'active',
-            'subscription_plan_id' => $this->plan->id,
-            'subscription_ends_at' => now()->addDays(5),
         ]);
 
         $this->user = User::create([
@@ -70,7 +68,11 @@ class SaasStripeBillingTest extends TestCase
             'marquee_id' => $this->marquee->id,
             'role_id' => $ownerRole->id,
             'status' => 'active',
+            'subscription_plan_id' => $this->plan->id,
+            'subscription_ends_at' => now()->addDays(5),
         ]);
+
+        $this->user->ownedMarquees()->syncWithoutDetaching([$this->marquee->id]);
 
         $this->cycle = BillingCycle::create([
             'cycle_name' => 'Quarterly',
@@ -138,7 +140,7 @@ class SaasStripeBillingTest extends TestCase
             ], 200)
         ]);
 
-        $originalExpiry = $this->marquee->subscription_ends_at;
+        $originalExpiry = $this->user->subscription_ends_at;
 
         // Perform success callback request
         $response = $this->get(route('billing.success', [
@@ -160,9 +162,9 @@ class SaasStripeBillingTest extends TestCase
         $this->assertTrue($paymentExists);
 
         // Assert tenant subscription ends date is extended by 3 months
-        $this->marquee->refresh();
+        $this->user->refresh();
         $expectedExpiry = $originalExpiry->copy()->addMonths(3);
-        $this->assertEquals($expectedExpiry->toDateString(), $this->marquee->subscription_ends_at->toDateString());
+        $this->assertEquals($expectedExpiry->toDateString(), $this->user->subscription_ends_at->toDateString());
     }
 
     /** @test */

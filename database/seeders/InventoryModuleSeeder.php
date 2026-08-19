@@ -155,7 +155,9 @@ class InventoryModuleSeeder extends Seeder
 
                 $items = [];
                 foreach ($itemsData as $item) {
-                    $code = $this->inventoryService->generateNextItemCode($marqueeId);
+                    $existingItem = InventoryItem::where('marquee_id', $marqueeId)->where('name', $item['name'])->first();
+                    $code = $existingItem ? $existingItem->item_code : $this->inventoryService->generateNextItemCode($marqueeId);
+
                     $items[$item['name']] = InventoryItem::updateOrCreate(
                         ['marquee_id' => $marqueeId, 'name' => $item['name']],
                         [
@@ -199,7 +201,9 @@ class InventoryModuleSeeder extends Seeder
 
                 $suppliers = [];
                 foreach ($suppliersData as $supp) {
-                    $code = $this->inventoryService->generateNextSupplierCode($marqueeId);
+                    $existingSupp = Supplier::where('marquee_id', $marqueeId)->where('name', $supp['name'])->first();
+                    $code = $existingSupp ? $existingSupp->supplier_code : $this->inventoryService->generateNextSupplierCode($marqueeId);
+
                     $suppliers[$supp['name']] = Supplier::updateOrCreate(
                         ['marquee_id' => $marqueeId, 'name' => $supp['name']],
                         [
@@ -213,8 +217,8 @@ class InventoryModuleSeeder extends Seeder
                         ]
                     );
 
-                    // Add opening balance transaction entry in ledger
-                    if ($supp['opening'] > 0) {
+                    // Add opening balance transaction entry in ledger if not already recorded
+                    if ($supp['opening'] > 0 && !$existingSupp) {
                         $this->inventoryService->recordSupplierTransaction(
                             $marqueeId,
                             $suppliers[$supp['name']]->id,
@@ -231,70 +235,88 @@ class InventoryModuleSeeder extends Seeder
 
                 // 7. Seed a Draft Purchase Order
                 $poNumberDraft = 'PO-' . date('Y') . '-0001';
-                $poDraft = PurchaseOrder::create([
-                    'marquee_id' => $marqueeId,
-                    'branch_id' => $branch->id,
-                    'po_number' => $poNumberDraft,
-                    'supplier_id' => $suppliers['Al-Makkah Foods & Grains']->id,
-                    'order_date' => Carbon::now()->subDays(5)->format('Y-m-d'),
-                    'status' => 'Draft',
-                    'created_by' => $adminId,
-                ]);
+                $poDraft = PurchaseOrder::firstOrCreate(
+                    [
+                        'marquee_id' => $marqueeId,
+                        'po_number' => $poNumberDraft,
+                    ],
+                    [
+                        'branch_id' => $branch->id,
+                        'supplier_id' => $suppliers['Al-Makkah Foods & Grains']->id,
+                        'order_date' => Carbon::now()->subDays(5)->format('Y-m-d'),
+                        'status' => 'Draft',
+                        'created_by' => $adminId,
+                    ]
+                );
 
-                PurchaseOrderDetail::create([
-                    'purchase_order_id' => $poDraft->id,
-                    'item_id' => $items['Basmati Rice']->id,
-                    'quantity' => 10,
-                    'unit_price' => 320.00,
-                    'amount' => 3200.00,
-                ]);
+                if ($poDraft->wasRecentlyCreated) {
+                    PurchaseOrderDetail::create([
+                        'purchase_order_id' => $poDraft->id,
+                        'item_id' => $items['Basmati Rice']->id,
+                        'quantity' => 10,
+                        'unit_price' => 320.00,
+                        'amount' => 3200.00,
+                    ]);
+                }
 
                 // 8. Seed an Approved PO
                 $poNumberApp = 'PO-' . date('Y') . '-0002';
-                $poApproved = PurchaseOrder::create([
-                    'marquee_id' => $marqueeId,
-                    'branch_id' => $branch->id,
-                    'po_number' => $poNumberApp,
-                    'supplier_id' => $suppliers['Al-Makkah Foods & Grains']->id,
-                    'order_date' => Carbon::now()->subDays(3)->format('Y-m-d'),
-                    'status' => 'Approved',
-                    'created_by' => $adminId,
-                ]);
+                $poApproved = PurchaseOrder::firstOrCreate(
+                    [
+                        'marquee_id' => $marqueeId,
+                        'po_number' => $poNumberApp,
+                    ],
+                    [
+                        'branch_id' => $branch->id,
+                        'supplier_id' => $suppliers['Al-Makkah Foods & Grains']->id,
+                        'order_date' => Carbon::now()->subDays(3)->format('Y-m-d'),
+                        'status' => 'Approved',
+                        'created_by' => $adminId,
+                    ]
+                );
 
-                PurchaseOrderDetail::create([
-                    'purchase_order_id' => $poApproved->id,
-                    'item_id' => $items['Basmati Rice']->id,
-                    'quantity' => 50,
-                    'unit_price' => 310.00,
-                    'amount' => 15500.00,
-                ]);
+                if ($poApproved->wasRecentlyCreated) {
+                    PurchaseOrderDetail::create([
+                        'purchase_order_id' => $poApproved->id,
+                        'item_id' => $items['Basmati Rice']->id,
+                        'quantity' => 50,
+                        'unit_price' => 310.00,
+                        'amount' => 15500.00,
+                    ]);
+                }
 
                 // 9. Seed a posted Purchase Invoice to check accounting double entry
-                $invoiceNum = 'INV-PUR-' . rand(1000, 9999);
-                $invoice = PurchaseInvoice::create([
-                    'marquee_id' => $marqueeId,
-                    'branch_id' => $branch->id,
-                    'supplier_id' => $suppliers['Shalimar Furniture Mart']->id,
-                    'invoice_number' => $invoiceNum,
-                    'purchase_date' => Carbon::now()->subDays(10)->format('Y-m-d'),
-                    'gross_amount' => 12000.00,
-                    'discount' => 500.00,
-                    'tax' => 1840.00,
-                    'net_amount' => 13340.00,
-                    'status' => 'Draft',
-                    'created_by' => $adminId,
-                ]);
+                $invoiceNum = 'INV-PUR-0001';
+                $invoice = PurchaseInvoice::firstOrCreate(
+                    [
+                        'marquee_id' => $marqueeId,
+                        'invoice_number' => $invoiceNum,
+                    ],
+                    [
+                        'branch_id' => $branch->id,
+                        'supplier_id' => $suppliers['Shalimar Furniture Mart']->id,
+                        'purchase_date' => Carbon::now()->subDays(10)->format('Y-m-d'),
+                        'gross_amount' => 12000.00,
+                        'discount' => 500.00,
+                        'tax' => 1840.00,
+                        'net_amount' => 13340.00,
+                        'status' => 'Draft',
+                        'created_by' => $adminId,
+                    ]
+                );
 
-                PurchaseInvoiceDetail::create([
-                    'purchase_invoice_id' => $invoice->id,
-                    'item_id' => $items['Banquet Chair (Golden)']->id,
-                    'quantity' => 10,
-                    'unit_cost' => 1200.00,
-                    'amount' => 12000.00,
-                ]);
+                if ($invoice->wasRecentlyCreated) {
+                    PurchaseInvoiceDetail::create([
+                        'purchase_invoice_id' => $invoice->id,
+                        'item_id' => $items['Banquet Chair (Golden)']->id,
+                        'quantity' => 10,
+                        'unit_cost' => 1200.00,
+                        'amount' => 12000.00,
+                    ]);
 
-                // Post the invoice to ledger via purchase service
-                $this->purchaseService->postPurchaseInvoice($invoice->id);
+                    // Post the invoice to ledger via purchase service
+                    $this->purchaseService->postPurchaseInvoice($invoice->id);
+                }
             });
         }
     }

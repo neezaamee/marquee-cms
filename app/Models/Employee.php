@@ -93,10 +93,8 @@ class Employee extends Model
             if (empty($employee->employee_id)) {
                 $marqueeId = $employee->marquee_id;
 
-                // Count existing employees (including trashed) for this marquee to get the next serial
-                $count = static::withTrashed()
-                    ->where('marquee_id', $marqueeId)
-                    ->count();
+                // Count existing employees (including trashed) globally to get the next serial
+                $count = static::withoutGlobalScope('tenant')->withTrashed()->count();
 
                 $employee->employee_id = 'EMP-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
             }

@@ -59,6 +59,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+    Route::post('/switch-marquee', [\App\Http\Controllers\MarqueeSwitchController::class, 'switch'])->name('marquee.switch');
 
     // Onboarding Setup Wizard Route
     Route::get('/setup', \App\Livewire\SetupWizard::class)->name('setup.wizard');
@@ -226,6 +227,8 @@ Route::middleware('auth')->group(function () {
     Route::get('admin/global-defaults', \App\Livewire\SuperAdmin\GlobalDefaultManager::class)->name('super-admin.global-defaults');
     Route::get('admin/backups', \App\Livewire\SuperAdmin\BackupManager::class)->name('super-admin.backups');
     Route::get('admin/backups/{backup}/download', [\App\Http\Controllers\SuperAdmin\BackupDownloadController::class, 'download'])->name('super-admin.backups.download');
+    Route::get('admin/business-owners', \App\Livewire\SuperAdmin\BusinessOwnerList::class)->name('super-admin.business-owners');
+    Route::get('admin/business-owners/create', \App\Livewire\SuperAdmin\BusinessOwnerForm::class)->name('super-admin.business-owners.create');
+    Route::get('admin/business-owners/{id}/edit', \App\Livewire\SuperAdmin\BusinessOwnerForm::class)->name('super-admin.business-owners.edit');
     Route::get('settings/default-data', \App\Livewire\Owner\TenantDefaultManager::class)->name('owner.default-data');
 });
-

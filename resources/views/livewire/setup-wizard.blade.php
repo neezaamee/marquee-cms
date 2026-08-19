@@ -1,46 +1,91 @@
-<div class="card wizard-card">
+<div class="card theme-wizard mb-5" id="setupWizard">
     <!-- Header -->
-    <div class="wizard-header text-white">
-        <h4 class="mb-1 text-white">Initial Business Configuration Setup</h4>
-        <p class="mb-0 text-white-50 fs-10">Please complete the following configurations to activate your banquet business ledger and unlock CMS modules.</p>
+    <div class="card-header bg-light pt-3 pb-2">
+        <h4 class="mb-1 text-primary">Initial Business Configuration Setup</h4>
+        <p class="mb-0 text-secondary fs-10">Please complete the following configurations to activate your banquet business ledger and unlock CMS modules.</p>
+    </div>
+
+    <!-- Step Indicators (Falcon Theme Style) -->
+    <div class="card-header bg-body-tertiary pt-3 pb-2">
+        <ul class="nav justify-content-between nav-wizard">
+            <!-- Step 1 -->
+            <li class="nav-item">
+                <a class="nav-link {{ $currentStep == 1 ? 'active' : ($currentStep > 1 ? 'done' : '') }} fw-semi-bold" href="#" wire:click.prevent="goToStep(1)">
+                    <span class="nav-item-circle-parent">
+                        <span class="nav-item-circle">
+                            @if($currentStep > 1)
+                                <span class="fas fa-check"></span>
+                            @else
+                                <span class="fas fa-building"></span>
+                            @endif
+                        </span>
+                    </span>
+                    <span class="d-none d-md-block mt-1 fs-10">Marquee Info</span>
+                </a>
+            </li>
+            <!-- Step 2 -->
+            <li class="nav-item">
+                <a class="nav-link {{ $currentStep == 2 ? 'active' : ($currentStep > 2 ? 'done' : '') }} fw-semi-bold" href="#" wire:click.prevent="goToStep(2)">
+                    <span class="nav-item-circle-parent">
+                        <span class="nav-item-circle">
+                            @if($currentStep > 2)
+                                <span class="fas fa-check"></span>
+                            @else
+                                <span class="fas fa-map-marker-alt"></span>
+                            @endif
+                        </span>
+                    </span>
+                    <span class="d-none d-md-block mt-1 fs-10">Branch Details</span>
+                </a>
+            </li>
+            <!-- Step 3 -->
+            <li class="nav-item">
+                <a class="nav-link {{ $currentStep == 3 ? 'active' : ($currentStep > 3 ? 'done' : '') }} fw-semi-bold" href="#" wire:click.prevent="goToStep(3)">
+                    <span class="nav-item-circle-parent">
+                        <span class="nav-item-circle">
+                            @if($currentStep > 3)
+                                <span class="fas fa-check"></span>
+                            @else
+                                <span class="fas fa-hotel"></span>
+                            @endif
+                        </span>
+                    </span>
+                    <span class="d-none d-md-block mt-1 fs-10">Hall / Venue</span>
+                </a>
+            </li>
+            <!-- Step 4 -->
+            <li class="nav-item">
+                <a class="nav-link {{ $currentStep == 4 ? 'active' : ($currentStep > 4 ? 'done' : '') }} fw-semi-bold" href="#" wire:click.prevent="goToStep(4)">
+                    <span class="nav-item-circle-parent">
+                        <span class="nav-item-circle">
+                            @if($currentStep > 4)
+                                <span class="fas fa-check"></span>
+                            @else
+                                <span class="fas fa-calculator"></span>
+                            @endif
+                        </span>
+                    </span>
+                    <span class="d-none d-md-block mt-1 fs-10">Financial Year</span>
+                </a>
+            </li>
+            <!-- Step 5 -->
+            <li class="nav-item">
+                <a class="nav-link {{ $currentStep == 5 ? 'active' : '' }} fw-semi-bold" href="#" wire:click.prevent="goToStep(5)">
+                    <span class="nav-item-circle-parent">
+                        <span class="nav-item-circle">
+                            <span class="fas fa-rocket"></span>
+                        </span>
+                    </span>
+                    <span class="d-none d-md-block mt-1 fs-10">Defaults & Launch</span>
+                </a>
+            </li>
+        </ul>
     </div>
 
     <div class="card-body p-4 p-sm-5">
-        <!-- Step Indicators -->
-        <div class="step-indicator">
-            <div class="step-item {{ $currentStep == 1 ? 'active' : ($currentStep > 1 ? 'completed' : '') }}" wire:click="goToStep(1)">
-                <div class="step-number">
-                    @if($currentStep > 1) <i class="fas fa-check"></i> @else 1 @endif
-                </div>
-                <div class="step-label">Marquee Info</div>
-            </div>
-            <div class="step-item {{ $currentStep == 2 ? 'active' : ($currentStep > 2 ? 'completed' : '') }}" wire:click="goToStep(2)">
-                <div class="step-number">
-                    @if($currentStep > 2) <i class="fas fa-check"></i> @else 2 @endif
-                </div>
-                <div class="step-label">Branch Details</div>
-            </div>
-            <div class="step-item {{ $currentStep == 3 ? 'active' : ($currentStep > 3 ? 'completed' : '') }}" wire:click="goToStep(3)">
-                <div class="step-number">
-                    @if($currentStep > 3) <i class="fas fa-check"></i> @else 3 @endif
-                </div>
-                <div class="step-label">Hall / Venue</div>
-            </div>
-            <div class="step-item {{ $currentStep == 4 ? 'active' : ($currentStep > 4 ? 'completed' : '') }}" wire:click="goToStep(4)">
-                <div class="step-number">
-                    @if($currentStep > 4) <i class="fas fa-check"></i> @else 4 @endif
-                </div>
-                <div class="step-label">Financial Year</div>
-            </div>
-            <div class="step-item {{ $currentStep == 5 ? 'active' : '' }}" wire:click="goToStep(5)">
-                <div class="step-number">5</div>
-                <div class="step-label">Defaults & Launch</div>
-            </div>
-        </div>
-
         <!-- Session & Validation Notifications -->
         @if ($errors->any())
-            <div class="alert alert-subtle-warning d-flex align-items-center mb-4" role="alert">
+            <div class="alert alert-warning border-2 d-flex align-items-center mb-4" role="alert">
                 <span class="fas fa-exclamation-triangle me-2"></span>
                 <div>Please resolve the highlighted validation errors before continuing.</div>
             </div>
@@ -50,7 +95,7 @@
             <!-- STEP 1: MARQUEE INFO -->
             @if($currentStep == 1)
                 <div>
-                    <h5 class="mb-3 text-white border-bottom border-translucent pb-2"><span class="fas fa-building me-2 text-primary"></span>Step 1: Marquee Information</h5>
+                    <h5 class="mb-3 border-bottom pb-2"><span class="fas fa-building me-2 text-primary"></span>Step 1: Marquee Information</h5>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label" for="marquee_name">Marquee Business Name *</label>
@@ -174,7 +219,7 @@
             <!-- STEP 2: BRANCH CONFIG -->
             @if($currentStep == 2)
                 <div>
-                    <h5 class="mb-3 text-white border-bottom border-translucent pb-2"><span class="fas fa-map-marked-alt me-2 text-primary"></span>Step 2: Branch Configuration</h5>
+                    <h5 class="mb-3 border-bottom pb-2"><span class="fas fa-map-marked-alt me-2 text-primary"></span>Step 2: Branch Configuration</h5>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label" for="branch_name">Branch Venue Name *</label>
@@ -230,7 +275,7 @@
             <!-- STEP 3: HALL CONFIG -->
             @if($currentStep == 3)
                 <div>
-                    <h5 class="mb-3 text-white border-bottom border-translucent pb-2"><span class="fas fa-hotel me-2 text-primary"></span>Step 3: Hall / Venue Configuration</h5>
+                    <h5 class="mb-3 border-bottom pb-2"><span class="fas fa-hotel me-2 text-primary"></span>Step 3: Hall / Venue Configuration</h5>
                     <div class="row g-3">
                         <div class="col-md-8">
                             <label class="form-label" for="hall_name">Hall / Marquee Name *</label>
@@ -264,7 +309,7 @@
                         <div class="col-12">
                             <label class="form-label" for="default_booking_price">Default Rent / Booking Price (per Shift) *</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-dark border-translucent text-white">{{ $currency }}</span>
+                                <span class="input-group-text">{{ $currency }}</span>
                                 <input wire:model="default_booking_price" type="number" class="form-control @error('default_booking_price') is-invalid @enderror" id="default_booking_price" min="0" required>
                             </div>
                             @error('default_booking_price') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
@@ -282,8 +327,8 @@
             <!-- STEP 4: FINANCIAL YEAR -->
             @if($currentStep == 4)
                 <div>
-                    <h5 class="mb-3 text-white border-bottom border-translucent pb-2"><span class="fas fa-calendar-check me-2 text-primary"></span>Step 4: Active Financial Year</h5>
-                    <p class="fs-10 text-light-muted">Double-entry accounting requires an open fiscal accounting period to process booking journals, vouchers, and cash flow reports. Let's create your first active financial year.</p>
+                    <h5 class="mb-3 border-bottom pb-2"><span class="fas fa-calendar-check me-2 text-primary"></span>Step 4: Active Financial Year</h5>
+                    <p class="fs-10 text-muted">Double-entry accounting requires an open fiscal accounting period to process booking journals, vouchers, and cash flow reports. Let's create your first active financial year.</p>
                     <div class="row g-3">
                         <div class="col-12">
                             <label class="form-label" for="fy_name">Financial Year Name *</label>
@@ -309,13 +354,13 @@
             <!-- STEP 5: DEFAULTS & SAVE -->
             @if($currentStep == 5)
                 <div>
-                    <h5 class="mb-3 text-white border-bottom border-translucent pb-2"><span class="fas fa-sliders-h me-2 text-primary"></span>Step 5: Operational Settings & Launch</h5>
+                    <h5 class="mb-3 border-bottom pb-2"><span class="fas fa-sliders-h me-2 text-primary"></span>Step 5: Operational Settings & Launch</h5>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label" for="tax_rate">Default Provincial Sales Tax (%) *</label>
                             <div class="input-group">
                                 <input wire:model="tax_rate" type="number" step="0.01" class="form-control @error('tax_rate') is-invalid @enderror" id="tax_rate" required>
-                                <span class="input-group-text bg-dark border-translucent text-white">%</span>
+                                <span class="input-group-text">%</span>
                             </div>
                             @error('tax_rate') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                         </div>
@@ -344,9 +389,9 @@
                         </div>
                     </div>
 
-                    <div class="mt-4 p-3 bg-dark bg-opacity-50 border border-translucent rounded-3">
-                        <h6 class="text-white mb-2"><span class="fas fa-magic me-2 text-info"></span>Automated Setup Automation</h6>
-                        <p class="fs-10 text-light-muted mb-0">Upon launching, the system will automatically pre-populate:
+                    <div class="mt-4 p-3 bg-light border rounded-3">
+                        <h6 class="text-dark mb-2"><span class="fas fa-magic me-2 text-info"></span>Automated Setup Automation</h6>
+                        <p class="fs-10 text-muted mb-0">Upon launching, the system will automatically pre-populate:
                             <br>• Standard Chart of Accounts (Cash, Bank, Accounts Receivable, Accounts Payable, etc.) for ledger postings.
                             <br>• Double shift timings ("Day Shift" and "Night Shift") linked to your new Hall.
                             <br>• Standard event type records (Wedding, Barat, Walima, Birthday, Seminar) to allow immediate booking entry.
@@ -356,17 +401,17 @@
             @endif
 
             <!-- Navigation Buttons -->
-            <div class="mt-5 d-flex justify-content-between border-top border-translucent pt-4">
+            <div class="mt-5 d-flex justify-content-between border-top pt-4">
                 <div>
                     @if($currentStep > 1)
-                        <button wire:click.prevent="prevStep" class="btn btn-outline-light btn-sm" type="button">
+                        <button wire:click.prevent="prevStep" class="btn btn-outline-secondary btn-sm" type="button">
                             <span class="fas fa-chevron-left me-1"></span> Back
                         </button>
                     @endif
                 </div>
                 
                 <div>
-                    <button wire:click.prevent="goToStep(1)" class="btn btn-link text-white-50 btn-sm me-2" type="button">
+                    <button wire:click.prevent="goToStep(1)" class="btn btn-link text-secondary btn-sm me-2" type="button">
                         Save and Exit Later
                     </button>
                     

@@ -37,7 +37,8 @@ class BranchController extends Controller
      */
     public function store(Request $request)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'), 403);
+        $user = auth()->user();
+        abort_unless($user->can('create', Branch::class), 403);
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -51,15 +52,15 @@ class BranchController extends Controller
             'fbr_sandbox_mode' => 'sometimes|boolean',
         ];
 
-        if (auth()->user()->isSuperAdmin()) {
+        if ($user->isSuperAdmin()) {
             $rules['marquee_id'] = 'required|exists:marquees,id';
         }
 
         $validated = $request->validate($rules);
         $validated['fbr_sandbox_mode'] = $request->has('fbr_sandbox_mode');
 
-        if (!auth()->user()->isSuperAdmin()) {
-            $validated['marquee_id'] = auth()->user()->marquee_id;
+        if (!$user->isSuperAdmin()) {
+            $validated['marquee_id'] = $user->getActiveMarqueeId();
         }
 
         Branch::create($validated);
@@ -72,7 +73,7 @@ class BranchController extends Controller
      */
     public function show(Branch $branch)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'), 403);
+        abort_unless(auth()->user()->can('view', $branch), 403);
 
         $branch->load(['marquee', 'users']);
         return view('branches.show', compact('branch'));
@@ -83,7 +84,7 @@ class BranchController extends Controller
      */
     public function edit(Branch $branch)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'), 403);
+        abort_unless(auth()->user()->can('update', $branch), 403);
 
         $marquees = [];
         if (auth()->user()->isSuperAdmin()) {
@@ -98,7 +99,8 @@ class BranchController extends Controller
      */
     public function update(Request $request, Branch $branch)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'), 403);
+        $user = auth()->user();
+        abort_unless($user->can('update', $branch), 403);
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -112,15 +114,15 @@ class BranchController extends Controller
             'fbr_sandbox_mode' => 'sometimes|boolean',
         ];
 
-        if (auth()->user()->isSuperAdmin()) {
+        if ($user->isSuperAdmin()) {
             $rules['marquee_id'] = 'required|exists:marquees,id';
         }
 
         $validated = $request->validate($rules);
         $validated['fbr_sandbox_mode'] = $request->has('fbr_sandbox_mode');
 
-        if (!auth()->user()->isSuperAdmin()) {
-            $validated['marquee_id'] = auth()->user()->marquee_id;
+        if (!$user->isSuperAdmin()) {
+            $validated['marquee_id'] = $branch->marquee_id;
         }
 
         $branch->update($validated);
@@ -133,7 +135,7 @@ class BranchController extends Controller
      */
     public function destroy(Branch $branch)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'), 403);
+        abort_unless(auth()->user()->can('delete', $branch), 403);
 
         $branch->delete();
 

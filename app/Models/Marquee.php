@@ -27,29 +27,17 @@ class Marquee extends Model
         'tax_authority',
         'status',
         'is_setup_completed',
-        'subscription_plan_id',
-        'subscription_trial_ends_at',
-        'subscription_ends_at',
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * Get the Business Owner user accounts that own this Marquee.
      */
-    protected function casts(): array
+    public function owners()
     {
-        return [
-            'subscription_trial_ends_at' => 'datetime',
-            'subscription_ends_at' => 'datetime',
-        ];
+        return $this->belongsToMany(User::class, 'marquee_owners', 'marquee_id', 'user_id')->withTimestamps();
     }
 
-    /**
-     * Get the subscription plan this marquee is subscribed to.
-     */
-    public function subscriptionPlan()
-    {
-        return $this->belongsTo(SubscriptionPlan::class);
-    }
+    // Subscriptions have been moved to User model
 
     /**
      * Get the branches associated with this marquee.

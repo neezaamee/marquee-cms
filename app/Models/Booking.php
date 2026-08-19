@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToBranch;
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,10 +15,11 @@ use Carbon\Carbon;
 
 class Booking extends Model
 {
-    use HasFactory, SoftDeletes, BelongsToTenant;
+    use HasFactory, SoftDeletes, BelongsToTenant, BelongsToBranch;
 
     protected $fillable = [
         'marquee_id',
+        'branch_id',
         'booking_number',
         'customer_id',
         'event_type_id',
@@ -110,17 +112,30 @@ class Booking extends Model
                 $model->created_by = auth()->id();
             }
 
+            // Auto-populate branch_id if empty
+            if (empty($model->branch_id)) {
+                if (!empty($model->hall_id)) {
+                    $hall = \App\Models\Hall::find($model->hall_id);
+                    if ($hall && $hall->branch_id) {
+                        $model->branch_id = $hall->branch_id;
+                    }
+                }
+                if (empty($model->branch_id) && auth()->check() && auth()->user()->branch_id) {
+                    $model->branch_id = auth()->user()->branch_id;
+                }
+            }
+
             // Auto-generate booking_number if empty
             if (empty($model->booking_number)) {
                 $marqueeId = $model->marquee_id;
                 if (empty($marqueeId) && auth()->check()) {
-                    $marqueeId = auth()->user()->marquee_id;
+                    $marqueeId = auth()->user()->getActiveMarqueeId();
                 }
 
                 $prefix = Carbon::now()->format('dmY');
 
                 // Find how many bookings have been created for this tenant with this prefix
-                $count = static::withTrashed()
+                $count = static::withoutGlobalScope('tenant')->withTrashed()
                     ->where('marquee_id', $marqueeId)
                     ->where('booking_number', 'like', "{$prefix}-%")
                     ->count();

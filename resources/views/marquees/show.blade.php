@@ -63,16 +63,16 @@
       <div class="card-body">
         <div class="mb-3">
           <h6 class="text-500 mb-1">Active Plan</h6>
-          <h4 class="text-primary">{{ $marquee->subscriptionPlan->name ?? 'None' }}</h4>
+          <h4 class="text-primary">{{ $marquee->owners->first() && $marquee->owners->first()->subscriptionPlan ? $marquee->owners->first()->subscriptionPlan->name : 'None' }}</h4>
         </div>
         <div class="mb-3">
           <h6 class="text-500 mb-1">Plan Price</h6>
-          <p class="fw-semi-bold">Rs. {{ number_format($marquee->subscriptionPlan->price ?? 0, 2) }} / month</p>
+          <p class="fw-semi-bold">Rs. {{ number_format($marquee->owners->first() && $marquee->owners->first()->subscriptionPlan ? $marquee->owners->first()->subscriptionPlan->price : 0, 2) }} / month</p>
         </div>
         <div class="mb-3">
           <h6 class="text-500 mb-1">Expires On</h6>
           <p class="fw-semi-bold text-danger">
-            {{ $marquee->subscription_ends_at ? $marquee->subscription_ends_at->format('M d, Y') : 'Never (Lifetime)' }}
+            {{ $marquee->owners->first() && $marquee->owners->first()->subscription_ends_at ? $marquee->owners->first()->subscription_ends_at->format('M d, Y') : 'Never (Lifetime)' }}
           </p>
         </div>
         <hr />

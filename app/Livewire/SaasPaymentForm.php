@@ -103,22 +103,21 @@ class SaasPaymentForm extends Component
                     'paid_date' => $this->payment_date,
                 ]);
 
-                // Automatically extend Marquee Tenant Subscription
+                // Automatically extend Marquee Tenant Owners Subscriptions
                 $marquee = $invoice->marquee;
                 $durationMonths = $invoice->billingCycle->duration_in_months;
 
-                // If current subscription is still active in future, extend from that end date.
-                // Otherwise, extend from today.
-                $currentEnd = $marquee->subscription_ends_at;
-                $startDate = ($currentEnd && $currentEnd->isFuture()) ? $currentEnd : now();
-                
-                $endDate = $startDate->copy()->addMonths($durationMonths);
+                foreach ($marquee->owners as $owner) {
+                    $currentEnd = $owner->subscription_ends_at;
+                    $startDate = ($currentEnd && $currentEnd->isFuture()) ? $currentEnd : now();
+                    $endDate = $startDate->copy()->addMonths($durationMonths);
 
-                $marquee->update([
-                    'subscription_plan_id' => $invoice->subscription_plan_id,
-                    'subscription_ends_at' => $endDate,
-                    'status' => 'active', // Reactivate account if it was suspended
-                ]);
+                    $owner->update([
+                        'subscription_plan_id' => $invoice->subscription_plan_id,
+                        'subscription_ends_at' => $endDate,
+                        'status' => 'active',
+                    ]);
+                }
             } else {
                 $invoice->update([
                     'payment_status' => 'Partially Paid',

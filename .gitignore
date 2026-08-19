@@ -29,6 +29,7 @@ yarn-error.log
 # Local Databases
 *.sqlite
 database/*.sqlite
+database/*.sql
 
 # Testing cache
 .phpunit.result.cache

@@ -321,29 +321,50 @@ class CrudAccessTest extends TestCase
             'role_id' => $this->superAdminRole->id
         ]);
 
-        $activeMarquee = Marquee::create([
-            'name' => 'Active Venue',
-            'address' => 'Addr 1', 'city' => 'Lahore', 'province' => 'Punjab', 'phone' => '123', 'email' => 'active@venue.com',
+        $ownerRole = Role::where('name', 'owner')->first() ?? Role::where('name', 'business_owner')->first();
+
+        $activeOwner = User::create([
+            'name' => 'Active Owner',
+            'email' => 'activeowner@test.com',
+            'username' => 'activeowner',
+            'password' => bcrypt('password'),
+            'role_id' => $ownerRole->id,
             'status' => 'active',
             'subscription_plan_id' => $this->plan->id,
             'subscription_ends_at' => now()->addMonth(),
         ]);
+
+        $expiredOwner = User::create([
+            'name' => 'Expired Owner',
+            'email' => 'expiredowner@test.com',
+            'username' => 'expiredowner',
+            'password' => bcrypt('password'),
+            'role_id' => $ownerRole->id,
+            'status' => 'active',
+            'subscription_plan_id' => $this->plan->id,
+            'subscription_ends_at' => now()->subMonth(),
+        ]);
+
+        $activeMarquee = Marquee::create([
+            'name' => 'Active Venue',
+            'address' => 'Addr 1', 'city' => 'Lahore', 'province' => 'Punjab', 'phone' => '123', 'email' => 'active@venue.com',
+            'status' => 'active',
+        ]);
+        $activeOwner->ownedMarquees()->syncWithoutDetaching([$activeMarquee->id]);
 
         $suspendedMarquee = Marquee::create([
             'name' => 'Suspended Venue',
             'address' => 'Addr 2', 'city' => 'Lahore', 'province' => 'Punjab', 'phone' => '456', 'email' => 'suspended@venue.com',
             'status' => 'suspended',
-            'subscription_plan_id' => $this->plan->id,
-            'subscription_ends_at' => now()->addMonth(),
         ]);
+        $activeOwner->ownedMarquees()->syncWithoutDetaching([$suspendedMarquee->id]);
 
         $expiredMarquee = Marquee::create([
             'name' => 'Expired Venue',
             'address' => 'Addr 3', 'city' => 'Lahore', 'province' => 'Punjab', 'phone' => '789', 'email' => 'expired@venue.com',
             'status' => 'active',
-            'subscription_plan_id' => $this->plan->id,
-            'subscription_ends_at' => now()->subMonth(),
         ]);
+        $expiredOwner->ownedMarquees()->syncWithoutDetaching([$expiredMarquee->id]);
 
         // 1. Get Active filter
         $response = $this->actingAs($superAdmin)->get(route('marquees.index', ['filter' => 'active']));

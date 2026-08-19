@@ -30,12 +30,7 @@ class BookingController extends Controller
      */
     public function show(Booking $booking)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
-
-        // Tenant scoping security check
-        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this booking.');
-        }
+        abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this booking.');
 
         return view('bookings.show', compact('booking'));
     }
@@ -45,12 +40,7 @@ class BookingController extends Controller
      */
     public function edit(Booking $booking)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings'), 403);
-
-        // Tenant scoping security check
-        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this booking.');
-        }
+        abort_unless(auth()->user()->can('update', $booking), 403, 'Unauthorized access to this booking.');
 
         return view('bookings.edit', compact('booking'));
     }
@@ -60,12 +50,7 @@ class BookingController extends Controller
      */
     public function slip(Booking $booking)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
-
-        // Tenant scoping security check
-        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this booking.');
-        }
+        abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this booking.');
 
         return view('bookings.slip', compact('booking'));
     }
@@ -75,12 +60,7 @@ class BookingController extends Controller
      */
     public function slipV2(Booking $booking)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
-
-        // Tenant scoping security check
-        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this booking.');
-        }
+        abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this booking.');
 
         return view('bookings.slip_v2', compact('booking'));
     }
@@ -90,12 +70,7 @@ class BookingController extends Controller
      */
     public function slipV3(Booking $booking)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
-
-        // Tenant scoping security check
-        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this booking.');
-        }
+        abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this booking.');
 
         return view('bookings.slip_v3', compact('booking'));
     }
@@ -105,12 +80,7 @@ class BookingController extends Controller
      */
     public function downloadPdf(Booking $booking)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
-
-        // Tenant scoping security check
-        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this booking.');
-        }
+        abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this booking.');
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('bookings.pdf', compact('booking'))
             ->setPaper('a4', 'portrait');
@@ -123,14 +93,8 @@ class BookingController extends Controller
      */
     public function paymentReceipt(\App\Models\BookingPayment $payment)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
-
         $booking = $payment->booking;
-
-        // Tenant scoping security check
-        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this payment receipt.');
-        }
+        abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this payment receipt.');
 
         return view('bookings.receipt', compact('payment', 'booking'));
     }
@@ -180,7 +144,8 @@ class BookingController extends Controller
             ->orderBy('id', 'desc')
             ->get();
 
-        $marquee = auth()->user()->marquee;
+        $activeMarqueeId = auth()->user()->getActiveMarqueeId();
+        $marquee = $activeMarqueeId ? \App\Models\Marquee::find($activeMarqueeId) : auth()->user()->marquee;
 
         return view('bookings.report', compact('bookings', 'marquee'));
     }
@@ -190,12 +155,7 @@ class BookingController extends Controller
      */
     public function kitchenSlip(Request $request, Booking $booking)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
-
-        // Tenant scoping security check
-        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this kitchen slip.');
-        }
+        abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this kitchen slip.');
 
         // Language selection (bilingual, english, urdu)
         $lang = $request->input('lang', 'bilingual');

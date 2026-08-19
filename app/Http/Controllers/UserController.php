@@ -101,7 +101,7 @@ class UserController extends Controller
         }
 
         if (!auth()->user()->isSuperAdmin()) {
-            $validated['marquee_id'] = auth()->user()->marquee_id;
+            $validated['marquee_id'] = $user->marquee_id ?? auth()->user()->getActiveMarqueeId();
         }
 
         $user->update($validated);

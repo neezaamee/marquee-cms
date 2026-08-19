@@ -95,50 +95,6 @@
                         @error('status') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
-                    @if (!$isEditMode)
-                    <div class="col-12 mt-4 mb-2">
-                        <div class="row navbar-vertical-label-wrapper">
-                            <div class="col-auto navbar-vertical-label text-primary">Owner Details</div>
-                            <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
-                        </div>
-                    </div>
-
-                    <!-- Owner Name -->
-                    <div class="col-md-6">
-                        <label class="form-label" for="owner_name">Owner Name *</label>
-                        <input wire:model="owner_name" class="form-control @error('owner_name') is-invalid @enderror" id="owner_name" type="text" required placeholder="e.g. Mian Akbar" />
-                        @error('owner_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
-
-                    <!-- Owner Username -->
-                    <div class="col-md-6">
-                        <label class="form-label" for="owner_username">Owner Username *</label>
-                        <input wire:model="owner_username" class="form-control @error('owner_username') is-invalid @enderror" id="owner_username" type="text" required placeholder="e.g. akbar_owner" />
-                        @error('owner_username') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
-
-                    <!-- Owner Email -->
-                    <div class="col-md-6">
-                        <label class="form-label" for="owner_email">Owner Email *</label>
-                        <input wire:model="owner_email" class="form-control @error('owner_email') is-invalid @enderror" id="owner_email" type="email" required placeholder="e.g. owner@example.com" />
-                        @error('owner_email') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
-
-                    <!-- Owner Password -->
-                    <div class="col-md-6">
-                        <label class="form-label" for="owner_password">Owner Password *</label>
-                        <input wire:model="owner_password" class="form-control @error('owner_password') is-invalid @enderror" id="owner_password" type="password" required placeholder="At least 8 characters" />
-                        @error('owner_password') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
-
-                    <!-- Owner Phone -->
-                    <div class="col-md-6">
-                        <label class="form-label" for="owner_phone">Owner Phone</label>
-                        <input wire:model="owner_phone" class="form-control @error('owner_phone') is-invalid @enderror" id="owner_phone" type="text" placeholder="e.g. +923007654321" />
-                        @error('owner_phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
-                    @endif
-
                     <div class="row navbar-vertical-label-wrapper mt-4 mb-2">
                         <div class="col-auto navbar-vertical-label text-primary">Taxation Details</div>
                         <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
@@ -172,28 +128,85 @@
                     </div>
 
                     <div class="row navbar-vertical-label-wrapper mt-4 mb-2">
-                        <div class="col-auto navbar-vertical-label text-primary">SaaS Subscription Details</div>
+                        <div class="col-auto navbar-vertical-label text-primary">Business Owner Association</div>
                         <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
                     </div>
 
-                    <!-- Subscription Plan -->
-                    <div class="col-md-6">
-                        <label class="form-label" for="subscription_plan_id">Subscription Plan *</label>
-                        <select wire:model="subscription_plan_id" class="form-select @error('subscription_plan_id') is-invalid @enderror" id="subscription_plan_id" required>
-                            <option value="">Select plan...</option>
-                            @foreach($plans as $plan)
-                                <option value="{{ $plan->id }}">{{ $plan->name }} (PKR {{ number_format($plan->price) }})</option>
-                            @endforeach
-                        </select>
-                        @error('subscription_plan_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
+                    @if (!$isEditMode)
+                        <!-- Inline Owner toggle -->
+                        <div class="col-12 mb-2">
+                            <div class="form-check form-switch">
+                                <input wire:model.live="createOwnerInline" class="form-check-input" id="createOwnerInline" type="checkbox" />
+                                <label class="form-check-label fw-bold" for="createOwnerInline">Create New Business Owner Inline (Shortcut)</label>
+                            </div>
+                        </div>
+                    @endif
 
-                    <!-- Subscription Ends At -->
-                    <div class="col-md-6">
-                        <label class="form-label" for="subscription_ends_at">Subscription Ends At</label>
-                        <input wire:model="subscription_ends_at" class="form-control @error('subscription_ends_at') is-invalid @enderror" id="subscription_ends_at" type="date" />
-                        @error('subscription_ends_at') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
+                    @if ($isEditMode || !$createOwnerInline)
+                        <!-- Multi-select for Existing Owners -->
+                        <div class="col-12">
+                            <label class="form-label" for="selectedOwners">Associate Business Owner(s) *</label>
+                            <select wire:model="selectedOwners" class="form-select @error('selectedOwners') is-invalid @enderror" id="selectedOwners" multiple style="height: 120px;">
+                                @foreach($businessOwnersList as $owner)
+                                    <option value="{{ $owner->id }}">{{ $owner->name }} ({{ $owner->email }})</option>
+                                @endforeach
+                            </select>
+                            <div class="fs-11 text-muted mt-1">Hold Ctrl (Windows) or Cmd (Mac) to select multiple owners.</div>
+                            @error('selectedOwners') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                        </div>
+                    @else
+                        <!-- Inline Owner Creation Form -->
+                        <div class="col-md-6">
+                            <label class="form-label" for="owner_name">Owner Full Name *</label>
+                            <input wire:model="owner_name" class="form-control @error('owner_name') is-invalid @enderror" id="owner_name" type="text" placeholder="e.g. Mian Akbar" />
+                            @error('owner_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="owner_username">Owner Username *</label>
+                            <input wire:model="owner_username" class="form-control @error('owner_username') is-invalid @enderror" id="owner_username" type="text" placeholder="e.g. akbar_owner" />
+                            @error('owner_username') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="owner_email">Owner Email *</label>
+                            <input wire:model="owner_email" class="form-control @error('owner_email') is-invalid @enderror" id="owner_email" type="email" placeholder="e.g. owner@example.com" />
+                            @error('owner_email') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="owner_password">Owner Password *</label>
+                            <input wire:model="owner_password" class="form-control @error('owner_password') is-invalid @enderror" id="owner_password" type="password" placeholder="At least 8 characters" />
+                            @error('owner_password') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="owner_phone">Owner Phone</label>
+                            <input wire:model="owner_phone" class="form-control @error('owner_phone') is-invalid @enderror" id="owner_phone" type="text" placeholder="e.g. +923007654321" />
+                            @error('owner_phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="col-12"><hr class="my-2 text-300"></div>
+
+                        <h5 class="fs-10 text-primary mb-0">SaaS Subscription Details (For New Owner)</h5>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="subscription_plan_id">Subscription Plan *</label>
+                            <select wire:model="subscription_plan_id" class="form-select @error('subscription_plan_id') is-invalid @enderror" id="subscription_plan_id">
+                                <option value="">Select plan...</option>
+                                @foreach($plans as $plan)
+                                    <option value="{{ $plan->id }}">{{ $plan->name }} (PKR {{ number_format($plan->price) }})</option>
+                                @endforeach
+                            </select>
+                            @error('subscription_plan_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="subscription_ends_at">Subscription Ends At *</label>
+                            <input wire:model="subscription_ends_at" class="form-control @error('subscription_ends_at') is-invalid @enderror" id="subscription_ends_at" type="date" />
+                            @error('subscription_ends_at') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                    @endif
                 </div>
 
                 <div class="mt-4 d-flex justify-content-end gap-2">

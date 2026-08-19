@@ -13,7 +13,9 @@ class MarqueeController extends Controller
      */
     public function index()
     {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->isBusinessOwner(), 403);
+
         return view('marquees.index');
     }
 
@@ -22,10 +24,17 @@ class MarqueeController extends Controller
      */
     public function create()
     {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->isBusinessOwner(), 403);
 
         $plans = SubscriptionPlan::all();
-        return view('marquees.create', compact('plans'));
+        $businessOwners = $user->isSuperAdmin()
+            ? \App\Models\User::whereHas('role', function ($q) {
+                $q->whereIn('name', ['business_owner', 'owner']);
+            })->orderBy('name')->get()
+            : collect();
+
+        return view('marquees.create', compact('plans', 'businessOwners'));
     }
 
     /**
@@ -33,7 +42,8 @@ class MarqueeController extends Controller
      */
     public function store(Request $request)
     {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->isBusinessOwner(), 403);
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -49,6 +59,7 @@ class MarqueeController extends Controller
             'status' => 'required|in:active,inactive,suspended',
             'subscription_plan_id' => 'required|exists:subscription_plans,id',
             'subscription_ends_at' => 'nullable|date',
+            'owner_user_id' => 'nullable|exists:users,id',
         ];
 
         // Owner fields are required if provided in standard HTTP requests (for API/post compatibility)
@@ -61,6 +72,10 @@ class MarqueeController extends Controller
         }
 
         $validated = $request->validate($rules);
+
+        if ($user->isBusinessOwner()) {
+            $validated['owner_user_id'] = $user->id;
+        }
 
         if ($request->hasFile('logo')) {
             $path = $request->file('logo')->store('logos', 'public');
@@ -91,8 +106,8 @@ class MarqueeController extends Controller
             ]);
 
             if ($request->has('owner_name')) {
-                $ownerRole = \App\Models\Role::where('name', 'owner')->first();
-                \App\Models\User::create([
+                $ownerRole = \App\Models\Role::whereIn('name', ['business_owner', 'owner'])->first();
+                $ownerUser = \App\Models\User::create([
                     'name' => $validated['owner_name'],
                     'email' => $validated['owner_email'],
                     'username' => $validated['owner_username'],
@@ -103,6 +118,7 @@ class MarqueeController extends Controller
                     'phone' => $validated['owner_phone'] ?? null,
                     'status' => 'active',
                 ]);
+                $marquee->update(['owner_user_id' => $ownerUser->id]);
             }
         });
 
@@ -114,9 +130,9 @@ class MarqueeController extends Controller
      */
     public function show(Marquee $marquee)
     {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        abort_unless(auth()->user()->can('view', $marquee), 403);
 
-        $marquee->load(['subscriptionPlan', 'branches', 'users']);
+        $marquee->load(['owners.subscriptionPlan', 'branches', 'users']);
         return view('marquees.show', compact('marquee'));
     }
 
@@ -125,7 +141,7 @@ class MarqueeController extends Controller
      */
     public function edit(Marquee $marquee)
     {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        abort_unless(auth()->user()->can('update', $marquee), 403);
 
         $plans = SubscriptionPlan::all();
         return view('marquees.edit', compact('marquee', 'plans'));
@@ -136,7 +152,7 @@ class MarqueeController extends Controller
      */
     public function update(Request $request, Marquee $marquee)
     {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        abort_unless(auth()->user()->can('update', $marquee), 403);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -169,7 +185,7 @@ class MarqueeController extends Controller
      */
     public function destroy(Marquee $marquee)
     {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        abort_unless(auth()->user()->can('delete', $marquee), 403);
 
         $marquee->delete();
 

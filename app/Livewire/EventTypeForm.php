@@ -40,7 +40,7 @@ class EventTypeForm extends Component
         $this->branches = Branch::where('marquee_id', $marqueeId)->orderBy('name')->get();
 
         // Fetch active slot shifts for slot preference dropdown
-        $this->slotShifts = Slot::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
+        $this->slotShifts = Slot::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('start_time')->get();
 
         if ($eventType) {
             $this->isEditMode = true;

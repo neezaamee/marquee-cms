@@ -255,10 +255,16 @@ class SetupWizard extends Component
                     'tax_authority' => $this->tax_authority,
                     'status' => 'active',
                     'is_setup_completed' => true,
-                    'subscription_plan_id' => $plan ? $plan->id : 1,
-                    'subscription_ends_at' => now()->addYear(),
                 ]
             );
+
+            // Update user subscription & pivot association
+            $user->update([
+                'marquee_id' => $marquee->id,
+                'subscription_plan_id' => $plan ? $plan->id : 1,
+                'subscription_ends_at' => now()->addYear(),
+            ]);
+            $user->ownedMarquees()->syncWithoutDetaching([$marquee->id]);
 
             // 3. Create Branch
             $branch = Branch::create([
@@ -269,6 +275,7 @@ class SetupWizard extends Component
                 'province' => $this->branch_province,
                 'phone' => $this->branch_phone,
                 'status' => 'active',
+                'is_head_office' => true,
             ]);
 
             // 4. Create Hall

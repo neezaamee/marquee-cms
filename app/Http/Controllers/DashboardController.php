@@ -18,15 +18,15 @@ class DashboardController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $marqueeId = $user->marquee_id;
+        $marqueeId = $user->getActiveMarqueeId();
 
         // Onboarding checklist status calculation
         $setupChecklist = [];
         $isSetupCompleted = true;
 
         if (!$user->isSuperAdmin()) {
-            if ($marqueeId && $user->marquee) {
-                $marquee = $user->marquee;
+            $marquee = $marqueeId ? \App\Models\Marquee::find($marqueeId) : null;
+            if ($marquee) {
                 $isSetupCompleted = (bool) $marquee->is_setup_completed;
 
                 if (!$isSetupCompleted) {

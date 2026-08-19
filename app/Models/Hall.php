@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToBranch;
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Hall extends Model
 {
-    use HasFactory, SoftDeletes, BelongsToTenant;
+    use HasFactory, SoftDeletes, BelongsToTenant, BelongsToBranch;
 
     protected $fillable = [
         'marquee_id',

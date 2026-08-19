@@ -142,7 +142,7 @@
                         <div class="text-500 fw-bold text-uppercase fs-12">Payment Outstanding</div>
                         <div class="d-flex align-items-baseline gap-2">
                             <h4 class="mb-0 font-monospace text-danger fw-bold">{{ number_format($outstandingPaymentsCount) }}</h4>
-                            <span class="text-muted fs-11 font-monospace">Rs. {{ number_format($outstandingAmountSum, 0) }}</span>
+                            <span class="text-muted fs-12 font-monospace">Rs. {{ number_format($outstandingAmountSum, 0) }}</span>
                         </div>
                     </div>
                     <div class="icon-item bg-danger-subtle text-danger rounded-3"><span class="fas fa-exclamation-triangle fs-9"></span></div>

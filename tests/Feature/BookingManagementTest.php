@@ -764,7 +764,7 @@ class BookingManagementTest extends TestCase
             ->call('nextStep') // Step 3 checks and fails since Hall B has conflict
             ->assertHasErrors(['availability']);
             
-        // Test that checking availability for only Hall A fails due to venue-wide slot lockout
+        // Test that checking availability for only Hall A succeeds (Hall-scoped availability)
         Livewire::test('booking-wizard')
             ->set('selectedCustomerId', $this->customerA->id)
             ->set('selectedEventTypeId', $this->eventTypeA->id)
@@ -774,8 +774,9 @@ class BookingManagementTest extends TestCase
             ->set('selectedSlotId', $this->slotA->id)
             ->call('nextStep') // Step 1 to 2
             ->call('nextStep') // Step 2 to 3
-            ->call('nextStep') // Step 3 checks and fails
-            ->assertHasErrors(['availability']);
+            ->call('nextStep') // Step 3 checks availability
+            ->assertHasNoErrors()
+            ->assertSet('currentStep', 4);
     }
 
     public function test_no_food_booking_recalculates_to_zero_plate_charges()

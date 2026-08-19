@@ -86,8 +86,25 @@ class RolesAndPermissionsSeeder extends Seeder
         $roles = [
             'super_admin' => [
                 'label' => 'Super Administrator',
-                'description' => 'Global SaaS administrator. Manages all marquees and plans.',
+                'description' => 'Global SaaS administrator. Manages all marquees, plans, and Business Owners.',
                 'permissions' => ['manage_saas'],
+            ],
+            'business_owner' => [
+                'label' => 'Business Owner',
+                'description' => 'Owner of multiple Marquee businesses & franchises. Full administrative control.',
+                'permissions' => [
+                    'view_bookings', 'create_bookings', 'edit_bookings', 'cancel_bookings',
+                    'view_halls', 'create_halls', 'edit_halls', 'delete_halls',
+                    'view_menus', 'create_menus', 'edit_menus', 'delete_menus',
+                    'view_payments', 'create_payments', 'refund_payments',
+                    'view_reports', 'manage_staff', 'manage_settings',
+                    'view_inventory', 'manage_inventory',
+                    'event-types.view', 'event-types.create', 'event-types.edit', 'event-types.delete',
+                    'view_packages', 'create_packages', 'edit_packages', 'delete_packages',
+                    'manage_accounting',
+                    'inventory.adjust', 'inventory.stock-take', 'inventory.view-costs', 'inventory.override-negative',
+                    'purchase.approve-po', 'purchase.invoice-post'
+                ],
             ],
             'owner' => [
                 'label' => 'Marquee Owner',
@@ -104,6 +121,21 @@ class RolesAndPermissionsSeeder extends Seeder
                     'manage_accounting',
                     'inventory.adjust', 'inventory.stock-take', 'inventory.view-costs', 'inventory.override-negative',
                     'purchase.approve-po', 'purchase.invoice-post'
+                ],
+            ],
+            'area_manager' => [
+                'label' => 'Admin / Area Manager / Branches Head',
+                'description' => 'View-only statistics, analytics, and reports across assigned or all businesses of a Business Owner.',
+                'permissions' => [
+                    'view_bookings',
+                    'view_halls',
+                    'view_menus',
+                    'view_payments',
+                    'view_reports',
+                    'view_inventory',
+                    'event-types.view',
+                    'view_packages',
+                    'inventory.view-costs'
                 ],
             ],
             'branch_manager' => [

@@ -40,6 +40,9 @@ class AppServiceProvider extends ServiceProvider
 
         Paginator::useBootstrapFive();
 
+        Gate::policy(\App\Models\Booking::class, \App\Policies\BookingPolicy::class);
+        Gate::policy(\App\Models\Branch::class, \App\Policies\BranchPolicy::class);
+        Gate::policy(\App\Models\Marquee::class, \App\Policies\MarqueePolicy::class);
         Gate::policy(InventoryCategory::class, InventoryPolicy::class);
         Gate::policy(InventoryUnit::class, InventoryPolicy::class);
         Gate::policy(InventoryBrand::class, InventoryPolicy::class);

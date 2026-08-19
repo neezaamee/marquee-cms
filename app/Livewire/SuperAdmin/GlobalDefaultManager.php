@@ -210,6 +210,6 @@ class GlobalDefaultManager extends Component
         return view('livewire.super-admin.global-default-manager', [
             'masters' => $masters,
             'metrics' => $metrics,
-        ])->layout('layouts.app');
+        ])->layout('layouts.admin');
     }
 }

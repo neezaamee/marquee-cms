@@ -17,8 +17,9 @@ trait BelongsToTenant
         static::creating(function ($model) {
             if (Auth::check() && ! $model->marquee_id) {
                 $user = Auth::user();
-                if ($user->marquee_id) {
-                    $model->marquee_id = $user->marquee_id;
+                $activeId = $user->getActiveMarqueeId();
+                if ($activeId) {
+                    $model->marquee_id = $activeId;
                 }
             }
         });
@@ -32,9 +33,14 @@ trait BelongsToTenant
 
             if (Auth::check()) {
                 $user = Auth::user();
-                // If the user belongs to a marquee and is NOT a super admin, filter queries
-                if ($user && $user->marquee_id && ! $user->isSuperAdmin()) {
-                    $builder->where($builder->getModel()->getTable() . '.marquee_id', $user->marquee_id);
+                // Super Admins bypass tenant scope
+                if ($user->isSuperAdmin()) {
+                    return;
+                }
+
+                $activeMarqueeId = $user->getActiveMarqueeId();
+                if ($activeMarqueeId) {
+                    $builder->where($builder->getModel()->getTable() . '.marquee_id', $activeMarqueeId);
                 }
             }
         });

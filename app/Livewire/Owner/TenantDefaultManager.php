@@ -290,6 +290,6 @@ class TenantDefaultManager extends Component
 
         return view('livewire.owner.tenant-default-manager', [
             'items' => $items,
-        ])->layout('layouts.app');
+        ])->layout('layouts.admin');
     }
 }

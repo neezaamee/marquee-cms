@@ -123,7 +123,7 @@ class BookingOnePage extends Component
 
     public function loadDropdowns()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = auth()->user()->getActiveMarqueeId();
 
         $this->eventTypesList = EventType::where('marquee_id', $marqueeId)
             ->whereIn('status', ['active', 'Active'])
@@ -170,7 +170,7 @@ class BookingOnePage extends Component
 
     public function searchCustomers()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = auth()->user()->getActiveMarqueeId();
 
         $query = Customer::where('marquee_id', $marqueeId)
             ->where('status', 'Active');
@@ -664,11 +664,14 @@ class BookingOnePage extends Component
             return;
         }
 
-        $marqueeId = auth()->user()->marquee_id;
-        $userId = auth()->id();
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
+        $userId = $user->id;
+        $primaryHall = Hall::find($this->selectedHallId);
+        $branchId = $user->branch_id ?? ($primaryHall ? $primaryHall->branch_id : null);
 
         try {
-            $booking = DB::transaction(function () use ($marqueeId, $userId) {
+            $booking = DB::transaction(function () use ($marqueeId, $userId, $branchId) {
                 $service = new AvailabilityService();
                 
                 foreach ($this->selectedHallIds as $hId) {
@@ -693,6 +696,7 @@ class BookingOnePage extends Component
 
                 $newBooking = Booking::create([
                     'marquee_id' => $marqueeId,
+                    'branch_id' => $branchId,
                     'customer_id' => $this->selectedCustomerId,
                     'event_type_id' => $this->selectedEventTypeId,
                     'hall_id' => $this->selectedHallId,

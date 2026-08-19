@@ -54,7 +54,7 @@ class Customer extends Model
                     $marqueeId = auth()->user()->marquee_id;
                 }
 
-                $count = static::withTrashed()
+                $count = static::withoutGlobalScope('tenant')->withTrashed()
                     ->where('marquee_id', $marqueeId)
                     ->count();
 

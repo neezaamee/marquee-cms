@@ -142,7 +142,7 @@ class BookingWizard extends Component
 
     public function checkBookingReadiness()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = auth()->user()->getActiveMarqueeId();
         $this->missingDependencies = [];
 
         $branchCount = \App\Models\Branch::where('marquee_id', $marqueeId)->where('status', 'active')->count();
@@ -175,7 +175,7 @@ class BookingWizard extends Component
 
     public function loadDropdowns()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = auth()->user()->getActiveMarqueeId();
 
         $this->eventTypesList = EventType::where('marquee_id', $marqueeId)
             ->whereIn('status', ['active', 'Active'])
@@ -586,7 +586,7 @@ class BookingWizard extends Component
 
     public function updatedMenuItemSearch()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = auth()->user()->getActiveMarqueeId();
         if (empty($this->menuItemSearch)) {
             $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)
                 ->orderBy('item_name')
@@ -924,12 +924,16 @@ class BookingWizard extends Component
             }
         }
 
-        $marqueeId = auth()->user()->marquee_id;
-        $userId = auth()->id();
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
+        $userId = $user->id;
+        $primaryHallId = reset($this->selectedHallIds);
+        $primaryHall = Hall::find($primaryHallId);
+        $branchId = $user->branch_id ?? ($primaryHall ? $primaryHall->branch_id : null);
 
         // Perform transactional creation and final double-booking check
         try {
-            $booking = DB::transaction(function () use ($marqueeId, $userId) {
+            $booking = DB::transaction(function () use ($marqueeId, $userId, $branchId, $primaryHallId) {
                 $service = new AvailabilityService();
                 
                 // 1. Lock existing bookings to prevent race conditions & 2. Final check inside transaction
@@ -958,9 +962,10 @@ class BookingWizard extends Component
                 // 3. Create the Booking
                 $newBooking = Booking::create([
                     'marquee_id' => $marqueeId,
+                    'branch_id' => $branchId,
                     'customer_id' => $this->selectedCustomerId,
                     'event_type_id' => $this->selectedEventTypeId,
-                    'hall_id' => reset($this->selectedHallIds), // primary hall
+                    'hall_id' => $primaryHallId, // primary hall
                     'slot_id' => $this->selectedSlotId ?: null,
                     'package_id' => $this->noFood ? null : $this->selectedPackageId,
                     'booking_date' => $this->selectedDate,

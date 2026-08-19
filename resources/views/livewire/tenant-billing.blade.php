@@ -32,30 +32,30 @@
             <div class="card shadow-sm border-0 bg-primary text-white mb-4" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%) !important;">
                 <div class="card-body p-4">
                     <span class="badge bg-white text-primary text-uppercase fw-bold fs-11 px-2 py-1 mb-3">Active Subscription</span>
-                    <h3 class="fw-bold mb-1">{{ $marquee->subscriptionPlan->name ?? 'Trial Plan' }}</h3>
-                    <p class="fs-12 text-white-50 mb-4">{{ $marquee->subscriptionPlan->description ?? 'Initial trial configuration setup.' }}</p>
+                    <h3 class="fw-bold mb-1">{{ auth()->user()->subscriptionPlan->name ?? 'Trial Plan' }}</h3>
+                    <p class="fs-12 text-white-50 mb-4">{{ auth()->user()->subscriptionPlan->description ?? 'Initial trial configuration setup.' }}</p>
                     
                     <hr class="border-white-50" />
 
                     <div class="d-flex justify-content-between align-items-center mb-2 fs-12">
                         <span class="text-white-50">Monthly Rate:</span>
                         <span class="fw-bold font-monospace">
-                            {{ number_format($marquee->subscriptionPlan->monthly_price ?? 0, 2) }} {{ $marquee->subscriptionPlan->currency ?? 'PKR' }}
+                            {{ number_format(auth()->user()->subscriptionPlan->monthly_price ?? 0, 2) }} {{ auth()->user()->subscriptionPlan->currency ?? 'PKR' }}
                         </span>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2 fs-12">
                         <span class="text-white-50">Subscription Ends:</span>
                         <span class="fw-bold">
-                            @if($marquee->subscription_ends_at)
-                                {{ $marquee->subscription_ends_at->format('M d, Y') }}
+                            @if(auth()->user()->subscription_ends_at)
+                                {{ auth()->user()->subscription_ends_at->format('M d, Y') }}
                             @else
                                 Never / Unlimited
                             @endif
                         </span>
                     </div>
 
-                    @if($marquee->subscription_ends_at && $marquee->subscription_ends_at->isPast())
+                    @if(auth()->user()->subscription_ends_at && auth()->user()->subscription_ends_at->isPast())
                         <div class="mt-3 p-2 bg-danger text-white rounded text-center fw-bold fs-11">
                             <span class="fas fa-exclamation-circle me-1"></span>Your subscription has expired!
                         </div>
@@ -73,19 +73,19 @@
                         <tr class="border-bottom">
                             <td class="text-secondary py-2">Max Branches:</td>
                             <td class="text-dark fw-bold text-end py-2">
-                                {{ $marquee->branches->count() }} / {{ $marquee->subscriptionPlan->max_branches ?? 'Unlimited' }}
+                                {{ $marquee ? $marquee->branches->count() : 0 }} / {{ auth()->user()->subscriptionPlan->max_branches ?? 'Unlimited' }}
                             </td>
                         </tr>
                         <tr class="border-bottom">
                             <td class="text-secondary py-2">Max User Accounts:</td>
                             <td class="text-dark fw-bold text-end py-2">
-                                {{ $marquee->users->count() }} / {{ $marquee->subscriptionPlan->max_users ?? 'Unlimited' }}
+                                {{ $marquee ? $marquee->users->count() : 0 }} / {{ auth()->user()->subscriptionPlan->max_users ?? 'Unlimited' }}
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary py-2">Max Disk Storage:</td>
                             <td class="text-dark fw-bold text-end py-2">
-                                {{ $marquee->subscriptionPlan->storage_limit_mb ?? '512' }} MB
+                                {{ auth()->user()->subscriptionPlan->storage_limit_mb ?? '512' }} MB
                             </td>
                         </tr>
                     </table>

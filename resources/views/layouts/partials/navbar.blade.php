@@ -23,9 +23,65 @@
     </li>
   </ul>
 
-  <!-- Right: Utilities and User Info -->
+  <!-- Right: Utilities, Business Switcher and User Info -->
   <ul class="navbar-nav navbar-nav-icons ms-auto flex-row align-items-center">
     
+    <!-- Active Business Switcher Dropdown -->
+    @php
+      $navUser = auth()->user();
+      $navAccessibleMarquees = $navUser ? $navUser->getAccessibleMarquees()->where('status', 'active') : collect();
+      $navActiveMarqueeId = $navUser ? $navUser->getActiveMarqueeId() : null;
+      $navActiveMarquee = $navAccessibleMarquees->firstWhere('id', $navActiveMarqueeId) ?? ($navActiveMarqueeId ? \App\Models\Marquee::find($navActiveMarqueeId) : null);
+    @endphp
+
+    @if($navUser && !$navUser->isSuperAdmin() && ($navAccessibleMarquees->count() > 1 || $navUser->isBusinessOwner() || $navUser->isAreaManager()))
+    <li class="nav-item dropdown me-2">
+      <a class="btn btn-sm btn-outline-primary dropdown-toggle d-flex align-items-center gap-1 py-1 px-2 rounded-pill shadow-none" href="#" role="button" id="activeBusinessDropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        <span class="fas fa-building fs-10 text-primary"></span>
+        <span class="fs-11 fw-semibold text-truncate d-inline-block" style="max-width: 140px;">
+          {{ $navActiveMarquee ? $navActiveMarquee->name : 'Select Business' }}
+        </span>
+      </a>
+      <div class="dropdown-menu dropdown-menu-end dropdown-caret border py-1 mt-2 shadow-sm" aria-labelledby="activeBusinessDropdown" style="min-width: 230px;">
+        <h6 class="dropdown-header text-uppercase fs-11 text-500 py-1">Active Business</h6>
+        <div class="dropdown-divider my-1"></div>
+        @forelse($navAccessibleMarquees as $m)
+          <form action="{{ route('marquee.switch') }}" method="POST" class="m-0 p-0">
+            @csrf
+            <input type="hidden" name="marquee_id" value="{{ $m->id }}">
+            <button type="submit" class="dropdown-item d-flex align-items-center justify-content-between py-2 {{ (int)$m->id === (int)$navActiveMarqueeId ? 'active bg-subtle-primary text-primary fw-bold' : '' }}">
+              <span class="d-flex align-items-center gap-2 text-truncate">
+                <span class="fas fa-check text-primary {{ (int)$m->id === (int)$navActiveMarqueeId ? '' : 'invisible' }}" style="font-size: 10px;"></span>
+                <span class="text-truncate" style="max-width: 130px;">{{ $m->name }}</span>
+              </span>
+              @if($m->city)
+                <span class="badge bg-200 text-600 rounded-pill fs-11 ms-1">{{ $m->city }}</span>
+              @endif
+            </button>
+          </form>
+        @empty
+          <div class="dropdown-item text-muted fs-11 py-2">No businesses available</div>
+        @endforelse
+
+        @if($navUser->isBusinessOwner())
+          <div class="dropdown-divider my-1"></div>
+          <a class="dropdown-item d-flex align-items-center gap-2 text-primary fs-11 py-2" href="{{ route('marquees.create') }}">
+            <span class="fas fa-plus-circle"></span> Add New Business
+          </a>
+        @endif
+      </div>
+    </li>
+    @elseif($navActiveMarquee && !$navUser->isSuperAdmin())
+    <li class="nav-item me-2 d-none d-sm-block">
+      <span class="badge badge-subtle-primary py-2 px-3 rounded-pill fs-11 d-flex align-items-center gap-1">
+        <span class="fas fa-building"></span> {{ $navActiveMarquee->name }}
+        @if($navUser && $navUser->branch)
+          <span class="text-400">|</span> <span class="fas fa-code-branch"></span> {{ $navUser->branch->name }}
+        @endif
+      </span>
+    </li>
+    @endif
+
     <!-- Light/Dark Mode Switcher -->
     <li class="nav-item ps-2 pe-0">
       <div class="dropdown theme-control-dropdown">

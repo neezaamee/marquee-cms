@@ -199,13 +199,13 @@ class BookingList extends Component
 
         $booking = Booking::findOrFail($this->deleteId);
 
-        if (!auth()->user()->isSuperAdmin() && $booking->marquee_id !== auth()->user()->marquee_id) {
+        if (!auth()->user()->can('delete', $booking)) {
             session()->flash('error', 'Unauthorized operation.');
             return;
         }
 
         $user = auth()->user();
-        $isOwner = $user->role && in_array($user->role->name, ['owner', 'super_admin']);
+        $isOwner = $user->isSuperAdmin() || $user->isBusinessOwner();
 
         if ($booking->booking_status === 'Completed' && !$isOwner) {
             session()->flash('error', 'Completed bookings cannot be cancelled or deleted.');
@@ -235,7 +235,13 @@ class BookingList extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
+
+        // Lock filterBranch if user is restricted to a branch
+        if ($user->branch_id) {
+            $this->filterBranch = $user->branch_id;
+        }
 
         // Fetch lookup collections for filters
         $halls = Hall::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('hall_name')->get();
@@ -248,7 +254,7 @@ class BookingList extends Component
         // ----------------------------------------------------
         $baseQuery = Booking::withTrashed()->where('marquee_id', $marqueeId);
         if (!empty($this->filterBranch)) {
-            $baseQuery->whereHas('hall', fn($q) => $q->where('branch_id', $this->filterBranch));
+            $baseQuery->where('branch_id', $this->filterBranch);
         }
 
         $totalBookingsCount = (clone $baseQuery)->count();
@@ -376,7 +382,7 @@ class BookingList extends Component
      */
     public function exportExcel()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = auth()->user()->getActiveMarqueeId();
 
         $query = Booking::withTrashed()->with(['customer', 'hall', 'hall.branch', 'halls', 'slot', 'package', 'payments', 'eventType', 'creator', 'finalBill'])
             ->withSum('payments as paid_amount', 'amount')

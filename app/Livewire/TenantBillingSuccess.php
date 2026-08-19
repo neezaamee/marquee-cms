@@ -63,19 +63,21 @@ class TenantBillingSuccess extends Component
                     'paid_date' => now()->toDateString(),
                 ]);
 
-                // Extend Marquee tenant subscription ends date
+                // Extend Marquee tenant owners subscription ends dates
                 $marquee = $this->invoice->marquee;
                 $durationMonths = $this->invoice->billingCycle->duration_in_months ?? 1;
 
-                $currentEnd = $marquee->subscription_ends_at;
-                $startDate = ($currentEnd && $currentEnd->isFuture()) ? $currentEnd : now();
-                $endDate = $startDate->copy()->addMonths($durationMonths);
+                foreach ($marquee->owners as $owner) {
+                    $currentEnd = $owner->subscription_ends_at;
+                    $startDate = ($currentEnd && $currentEnd->isFuture()) ? $currentEnd : now();
+                    $endDate = $startDate->copy()->addMonths($durationMonths);
 
-                $marquee->update([
-                    'subscription_plan_id' => $this->invoice->subscription_plan_id,
-                    'subscription_ends_at' => $endDate,
-                    'status' => 'active',
-                ]);
+                    $owner->update([
+                        'subscription_plan_id' => $this->invoice->subscription_plan_id,
+                        'subscription_ends_at' => $endDate,
+                        'status' => 'active',
+                    ]);
+                }
             }
         });
     }

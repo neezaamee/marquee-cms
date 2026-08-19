@@ -58,11 +58,11 @@
         </li>
 
         <!-- ========================================== -->
-        <!-- SAAS MANAGEMENT SECTION (Super Admin Only) -->
+        <!-- BUSINESSES & SAAS MANAGEMENT SECTION -->
         <!-- ========================================== -->
-        @if(auth()->user()->isSuperAdmin())
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->isBusinessOwner())
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
-          <div class="col-auto navbar-vertical-label">SaaS Management</div>
+          <div class="col-auto navbar-vertical-label">{{ auth()->user()->isSuperAdmin() ? 'SaaS Management' : 'Businesses' }}</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
         </div>
 
@@ -74,27 +74,30 @@
           <a class="nav-link dropdown-indicator {{ $tenantsActive ? '' : 'collapsed' }}" href="#tenantsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $tenantsActive ? 'true' : 'false' }}" aria-controls="tenantsCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-building"></span></span>
-              <span class="nav-link-text ps-1">Tenants / Marquees</span>
+              <span class="nav-link-text ps-1">{{ auth()->user()->isSuperAdmin() ? 'Tenants / Marquees' : 'My Businesses' }}</span>
             </div>
           </a>
           <ul class="nav collapse {{ $tenantsActive ? 'show' : '' }}" id="tenantsCollapse" data-bs-parent="#navbarVerticalNav">
             <li class="nav-item">
               <a class="nav-link {{ Route::is('marquees.index') ? 'active' : '' }}" href="{{ route('marquees.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">All Marquees</span>
+                  <span class="nav-link-text ps-1">{{ auth()->user()->isSuperAdmin() ? 'All Marquees' : 'All Businesses' }}</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('marquees.create') ? 'active' : '' }}" href="{{ route('marquees.create') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Add Marquee</span>
+                  <span class="nav-link-text ps-1">Add Business</span>
                 </div>
               </a>
             </li>
           </ul>
         </li>
+        @endif
 
+        <!-- Super Admin Only SaaS Features -->
+        @if(auth()->user()->isSuperAdmin())
         <!-- Subscription Management -->
         @php
           $subscriptionsActive = Route::is('subscription-plans.*') || Route::is('plan-features.*') || Route::is('billing-cycles.*') || Route::is('saas-invoices.*') || Route::is('saas-payments.*');
@@ -143,6 +146,16 @@
               </a>
             </li>
           </ul>
+        </li>
+
+        <!-- Business Owners Management -->
+        <li class="nav-item">
+          <a class="nav-link {{ Route::is('super-admin.business-owners') || Route::is('super-admin.business-owners.*') ? 'active' : '' }}" href="{{ route('super-admin.business-owners') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-users text-primary"></span></span>
+              <span class="nav-link-text ps-1">Business Owners</span>
+            </div>
+          </a>
         </li>
 
         <!-- Global Default Data Management -->

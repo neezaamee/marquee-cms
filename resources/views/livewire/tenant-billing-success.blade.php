@@ -53,9 +53,11 @@
                                     </strong>
                                 </div>
                                 <div class="col-6">
-                                    <span class="text-muted d-block">Subscription Ends:</span>
-                                    <strong class="text-dark">{{ $invoice->marquee->subscription_ends_at->format('M d, Y') }}</strong>
-                                </div>
+                                     <span class="text-muted d-block">Subscription Ends:</span>
+                                     <strong class="text-dark">
+                                         {{ $invoice->marquee->owners->first() && $invoice->marquee->owners->first()->subscription_ends_at ? $invoice->marquee->owners->first()->subscription_ends_at->format('M d, Y') : 'N/A' }}
+                                     </strong>
+                                 </div>
                             </div>
                         </div>
 

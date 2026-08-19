@@ -58,19 +58,25 @@ class MarqueeList extends Component
     {
         abort_unless(auth()->user()->isSuperAdmin(), 403);
 
-        $query = Marquee::with('subscriptionPlan');
+        $query = Marquee::with(['owners.subscriptionPlan']);
 
         // Apply filters
         if ($this->filter === 'active') {
             $query->where('status', 'active')
-                  ->where(function($q) {
-                      $q->whereNull('subscription_ends_at')
-                        ->orWhere('subscription_ends_at', '>=', now()->toDateString());
+                  ->whereHas('owners', function($q) {
+                      $q->where(function($sq) {
+                          $sq->whereNull('subscription_ends_at')
+                            ->orWhere('subscription_ends_at', '>=', now()->toDateString());
+                      });
                   });
         } elseif ($this->filter === 'suspended') {
             $query->where(function($q) {
                 $q->whereIn('status', ['suspended', 'inactive'])
-                  ->orWhere('subscription_ends_at', '<', now()->toDateString());
+                  ->orWhereDoesntHave('owners')
+                  ->orWhereHas('owners', function($sq) {
+                      $sq->whereNotNull('subscription_ends_at')
+                        ->where('subscription_ends_at', '<', now()->toDateString());
+                  });
             });
         }
 

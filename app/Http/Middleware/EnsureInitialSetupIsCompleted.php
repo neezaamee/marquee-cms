@@ -25,11 +25,14 @@ class EnsureInitialSetupIsCompleted
             return $next($request);
         }
 
-        // 2. Allow core routes: dashboard, setup wizard, logout, and Livewire assets/requests
+        // 2. Allow core routes: dashboard, setup wizard, logout, marquee switch, and Livewire assets/requests
         $allowedRoutes = [
             'dashboard',
             'setup.wizard',
             'logout',
+            'marquee.switch',
+            'marquees.create',
+            'marquees.store',
         ];
 
         $currentRouteName = $request->route() ? $request->route()->getName() : null;
@@ -41,8 +44,9 @@ class EnsureInitialSetupIsCompleted
             return $next($request);
         }
 
-        // 3. Check if setup is completed for the user's marquee
-        $marquee = $user->marquee;
+        // 3. Check if setup is completed for the user's active marquee
+        $activeMarqueeId = $user->getActiveMarqueeId();
+        $marquee = $activeMarqueeId ? \App\Models\Marquee::find($activeMarqueeId) : null;
         
         if (!$marquee || !$marquee->is_setup_completed) {
             // Redirect to dashboard with a flash message warning

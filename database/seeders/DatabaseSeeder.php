@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
             SaasModuleSeeder::class,
             GlobalDefaultDataSeeder::class,
+            MultiBusinessStructureSeeder::class,
         ]);
 
         // Retrieve seeded records
@@ -62,8 +63,6 @@ class DatabaseSeeder extends Seeder
                 'tax_authority' => 'PRA',
                 'status' => 'active',
                 'is_setup_completed' => true,
-                'subscription_plan_id' => $standardPlan->id,
-                'subscription_ends_at' => now()->addYear(),
             ]
         );
 
@@ -82,6 +81,7 @@ class DatabaseSeeder extends Seeder
                 'fbr_pos_id' => 'PRA-LHR-GUL-01',
                 'fbr_pos_key' => 'key_lhr_gulberg_secret',
                 'fbr_sandbox_mode' => true,
+                'is_head_office' => true,
             ]
         );
 
@@ -99,23 +99,29 @@ class DatabaseSeeder extends Seeder
                 'fbr_pos_id' => 'SRB-KHI-DHA-02',
                 'fbr_pos_key' => 'key_khi_dha_secret',
                 'fbr_sandbox_mode' => true,
+                'is_head_office' => false,
             ]
         );
 
         // 5. Seed default Owner user (belongs to The Sheraton Marquee, no specific branch)
-        User::updateOrCreate(
+        $ownerUser = User::updateOrCreate(
             ['email' => 'ghulamabbas@thesheraton.com'],
             [
                 'name' => 'Ghulam Abbas',
                 'username' => 'ghulamabbas',
                 'password' => Hash::make('Password123!'),
-                'marquee_id' => $marquee->id,
+                'marquee_id' => null,
                 'branch_id' => null,
                 'role_id' => $ownerRole->id,
                 'phone' => '+923006690391',
                 'status' => 'active',
+                'subscription_plan_id' => $standardPlan->id,
+                'subscription_ends_at' => now()->addYear(),
             ]
         );
+
+        // Link owners using pivot
+        $ownerUser->ownedMarquees()->syncWithoutDetaching([$marquee->id]);
 
         // 6. Seed default Manager user (belongs to The Sheraton Marquee, assigned to Main Branch)
         User::updateOrCreate(
