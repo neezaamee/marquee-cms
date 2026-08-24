@@ -205,13 +205,16 @@ class MarqueeForm extends Component
         return $rules;
     }
 
-    protected $messages = [
-        'owner_email.unique' => 'This email is already registered to a user account.',
-        'owner_username.unique' => 'This username is already taken.',
-        'selectedOwners.required' => 'Please select at least one Business Owner or create one inline.',
-        'phone.regex' => 'The phone number must be a valid 11-digit number starting with 03 (e.g. 0321-8611353).',
-        'owner_phone.regex' => 'The owner phone number must be a valid 11-digit number starting with 03 (e.g. 0321-8611353).',
-    ];
+    protected function messages()
+    {
+        return [
+            'owner_email.unique' => 'This email is already registered to a user account.',
+            'owner_username.unique' => 'This username is already taken.',
+            'selectedOwners.required' => 'Please select at least one Business Owner or create one inline.',
+            'phone.regex' => 'The phone number must be a valid 11-digit number starting with 03 (e.g. 0321-8611353).',
+            'owner_phone.regex' => 'The owner phone number must be a valid 11-digit number starting with 03 (e.g. 0321-8611353).',
+        ];
+    }
 
     private function optimizeAndSaveLogo($uploadedFile)
     {
