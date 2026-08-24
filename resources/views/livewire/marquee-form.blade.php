@@ -52,7 +52,7 @@
                     <!-- Phone -->
                     <div class="col-md-6">
                         <label class="form-label" for="phone">Phone Number *</label>
-                        <input wire:model="phone" class="form-control @error('phone') is-invalid @enderror" id="phone" type="text" required />
+                        <input wire:model="phone" class="form-control @error('phone') is-invalid @enderror" id="phone" type="text" required placeholder="e.g. 0321-8611353" x-data x-init="IMask($el, { mask: '0000-0000000' })" />
                         @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
@@ -66,7 +66,7 @@
                     <!-- Province -->
                     <div class="col-md-4">
                         <label class="form-label" for="province">Province *</label>
-                        <select wire:model="province" class="form-select @error('province') is-invalid @enderror" id="province" required>
+                        <select wire:model.live="province" class="form-select @error('province') is-invalid @enderror" id="province" required>
                             <option value="">Choose province...</option>
                             <option value="Punjab">Punjab</option>
                             <option value="Sindh">Sindh</option>
@@ -80,8 +80,30 @@
                     <!-- City -->
                     <div class="col-md-4">
                         <label class="form-label" for="city">City *</label>
-                        <input wire:model="city" class="form-control @error('city') is-invalid @enderror" id="city" type="text" required placeholder="e.g. Lahore" />
-                        @error('city') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <div x-data="{ open: false, search: '' }" class="dropdown position-relative">
+                            <button @click="open = !open" class="form-select text-start @error('city') is-invalid @enderror" type="button" id="city">
+                                {{ $city ?: 'Select City...' }}
+                            </button>
+                            <div x-show="open" @click.away="open = false" class="dropdown-menu show w-100 p-2" style="max-height: 250px; overflow-y: auto; z-index: 1060;">
+                                <input x-model="search" class="form-control form-control-sm mb-2" type="text" placeholder="Search city..." />
+                                <div class="dropdown-divider"></div>
+                                <div style="max-height: 180px; overflow-y: auto;">
+                                    @if(empty($citiesList))
+                                        <div class="text-muted fs-11 px-2">Please select a province first</div>
+                                    @endif
+                                    @foreach($citiesList as $c)
+                                        <button x-show="search === '' || '{{ strtolower($c) }}'.includes(search.toLowerCase())" 
+                                                wire:click="$set('city', '{{ $c }}')" 
+                                                @click="open = false; search = ''" 
+                                                type="button" 
+                                                class="dropdown-item text-start py-1 fs-11">
+                                            {{ $c }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        @error('city') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
 
                     <!-- Status -->
@@ -146,13 +168,53 @@
                         <!-- Multi-select for Existing Owners -->
                         <div class="col-12">
                             <label class="form-label" for="selectedOwners">Associate Business Owner(s) *</label>
-                            <select wire:model="selectedOwners" class="form-select @error('selectedOwners') is-invalid @enderror" id="selectedOwners" multiple style="height: 120px;">
-                                @foreach($businessOwnersList as $owner)
-                                    <option value="{{ $owner->id }}">{{ $owner->name }} ({{ $owner->email }})</option>
+                            
+                            <!-- Staged badge list -->
+                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                @foreach($selectedOwners as $ownerId)
+                                    @php $owner = collect($businessOwnersList)->firstWhere('id', $ownerId); @endphp
+                                    @if($owner)
+                                        <span class="badge bg-primary d-flex align-items-center gap-2 py-1 px-2 fs-10">
+                                            {{ $owner->name }}
+                                            <button type="button" class="btn-close btn-close-white p-0" style="font-size: 0.5rem; float: none;" wire:click="removeOwner({{ $ownerId }})"></button>
+                                        </span>
+                                    @endif
                                 @endforeach
-                            </select>
-                            <div class="fs-11 text-muted mt-1">Hold Ctrl (Windows) or Cmd (Mac) to select multiple owners.</div>
-                            @error('selectedOwners') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                                @if(empty($selectedOwners))
+                                    <span class="text-muted fs-11">No business owners associated yet.</span>
+                                @endif
+                            </div>
+
+                            <!-- Searchable select dropdown -->
+                            <div x-data="{ open: false, search: '' }" class="dropdown position-relative">
+                                <button @click="open = !open" class="btn btn-outline-primary btn-sm text-start d-flex justify-content-between align-items-center" type="button" style="max-width: 300px;">
+                                    <span>Associate Owner...</span>
+                                    <span class="fas fa-plus ms-2"></span>
+                                </button>
+                                <div x-show="open" @click.away="open = false" class="dropdown-menu show w-100 p-2" style="max-height: 250px; overflow-y: auto; z-index: 1050; max-width: 400px;">
+                                    <input x-model="search" class="form-control form-control-sm mb-2" type="text" placeholder="Search owner by name/email..." />
+                                    <div class="dropdown-divider"></div>
+                                    <div style="max-height: 180px; overflow-y: auto;">
+                                        @php $availableOwnersCount = 0; @endphp
+                                        @foreach($businessOwnersList as $owner)
+                                            @if(!in_array($owner->id, $selectedOwners))
+                                                @php $availableOwnersCount++; @endphp
+                                                <button x-show="search === '' || '{{ strtolower($owner->name) }}'.includes(search.toLowerCase()) || '{{ strtolower($owner->email) }}'.includes(search.toLowerCase())" 
+                                                        wire:click="addOwner({{ $owner->id }})" 
+                                                        @click="open = false; search = ''" 
+                                                        type="button" 
+                                                        class="dropdown-item text-start py-1 fs-11">
+                                                    {{ $owner->name }} <span class="text-muted">({{ $owner->email }})</span>
+                                                </button>
+                                            @endif
+                                        @endforeach
+                                        @if($availableOwnersCount === 0)
+                                            <div class="text-muted fs-11 px-2 py-1">All business owners have been associated.</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            @error('selectedOwners') <div class="text-danger fs-11 mt-1 d-block">{{ $message }}</div> @enderror
                         </div>
                     @else
                         <!-- Inline Owner Creation Form -->
@@ -164,25 +226,25 @@
 
                         <div class="col-md-6">
                             <label class="form-label" for="owner_username">Owner Username *</label>
-                            <input wire:model="owner_username" class="form-control @error('owner_username') is-invalid @enderror" id="owner_username" type="text" placeholder="e.g. akbar_owner" />
+                            <input wire:model="owner_username" class="form-control @error('owner_username') is-invalid @enderror" id="owner_username" type="text" autocomplete="new-username" placeholder="e.g. akbar_owner" />
                             @error('owner_username') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label" for="owner_email">Owner Email *</label>
-                            <input wire:model="owner_email" class="form-control @error('owner_email') is-invalid @enderror" id="owner_email" type="email" placeholder="e.g. owner@example.com" />
+                            <input wire:model.live="owner_email" class="form-control @error('owner_email') is-invalid @enderror" id="owner_email" type="email" autocomplete="new-email" placeholder="e.g. owner@example.com" />
                             @error('owner_email') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label" for="owner_password">Owner Password *</label>
-                            <input wire:model="owner_password" class="form-control @error('owner_password') is-invalid @enderror" id="owner_password" type="password" placeholder="At least 8 characters" />
+                            <input wire:model="owner_password" class="form-control @error('owner_password') is-invalid @enderror" id="owner_password" type="password" autocomplete="new-password" placeholder="At least 8 characters" />
                             @error('owner_password') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label" for="owner_phone">Owner Phone</label>
-                            <input wire:model="owner_phone" class="form-control @error('owner_phone') is-invalid @enderror" id="owner_phone" type="text" placeholder="e.g. +923007654321" />
+                            <input wire:model="owner_phone" class="form-control @error('owner_phone') is-invalid @enderror" id="owner_phone" type="text" placeholder="e.g. 0321-8611353" x-data x-init="IMask($el, { mask: '0000-0000000' })" />
                             @error('owner_phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
@@ -203,8 +265,18 @@
 
                         <div class="col-md-6">
                             <label class="form-label" for="subscription_ends_at">Subscription Ends At *</label>
-                            <input wire:model="subscription_ends_at" class="form-control @error('subscription_ends_at') is-invalid @enderror" id="subscription_ends_at" type="date" />
-                            @error('subscription_ends_at') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <div class="d-flex gap-2">
+                                <input wire:model="subscription_ends_at" class="form-control @error('subscription_ends_at') is-invalid @enderror" id="subscription_ends_at" type="date" min="{{ date('Y-m-d') }}" />
+                                <select wire:model.live="sub_ends_preset" class="form-select" style="max-width: 140px;">
+                                    <option value="">Preset...</option>
+                                    <option value="1_month">1 Month</option>
+                                    <option value="3_months">3 Months</option>
+                                    <option value="6_months">6 Months</option>
+                                    <option value="1_year">1 Year</option>
+                                    <option value="permanent">Permanent</option>
+                                </select>
+                            </div>
+                            @error('subscription_ends_at') <div class="text-danger fs-11 mt-1 d-block">{{ $message }}</div> @enderror
                         </div>
                     @endif
                 </div>

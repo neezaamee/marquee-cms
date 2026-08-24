@@ -29,7 +29,7 @@ class MarqueeForm extends Component
     public $email = '';
     public $ntn = '';
     public $strn = '';
-    public $tax_authority = '';
+    public $tax_authority = 'FBR'; // Default to FBR to prevent select error
     public $status = 'active';
 
     // Owner Selection
@@ -44,10 +44,96 @@ class MarqueeForm extends Component
     public $owner_phone = '';
     public $subscription_plan_id = '';
     public $subscription_ends_at = '';
-
-    // Lists
+    
+    // UI Presets and lists
+    public $sub_ends_preset = '';
+    public $citiesList = [];
     public $plans = [];
     public $businessOwnersList = [];
+
+    protected $provincesAndCities = [
+        'Punjab' => ['Lahore', 'Faisalabad', 'Rawalpindi', 'Multan', 'Gujranwala', 'Sialkot', 'Bahawalpur', 'Sargodha', 'Gujarat', 'Sahiwal', 'Jhelum', 'Sheikhupura', 'Rahim Yar Khan'],
+        'Sindh' => ['Karachi', 'Hyderabad', 'Sukkur', 'Larkana', 'Mirpurkhas', 'Nawabshah', 'Jacobabad', 'Shikarpur', 'Thatta'],
+        'Khyber Pakhtunkhwa' => ['Peshawar', 'Abbottabad', 'Mardan', 'Swat', 'Kohat', 'Dera Ismail Khan', 'Mansehra', 'Bannu'],
+        'Balochistan' => ['Quetta', 'Gwadar', 'Turbat', 'Khuzdar', 'Sibi', 'Hub', 'Chaman'],
+        'Islamabad Capital Territory' => ['Islamabad'],
+        'Gilgit-Baltistan' => ['Gilgit', 'Skardu', 'Hunza'],
+        'Azad Jammu & Kashmir' => ['Muzaffarabad', 'Mirpur', 'Kotli', 'Rawalakot']
+    ];
+
+    public function updatedProvince($value)
+    {
+        $this->citiesList = $this->provincesAndCities[$value] ?? [];
+        $this->city = ''; // Reset city selection
+    }
+
+    public function updatedOwnerEmail($value)
+    {
+        if (!$this->isEditMode && empty($this->owner_username)) {
+            $parts = explode('@', $value);
+            $username = $parts[0] ?? '';
+            $username = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', $username);
+            $this->owner_username = strtolower($username);
+        }
+    }
+
+    public function updatedSubEndsPreset($value)
+    {
+        if (empty($value)) return;
+        
+        if ($value === 'permanent') {
+            $this->subscription_ends_at = '2099-12-31';
+        } else {
+            $date = match($value) {
+                '1_month' => now()->addMonth(),
+                '3_months' => now()->addMonths(3),
+                '6_months' => now()->addMonths(6),
+                '1_year' => now()->addYear(),
+                default => null
+            };
+            $this->subscription_ends_at = $date ? $date->format('Y-m-d') : '';
+        }
+    }
+
+    public function addOwner($ownerId)
+    {
+        if (!in_array($ownerId, $this->selectedOwners)) {
+            $this->selectedOwners[] = (int)$ownerId;
+        }
+    }
+
+    public function removeOwner($ownerId)
+    {
+        $this->selectedOwners = array_values(array_diff($this->selectedOwners, [(int)$ownerId]));
+    }
+
+    public function formatPhoneNumber($phone)
+    {
+        $clean = preg_replace('/[^0-9+]/', '', $phone);
+        if (str_starts_with($clean, '+')) {
+            $clean = '00' . substr($clean, 1);
+        }
+        if (preg_match('/^03\d{9}$/', $clean)) {
+            $clean = '0092' . substr($clean, 1);
+        }
+        elseif (preg_match('/^3\d{9}$/', $clean)) {
+            $clean = '0092' . $clean;
+        }
+        elseif (preg_match('/^923\d{9}$/', $clean)) {
+            $clean = '00' . $clean;
+        }
+        return $clean;
+    }
+
+    public function formatPhoneForUi($phone)
+    {
+        $clean = preg_replace('/[^0-9]/', '', $phone);
+        if (preg_match('/^0092(3\d{9})$/', $clean, $matches)) {
+            $digits = '0' . $matches[1];
+            return substr($digits, 0, 4) . '-' . substr($digits, 4);
+        }
+        return $phone;
+    }
 
     public function mount($marquee = null)
     {
@@ -55,7 +141,6 @@ class MarqueeForm extends Component
 
         $this->plans = SubscriptionPlan::orderBy('name')->get();
         
-        // Fetch all business owners
         $ownerRoleIds = Role::whereIn('name', ['owner', 'business_owner'])->pluck('id');
         $this->businessOwnersList = User::whereIn('role_id', $ownerRoleIds)->orderBy('name')->get();
 
@@ -65,16 +150,16 @@ class MarqueeForm extends Component
             $this->name = $marquee->name;
             $this->existingLogo = $marquee->logo;
             $this->address = $marquee->address;
-            $this->city = $marquee->city;
             $this->province = $marquee->province;
-            $this->phone = $marquee->phone;
+            $this->citiesList = $this->provincesAndCities[$this->province] ?? [];
+            $this->city = $marquee->city;
+            $this->phone = $this->formatPhoneForUi($marquee->phone);
             $this->email = $marquee->email;
             $this->ntn = $marquee->ntn;
             $this->strn = $marquee->strn;
             $this->tax_authority = $marquee->tax_authority;
             $this->status = $marquee->status;
             
-            // Get un-linked owners
             $this->selectedOwners = $marquee->owners()->pluck('users.id')->toArray();
         }
     }
@@ -83,11 +168,15 @@ class MarqueeForm extends Component
     {
         $rules = [
             'name' => 'required|string|max:255',
-            'logo' => 'nullable|image|max:2048', // 2MB max
+            'logo' => 'nullable|image|max:4096', // 4MB max for upload, compressed server-side
             'address' => 'required|string|max:255',
             'city' => 'required|string|max:255',
             'province' => 'required|string|max:255',
-            'phone' => 'required|string|max:50',
+            'phone' => [
+                'required',
+                'string',
+                'regex:/^00923\d{9}$/'
+            ],
             'email' => 'required|email|max:255|unique:marquees,email,' . ($this->marqueeId ?? 'NULL'),
             'ntn' => 'nullable|string|max:50',
             'strn' => 'nullable|string|max:50',
@@ -101,9 +190,13 @@ class MarqueeForm extends Component
                 $rules['owner_username'] = 'required|string|max:255|unique:users,username';
                 $rules['owner_email'] = 'required|email|max:255|unique:users,email';
                 $rules['owner_password'] = 'required|string|min:8';
-                $rules['owner_phone'] = 'nullable|string|max:50';
+                $rules['owner_phone'] = [
+                    'nullable',
+                    'string',
+                    'regex:/^00923\d{9}$/'
+                ];
                 $rules['subscription_plan_id'] = 'required|exists:subscription_plans,id';
-                $rules['subscription_ends_at'] = 'required|date';
+                $rules['subscription_ends_at'] = 'required|date|after_or_equal:today';
             } else {
                 $rules['selectedOwners'] = 'required|array|min:1';
             }
@@ -116,17 +209,103 @@ class MarqueeForm extends Component
         'owner_email.unique' => 'This email is already registered to a user account.',
         'owner_username.unique' => 'This username is already taken.',
         'selectedOwners.required' => 'Please select at least one Business Owner or create one inline.',
+        'phone.regex' => 'The phone number must be a valid 11-digit number starting with 03 (e.g. 0321-8611353).',
+        'owner_phone.regex' => 'The owner phone number must be a valid 11-digit number starting with 03 (e.g. 0321-8611353).',
     ];
+
+    private function optimizeAndSaveLogo($uploadedFile)
+    {
+        if (!function_exists('imagecreatefromjpeg')) {
+            return $uploadedFile->store('logos', 'public');
+        }
+
+        $tempPath = $uploadedFile->getRealPath();
+        $info = getimagesize($tempPath);
+        if (!$info) {
+            return $uploadedFile->store('logos', 'public');
+        }
+
+        $mime = $info['mime'];
+        switch ($mime) {
+            case 'image/jpeg':
+            case 'image/jpg':
+                $image = @imagecreatefromjpeg($tempPath);
+                break;
+            case 'image/png':
+                $image = @imagecreatefrompng($tempPath);
+                break;
+            case 'image/gif':
+                $image = @imagecreatefromgif($tempPath);
+                break;
+            case 'image/webp':
+                $image = @imagecreatefromwebp($tempPath);
+                break;
+            default:
+                return $uploadedFile->store('logos', 'public');
+        }
+
+        if (!$image) {
+            return $uploadedFile->store('logos', 'public');
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $maxDimension = 500;
+        
+        if ($width > $maxDimension || $height > $maxDimension) {
+            if ($width > $height) {
+                $newWidth = $maxDimension;
+                $newHeight = (int)($height * ($maxDimension / $width));
+            } else {
+                $newHeight = $maxDimension;
+                $newWidth = (int)($width * ($maxDimension / $height));
+            }
+
+            $newImage = imagecreatetruecolor($newWidth, $newHeight);
+            if ($mime === 'image/png' || $mime === 'image/webp' || $mime === 'image/gif') {
+                imagealphablending($newImage, false);
+                imagesavealpha($newImage, true);
+                $transparent = imagecolorallocatealpha($newImage, 255, 255, 255, 127);
+                imagefilledrectangle($newImage, 0, 0, $newWidth, $newHeight, $transparent);
+            }
+
+            imagecopyresampled($newImage, $image, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+            imagedestroy($image);
+            $image = $newImage;
+        }
+
+        $filename = 'logos/' . uniqid() . '.jpg';
+        $storagePath = storage_path('app/public/' . $filename);
+        
+        if (!file_exists(dirname($storagePath))) {
+            mkdir(dirname($storagePath), 0755, true);
+        }
+
+        imagejpeg($image, $storagePath, 75);
+        imagedestroy($image);
+
+        return $filename;
+    }
 
     public function save()
     {
         abort_unless(auth()->user()->isSuperAdmin(), 403);
 
-        $validatedData = $this->validate();
+        $data = $this->all();
+        if (!empty($this->phone)) {
+            $data['phone'] = $this->formatPhoneNumber($this->phone);
+        }
+        if ($this->createOwnerInline && !empty($this->owner_phone)) {
+            $data['owner_phone'] = $this->formatPhoneNumber($this->owner_phone);
+        }
 
-        // Handle logo upload
+        // Run validation on data instead of mutating properties, preventing screen flicker
+        $validator = \Illuminate\Support\Facades\Validator::make($data, $this->rules(), $this->messages());
+        $validatedData = $validator->validate();
+
+        // Handle logo upload and optimization
         if ($this->logo) {
-            $path = $this->logo->store('logos', 'public');
+            $path = $this->optimizeAndSaveLogo($this->logo);
             $validatedData['logo'] = $path;
         } else {
             // Keep current logo
@@ -197,7 +376,7 @@ class MarqueeForm extends Component
                         'marquee_id' => null,
                         'branch_id' => null,
                         'role_id' => $ownerRole ? $ownerRole->id : null,
-                        'phone' => $this->owner_phone ?: null,
+                        'phone' => $validatedData['owner_phone'] ?? null,
                         'status' => 'active',
                         'subscription_plan_id' => $this->subscription_plan_id,
                         'subscription_ends_at' => $this->subscription_ends_at,
