@@ -7,50 +7,61 @@ use App\Models\AccountOpeningBalance;
 use App\Models\FinancialYear;
 use App\Models\JournalVoucher;
 use App\Models\JournalVoucherItem;
+use App\Models\SaasInvoice;
+use App\Models\SaasPayment;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class AccountingService
 {
     /**
-     * Get the active financial year for a tenant.
+     * Get the active financial year for a tenant or platform.
      */
-    public function getActiveFinancialYear(int $marqueeId): ?FinancialYear
+    public function getActiveFinancialYear(?int $marqueeId = null): ?FinancialYear
     {
-        return FinancialYear::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
-            ->where('is_default', true)
-            ->first() ?? FinancialYear::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
-            ->orderBy('start_date', 'desc')
-            ->first();
+        $query = FinancialYear::where('status', 'active');
+        if ($marqueeId) {
+            $query->where('marquee_id', $marqueeId);
+        } else {
+            $query->whereNull('marquee_id');
+        }
+        return $query->where('is_default', true)->first() 
+            ?? $query->orderBy('start_date', 'desc')->first();
     }
 
     /**
      * Check if posting is allowed for a given date.
      */
-    public function isDateInActiveFinancialYear(string $date, int $marqueeId): bool
+    public function isDateInActiveFinancialYear(string $date, ?int $marqueeId = null): bool
     {
         $parsedDate = date('Y-m-d', strtotime($date));
-        $fy = FinancialYear::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
+        $query = FinancialYear::where('status', 'active')
             ->where('start_date', '<=', $parsedDate)
-            ->where('end_date', '>=', $parsedDate)
-            ->first();
+            ->where('end_date', '>=', $parsedDate);
             
-        return $fy !== null;
+        if ($marqueeId) {
+            $query->where('marquee_id', $marqueeId);
+        } else {
+            $query->whereNull('marquee_id');
+        }
+            
+        return $query->first() !== null;
     }
 
     /**
      * Generate the next journal voucher number.
      */
-    public function generateNextVoucherNo(int $marqueeId, int $financialYearId, ?int $branchId = null): string
+    public function generateNextVoucherNo(?int $marqueeId = null, int $financialYearId, ?int $branchId = null): string
     {
         $fy = FinancialYear::findOrFail($financialYearId);
         $yearSuffix = date('Y', strtotime($fy->start_date));
 
-        $query = JournalVoucher::where('marquee_id', $marqueeId)
-            ->where('financial_year_id', $financialYearId);
+        $query = JournalVoucher::where('financial_year_id', $financialYearId);
+        if ($marqueeId) {
+            $query->where('marquee_id', $marqueeId);
+        } else {
+            $query->whereNull('marquee_id');
+        }
 
         if ($branchId) {
             $query->where('branch_id', $branchId);
@@ -83,7 +94,7 @@ class AccountingService
     {
         $this->validateJournalItems($items);
 
-        $marqueeId = $header['marquee_id'];
+        $marqueeId = $header['marquee_id'] ?? null;
         $voucherDate = $header['voucher_date'];
 
         // Enforce Financial Year check
@@ -92,11 +103,16 @@ class AccountingService
         }
 
         // Get matching financial year
-        $fy = FinancialYear::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
+        $fyQuery = FinancialYear::where('status', 'active')
             ->where('start_date', '<=', $voucherDate)
-            ->where('end_date', '>=', $voucherDate)
-            ->first();
+            ->where('end_date', '>=', $voucherDate);
+            
+        if ($marqueeId) {
+            $fyQuery->where('marquee_id', $marqueeId);
+        } else {
+            $fyQuery->whereNull('marquee_id');
+        }
+        $fy = $fyQuery->first();
 
         $header['financial_year_id'] = $fy->id;
 
@@ -225,6 +241,22 @@ class AccountingService
             throw new InvalidArgumentException("Financial year not found for the given dates.");
         }
 
+        // Get list of cancelled SaaS invoice numbers and associated payments
+        $excludedReferences = [];
+        try {
+            $cancelledInvoiceNumbers = SaasInvoice::where('invoice_status', 'Cancelled')
+                ->pluck('invoice_number')
+                ->toArray();
+
+            $cancelledPaymentReferences = SaasPayment::whereIn('invoice_id', function($q) {
+                $q->select('id')->from('saas_invoices')->where('invoice_status', 'Cancelled');
+            })->pluck('payment_reference')->toArray();
+
+            $excludedReferences = array_merge($cancelledInvoiceNumbers, $cancelledPaymentReferences);
+        } catch (\Exception $e) {
+            // Fallback if tables don't exist in a migration/test context
+        }
+
         // 1. Calculate Opening Balance for the period
         $openingBalanceQuery = AccountOpeningBalance::where('account_id', $accountId)
             ->where('financial_year_id', $financialYearId);
@@ -261,6 +293,13 @@ class AccountingService
                 $priorTransactions->where('journal_vouchers.branch_id', $branchId);
             }
 
+            if (!empty($excludedReferences)) {
+                $priorTransactions->where(function($q) use ($excludedReferences) {
+                    $q->whereNotNull('journal_vouchers.marquee_id')
+                      ->orWhereNotIn('journal_vouchers.reference', $excludedReferences);
+                });
+            }
+
             $priorDebit = (float)$priorTransactions->sum('journal_voucher_items.debit');
             $priorCredit = (float)$priorTransactions->sum('journal_voucher_items.credit');
         }
@@ -294,6 +333,13 @@ class AccountingService
 
         if ($branchId) {
             $itemsQuery->where('journal_vouchers.branch_id', $branchId);
+        }
+
+        if (!empty($excludedReferences)) {
+            $itemsQuery->where(function($q) use ($excludedReferences) {
+                $q->whereNotNull('journal_vouchers.marquee_id')
+                  ->orWhereNotIn('journal_vouchers.reference', $excludedReferences);
+            });
         }
 
         $items = $itemsQuery->get();
@@ -345,7 +391,7 @@ class AccountingService
      * Get Trial Balance report.
      */
     public function getTrialBalance(
-        int $marqueeId,
+        ?int $marqueeId,
         int $financialYearId,
         ?string $asOfDate = null,
         ?int $branchId = null
@@ -358,11 +404,14 @@ class AccountingService
             ? $fy->end_date->format('Y-m-d') 
             : date('Y-m-d', strtotime($fy->end_date)));
 
-        // Fetch all active accounts for the tenant
-        $accounts = Account::where('marquee_id', $marqueeId)
-            ->where('is_active', true)
-            ->with(['accountType'])
-            ->get();
+        // Fetch all active accounts for the tenant/platform
+        $accountsQuery = Account::where('is_active', true)->with(['accountType']);
+        if ($marqueeId) {
+            $accountsQuery->where('marquee_id', $marqueeId);
+        } else {
+            $accountsQuery->whereNull('marquee_id');
+        }
+        $accounts = $accountsQuery->get();
 
         $rows = [];
         $totalTrialDebit = 0;
@@ -421,7 +470,7 @@ class AccountingService
      * Get Profit & Loss Report.
      */
     public function getProfitAndLoss(
-        int $marqueeId,
+        ?int $marqueeId,
         int $financialYearId,
         ?string $startDate = null,
         ?string $endDate = null,
@@ -439,11 +488,16 @@ class AccountingService
         $endDate = $endDate ?: $defaultEnd;
 
         // Fetch all active accounts of Income and Expense natures
-        $accounts = Account::where('marquee_id', $marqueeId)
-            ->where('is_active', true)
+        $accountsQuery = Account::where('is_active', true)
             ->whereIn('nature', ['Income', 'Expense'])
-            ->with(['accountType'])
-            ->get();
+            ->with(['accountType']);
+            
+        if ($marqueeId) {
+            $accountsQuery->where('marquee_id', $marqueeId);
+        } else {
+            $accountsQuery->whereNull('marquee_id');
+        }
+        $accounts = $accountsQuery->get();
 
         $incomeRows = [];
         $expenseRows = [];
@@ -492,7 +546,7 @@ class AccountingService
      * Get Balance Sheet Report.
      */
     public function getBalanceSheet(
-        int $marqueeId,
+        ?int $marqueeId,
         int $financialYearId,
         ?string $asOfDate = null,
         ?int $branchId = null
@@ -506,11 +560,16 @@ class AccountingService
             : date('Y-m-d', strtotime($fy->end_date)));
 
         // Fetch all active accounts of Asset, Liability, and Equity natures
-        $accounts = Account::where('marquee_id', $marqueeId)
-            ->where('is_active', true)
+        $accountsQuery = Account::where('is_active', true)
             ->whereIn('nature', ['Asset', 'Liability', 'Equity'])
-            ->with(['accountType'])
-            ->get();
+            ->with(['accountType']);
+            
+        if ($marqueeId) {
+            $accountsQuery->where('marquee_id', $marqueeId);
+        } else {
+            $accountsQuery->whereNull('marquee_id');
+        }
+        $accounts = $accountsQuery->get();
 
         $assetRows = [];
         $liabilityRows = [];
@@ -579,5 +638,93 @@ class AccountingService
             'difference' => $difference,
             'is_balanced' => $isBalanced,
         ];
+    }
+
+    /**
+     * Post a SaaS Invoice creation entry to the SaaS Chart of Accounts.
+     */
+    public function postSaasInvoiceJournal(SaasInvoice $invoice)
+    {
+        $accounts = Account::whereNull('marquee_id')->get()->keyBy('account_code');
+        if ($accounts->isEmpty()) return;
+
+        $arAccount = $accounts->get('1003');
+        
+        // Determine monthly vs annual
+        $cycleName = strtolower($invoice->billingCycle->cycle_name ?? '');
+        $revAccount = str_contains($cycleName, 'annual') ? $accounts->get('4002') : $accounts->get('4001');
+
+        if (!$arAccount || !$revAccount) return;
+
+        $amount = $invoice->total_amount;
+
+        $header = [
+            'marquee_id' => null,
+            'branch_id' => null,
+            'voucher_date' => $invoice->created_at ? $invoice->created_at->format('Y-m-d') : date('Y-m-d'),
+            'reference' => $invoice->invoice_number,
+            'notes' => 'Auto-generated for SaaS Invoice ' . $invoice->invoice_number,
+            'status' => 'posted',
+        ];
+
+        $items = [
+            [
+                'account_id' => $arAccount->id,
+                'debit' => $amount,
+                'credit' => 0,
+                'narration' => 'Subscription receivable generated for User #' . $invoice->user_id,
+            ],
+            [
+                'account_id' => $revAccount->id,
+                'debit' => 0,
+                'credit' => $amount,
+                'narration' => 'Subscription revenue recognized',
+            ],
+        ];
+
+        $this->createJournalVoucher($header, $items);
+    }
+
+    /**
+     * Post a SaaS Payment creation entry to the SaaS Chart of Accounts.
+     */
+    public function postSaasPaymentJournal(SaasPayment $payment)
+    {
+        $accounts = Account::whereNull('marquee_id')->get()->keyBy('account_code');
+        if ($accounts->isEmpty()) return;
+
+        // Debit SaaS Bank/Stripe and Credit SaaS Accounts Receivable
+        $bankAccount = $accounts->get('1002');
+        $arAccount = $accounts->get('1003');
+
+        if (!$bankAccount || !$arAccount) return;
+
+        $amount = $payment->amount;
+
+        $header = [
+            'marquee_id' => null,
+            'branch_id' => null,
+            'voucher_date' => $payment->payment_date ? $payment->payment_date->format('Y-m-d') : date('Y-m-d'),
+            'reference' => $payment->payment_reference,
+            'notes' => 'Auto-generated for SaaS Payment ' . $payment->payment_reference,
+            'status' => 'posted',
+        ];
+
+        $items = [
+            [
+                'account_id' => $bankAccount->id,
+                'debit' => $amount,
+                'credit' => 0,
+                'narration' => 'Cash received from subscription payment ref: ' . $payment->payment_reference,
+            ],
+            [
+                'account_id' => $arAccount->id,
+                'debit' => 0,
+                'credit' => $amount,
+                'narration' => 'Subscription receivable cleared for Invoice #' . $payment->invoice_id,
+            ],
+        ];
+
+        $this->createJournalVoucher($header, $items);
     }
 }

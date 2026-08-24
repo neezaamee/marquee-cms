@@ -71,151 +71,153 @@ Route::middleware('auth')->group(function () {
 
     // Operational Routes (Blocked unless initial setup is completed)
     Route::middleware('setup.completed')->group(function () {
-        Route::resource('marquees', MarqueeController::class);
-        Route::resource('branches', BranchController::class);
-        Route::resource('users', UserController::class);
-        Route::get('staff/{staff}/logins', [StaffController::class, 'logins'])->name('staff.logins');
-        Route::resource('staff', StaffController::class);
-        Route::get('customers/referral-analytics', [CustomerController::class, 'referralAnalytics'])->name('customers.referral-analytics');
-        Route::resource('customers', CustomerController::class);
-        Route::resource('event-types', EventTypeController::class);
-        Route::resource('extra-services', ExtraServiceController::class);
-        
-        // Booking Management
-        Route::get('bookings/report', [BookingController::class, 'report'])->name('bookings.report');
-        Route::get('bookings/calendar', [BookingController::class, 'calendar'])->name('bookings.calendar');
-        Route::get('bookings/{booking}/slip', [BookingController::class, 'slip'])->name('bookings.slip')->withTrashed();
-        Route::get('bookings/{booking}/slip-v2', [BookingController::class, 'slipV2'])->name('bookings.slip-v2')->withTrashed();
-        Route::get('bookings/{booking}/slip-v3', [BookingController::class, 'slipV3'])->name('bookings.slip-v3')->withTrashed();
-        Route::get('bookings/{booking}/kitchen-slip', [BookingController::class, 'kitchenSlip'])->name('bookings.kitchen-slip')->withTrashed();
-        Route::get('bookings/{booking}/pdf', [BookingController::class, 'downloadPdf'])->name('bookings.pdf')->withTrashed();
-        Route::get('bookings/payments/{payment}/receipt', [BookingController::class, 'paymentReceipt'])->name('bookings.payment-receipt');
-        Route::resource('bookings', BookingController::class)->withTrashed();
-        
-        // Menu Management
-        Route::resource('menu-categories', MenuCategoryController::class);
-        Route::resource('menu-items', MenuItemController::class);
-        
-        Route::get('packages/{package}/builder', [PackageController::class, 'builder'])->name('packages.builder');
-        Route::get('packages/{package}/preview', [PackageController::class, 'preview'])->name('packages.preview');
-        Route::resource('packages', PackageController::class);
-        
-        // Availability Engine
-        Route::get('availability', [AvailabilityController::class, 'index'])->name('availability.index');
-        
-        // Halls, Slots, and Assignments
-        Route::resource('halls', HallController::class);
-        Route::resource('slots', SlotController::class);
-        Route::get('hall-slots', [HallSlotAssignmentController::class, 'index'])->name('hall-slots.index');
-
-        // Central Finance & Billing Module
-        Route::get('finance/revenue', [FinanceController::class, 'revenue'])->name('finance.revenue');
-        Route::get('finance/payments', [FinanceController::class, 'payments'])->name('finance.payments');
-        Route::get('finance/security-deposits', [FinanceController::class, 'securityDeposits'])->name('finance.security-deposits');
-
-        // Accounting Foundation Module
-        Route::get('finance/financial-years', [AccountingController::class, 'financialYears'])->name('finance.financial-years');
-        Route::get('finance/chart-of-accounts', [AccountingController::class, 'chartOfAccounts'])->name('finance.chart-of-accounts');
-        Route::get('finance/opening-balances', [AccountingController::class, 'openingBalances'])->name('finance.opening-balances');
-        Route::get('finance/journal-vouchers', [AccountingController::class, 'journalVouchers'])->name('finance.journal-vouchers.index');
-        Route::get('finance/journal-vouchers/create', [AccountingController::class, 'createJournalVoucher'])->name('finance.journal-vouchers.create');
-        Route::get('finance/journal-vouchers/{id}/edit', [AccountingController::class, 'editJournalVoucher'])->name('finance.journal-vouchers.edit');
-        Route::get('finance/general-ledger', [AccountingController::class, 'generalLedger'])->name('finance.general-ledger');
-        Route::get('finance/trial-balance', [AccountingController::class, 'trialBalance'])->name('finance.trial-balance');
-        Route::get('finance/profit-loss', [AccountingController::class, 'profitLoss'])->name('finance.profit-loss');
-        Route::get('finance/balance-sheet', [AccountingController::class, 'balanceSheet'])->name('finance.balance-sheet');
-        Route::get('finance/cash-bank', [AccountingController::class, 'cashBank'])->name('finance.cash-bank');
-
-        // Inventory Foundation Module
-        Route::view('inventory/categories', 'inventory.categories')->name('inventory.categories');
-        Route::view('inventory/units', 'inventory.units')->name('inventory.units');
-        Route::view('inventory/brands', 'inventory.brands')->name('inventory.brands');
-        Route::view('inventory/items', 'inventory.items')->name('inventory.items');
-        Route::view('inventory/stock', 'inventory.stock')->name('inventory.stock');
-        Route::view('inventory/stock-takes', 'inventory.stock-takes')->name('inventory.stock-takes.index');
-        Route::get('inventory/stock-ledger', \App\Livewire\Inventory\StockLedgerView::class)->name('inventory.stock-ledger');
-        Route::view('inventory/settings', 'inventory.settings')->name('inventory.settings');
-
-        // Supplier Directory Module
-        Route::view('inventory/suppliers', 'inventory.suppliers')->name('suppliers.index');
-        Route::get('inventory/suppliers/{supplier}/ledger', function (\App\Models\Supplier $supplier) {
-            return view('inventory.supplier-ledger', compact('supplier'));
-        })->name('suppliers.ledger');
-
-        // Purchase Management Module
-        Route::view('purchases/orders', 'purchases.orders')->name('purchase-orders.index');
-        Route::get('purchases/orders/create', function () {
-            return view('purchases.order-form', ['id' => null]);
-        })->name('purchase-orders.create');
-        Route::get('purchases/orders/{id}/edit', function ($id) {
-            return view('purchases.order-form', compact('id'));
-        })->name('purchase-orders.edit');
-
-        Route::view('purchases/receipts', 'purchases.receipts')->name('goods-receipts.index');
-        Route::get('purchases/receipts/create', function () {
-            return view('purchases.receipt-form', ['id' => null]);
-        })->name('goods-receipts.create');
-        Route::get('purchases/receipts/{id}', function ($id) {
-            return view('purchases.receipt-form', compact('id'));
-        })->name('goods-receipts.show');
-
-        Route::view('purchases/invoices', 'purchases.invoices')->name('purchase-invoices.index');
-        Route::get('purchases/invoices/create', function () {
-            return view('purchases.invoice-form', ['id' => null]);
-        })->name('purchase-invoices.create');
-        Route::get('purchases/invoices/{id}/edit', function ($id) {
-            return view('purchases.invoice-form', compact('id'));
-        })->name('purchase-invoices.edit');
-
-        Route::view('purchases/returns', 'purchases.returns')->name('purchase-returns.index');
-        Route::get('purchases/returns/create', function () {
-            return view('purchases.return-form', ['id' => null]);
-        })->name('purchase-returns.create');
-        Route::get('purchases/returns/{id}/edit', function ($id) {
-            return view('purchases.return-form', compact('id'));
-        })->name('purchase-returns.edit');
-
-        // Client-facing SaaS Billing & Online Stripe Payments
+        // Client-facing SaaS Billing & Online Stripe Payments (Exempt from subscription active check so they can renew)
         Route::get('billing', [\App\Http\Controllers\TenantBillingController::class, 'index'])->name('billing.index');
         Route::get('billing/success', [\App\Http\Controllers\TenantBillingController::class, 'success'])->name('billing.success');
         Route::get('billing/cancel', [\App\Http\Controllers\TenantBillingController::class, 'cancel'])->name('billing.cancel');
 
-        // Expense Management Module
-        Route::get('expenses/dashboard', [\App\Http\Controllers\ExpenseController::class, 'dashboard'])->name('expenses.dashboard');
-        Route::get('expenses/categories', [\App\Http\Controllers\ExpenseController::class, 'categories'])->name('expenses.categories');
-        Route::get('expenses/petty-cash', [\App\Http\Controllers\ExpenseController::class, 'pettyCash'])->name('expenses.petty-cash');
-        Route::get('expenses/budgets', [\App\Http\Controllers\ExpenseController::class, 'budgets'])->name('expenses.budgets');
-        Route::get('expenses/recurring', [\App\Http\Controllers\ExpenseController::class, 'recurring'])->name('expenses.recurring');
-        Route::get('expenses/reports', [\App\Http\Controllers\ExpenseController::class, 'reports'])->name('expenses.reports');
-        Route::resource('expenses', \App\Http\Controllers\ExpenseController::class);
+        Route::middleware('subscription.active')->group(function () {
+            Route::resource('marquees', MarqueeController::class);
+            Route::resource('branches', BranchController::class);
+            Route::resource('users', UserController::class);
+            Route::get('staff/{staff}/logins', [StaffController::class, 'logins'])->name('staff.logins');
+            Route::resource('staff', StaffController::class);
+            Route::get('customers/referral-analytics', [CustomerController::class, 'referralAnalytics'])->name('customers.referral-analytics');
+            Route::resource('customers', CustomerController::class);
+            Route::resource('event-types', EventTypeController::class);
+            Route::resource('extra-services', ExtraServiceController::class);
+            
+            // Booking Management
+            Route::get('bookings/report', [BookingController::class, 'report'])->name('bookings.report');
+            Route::get('bookings/calendar', [BookingController::class, 'calendar'])->name('bookings.calendar');
+            Route::get('bookings/{booking}/slip', [BookingController::class, 'slip'])->name('bookings.slip')->withTrashed();
+            Route::get('bookings/{booking}/slip-v2', [BookingController::class, 'slipV2'])->name('bookings.slip-v2')->withTrashed();
+            Route::get('bookings/{booking}/slip-v3', [BookingController::class, 'slipV3'])->name('bookings.slip-v3')->withTrashed();
+            Route::get('bookings/{booking}/kitchen-slip', [BookingController::class, 'kitchenSlip'])->name('bookings.kitchen-slip')->withTrashed();
+            Route::get('bookings/{booking}/pdf', [BookingController::class, 'downloadPdf'])->name('bookings.pdf')->withTrashed();
+            Route::get('bookings/payments/{payment}/receipt', [BookingController::class, 'paymentReceipt'])->name('bookings.payment-receipt');
+            Route::resource('bookings', BookingController::class)->withTrashed();
+            
+            // Menu Management
+            Route::resource('menu-categories', MenuCategoryController::class);
+            Route::resource('menu-items', MenuItemController::class);
+            
+            Route::get('packages/{package}/builder', [PackageController::class, 'builder'])->name('packages.builder');
+            Route::get('packages/{package}/preview', [PackageController::class, 'preview'])->name('packages.preview');
+            Route::resource('packages', PackageController::class);
+            
+            // Availability Engine
+            Route::get('availability', [AvailabilityController::class, 'index'])->name('availability.index');
+            
+            // Halls, Slots, and Assignments
+            Route::resource('halls', HallController::class);
+            Route::resource('slots', SlotController::class);
+            Route::get('hall-slots', [HallSlotAssignmentController::class, 'index'])->name('hall-slots.index');
 
-        // Kitchen & Event Operations Sprint Routes
-        Route::get('staff-attendance', \App\Livewire\StaffAttendance::class)->name('staff.attendance');
-        Route::get('recipes', \App\Livewire\RecipeList::class)->name('recipes.index');
-        Route::get('operations/checklists', \App\Livewire\EventChecklistManager::class)->name('operations.checklists');
+            // Central Finance & Billing Module
+            Route::get('finance/revenue', [FinanceController::class, 'revenue'])->name('finance.revenue');
+            Route::get('finance/payments', [FinanceController::class, 'payments'])->name('finance.payments');
+            Route::get('finance/security-deposits', [FinanceController::class, 'securityDeposits'])->name('finance.security-deposits');
 
-        // Vendor & Partnership Management Module
-        Route::get('service-providers/dashboard', \App\Livewire\VendorDashboard::class)->name('vendors.dashboard');
-        Route::get('service-providers', \App\Livewire\VendorManager::class)->name('vendors.index');
-        Route::get('service-providers/services', \App\Livewire\VendorServiceManager::class)->name('vendor-services.index');
-        Route::get('service-providers/agreements', \App\Livewire\VendorAgreementManager::class)->name('vendor-agreements.index');
-        Route::get('service-providers/sales', \App\Livewire\VendorSaleManager::class)->name('vendor-sales.index');
-        Route::get('service-providers/ledger', \App\Livewire\VendorLedgerView::class)->name('vendor-ledger.index');
-        Route::get('service-providers/settlements', \App\Livewire\VendorSettlementManager::class)->name('vendor-settlements.index');
-        Route::get('service-providers/reports', \App\Livewire\VendorReports::class)->name('vendor-reports.index');
-        Route::get('service-providers/{vendor}', \App\Livewire\VendorDetail::class)->name('vendors.show');
+            // Accounting Foundation Module
+            Route::get('finance/financial-years', [AccountingController::class, 'financialYears'])->name('finance.financial-years');
+            Route::get('finance/chart-of-accounts', [AccountingController::class, 'chartOfAccounts'])->name('finance.chart-of-accounts');
+            Route::get('finance/opening-balances', [AccountingController::class, 'openingBalances'])->name('finance.opening-balances');
+            Route::get('finance/journal-vouchers', [AccountingController::class, 'journalVouchers'])->name('finance.journal-vouchers.index');
+            Route::get('finance/journal-vouchers/create', [AccountingController::class, 'createJournalVoucher'])->name('finance.journal-vouchers.create');
+            Route::get('finance/journal-vouchers/{id}/edit', [AccountingController::class, 'editJournalVoucher'])->name('finance.journal-vouchers.edit');
+            Route::get('finance/general-ledger', [AccountingController::class, 'generalLedger'])->name('finance.general-ledger');
+            Route::get('finance/trial-balance', [AccountingController::class, 'trialBalance'])->name('finance.trial-balance');
+            Route::get('finance/profit-loss', [AccountingController::class, 'profitLoss'])->name('finance.profit-loss');
+            Route::get('finance/balance-sheet', [AccountingController::class, 'balanceSheet'])->name('finance.balance-sheet');
+            Route::get('finance/cash-bank', [AccountingController::class, 'cashBank'])->name('finance.cash-bank');
 
-        // Department Management Module
-        Route::get('departments/dashboard', \App\Livewire\DepartmentDashboard::class)->name('departments.dashboard');
-        Route::get('departments', \App\Livewire\DepartmentManager::class)->name('departments.index');
-        Route::get('departments/employees', \App\Livewire\DepartmentEmployeeManager::class)->name('departments.employees');
-        Route::get('departments/attendance', \App\Livewire\DepartmentAttendanceManager::class)->name('departments.attendance');
-        Route::get('departments/requests', \App\Livewire\DepartmentRequestManager::class)->name('departments.requests');
-        Route::get('departments/issue', \App\Livewire\DepartmentIssueManager::class)->name('departments.issue');
-        Route::get('departments/returns', \App\Livewire\DepartmentReturnManager::class)->name('departments.returns');
-        Route::get('departments/ledger', \App\Livewire\DepartmentLedgerView::class)->name('departments.ledger');
-        Route::get('departments/production', \App\Livewire\DepartmentProductionManager::class)->name('departments.production');
-        Route::get('departments/reports', \App\Livewire\DepartmentReports::class)->name('departments.reports');
+            // Inventory Foundation Module
+            Route::view('inventory/categories', 'inventory.categories')->name('inventory.categories');
+            Route::view('inventory/units', 'inventory.units')->name('inventory.units');
+            Route::view('inventory/brands', 'inventory.brands')->name('inventory.brands');
+            Route::view('inventory/items', 'inventory.items')->name('inventory.items');
+            Route::view('inventory/stock', 'inventory.stock')->name('inventory.stock');
+            Route::view('inventory/stock-takes', 'inventory.stock-takes')->name('inventory.stock-takes.index');
+            Route::get('inventory/stock-ledger', \App\Livewire\Inventory\StockLedgerView::class)->name('inventory.stock-ledger');
+            Route::view('inventory/settings', 'inventory.settings')->name('inventory.settings');
+
+            // Supplier Directory Module
+            Route::view('inventory/suppliers', 'inventory.suppliers')->name('suppliers.index');
+            Route::get('inventory/suppliers/{supplier}/ledger', function (\App\Models\Supplier $supplier) {
+                return view('inventory.supplier-ledger', compact('supplier'));
+            })->name('suppliers.ledger');
+
+            // Purchase Management Module
+            Route::view('purchases/orders', 'purchases.orders')->name('purchase-orders.index');
+            Route::get('purchases/orders/create', function () {
+                return view('purchases.order-form', ['id' => null]);
+            })->name('purchase-orders.create');
+            Route::get('purchases/orders/{id}/edit', function ($id) {
+                return view('purchases.order-form', compact('id'));
+            })->name('purchase-orders.edit');
+
+            Route::view('purchases/receipts', 'purchases.receipts')->name('goods-receipts.index');
+            Route::get('purchases/receipts/create', function () {
+                return view('purchases.receipt-form', ['id' => null]);
+            })->name('goods-receipts.create');
+            Route::get('purchases/receipts/{id}', function ($id) {
+                return view('purchases.receipt-form', compact('id'));
+            })->name('goods-receipts.show');
+
+            Route::view('purchases/invoices', 'purchases.invoices')->name('purchase-invoices.index');
+            Route::get('purchases/invoices/create', function () {
+                return view('purchases.invoice-form', ['id' => null]);
+            })->name('purchase-invoices.create');
+            Route::get('purchases/invoices/{id}/edit', function ($id) {
+                return view('purchases.invoice-form', compact('id'));
+            })->name('purchase-invoices.edit');
+
+            Route::view('purchases/returns', 'purchases.returns')->name('purchase-returns.index');
+            Route::get('purchases/returns/create', function () {
+                return view('purchases.return-form', ['id' => null]);
+            })->name('purchase-returns.create');
+            Route::get('purchases/returns/{id}/edit', function ($id) {
+                return view('purchases.return-form', compact('id'));
+            })->name('purchase-returns.edit');
+
+            // Expense Management Module
+            Route::get('expenses/dashboard', [\App\Http\Controllers\ExpenseController::class, 'dashboard'])->name('expenses.dashboard');
+            Route::get('expenses/categories', [\App\Http\Controllers\ExpenseController::class, 'categories'])->name('expenses.categories');
+            Route::get('expenses/petty-cash', [\App\Http\Controllers\ExpenseController::class, 'pettyCash'])->name('expenses.petty-cash');
+            Route::get('expenses/budgets', [\App\Http\Controllers\ExpenseController::class, 'budgets'])->name('expenses.budgets');
+            Route::get('expenses/recurring', [\App\Http\Controllers\ExpenseController::class, 'recurring'])->name('expenses.recurring');
+            Route::get('expenses/reports', [\App\Http\Controllers\ExpenseController::class, 'reports'])->name('expenses.reports');
+            Route::resource('expenses', \App\Http\Controllers\ExpenseController::class);
+
+            // Kitchen & Event Operations Sprint Routes
+            Route::get('staff-attendance', \App\Livewire\StaffAttendance::class)->name('staff.attendance');
+            Route::get('recipes', \App\Livewire\RecipeList::class)->name('recipes.index');
+            Route::get('operations/checklists', \App\Livewire\EventChecklistManager::class)->name('operations.checklists');
+
+            // Vendor & Partnership Management Module
+            Route::get('service-providers/dashboard', \App\Livewire\VendorDashboard::class)->name('vendors.dashboard');
+            Route::get('service-providers', \App\Livewire\VendorManager::class)->name('vendors.index');
+            Route::get('service-providers/services', \App\Livewire\VendorServiceManager::class)->name('vendor-services.index');
+            Route::get('service-providers/agreements', \App\Livewire\VendorAgreementManager::class)->name('vendor-agreements.index');
+            Route::get('service-providers/sales', \App\Livewire\VendorSaleManager::class)->name('vendor-sales.index');
+            Route::get('service-providers/ledger', \App\Livewire\VendorLedgerView::class)->name('vendor-ledger.index');
+            Route::get('service-providers/settlements', \App\Livewire\VendorSettlementManager::class)->name('vendor-settlements.index');
+            Route::get('service-providers/reports', \App\Livewire\VendorReports::class)->name('vendor-reports.index');
+            Route::get('service-providers/{vendor}', \App\Livewire\VendorDetail::class)->name('vendors.show');
+
+            // Department Management Module
+            Route::get('departments/dashboard', \App\Livewire\DepartmentDashboard::class)->name('departments.dashboard');
+            Route::get('departments', \App\Livewire\DepartmentManager::class)->name('departments.index');
+            Route::get('departments/employees', \App\Livewire\DepartmentEmployeeManager::class)->name('departments.employees');
+            Route::get('departments/attendance', \App\Livewire\DepartmentAttendanceManager::class)->name('departments.attendance');
+            Route::get('departments/requests', \App\Livewire\DepartmentRequestManager::class)->name('departments.requests');
+            Route::get('departments/issue', \App\Livewire\DepartmentIssueManager::class)->name('departments.issue');
+            Route::get('departments/returns', \App\Livewire\DepartmentReturnManager::class)->name('departments.returns');
+            Route::get('departments/ledger', \App\Livewire\DepartmentLedgerView::class)->name('departments.ledger');
+            Route::get('departments/production', \App\Livewire\DepartmentProductionManager::class)->name('departments.production');
+            Route::get('departments/reports', \App\Livewire\DepartmentReports::class)->name('departments.reports');
+        });
     });
 
     // SaaS Subscription Management, Backup Management & Global Defaults (Super Admin only)
@@ -224,11 +226,23 @@ Route::middleware('auth')->group(function () {
     Route::resource('billing-cycles', \App\Http\Controllers\BillingCycleController::class);
     Route::resource('saas-invoices', \App\Http\Controllers\SaasInvoiceController::class);
     Route::resource('saas-payments', \App\Http\Controllers\SaasPaymentController::class);
+    Route::get('admin/saas-coa', function () {
+        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        return view('super-admin.saas-coa');
+    })->name('super-admin.saas-coa');
+    Route::get('admin/saas-ledger', function () {
+        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        return view('super-admin.saas-ledger');
+    })->name('super-admin.saas-ledger');
     Route::get('admin/global-defaults', \App\Livewire\SuperAdmin\GlobalDefaultManager::class)->name('super-admin.global-defaults');
     Route::get('admin/backups', \App\Livewire\SuperAdmin\BackupManager::class)->name('super-admin.backups');
     Route::get('admin/backups/{backup}/download', [\App\Http\Controllers\SuperAdmin\BackupDownloadController::class, 'download'])->name('super-admin.backups.download');
     Route::get('admin/business-owners', \App\Livewire\SuperAdmin\BusinessOwnerList::class)->name('super-admin.business-owners');
     Route::get('admin/business-owners/create', \App\Livewire\SuperAdmin\BusinessOwnerForm::class)->name('super-admin.business-owners.create');
+    Route::get('admin/business-owners/{id}', \App\Livewire\SuperAdmin\BusinessOwnerDetail::class)->name('super-admin.business-owners.show');
     Route::get('admin/business-owners/{id}/edit', \App\Livewire\SuperAdmin\BusinessOwnerForm::class)->name('super-admin.business-owners.edit');
+    Route::get('admin/trials/accounts', \App\Livewire\SuperAdmin\Trials\TrialAccounts::class)->name('super-admin.trials.accounts');
+    Route::get('admin/trials/expiring', \App\Livewire\SuperAdmin\Trials\ExpiringTrials::class)->name('super-admin.trials.expiring');
+    Route::get('admin/trials/conversions', \App\Livewire\SuperAdmin\Trials\TrialConversions::class)->name('super-admin.trials.conversions');
     Route::get('settings/default-data', \App\Livewire\Owner\TenantDefaultManager::class)->name('owner.default-data');
 });

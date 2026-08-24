@@ -45,7 +45,7 @@
                     <thead class="bg-200 text-900">
                         <tr>
                             <th class="align-middle px-3">Invoice Number</th>
-                            <th class="align-middle">Marquee</th>
+                            <th class="align-middle">Business Owner</th>
                             <th class="align-middle">Plan</th>
                             <th class="align-middle">Billing Cycle</th>
                             <th class="align-middle">Total Amount</th>
@@ -61,11 +61,11 @@
                                 <td class="align-middle px-3 fw-semi-bold">
                                     <a href="{{ route('saas-invoices.show', $invoice->id) }}">{{ $invoice->invoice_number }}</a>
                                 </td>
-                                <td class="align-middle fw-semi-bold">{{ $invoice->marquee->name }}</td>
-                                <td class="align-middle">{{ $invoice->subscriptionPlan->name }}</td>
-                                <td class="align-middle">{{ $invoice->billingCycle->cycle_name }}</td>
-                                <td class="align-middle fw-bold text-dark">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->subscriptionPlan->currency }}</td>
-                                <td class="align-middle">{{ $invoice->due_date->format('M d, Y') }}</td>
+                                <td class="align-middle fw-semi-bold">{{ $invoice->user?->name ?? 'Deleted Owner' }}</td>
+                                <td class="align-middle">{{ $invoice->subscriptionPlan?->name ?? 'N/A' }}</td>
+                                <td class="align-middle">{{ $invoice->billingCycle?->cycle_name ?? 'N/A' }}</td>
+                                <td class="align-middle fw-bold text-dark">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->subscriptionPlan?->currency ?? 'USD' }}</td>
+                                <td class="align-middle">{{ $invoice->due_date ? $invoice->due_date->format('M d, Y') : 'N/A' }}</td>
                                 <td class="align-middle text-center">
                                     <span class="badge badge-subtle-{{ 
                                         $invoice->payment_status === 'Paid' ? 'success' : 
@@ -132,14 +132,14 @@
                     <div class="modal-body text-start">
                         <div class="row g-3">
                             <div class="col-12">
-                                <label class="form-label" for="new_marquee_id">Select Marquee Tenant <span class="text-danger">*</span></label>
-                                <select wire:model="new_marquee_id" class="form-select @error('new_marquee_id') is-invalid @enderror" id="new_marquee_id">
-                                    <option value="">-- Choose Marquee --</option>
-                                    @foreach($marquees as $marquee)
-                                        <option value="{{ $marquee->id }}">{{ $marquee->name }}</option>
+                                <label class="form-label" for="new_user_id">Select Business Owner <span class="text-danger">*</span></label>
+                                <select wire:model="new_user_id" class="form-select @error('new_user_id') is-invalid @enderror" id="new_user_id">
+                                    <option value="">-- Choose Owner --</option>
+                                    @foreach($businessOwners as $owner)
+                                        <option value="{{ $owner->id }}">{{ $owner->name }} ({{ $owner->email }})</option>
                                     @endforeach
                                 </select>
-                                @error('new_marquee_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                @error('new_user_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
 
                             <div class="col-md-6">

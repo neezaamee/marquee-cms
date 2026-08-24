@@ -117,6 +117,21 @@ class BranchForm extends Component
             $branch->update($validatedData);
             session()->flash('success', 'Branch updated successfully.');
         } else {
+            // Check plan limits
+            $owner = null;
+            if (auth()->user()->isSuperAdmin()) {
+                $marquee = Marquee::find($this->marquee_id);
+                $owner = $marquee ? $marquee->owners()->first() : null;
+            } else {
+                $marquee = auth()->user()->marquee;
+                $owner = $marquee ? $marquee->owners()->first() : null;
+            }
+
+            if ($owner && !$owner->canCreateBranch()) {
+                $this->addError('name', 'This tenant has reached the maximum number of branches allowed by their subscription plan.');
+                return;
+            }
+
             Branch::create($validatedData);
             session()->flash('success', 'Branch created successfully.');
         }

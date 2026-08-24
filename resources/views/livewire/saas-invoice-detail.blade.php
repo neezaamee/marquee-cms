@@ -26,9 +26,9 @@
                     <img src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="60" />
                     <h4 class="mt-2 text-primary font-sans-serif">M<span class="text-secondary fw-semibold">CMS</span> Platform</h4>
                     <p class="fs-11 mb-0 text-600">
-                        12-C, Lane 5, Bukhari Commercial Area Phase 6 DHA<br />
-                        Karachi, Pakistan<br />
-                        support@marqueecms.com
+                        Elaf Tech Solutions<br />
+                        Faisalabad, Pakistan<br />
+                        mcmst@elaftech.com
                     </p>
                 </div>
                 <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
@@ -50,12 +50,10 @@
             <div class="row g-3 fs-11">
                 <div class="col-sm-6">
                     <h6 class="text-500 mb-1">Invoice To:</h6>
-                    <h5 class="text-dark mb-0">{{ $invoice->marquee->name }}</h5>
+                    <h5 class="text-dark mb-0">{{ $invoice->user?->name ?? 'Deleted Owner' }}</h5>
                     <p class="mb-0 text-600">
-                        {{ $invoice->marquee->address }}, {{ $invoice->marquee->city }}<br />
-                        {{ $invoice->marquee->province }}, Pakistan<br />
-                        Email: {{ $invoice->marquee->email }}<br />
-                        Phone: {{ $invoice->marquee->phone }}
+                        Email: {{ $invoice->user?->email ?? 'N/A' }}<br />
+                        Phone: {{ $invoice->user?->phone ?? 'N/A' }}
                     </p>
                 </div>
                 <div class="col-sm-6 text-sm-end">
@@ -93,13 +91,13 @@
                     <tbody>
                         <tr>
                             <td class="px-3 align-middle fw-semi-bold text-dark">
-                                {{ $invoice->subscriptionPlan->name }} Subscription Plan
-                                <small class="text-muted d-block">{{ $invoice->subscriptionPlan->description }}</small>
+                                {{ $invoice->subscriptionPlan?->name ?? 'Deleted Plan' }} Subscription Plan
+                                <small class="text-muted d-block">{{ $invoice->subscriptionPlan?->description ?? 'N/A' }}</small>
                             </td>
-                            <td class="align-middle text-center">{{ $invoice->billingCycle->cycle_name }}</td>
-                            <td class="align-middle text-end">{{ number_format($invoice->amount, 2) }} {{ $invoice->subscriptionPlan->currency }}</td>
-                            <td class="align-middle text-end text-success">-{{ number_format($invoice->discount, 2) }} {{ $invoice->subscriptionPlan->currency }}</td>
-                            <td class="align-middle text-end px-3 fw-bold text-dark">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->subscriptionPlan->currency }}</td>
+                            <td class="align-middle text-center">{{ $invoice->billingCycle?->cycle_name ?? 'N/A' }}</td>
+                            <td class="align-middle text-end">{{ number_format($invoice->amount, 2) }} {{ $invoice->subscriptionPlan?->currency ?? 'USD' }}</td>
+                            <td class="align-middle text-end text-success">-{{ number_format($invoice->discount, 2) }} {{ $invoice->subscriptionPlan?->currency ?? 'USD' }}</td>
+                            <td class="align-middle text-end px-3 fw-bold text-dark">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->subscriptionPlan?->currency ?? 'USD' }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -110,19 +108,19 @@
                     <table class="table table-sm table-borderless mb-0">
                         <tr>
                             <td class="fw-semi-bold">Subtotal:</td>
-                            <td class="text-end">{{ number_format($invoice->amount, 2) }} {{ $invoice->subscriptionPlan->currency }}</td>
+                            <td class="text-end">{{ number_format($invoice->amount, 2) }} {{ $invoice->subscriptionPlan?->currency ?? 'USD' }}</td>
                         </tr>
                         <tr>
                             <td class="fw-semi-bold text-success">Discount Applied:</td>
-                            <td class="text-end text-success">-{{ number_format($invoice->discount, 2) }} {{ $invoice->subscriptionPlan->currency }}</td>
+                            <td class="text-end text-success">-{{ number_format($invoice->discount, 2) }} {{ $invoice->subscriptionPlan?->currency ?? 'USD' }}</td>
                         </tr>
                         <tr>
                             <td class="fw-semi-bold">Tax (0%):</td>
-                            <td class="text-end">{{ number_format($invoice->tax, 2) }} {{ $invoice->subscriptionPlan->currency }}</td>
+                            <td class="text-end">{{ number_format($invoice->tax, 2) }} {{ $invoice->subscriptionPlan?->currency ?? 'USD' }}</td>
                         </tr>
                         <tr class="border-top fw-bold fs-10 text-dark">
                             <td>Total Amount:</td>
-                            <td class="text-end text-primary">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->subscriptionPlan->currency }}</td>
+                            <td class="text-end text-primary">{{ number_format($invoice->total_amount, 2) }} {{ $invoice->subscriptionPlan?->currency ?? 'USD' }}</td>
                         </tr>
                     </table>
                 </div>
@@ -157,7 +155,7 @@
                                         <td>{{ $payment->payment_date->format('M d, Y') }}</td>
                                         <td>{{ $payment->payment_method }}</td>
                                         <td><code>{{ $payment->transaction_id ?: 'N/A' }}</code></td>
-                                        <td class="text-end fw-bold text-success">{{ number_format($payment->amount, 2) }} {{ $invoice->subscriptionPlan->currency }}</td>
+                                        <td class="text-end fw-bold text-success">{{ number_format($payment->amount, 2) }} {{ $invoice->subscriptionPlan?->currency ?? 'USD' }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

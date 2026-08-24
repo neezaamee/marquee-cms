@@ -34,14 +34,15 @@ class SaasPaymentsList extends Component
     {
         abort_unless(auth()->user()->isSuperAdmin(), 403);
 
-        $query = SaasPayment::with(['invoice', 'marquee']);
+        $query = SaasPayment::with(['invoice', 'user']);
 
         if (!empty($this->search)) {
             $query->where(function($q) {
                 $q->where('payment_reference', 'like', '%' . $this->search . '%')
                   ->orWhere('transaction_id', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('marquee', function($mq) {
-                      $mq->where('name', 'like', '%' . $this->search . '%');
+                  ->orWhereHas('user', function($usr) {
+                      $usr->where('name', 'like', '%' . $this->search . '%')
+                         ->orWhere('email', 'like', '%' . $this->search . '%');
                   })
                   ->orWhereHas('invoice', function($inv) {
                       $inv->where('invoice_number', 'like', '%' . $this->search . '%');

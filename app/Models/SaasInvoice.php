@@ -13,7 +13,7 @@ class SaasInvoice extends Model
 
     protected $fillable = [
         'invoice_number',
-        'marquee_id',
+        'user_id',
         'subscription_plan_id',
         'billing_cycle_id',
         'amount',
@@ -48,11 +48,11 @@ class SaasInvoice extends Model
     }
 
     /**
-     * Get the marquee company this invoice belongs to.
+     * Get the business owner user this invoice belongs to.
      */
-    public function marquee(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Marquee::class);
+        return $this->belongsTo(User::class);
     }
 
     /**

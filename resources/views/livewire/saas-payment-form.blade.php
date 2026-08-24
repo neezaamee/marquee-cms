@@ -9,21 +9,30 @@
         <div class="card-body">
             <form wire:submit.prevent="save">
                 <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label" for="invoice_id">Select Unpaid/Pending Invoice <span class="text-danger">*</span></label>
                         <select wire:model.live="invoice_id" class="form-select @error('invoice_id') is-invalid @enderror" id="invoice_id" @if(request()->query('invoice_id')) disabled @endif>
                             <option value="">-- Choose Invoice --</option>
                             @foreach($invoices as $inv)
-                                <option value="{{ $inv->id }}">{{ $inv->invoice_number }} ({{ $inv->marquee->name }} - {{ $inv->subscriptionPlan->name }})</option>
+                                <option value="{{ $inv->id }}">{{ $inv->invoice_number }} ({{ $inv->user->name }} - {{ $inv->subscriptionPlan->name }})</option>
                             @endforeach
                         </select>
                         @error('invoice_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label class="form-label" for="discount">Discount Allowed</label>
+                        <div class="input-group">
+                            <input wire:model.live="discount" class="form-control @error('discount') is-invalid @enderror" id="discount" type="number" step="0.01" min="0" />
+                            <span class="input-group-text">{{ $selectedInvoice ? $selectedInvoice->subscriptionPlan->currency : 'PKR' }}</span>
+                        </div>
+                        @error('discount') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="col-md-4">
                         <label class="form-label" for="amount">Payment Amount <span class="text-danger">*</span></label>
                         <div class="input-group">
-                            <input wire:model="amount" class="form-control @error('amount') is-invalid @enderror" id="amount" type="number" step="0.01" min="0.01" />
+                            <input wire:model="amount" class="form-control @error('amount') is-invalid @enderror" id="amount" type="number" step="0.01" min="0" />
                             <span class="input-group-text">{{ $selectedInvoice ? $selectedInvoice->subscriptionPlan->currency : 'PKR' }}</span>
                         </div>
                         @if($selectedInvoice)
@@ -37,7 +46,7 @@
                         <div class="col-12 bg-light p-3 rounded">
                             <h6 class="mb-2 text-primary">Invoice Details</h6>
                             <div class="row g-2 fs-11 text-700">
-                                <div class="col-md-4"><strong>Marquee Tenant:</strong> {{ $selectedInvoice->marquee->name }}</div>
+                                <div class="col-md-4"><strong>Business Owner:</strong> {{ $selectedInvoice->user->name }}</div>
                                 <div class="col-md-4"><strong>Plan:</strong> {{ $selectedInvoice->subscriptionPlan->name }}</div>
                                 <div class="col-md-4"><strong>Billing Cycle:</strong> {{ $selectedInvoice->billingCycle->cycle_name }}</div>
                                 <div class="col-md-4"><strong>Due Date:</strong> {{ $selectedInvoice->due_date->format('M d, Y') }}</div>

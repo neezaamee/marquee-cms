@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'setup.completed' => \App\Http\Middleware\EnsureInitialSetupIsCompleted::class,
+            'subscription.active' => \App\Http\Middleware\EnsureSubscriptionIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

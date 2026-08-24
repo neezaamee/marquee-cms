@@ -31,9 +31,25 @@
         <div class="col-lg-4">
             <div class="card shadow-sm border-0 bg-primary text-white mb-4" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%) !important;">
                 <div class="card-body p-4">
-                    <span class="badge bg-white text-primary text-uppercase fw-bold fs-11 px-2 py-1 mb-3">Active Subscription</span>
+                    @if(auth()->user()->status === 'inactive')
+                        <span class="badge bg-white text-secondary text-uppercase fw-bold fs-11 px-2 py-1 mb-3">Inactive</span>
+                    @elseif(auth()->user()->status === 'suspended')
+                        <span class="badge bg-white text-danger text-uppercase fw-bold fs-11 px-2 py-1 mb-3">Suspended</span>
+                    @elseif(auth()->user()->subscription_trial_ends_at && auth()->user()->subscription_trial_ends_at->isFuture())
+                        <span class="badge bg-white text-info text-uppercase fw-bold fs-11 px-2 py-1 mb-3">Active Trial</span>
+                    @elseif(auth()->user()->subscription_ends_at && auth()->user()->subscription_ends_at->isPast())
+                        <span class="badge bg-white text-warning text-uppercase fw-bold fs-11 px-2 py-1 mb-3">Expired</span>
+                    @elseif(auth()->user()->subscription_trial_ends_at && auth()->user()->subscription_trial_ends_at->isPast())
+                        <span class="badge bg-white text-danger text-uppercase fw-bold fs-11 px-2 py-1 mb-3">Expired Trial</span>
+                    @else
+                        <span class="badge bg-white text-primary text-uppercase fw-bold fs-11 px-2 py-1 mb-3">Active Subscription</span>
+                    @endif
                     <h3 class="fw-bold mb-1">{{ auth()->user()->subscriptionPlan->name ?? 'Trial Plan' }}</h3>
-                    <p class="fs-12 text-white-50 mb-4">{{ auth()->user()->subscriptionPlan->description ?? 'Initial trial configuration setup.' }}</p>
+                    <p class="fs-12 text-white-50 mb-3">{{ auth()->user()->subscriptionPlan->description ?? 'Initial trial configuration setup.' }}</p>
+                    
+                    <button wire:click="openChangePlanModal" class="btn btn-light btn-xs text-primary fw-bold px-3 mb-4">
+                        <span class="fas fa-edit me-1"></span>Change / Upgrade Plan
+                    </button>
                     
                     <hr class="border-white-50" />
 
@@ -45,19 +61,30 @@
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2 fs-12">
-                        <span class="text-white-50">Subscription Ends:</span>
-                        <span class="fw-bold">
-                            @if(auth()->user()->subscription_ends_at)
-                                {{ auth()->user()->subscription_ends_at->format('M d, Y') }}
-                            @else
-                                Never / Unlimited
-                            @endif
-                        </span>
+                        @if(auth()->user()->subscription_trial_ends_at && auth()->user()->subscription_trial_ends_at->isFuture())
+                            <span class="text-white-50">Trial Ends:</span>
+                            <span class="fw-bold">
+                                {{ auth()->user()->subscription_trial_ends_at->format('M d, Y') }}
+                            </span>
+                        @else
+                            <span class="text-white-50">Subscription Ends:</span>
+                            <span class="fw-bold">
+                                @if(auth()->user()->subscription_ends_at)
+                                    {{ auth()->user()->subscription_ends_at->format('M d, Y') }}
+                                @else
+                                    Never / Unlimited
+                                @endif
+                            </span>
+                        @endif
                     </div>
 
                     @if(auth()->user()->subscription_ends_at && auth()->user()->subscription_ends_at->isPast())
                         <div class="mt-3 p-2 bg-danger text-white rounded text-center fw-bold fs-11">
                             <span class="fas fa-exclamation-circle me-1"></span>Your subscription has expired!
+                        </div>
+                    @elseif(auth()->user()->subscription_trial_ends_at && auth()->user()->subscription_trial_ends_at->isPast() && (!auth()->user()->subscription_ends_at || auth()->user()->subscription_ends_at->isPast()))
+                        <div class="mt-3 p-2 bg-danger text-white rounded text-center fw-bold fs-11">
+                            <span class="fas fa-exclamation-circle me-1"></span>Your trial period has expired!
                         </div>
                     @endif
                 </div>
@@ -185,6 +212,80 @@
                 <p class="text-secondary fs-12 mb-0">
                     Your administrator user account is not linked to any active Marquee company tenant. Super Admin logins are exempt from standard billing limits and plan constraints.
                 </p>
+            </div>
+        </div>
+    @endif
+
+    <!-- Change Plan Modal -->
+    @if($showChangePlanModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1050;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-primary text-white py-3">
+                        <h5 class="modal-title fw-bold text-white"><span class="fas fa-sync-alt me-2"></span>Upgrade or Change Plan</h5>
+                        <button type="button" class="btn-close btn-close-white" wire:click="$set('showChangePlanModal', false)"></button>
+                    </div>
+                    <form wire:submit.prevent="changePlan">
+                        <div class="modal-body p-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-semi-bold text-700" for="selectedPlanId">Select Subscription Plan</label>
+                                <select wire:model.live="selectedPlanId" class="form-select" id="selectedPlanId" required>
+                                    @foreach($plans as $p)
+                                        <option value="{{ $p->id }}">{{ $p->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-semi-bold text-700" for="selectedCycleId">Select Billing Term</label>
+                                <select wire:model.live="selectedCycleId" class="form-select @error('selectedCycleId') is-invalid @enderror" id="selectedCycleId" required>
+                                    <option value="">-- Choose Billing Cycle --</option>
+                                    @foreach($cycles as $c)
+                                        <option value="{{ $c->id }}">{{ $c->cycle_name }} ({{ $c->duration_in_months }} months @if($c->discount_percentage > 0) -{{ $c->discount_percentage }}% off @endif)</option>
+                                    @endforeach
+                                </select>
+                                @error('selectedCycleId') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+
+                            @if($selectedPlanId && $selectedCycleId)
+                                <div class="p-3 border rounded bg-light">
+                                    <h6 class="mb-3 text-primary fw-bold fs-12"><span class="fas fa-calculator me-2"></span>Proration Cost Calculation</h6>
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mb-2 fs-11">
+                                        <span class="text-secondary">Unused Subscription Credit:</span>
+                                        <span class="fw-bold font-monospace text-success">- PKR {{ number_format($unusedCredit, 2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2 fs-11">
+                                        <span class="text-secondary">Existing Credit Balance:</span>
+                                        <span class="fw-bold font-monospace text-success">- PKR {{ number_format(auth()->user()->credit_balance, 2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2 fs-11">
+                                        <span class="text-secondary">New Plan Price:</span>
+                                        <span class="fw-bold font-monospace text-dark">PKR {{ number_format($newPlanCharge, 2) }}</span>
+                                    </div>
+                                    
+                                    <hr class="my-2" />
+
+                                    <div class="d-flex justify-content-between align-items-center mb-2 fs-12 fw-bold text-dark">
+                                        <span>Net Amount Due:</span>
+                                        <span class="font-monospace text-primary">PKR {{ number_format($netPayable, 2) }}</span>
+                                    </div>
+
+                                    @if($newCreditBalance > 0)
+                                        <div class="d-flex justify-content-between align-items-center mt-2 fs-11 text-success fw-semi-bold">
+                                            <span>Remaining Credit Balance:</span>
+                                            <span class="font-monospace">PKR {{ number_format($newCreditBalance, 2) }}</span>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
+                        </div>
+                        <div class="modal-footer bg-light py-3">
+                            <button type="button" class="btn btn-secondary btn-sm px-4" wire:click="$set('showChangePlanModal', false)">Close</button>
+                            <button type="submit" class="btn btn-primary btn-sm px-4" @if(!$selectedPlanId || !$selectedCycleId) disabled @endif>Confirm Plan Change</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     @endif

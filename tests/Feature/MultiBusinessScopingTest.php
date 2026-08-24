@@ -339,4 +339,37 @@ class MultiBusinessScopingTest extends TestCase
         // Hall 2 IS available at the exact same slot
         $this->assertTrue($service->checkAvailability($hall2->id, '2026-08-20', '19:00', '22:00'));
     }
+
+    public function test_super_admin_can_view_business_owner_details()
+    {
+        $superAdmin = User::factory()->create(['role_id' => $this->superAdminRole->id]);
+
+        $businessOwner = User::create([
+            'name' => 'Ali Detail Test',
+            'email' => 'ali_detail@abcgroup.com',
+            'username' => 'ali_detail',
+            'password' => bcrypt('password123'),
+            'role_id' => $this->businessOwnerRole->id,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->get(route('super-admin.business-owners.show', $businessOwner->id))
+            ->assertStatus(200)
+            ->assertSee('Ali Detail Test');
+    }
+
+    public function test_non_super_admin_cannot_view_business_owner_details()
+    {
+        $businessOwner = User::create([
+            'name' => 'Ali Owner Detail',
+            'email' => 'owner_detail@abcgroup.com',
+            'username' => 'ali_owner_det',
+            'password' => bcrypt('password123'),
+            'role_id' => $this->businessOwnerRole->id,
+        ]);
+
+        $this->actingAs($businessOwner)
+            ->get(route('super-admin.business-owners.show', $businessOwner->id))
+            ->assertStatus(403);
+    }
 }

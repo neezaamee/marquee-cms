@@ -59,6 +59,12 @@ class SaasModuleSeeder extends Seeder
                 'status' => 'Active',
             ],
             [
+                'feature_name' => 'Max Marquees',
+                'feature_key' => 'max_marquees',
+                'description' => 'Number of marquees/businesses permitted under this plan',
+                'status' => 'Active',
+            ],
+            [
                 'feature_name' => 'Max Users',
                 'feature_key' => 'max_users',
                 'description' => 'Number of user accounts permitted under this plan',
@@ -104,6 +110,7 @@ class SaasModuleSeeder extends Seeder
                 'sort_order' => 1,
                 'is_popular' => false,
                 'features_mapping' => [
+                    'max_marquees' => '1',
                     'max_branches' => '1',
                     'max_users' => '3',
                     'storage_limit_mb' => '1024',
@@ -119,6 +126,7 @@ class SaasModuleSeeder extends Seeder
                 'sort_order' => 2,
                 'is_popular' => true,
                 'features_mapping' => [
+                    'max_marquees' => '2',
                     'max_branches' => '3',
                     'max_users' => '10',
                     'storage_limit_mb' => '5120',
@@ -135,6 +143,7 @@ class SaasModuleSeeder extends Seeder
                 'sort_order' => 3,
                 'is_popular' => false,
                 'features_mapping' => [
+                    'max_marquees' => '5',
                     'max_branches' => '10',
                     'max_users' => '30',
                     'storage_limit_mb' => '20480',

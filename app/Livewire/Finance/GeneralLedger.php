@@ -10,6 +10,8 @@ use Livewire\Component;
 
 class GeneralLedger extends Component
 {
+    public $isSaas = false;
+
     public $account_id = '';
     public $financial_year_id = '';
     public $branch_id = '';
@@ -20,21 +22,24 @@ class GeneralLedger extends Component
 
     public function mount()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->isSaas ? null : auth()->user()->marquee_id;
         $user = auth()->user();
 
         // Enforce user branch scope
-        if ($user->branch_id && !$user->isSuperAdmin()) {
+        if (!$this->isSaas && $user->branch_id && !$user->isSuperAdmin()) {
             $this->branch_id = $user->branch_id;
         }
 
         // Get default active financial year
-        $activeFy = FinancialYear::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
-            ->where('is_default', true)
-            ->first() ?? FinancialYear::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
-            ->first();
+        $fyQuery = FinancialYear::where('status', 'active');
+        if ($this->isSaas) {
+            $fyQuery->whereNull('marquee_id');
+        } else {
+            $fyQuery->where('marquee_id', $marqueeId);
+        }
+        
+        $activeFy = $fyQuery->where('is_default', true)->first() 
+            ?? (clone $fyQuery)->orderBy('start_date', 'desc')->first();
 
         if ($activeFy) {
             $this->financial_year_id = $activeFy->id;
@@ -85,22 +90,36 @@ class GeneralLedger extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->isSaas ? null : auth()->user()->marquee_id;
         $user = auth()->user();
 
         // Get leaf accounts
-        $accounts = Account::where('marquee_id', $marqueeId)
-            ->whereDoesntHave('children')
+        $accountsQuery = Account::whereDoesntHave('children')
             ->where('is_active', true)
-            ->orderBy('account_code')
-            ->get();
-
-        $financialYears = FinancialYear::where('marquee_id', $marqueeId)->orderBy('start_date', 'desc')->get();
-        
-        if ($user->branch_id && !$user->isSuperAdmin()) {
-            $branches = Branch::where('id', $user->branch_id)->get();
+            ->orderBy('account_code');
+            
+        if ($this->isSaas) {
+            $accountsQuery->whereNull('marquee_id');
         } else {
-            $branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
+            $accountsQuery->where('marquee_id', $marqueeId);
+        }
+        $accounts = $accountsQuery->get();
+
+        $fyQuery = FinancialYear::orderBy('start_date', 'desc');
+        if ($this->isSaas) {
+            $fyQuery->whereNull('marquee_id');
+        } else {
+            $fyQuery->where('marquee_id', $marqueeId);
+        }
+        $financialYears = $fyQuery->get();
+        
+        $branches = collect();
+        if (!$this->isSaas) {
+            if ($user->branch_id && !$user->isSuperAdmin()) {
+                $branches = Branch::where('id', $user->branch_id)->get();
+            } else {
+                $branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
+            }
         }
 
         return view('livewire.finance.general-ledger', [

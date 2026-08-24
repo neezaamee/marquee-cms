@@ -13,7 +13,7 @@ class SaasPayment extends Model
     protected $fillable = [
         'payment_reference',
         'invoice_id',
-        'marquee_id',
+        'user_id',
         'amount',
         'payment_method',
         'transaction_id',
@@ -46,10 +46,10 @@ class SaasPayment extends Model
     }
 
     /**
-     * Get the marquee company this payment belongs to.
+     * Get the business owner user this payment belongs to.
      */
-    public function marquee(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Marquee::class);
+        return $this->belongsTo(User::class);
     }
 }

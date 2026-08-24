@@ -250,7 +250,7 @@ class VendorCommissionService
         }
 
         // Find/Create Vendor Commission Income Account
-        $incomeAccount = Account::firstOrCreate(
+        $incomeAccount = Account::withoutGlobalScope('tenant')->withTrashed()->firstOrCreate(
             ['marquee_id' => $sale->marquee_id, 'name' => 'Vendor Commission Income'],
             [
                 'account_code' => '4200-VEN',
@@ -262,7 +262,7 @@ class VendorCommissionService
         );
 
         // Find/Create Vendor Payable Clearing Account
-        $payableAccount = Account::firstOrCreate(
+        $payableAccount = Account::withoutGlobalScope('tenant')->withTrashed()->firstOrCreate(
             ['marquee_id' => $sale->marquee_id, 'name' => 'Vendor Payable Clearing'],
             [
                 'account_code' => '2150-VEN',
@@ -277,7 +277,7 @@ class VendorCommissionService
             return null;
         }
 
-        $fy = \App\Models\FinancialYear::where('marquee_id', $sale->marquee_id)->where('status', 'active')->first();
+        $fy = \App\Models\FinancialYear::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $sale->marquee_id)->where('status', 'active')->first();
         if (!$fy) {
             $fy = \App\Models\FinancialYear::create([
                 'marquee_id' => $sale->marquee_id,
@@ -336,7 +336,7 @@ class VendorCommissionService
             $liabilityType = AccountType::create(['name' => 'Current Liabilities', 'code' => 'CLIAB', 'nature' => 'Liability']);
         }
 
-        $payableAccount = Account::where('marquee_id', $settlement->marquee_id)
+        $payableAccount = Account::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $settlement->marquee_id)
             ->where('name', 'Vendor Payable Clearing')
             ->first();
 
@@ -344,7 +344,7 @@ class VendorCommissionService
             return null;
         }
 
-        $fy = \App\Models\FinancialYear::where('marquee_id', $settlement->marquee_id)->where('status', 'active')->first();
+        $fy = \App\Models\FinancialYear::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $settlement->marquee_id)->where('status', 'active')->first();
         if (!$fy) {
             $fy = \App\Models\FinancialYear::create([
                 'marquee_id' => $settlement->marquee_id,

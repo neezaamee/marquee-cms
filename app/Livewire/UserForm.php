@@ -153,6 +153,23 @@ class UserForm extends Component
             $userModel->update($validatedData);
             session()->flash('success', 'User updated successfully.');
         } else {
+            // Check plan limits
+            $owner = null;
+            if (auth()->user()->isSuperAdmin()) {
+                if ($this->marquee_id) {
+                    $marquee = Marquee::find($this->marquee_id);
+                    $owner = $marquee ? $marquee->owners()->first() : null;
+                }
+            } else {
+                $marquee = auth()->user()->marquee;
+                $owner = $marquee ? $marquee->owners()->first() : null;
+            }
+
+            if ($owner && !$owner->canCreateUser()) {
+                $this->addError('username', 'This tenant has reached the maximum number of users allowed by their subscription plan.');
+                return;
+            }
+
             User::create($validatedData);
             session()->flash('success', 'User created successfully.');
         }

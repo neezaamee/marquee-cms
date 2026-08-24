@@ -8,19 +8,19 @@ class TenantBillingController extends Controller
 {
     public function index()
     {
-        abort_unless(auth()->user()->hasRole('owner') || auth()->user()->isSuperAdmin(), 403);
+        abort_unless(auth()->user()->isBusinessOwner() || auth()->user()->isSuperAdmin(), 403);
         return view('billing.index');
     }
 
     public function success(Request $request)
     {
-        abort_unless(auth()->user()->hasRole('owner') || auth()->user()->isSuperAdmin(), 403);
+        abort_unless(auth()->user()->isBusinessOwner() || auth()->user()->isSuperAdmin(), 403);
         return view('billing.success');
     }
 
     public function cancel(Request $request)
     {
-        abort_unless(auth()->user()->hasRole('owner') || auth()->user()->isSuperAdmin(), 403);
+        abort_unless(auth()->user()->isBusinessOwner() || auth()->user()->isSuperAdmin(), 403);
         return view('billing.cancel');
     }
 }

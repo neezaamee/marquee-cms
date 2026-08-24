@@ -29,6 +29,7 @@
                         @error('financial_year_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
+                    @if(!$isSaas)
                     <div class="col-md-2">
                         <label class="form-label fs-11 fw-bold mb-1" for="gl_branch">Branch</label>
                         <select wire:model="branch_id" class="form-select form-select-sm" id="gl_branch" {{ auth()->user()->branch_id ? 'disabled' : '' }}>
@@ -38,6 +39,7 @@
                             @endforeach
                         </select>
                     </div>
+                    @endif
 
                     <div class="col-md-2">
                         <label class="form-label fs-11 fw-bold mb-1" for="gl_start">Start Date</label>
@@ -75,7 +77,9 @@
                         <h6 class="mb-1">[{{ $ledgerData['account']->account_code }}] {{ $ledgerData['account']->name }}</h6>
                         <span class="text-muted fs-11">Nature: <strong>{{ $ledgerData['account']->nature }}</strong> | Period: <strong>{{ date('M d, Y', strtotime($startDate)) }}</strong> to <strong>{{ date('M d, Y', strtotime($endDate)) }}</strong></span>
                     </div>
-                    @if($branch_id)
+                    @if($isSaas)
+                        <span class="badge badge-subtle-primary rounded-pill">SaaS Platform</span>
+                    @elseif($branch_id)
                         <span class="badge badge-subtle-primary rounded-pill">{{ Branch::find($branch_id)->name }}</span>
                     @else
                         <span class="badge badge-subtle-secondary rounded-pill">Central (All Branches)</span>

@@ -78,7 +78,7 @@ class TenantDefaultManager extends Component
         // 1. Event Types
         $globalEventTypes = GlobalDefaultMaster::active()->category('event_type')->get();
         foreach ($globalEventTypes as $gt) {
-            $exists = EventType::where('marquee_id', $marqueeId)->where('event_type_name', $gt->name)->exists();
+            $exists = EventType::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $marqueeId)->where('event_type_name', $gt->name)->exists();
             if (!$exists) {
                 $extra = $gt->extra_attributes ?? [];
                 EventType::create([
@@ -96,7 +96,7 @@ class TenantDefaultManager extends Component
         // 2. Menu Categories
         $globalMenuCats = GlobalDefaultMaster::active()->category('menu_category')->get();
         foreach ($globalMenuCats as $gt) {
-            $exists = MenuCategory::where('marquee_id', $marqueeId)->where('category_name', $gt->name)->exists();
+            $exists = MenuCategory::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $marqueeId)->where('category_name', $gt->name)->exists();
             if (!$exists) {
                 MenuCategory::create([
                     'marquee_id' => $marqueeId,
@@ -112,7 +112,7 @@ class TenantDefaultManager extends Component
         // 3. Inventory Categories
         $globalInvCats = GlobalDefaultMaster::active()->category('inventory_category')->get();
         foreach ($globalInvCats as $gt) {
-            $exists = InventoryCategory::where('marquee_id', $marqueeId)->where('name', $gt->name)->exists();
+            $exists = InventoryCategory::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $marqueeId)->where('name', $gt->name)->exists();
             if (!$exists) {
                 InventoryCategory::create([
                     'marquee_id' => $marqueeId,
@@ -131,7 +131,7 @@ class TenantDefaultManager extends Component
             $extra = $gt->extra_attributes ?? [];
             $sCode = $extra['short_code'] ?? $gt->code;
             
-            $exists = InventoryUnit::where('marquee_id', $marqueeId)
+            $exists = InventoryUnit::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $marqueeId)
                 ->where(function ($query) use ($gt, $sCode) {
                     $query->where('name', $gt->name)
                           ->orWhere('short_code', $sCode);
@@ -153,7 +153,7 @@ class TenantDefaultManager extends Component
         // 5. Expense Categories
         $globalExpenseCats = GlobalDefaultMaster::active()->category('expense_category')->get();
         foreach ($globalExpenseCats as $gt) {
-            $exists = ExpenseCategory::where('marquee_id', $marqueeId)->where('name', $gt->name)->exists();
+            $exists = ExpenseCategory::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $marqueeId)->where('name', $gt->name)->exists();
             if (!$exists) {
                 ExpenseCategory::create([
                     'marquee_id' => $marqueeId,
@@ -167,11 +167,11 @@ class TenantDefaultManager extends Component
         }
 
         // 6. Departments
-        $branch = \App\Models\Branch::where('marquee_id', $marqueeId)->first();
+        $branch = \App\Models\Branch::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $marqueeId)->first();
         if ($branch) {
             $globalDepartments = GlobalDefaultMaster::active()->category('department_type')->get();
             foreach ($globalDepartments as $gt) {
-                $exists = Department::where('marquee_id', $marqueeId)->where('name', $gt->name)->exists();
+                $exists = Department::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $marqueeId)->where('name', $gt->name)->exists();
                 if (!$exists) {
                     Department::create([
                         'marquee_id' => $marqueeId,

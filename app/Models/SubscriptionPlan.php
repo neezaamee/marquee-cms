@@ -27,6 +27,7 @@ class SubscriptionPlan extends Model
         'created_by',
         'updated_by',
         'billing_interval',
+        'max_marquees',
         'max_branches',
         'max_users',
         'storage_limit_mb',
@@ -50,6 +51,7 @@ class SubscriptionPlan extends Model
             'max_storage' => 'integer',
             'sort_order' => 'integer',
             'is_popular' => 'boolean',
+            'max_marquees' => 'integer',
             'max_branches' => 'integer',
             'max_users' => 'integer',
             'storage_limit_mb' => 'integer',
@@ -102,11 +104,11 @@ class SubscriptionPlan extends Model
     }
 
     /**
-     * Get the marquees subscribed to this plan.
+     * Get the users subscribed to this plan.
      */
-    public function marquees()
+    public function users()
     {
-        return $this->hasMany(Marquee::class);
+        return $this->hasMany(User::class);
     }
 }
 

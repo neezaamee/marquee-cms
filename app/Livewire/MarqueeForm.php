@@ -147,6 +147,26 @@ class MarqueeForm extends Component
             
             session()->flash('success', 'Marquee updated successfully.');
         } else {
+            // Check plan limits
+            if ($this->createOwnerInline) {
+                $plan = SubscriptionPlan::find($this->subscription_plan_id);
+                if ($plan) {
+                    $limit = $plan->max_marquees;
+                    if ($limit !== -1 && 1 > $limit) {
+                        $this->addError('subscription_plan_id', 'The selected subscription plan does not allow registering any marquees.');
+                        return;
+                    }
+                }
+            } else {
+                foreach ($this->selectedOwners as $ownerId) {
+                    $ownerUser = User::find($ownerId);
+                    if ($ownerUser && !$ownerUser->canCreateMarquee()) {
+                        $this->addError('selectedOwners', "Business Owner '{$ownerUser->name}' has already reached the maximum number of marquees allowed by their subscription plan.");
+                        return;
+                    }
+                }
+            }
+
             DB::transaction(function () use ($validatedData) {
                 $marqueeData = $validatedData;
                 unset(

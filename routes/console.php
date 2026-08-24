@@ -17,3 +17,6 @@ Artisan::command('db:seed-dummy', function () {
 // Dynamic Backup Scheduler
 Schedule::command('backup:run --scheduled')->dailyAt('02:00');
 Schedule::command('backup:clean --days=30')->dailyAt('03:00');
+
+// Subscription Billing Scheduler
+Schedule::command('subscription:billing-run')->dailyAt('00:00');

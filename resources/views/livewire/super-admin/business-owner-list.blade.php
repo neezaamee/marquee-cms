@@ -37,16 +37,15 @@
                 </div>
             @endif
 
-            <div class="table-responsive scrollbar">
+            <div class="table-responsive scrollbar" style="overflow: visible;">
                 <table class="table table-sm table-striped fs-10 mb-0">
                     <thead class="bg-200 text-900">
                         <tr>
+                            <th class="align-middle px-3" style="width: 50px;">No.</th>
                             <th class="align-middle px-3">Name</th>
-                            <th class="align-middle">Username</th>
                             <th class="align-middle">Contact Info</th>
-                            <th class="align-middle">Businesses / Marquees</th>
                             <th class="align-middle">Subscription Plan</th>
-                            <th class="align-middle">Expires At</th>
+                            <th class="align-middle">Expire At</th>
                             <th class="align-middle text-center">Status</th>
                             <th class="align-middle text-end px-3">Actions</th>
                         </tr>
@@ -54,22 +53,19 @@
                     <tbody>
                         @forelse($businessOwners as $owner)
                             <tr>
-                                <td class="align-middle px-3 fw-semi-bold">
-                                    {{ $owner->name }}
+                                <td class="align-middle px-3">
+                                    {{ ($businessOwners->currentPage() - 1) * $businessOwners->perPage() + $loop->iteration }}
                                 </td>
-                                <td class="align-middle">{{ $owner->username }}</td>
+                                <td class="align-middle px-3 fw-semibold text-nowrap">
+                                    <a href="{{ route('super-admin.business-owners.show', $owner->id) }}" class="text-decoration-none fw-bold">
+                                        {{ $owner->name }}
+                                    </a>
+                                </td>
                                 <td class="align-middle">
                                     <div><span class="fas fa-envelope me-1 text-500"></span>{{ $owner->email }}</div>
                                     @if($owner->phone)
                                         <div><span class="fas fa-phone me-1 text-500"></span>{{ $owner->phone }}</div>
                                     @endif
-                                </td>
-                                <td class="align-middle">
-                                    @forelse($owner->ownedMarquees as $marquee)
-                                        <span class="badge badge-subtle-primary me-1">{{ $marquee->name }}</span>
-                                    @empty
-                                        <span class="text-muted fs-11">No businesses added yet</span>
-                                    @endforelse
                                 </td>
                                 <td class="align-middle">
                                     {{ $owner->subscriptionPlan->name ?? 'None' }}
@@ -91,21 +87,32 @@
                                     @endif
                                 </td>
                                 <td class="align-middle text-end px-3">
-                                    <div class="d-flex justify-content-end gap-2">
-                                        <a class="btn btn-link p-0" href="{{ route('super-admin.business-owners.edit', $owner->id) }}" data-bs-toggle="tooltip" title="Edit">
-                                            <span class="text-primary fas fa-edit"></span>
-                                        </a>
-                                        @if(auth()->user()->isSuperAdmin())
-                                            <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $owner->id }})" title="Delete Business Owner">
-                                                <span class="text-danger fas fa-trash-alt"></span>
-                                            </button>
-                                        @endif
+                                    <div class="dropdown font-sans-serif d-inline-block">
+                                        <button class="btn btn-link text-600 dropdown-toggle dropdown-caret-none transition-none btn-sm" type="button" id="owner-actions-{{ $owner->id }}" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-haspopup="true" aria-expanded="false">
+                                            <span class="fas fa-ellipsis-h fs-10"></span>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end border py-0" aria-labelledby="owner-actions-{{ $owner->id }}">
+                                            <div class="bg-white dark__bg-1000 py-2 text-start">
+                                                <a class="dropdown-item" href="{{ route('super-admin.business-owners.show', $owner->id) }}">
+                                                    <span class="text-info fas fa-eye me-2"></span>View Details
+                                                </a>
+                                                <a class="dropdown-item" href="{{ route('super-admin.business-owners.edit', $owner->id) }}">
+                                                    <span class="text-primary fas fa-edit me-2"></span>Edit Owner
+                                                </a>
+                                                @if(auth()->user()->isSuperAdmin())
+                                                    <div class="dropdown-divider"></div>
+                                                    <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $owner->id }})">
+                                                        <span class="text-danger fas fa-trash-alt me-2"></span>Delete Owner
+                                                    </button>
+                                                @endif
+                                            </div>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center py-4 text-muted">No business owners found.</td>
+                                <td colspan="7" class="text-center py-4 text-muted">No business owners found.</td>
                             </tr>
                         @endforelse
                     </tbody>

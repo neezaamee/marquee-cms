@@ -16,7 +16,7 @@ class SaasInvoiceController extends Controller
     public function show(SaasInvoice $saas_invoice)
     {
         abort_unless(auth()->user()->isSuperAdmin(), 403);
-        $saas_invoice->load(['marquee', 'subscriptionPlan', 'billingCycle', 'payments']);
+        $saas_invoice->load(['user', 'subscriptionPlan', 'billingCycle', 'payments']);
         return view('saas-invoices.show', ['invoice' => $saas_invoice]);
     }
 }

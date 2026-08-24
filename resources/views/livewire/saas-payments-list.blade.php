@@ -38,7 +38,7 @@
                         <tr>
                             <th class="align-middle px-3">Payment Reference</th>
                             <th class="align-middle">Invoice Number</th>
-                            <th class="align-middle">Marquee Tenant</th>
+                            <th class="align-middle">Business Owner</th>
                             <th class="align-middle">Amount</th>
                             <th class="align-middle">Method</th>
                             <th class="align-middle">Transaction ID</th>
@@ -51,17 +51,23 @@
                             <tr>
                                 <td class="align-middle px-3 fw-semi-bold">{{ $payment->payment_reference }}</td>
                                 <td class="align-middle fw-semi-bold">
-                                    <a href="{{ route('saas-invoices.show', $payment->invoice->id) }}">{{ $payment->invoice->invoice_number }}</a>
+                                    @if($payment->invoice)
+                                        <a href="{{ route('saas-invoices.show', $payment->invoice->id) }}">{{ $payment->invoice->invoice_number }}</a>
+                                    @else
+                                        N/A
+                                    @endif
                                 </td>
-                                <td class="align-middle">{{ $payment->marquee->name }}</td>
-                                <td class="align-middle fw-bold text-success">{{ number_format($payment->amount, 2) }} {{ $payment->invoice->subscriptionPlan->currency }}</td>
+                                <td class="align-middle">{{ $payment->user?->name ?? 'Deleted Owner' }}</td>
+                                <td class="align-middle fw-bold text-success">{{ number_format($payment->amount, 2) }} {{ $payment->invoice?->subscriptionPlan?->currency ?? 'USD' }}</td>
                                 <td class="align-middle">{{ $payment->payment_method }}</td>
                                 <td class="align-middle font-sans-serif"><code>{{ $payment->transaction_id ?: 'N/A' }}</code></td>
-                                <td class="align-middle">{{ $payment->payment_date->format('M d, Y') }}</td>
+                                <td class="align-middle">{{ $payment->payment_date ? $payment->payment_date->format('M d, Y') : 'N/A' }}</td>
                                 <td class="align-middle text-end px-3">
-                                    <a class="btn btn-link p-0" href="{{ route('saas-invoices.show', $payment->invoice->id) }}" data-bs-toggle="tooltip" title="View Related Invoice">
-                                        <span class="text-info fas fa-file-invoice"></span>
-                                    </a>
+                                    @if($payment->invoice)
+                                        <a class="btn btn-link p-0" href="{{ route('saas-invoices.show', $payment->invoice->id) }}" data-bs-toggle="tooltip" title="View Related Invoice">
+                                            <span class="text-info fas fa-file-invoice"></span>
+                                        </a>
+                                    @endif
                                 </td>
                             </tr>
                         @empty

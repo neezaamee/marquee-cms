@@ -40,8 +40,8 @@
 
                     <!-- Phone -->
                     <div class="col-md-6">
-                        <label class="form-label" for="phone">Phone Number</label>
-                        <input wire:model="phone" class="form-control @error('phone') is-invalid @enderror" id="phone" type="text" placeholder="e.g. +923001234567" />
+                        <label class="form-label" for="phone">Phone Number *</label>
+                        <input wire:model="phone" class="form-control @error('phone') is-invalid @enderror" id="phone" type="text" placeholder="e.g. 0321-8611353" x-data x-init="IMask($el, { mask: '0000-0000000' })" />
                         @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
@@ -61,7 +61,7 @@
                     <h5 class="mb-0 fs-9 text-primary">SaaS Subscription Details</h5>
 
                     <!-- Subscription Plan -->
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label" for="subscription_plan_id">Subscription Plan *</label>
                         <select wire:model="subscription_plan_id" class="form-select @error('subscription_plan_id') is-invalid @enderror" id="subscription_plan_id" required>
                             <option value="">Select Subscription Plan...</option>
@@ -73,10 +73,17 @@
                     </div>
 
                     <!-- Subscription Ends At -->
-                    <div class="col-md-6">
-                        <label class="form-label" for="subscription_ends_at">Subscription Ends At *</label>
-                        <input wire:model="subscription_ends_at" class="form-control @error('subscription_ends_at') is-invalid @enderror" id="subscription_ends_at" type="date" required />
+                    <div class="col-md-4">
+                        <label class="form-label" for="subscription_ends_at">Subscription Ends At</label>
+                        <input wire:model="subscription_ends_at" class="form-control @error('subscription_ends_at') is-invalid @enderror" id="subscription_ends_at" type="date" />
                         @error('subscription_ends_at') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <!-- Subscription Trial Ends At -->
+                    <div class="col-md-4">
+                        <label class="form-label" for="subscription_trial_ends_at">Subscription Trial Ends At</label>
+                        <input wire:model="subscription_trial_ends_at" class="form-control @error('subscription_trial_ends_at') is-invalid @enderror" id="subscription_trial_ends_at" type="date" />
+                        @error('subscription_trial_ends_at') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
                 </div>
 
@@ -91,3 +98,7 @@
         </div>
     </div>
 </div>
+
+@section('scripts')
+    <script src="{{ asset('vendors/imask/imask.min.js') }}"></script>
+@endsection

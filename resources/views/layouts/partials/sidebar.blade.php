@@ -100,7 +100,7 @@
         @if(auth()->user()->isSuperAdmin())
         <!-- Subscription Management -->
         @php
-          $subscriptionsActive = Route::is('subscription-plans.*') || Route::is('plan-features.*') || Route::is('billing-cycles.*') || Route::is('saas-invoices.*') || Route::is('saas-payments.*');
+          $subscriptionsActive = Route::is('subscription-plans.*') || Route::is('plan-features.*') || Route::is('billing-cycles.*') || Route::is('saas-invoices.*') || Route::is('saas-payments.*') || Route::is('super-admin.saas-coa') || Route::is('super-admin.saas-ledger');
         @endphp
         <li class="nav-item">
           <a class="nav-link dropdown-indicator {{ $subscriptionsActive ? '' : 'collapsed' }}" href="#subscriptionsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $subscriptionsActive ? 'true' : 'false' }}" aria-controls="subscriptionsCollapse">
@@ -145,6 +145,20 @@
                 </div>
               </a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('super-admin.saas-coa') ? 'active' : '' }}" href="{{ route('super-admin.saas-coa') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">SaaS Chart of Accounts</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('super-admin.saas-ledger') ? 'active' : '' }}" href="{{ route('super-admin.saas-ledger') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">SaaS General Ledger</span>
+                </div>
+              </a>
+            </li>
           </ul>
         </li>
 
@@ -169,35 +183,35 @@
         </li>
 
         <!-- Trial Management -->
+        @php
+          $trialsActive = Route::is('super-admin.trials.*');
+        @endphp
         <li class="nav-item">
-          <a class="nav-link dropdown-indicator collapsed" href="#trialsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="trialsCollapse">
+          <a class="nav-link dropdown-indicator {{ $trialsActive ? '' : 'collapsed' }}" href="#trialsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $trialsActive ? 'true' : 'false' }}" aria-controls="trialsCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-hourglass-half"></span></span>
               <span class="nav-link-text ps-1">Trial Management</span>
             </div>
           </a>
-          <ul class="nav collapse" id="trialsCollapse" data-bs-parent="#navbarVerticalNav">
+          <ul class="nav collapse {{ $trialsActive ? 'show' : '' }}" id="trialsCollapse" data-bs-parent="#navbarVerticalNav">
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('super-admin.trials.accounts') ? 'active' : '' }}" href="{{ route('super-admin.trials.accounts') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Trial Accounts</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('super-admin.trials.expiring') ? 'active' : '' }}" href="{{ route('super-admin.trials.expiring') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Expiring Trials</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('super-admin.trials.conversions') ? 'active' : '' }}" href="{{ route('super-admin.trials.conversions') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Trial Conversions</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>

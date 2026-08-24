@@ -8,6 +8,8 @@ use Livewire\Component;
 
 class ChartOfAccounts extends Component
 {
+    public $isSaas = false;
+
     public $account_code = '';
     public $name = '';
     public $parent_id = '';
@@ -20,11 +22,12 @@ class ChartOfAccounts extends Component
 
     public function getRules()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->isSaas ? null : auth()->user()->marquee_id;
         $ignoreId = $this->editId ?: 'NULL';
+        $marqueeCondition = $this->isSaas ? 'NULL' : $marqueeId;
         
         return [
-            'account_code' => "required|string|max:50|unique:accounts,account_code,{$ignoreId},id,marquee_id,{$marqueeId}",
+            'account_code' => "required|string|max:50|unique:accounts,account_code,{$ignoreId},id,marquee_id,{$marqueeCondition}",
             'name' => 'required|string|max:150',
             'parent_id' => 'nullable|exists:accounts,id',
             'account_type_id' => 'required|exists:account_types,id',
@@ -62,7 +65,7 @@ class ChartOfAccounts extends Component
         $this->validate();
 
         $type = AccountType::findOrFail($this->account_type_id);
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->isSaas ? null : auth()->user()->marquee_id;
 
         // Parent validation: cannot make itself its own parent
         if ($this->editId && $this->parent_id == $this->editId) {
@@ -150,9 +153,13 @@ class ChartOfAccounts extends Component
 
     private function getAccountsTree()
     {
-        $accounts = Account::with(['accountType', 'parent'])
-            ->orderBy('account_code')
-            ->get();
+        $query = Account::with(['accountType', 'parent'])->orderBy('account_code');
+        if ($this->isSaas) {
+            $query->whereNull('marquee_id');
+        } else {
+            $query->where('marquee_id', auth()->user()->marquee_id);
+        }
+        $accounts = $query->get();
             
         $tree = [];
         $this->buildTree($accounts, null, 0, $tree);
@@ -170,11 +177,17 @@ class ChartOfAccounts extends Component
 
     public function render()
     {
+        $marqueeId = $this->isSaas ? null : auth()->user()->marquee_id;
         $accountsTree = $this->getAccountsTree();
-        $accountTypes = AccountType::forTenant()->orderBy('nature')->orderBy('name')->get();
+        $accountTypes = AccountType::forTenant($marqueeId)->orderBy('nature')->orderBy('name')->get();
         
         // Potential parents should not include the current editing account or its children to prevent cycles
         $potentialParents = Account::where('is_active', true);
+        if ($this->isSaas) {
+            $potentialParents->whereNull('marquee_id');
+        } else {
+            $potentialParents->where('marquee_id', $marqueeId);
+        }
         if ($this->editId) {
             $potentialParents->where('id', '!=', $this->editId);
         }

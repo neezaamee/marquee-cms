@@ -3,9 +3,11 @@
 namespace App\Livewire;
 
 use App\Models\SaasInvoice;
-use App\Models\Marquee;
+use App\Models\User;
+use App\Models\Role;
 use App\Models\SubscriptionPlan;
 use App\Models\BillingCycle;
+use App\Services\AccountingService;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +22,7 @@ class SaasInvoicesList extends Component
 
     // Create Manual Invoice Fields
     public $showCreateModal = false;
-    public $new_marquee_id = '';
+    public $new_user_id = '';
     public $new_plan_id = '';
     public $new_billing_cycle_id = '';
     public $new_due_date = '';
@@ -110,7 +112,7 @@ class SaasInvoicesList extends Component
         abort_unless(auth()->user()->isSuperAdmin(), 403);
 
         $this->validate([
-            'new_marquee_id' => 'required|exists:marquees,id',
+            'new_user_id' => 'required|exists:users,id',
             'new_plan_id' => 'required|exists:subscription_plans,id',
             'new_billing_cycle_id' => 'required|exists:billing_cycles,id',
             'new_due_date' => 'required|date|after_or_equal:today',
@@ -120,8 +122,8 @@ class SaasInvoicesList extends Component
         $this->calculateTotals();
 
         DB::transaction(function() {
-            SaasInvoice::create([
-                'marquee_id' => $this->new_marquee_id,
+            $invoice = SaasInvoice::create([
+                'user_id' => $this->new_user_id,
                 'subscription_plan_id' => $this->new_plan_id,
                 'billing_cycle_id' => $this->new_billing_cycle_id,
                 'amount' => $this->calc_base_amount,
@@ -133,9 +135,12 @@ class SaasInvoicesList extends Component
                 'due_date' => $this->new_due_date,
                 'notes' => $this->new_notes,
             ]);
+
+            // Post double-entry journal entry to SaaS Ledger
+            app(AccountingService::class)->postSaasInvoiceJournal($invoice);
         });
 
-        $this->reset(['new_marquee_id', 'new_plan_id', 'new_billing_cycle_id', 'new_notes', 'calc_base_amount', 'calc_discount', 'calc_tax', 'calc_total']);
+        $this->reset(['new_user_id', 'new_plan_id', 'new_billing_cycle_id', 'new_notes', 'calc_base_amount', 'calc_discount', 'calc_tax', 'calc_total']);
         $this->new_due_date = date('Y-m-d', strtotime('+14 days'));
         
         session()->flash('success', 'Manual SaaS invoice generated successfully.');
@@ -149,6 +154,21 @@ class SaasInvoicesList extends Component
         $invoice = SaasInvoice::findOrFail($invoiceId);
         $invoice->update(['invoice_status' => $status]);
 
+        if ($status === 'Cancelled') {
+            // Cancel associated invoice journal vouchers
+            \App\Models\JournalVoucher::where('reference', $invoice->invoice_number)
+                ->whereNull('marquee_id')
+                ->update(['status' => 'cancelled']);
+
+            // Cancel any associated payment journal vouchers
+            $paymentReferences = $invoice->payments()->pluck('payment_reference');
+            if ($paymentReferences->isNotEmpty()) {
+                \App\Models\JournalVoucher::whereIn('reference', $paymentReferences)
+                    ->whereNull('marquee_id')
+                    ->update(['status' => 'cancelled']);
+            }
+        }
+
         session()->flash('success', "Invoice status updated to {$status}.");
     }
 
@@ -156,13 +176,14 @@ class SaasInvoicesList extends Component
     {
         abort_unless(auth()->user()->isSuperAdmin(), 403);
 
-        $query = SaasInvoice::with(['marquee', 'subscriptionPlan', 'billingCycle']);
+        $query = SaasInvoice::with(['user', 'subscriptionPlan', 'billingCycle']);
 
         if (!empty($this->search)) {
             $query->where(function($q) {
                 $q->where('invoice_number', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('marquee', function($mq) {
-                      $mq->where('name', 'like', '%' . $this->search . '%');
+                  ->orWhereHas('user', function($usr) {
+                      $usr->where('name', 'like', '%' . $this->search . '%')
+                         ->orWhere('email', 'like', '%' . $this->search . '%');
                   });
             });
         }
@@ -173,13 +194,18 @@ class SaasInvoicesList extends Component
 
         if (!empty($this->filterInvoiceStatus)) {
             $query->where('invoice_status', $this->filterInvoiceStatus);
+        } else {
+            $query->where('invoice_status', '!=', 'Cancelled');
         }
 
         $invoices = $query->orderBy('created_at', 'desc')->paginate(10);
-        $marquees = Marquee::where('status', 'active')->orderBy('name')->get();
+        
+        $ownerRoleIds = Role::whereIn('name', ['owner', 'business_owner'])->pluck('id');
+        $businessOwners = User::whereIn('role_id', $ownerRoleIds)->orderBy('name')->get();
+        
         $plans = SubscriptionPlan::where('status', 'active')->orderBy('name')->get();
         $billingCycles = BillingCycle::where('status', 'Active')->orderBy('cycle_name')->get();
 
-        return view('livewire.saas-invoices-list', compact('invoices', 'marquees', 'plans', 'billingCycles'));
+        return view('livewire.saas-invoices-list', compact('invoices', 'businessOwners', 'plans', 'billingCycles'));
     }
 }
