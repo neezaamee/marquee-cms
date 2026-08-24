@@ -71,7 +71,7 @@
                                     {{ $owner->subscriptionPlan->name ?? 'None' }}
                                 </td>
                                 <td class="align-middle">
-                                    {{ $owner->subscription_ends_at ? $owner->subscription_ends_at->format('M d, Y') : 'N/A' }}
+                                    {{ $owner->subscription_ends_at ? $owner->subscription_ends_at->format('d/m/Y') : 'N/A' }}
                                 </td>
                                 <td class="align-middle text-center">
                                     @if($owner->status === 'active')

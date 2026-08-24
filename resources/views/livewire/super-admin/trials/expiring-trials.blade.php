@@ -50,7 +50,7 @@
                                     <div class="text-muted fs-11">{{ $account->email }}</div>
                                 </td>
                                 <td>{{ $account->subscriptionPlan->name ?? 'Default Trial' }}</td>
-                                <td class="text-center">{{ $account->subscription_trial_ends_at->format('M d, Y') }}</td>
+                                <td class="text-center">{{ $account->subscription_trial_ends_at->format('d/m/Y') }}</td>
                                 <td class="text-center">
                                     @if($isExpired)
                                         <span class="text-danger fw-bold">Expired {{ abs($daysRemaining) }} Days Ago</span>

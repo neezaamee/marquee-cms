@@ -24,8 +24,69 @@ class BusinessOwnerForm extends Component
     public $subscription_ends_at = '';
     public $subscription_trial_ends_at = '';
 
+    // UI Presets and password visibility
+    public $showPassword = false;
+    public $sub_ends_preset = '';
+    public $trial_ends_preset = '';
+
     // Lists
     public $plans = [];
+
+    public function updatedEmail($value)
+    {
+        if (!$this->isEditMode && empty($this->username)) {
+            $parts = explode('@', $value);
+            $username = $parts[0] ?? '';
+            $username = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', $username);
+            $this->username = strtolower($username);
+        }
+    }
+
+    public function generatePassword()
+    {
+        $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+';
+        $password = '';
+        $password .= 'abcdefghijklmnopqrstuvwxyz'[rand(0, 25)];
+        $password .= 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[rand(0, 25)];
+        $password .= '0123456789'[rand(0, 9)];
+        $password .= '!@#$%^&*()-_=+'[rand(0, 13)];
+        for ($i = 0; $i < 8; $i++) {
+            $password .= $chars[rand(0, strlen($chars) - 1)];
+        }
+        $this->password = str_shuffle($password);
+        $this->showPassword = true;
+    }
+
+    public function updatedSubEndsPreset($value)
+    {
+        if (empty($value)) return;
+        
+        if ($value === 'permanent') {
+            $this->subscription_ends_at = '2099-12-31';
+        } else {
+            $date = match($value) {
+                '1_month' => now()->addMonth(),
+                '3_months' => now()->addMonths(3),
+                '6_months' => now()->addMonths(6),
+                '1_year' => now()->addYear(),
+                default => null
+            };
+            $this->subscription_ends_at = $date ? $date->format('Y-m-d') : '';
+        }
+    }
+
+    public function updatedTrialEndsPreset($value)
+    {
+        if (empty($value)) return;
+        
+        $date = match($value) {
+            '1_day' => now()->addDay(),
+            '14_days' => now()->addDays(14),
+            '1_month' => now()->addMonth(),
+            default => null
+        };
+        $this->subscription_trial_ends_at = $date ? $date->format('Y-m-d') : '';
+    }
 
     public function mount($id = null)
     {
@@ -98,8 +159,8 @@ class BusinessOwnerForm extends Component
             ],
             'status' => 'required|in:active,inactive,suspended',
             'subscription_plan_id' => 'required|exists:subscription_plans,id',
-            'subscription_ends_at' => 'nullable|date',
-            'subscription_trial_ends_at' => 'nullable|date',
+            'subscription_ends_at' => 'nullable|date|after_or_equal:today',
+            'subscription_trial_ends_at' => 'nullable|date|after_or_equal:today',
         ];
 
         if (!$this->isEditMode) {
@@ -124,19 +185,14 @@ class BusinessOwnerForm extends Component
     {
         abort_unless(auth()->user()->isSuperAdmin(), 403);
 
-        // Format phone number to database format before validation
+        $data = $this->all();
         if (!empty($this->phone)) {
-            $this->phone = $this->formatPhoneNumber($this->phone);
+            $data['phone'] = $this->formatPhoneNumber($this->phone);
         }
 
-        try {
-            $validatedData = $this->validate();
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            if (!empty($this->phone)) {
-                $this->phone = $this->formatPhoneForUi($this->phone);
-            }
-            throw $e;
-        }
+        // Run validation on data instead of mutating properties, preventing screen flicker
+        $validator = \Illuminate\Support\Facades\Validator::make($data, $this->rules(), $this->messages());
+        $validatedData = $validator->validate();
 
         // Convert empty dates to null
         if (empty($validatedData['subscription_ends_at'])) {

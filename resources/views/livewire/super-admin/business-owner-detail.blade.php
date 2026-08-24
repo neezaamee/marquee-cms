@@ -77,7 +77,7 @@
                                     <span class="badge badge-subtle-secondary">Inactive</span>
                                 @endif
                             </td></tr>
-                            <tr><td class="text-secondary fw-semibold">Created At:</td><td>{{ $businessOwner->created_at ? $businessOwner->created_at->format('F d, Y h:i A') : 'N/A' }}</td></tr>
+                            <tr><td class="text-secondary fw-semibold">Created At:</td><td>{{ $businessOwner->created_at ? $businessOwner->created_at->format('d/m/Y h:i A') : 'N/A' }}</td></tr>
                         </table>
                     </div>
                 </div>
@@ -144,11 +144,11 @@
                                     Plan Price: {{ number_format($businessOwner->subscriptionPlan->price, 2) }} {{ $businessOwner->subscriptionPlan->currency }}
                                 </div>
                                 <div class="text-secondary fs-11 mb-2">
-                                    @if($businessOwner->subscription_trial_ends_at && $businessOwner->subscription_trial_ends_at->isFuture())
-                                        Trial Expires At: {{ $businessOwner->subscription_trial_ends_at->format('F d, Y') }}
-                                    @else
-                                        Expires At: {{ $businessOwner->subscription_ends_at ? $businessOwner->subscription_ends_at->format('F d, Y') : 'Ongoing / Lifetime' }}
-                                    @endif
+                                     @if($businessOwner->subscription_trial_ends_at && $businessOwner->subscription_trial_ends_at->isFuture())
+                                         Trial Expires At: {{ $businessOwner->subscription_trial_ends_at->format('d/m/Y') }}
+                                     @else
+                                         Expires At: {{ $businessOwner->subscription_ends_at ? $businessOwner->subscription_ends_at->format('d/m/Y') : 'Ongoing / Lifetime' }}
+                                     @endif
                                 </div>
                                 <div class="fs-12 text-secondary">
                                     {{ $businessOwner->subscriptionPlan->description ?: 'No description provided.' }}
@@ -280,7 +280,7 @@
                                     <td class="align-middle fw-bold text-dark">
                                         {{ number_format($invoice->total_amount, 2) }} {{ $invoice->subscriptionPlan->currency }}
                                     </td>
-                                    <td class="align-middle">{{ $invoice->due_date ? $invoice->due_date->format('M d, Y') : 'N/A' }}</td>
+                                    <td class="align-middle">{{ $invoice->due_date ? $invoice->due_date->format('d/m/Y') : 'N/A' }}</td>
                                     <td class="align-middle text-center">
                                         <span class="badge badge-subtle-{{ 
                                             $invoice->payment_status === 'Paid' ? 'success' : 
@@ -352,7 +352,7 @@
                                     </td>
                                     <td class="align-middle">{{ $payment->payment_method }}</td>
                                     <td class="align-middle font-monospace">{{ $payment->transaction_id ?: '—' }}</td>
-                                    <td class="align-middle">{{ $payment->payment_date ? $payment->payment_date->format('M d, Y') : 'N/A' }}</td>
+                                    <td class="align-middle">{{ $payment->payment_date ? $payment->payment_date->format('d/m/Y') : 'N/A' }}</td>
                                 </tr>
                             @empty
                                 <tr>

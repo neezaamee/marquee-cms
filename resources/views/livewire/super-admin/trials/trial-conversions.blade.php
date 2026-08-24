@@ -38,8 +38,8 @@
                                     <div class="text-muted fs-11">{{ $account->email }}</div>
                                 </td>
                                 <td>{{ $account->subscriptionPlan->name }}</td>
-                                <td class="text-center">{{ $account->subscription_trial_ends_at ? $account->subscription_trial_ends_at->format('M d, Y') : '—' }}</td>
-                                <td class="text-center">{{ $account->subscription_ends_at->format('M d, Y') }}</td>
+                                <td class="text-center">{{ $account->subscription_trial_ends_at ? $account->subscription_trial_ends_at->format('d/m/Y') : '—' }}</td>
+                                <td class="text-center">{{ $account->subscription_ends_at->format('d/m/Y') }}</td>
                                 <td class="text-center">
                                     @if($account->subscription_ends_at->isPast())
                                         <span class="badge badge-subtle-danger">Expired Paid Plan</span>

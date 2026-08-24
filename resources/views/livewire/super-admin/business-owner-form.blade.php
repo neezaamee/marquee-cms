@@ -20,22 +20,30 @@
                     <!-- Email -->
                     <div class="col-md-6">
                         <label class="form-label" for="email">Email Address *</label>
-                        <input wire:model="email" class="form-control @error('email') is-invalid @enderror" id="email" type="email" required placeholder="e.g. owner@brand.com" />
+                        <input wire:model.live="email" class="form-control @error('email') is-invalid @enderror" id="email" type="email" required autocomplete="new-email" placeholder="e.g. owner@brand.com" />
                         @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
                     <!-- Username -->
                     <div class="col-md-6">
                         <label class="form-label" for="username">Username *</label>
-                        <input wire:model="username" class="form-control @error('username') is-invalid @enderror" id="username" type="text" required placeholder="e.g. alikhan_owner" />
+                        <input wire:model="username" class="form-control @error('username') is-invalid @enderror" id="username" type="text" required autocomplete="new-username" placeholder="e.g. alikhan_owner" />
                         @error('username') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
                     <!-- Password -->
                     <div class="col-md-6">
                         <label class="form-label" for="password">Password {{ $isEditMode ? '(Leave blank to keep current)' : '*' }}</label>
-                        <input wire:model="password" class="form-control @error('password') is-invalid @enderror" id="password" type="password" placeholder="Password min 8 chars" />
-                        @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <div class="input-group">
+                            <input wire:model="password" class="form-control @error('password') is-invalid @enderror" id="password" type="{{ $showPassword ? 'text' : 'password' }}" autocomplete="new-password" placeholder="Password min 8 chars" />
+                            <button class="btn btn-outline-secondary" type="button" wire:click="$toggle('showPassword')" title="{{ $showPassword ? 'Hide Password' : 'Show Password' }}">
+                                <span class="fas {{ $showPassword ? 'fa-eye-slash' : 'fa-eye' }}"></span>
+                            </button>
+                            <button class="btn btn-outline-primary text-nowrap" type="button" wire:click="generatePassword">
+                                Generate
+                            </button>
+                        </div>
+                        @error('password') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
 
                     <!-- Phone -->
@@ -75,15 +83,33 @@
                     <!-- Subscription Ends At -->
                     <div class="col-md-4">
                         <label class="form-label" for="subscription_ends_at">Subscription Ends At</label>
-                        <input wire:model="subscription_ends_at" class="form-control @error('subscription_ends_at') is-invalid @enderror" id="subscription_ends_at" type="date" />
-                        @error('subscription_ends_at') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <div class="d-flex gap-2">
+                            <input wire:model="subscription_ends_at" class="form-control @error('subscription_ends_at') is-invalid @enderror" id="subscription_ends_at" type="date" min="{{ date('Y-m-d') }}" />
+                            <select wire:model.live="sub_ends_preset" class="form-select" style="max-width: 140px;">
+                                <option value="">Preset...</option>
+                                <option value="1_month">1 Month</option>
+                                <option value="3_months">3 Months</option>
+                                <option value="6_months">6 Months</option>
+                                <option value="1_year">1 Year</option>
+                                <option value="permanent">Permanent</option>
+                            </select>
+                        </div>
+                        @error('subscription_ends_at') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
 
                     <!-- Subscription Trial Ends At -->
                     <div class="col-md-4">
                         <label class="form-label" for="subscription_trial_ends_at">Subscription Trial Ends At</label>
-                        <input wire:model="subscription_trial_ends_at" class="form-control @error('subscription_trial_ends_at') is-invalid @enderror" id="subscription_trial_ends_at" type="date" />
-                        @error('subscription_trial_ends_at') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <div class="d-flex gap-2">
+                            <input wire:model="subscription_trial_ends_at" class="form-control @error('subscription_trial_ends_at') is-invalid @enderror" id="subscription_trial_ends_at" type="date" min="{{ date('Y-m-d') }}" />
+                            <select wire:model.live="trial_ends_preset" class="form-select" style="max-width: 140px;">
+                                <option value="">Preset...</option>
+                                <option value="1_day">1 Day</option>
+                                <option value="14_days">14 Days</option>
+                                <option value="1_month">1 Month</option>
+                            </select>
+                        </div>
+                        @error('subscription_trial_ends_at') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
                 </div>
 
