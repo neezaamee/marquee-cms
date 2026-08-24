@@ -3,6 +3,15 @@
 @section('title', 'Marquee Details')
 
 @section('content')
+@php
+  $owner = $marquee->owners->first();
+  $plan = $owner ? $owner->subscriptionPlan : null;
+  
+  $maxBranches = ($plan && $plan->max_branches != -1) ? $plan->max_branches : 'Unlimited';
+  $maxUsers = ($plan && $plan->max_users != -1) ? $plan->max_users : 'Unlimited';
+  $storageLimit = ($plan && $plan->storage_limit_mb != -1) ? $plan->storage_limit_mb . ' MB' : 'Unlimited';
+@endphp
+
 <div class="row g-3 mb-3">
   <!-- Profile details card -->
   <div class="col-lg-8">
@@ -16,7 +25,12 @@
       <div class="card-body">
         <div class="d-flex align-items-center mb-4">
           @if($marquee->logo)
-            <img src="{{ asset('storage/' . $marquee->logo) }}" alt="Logo" class="rounded me-3 border p-1" style="max-height: 80px;" />
+            @php
+              $logoUrl = Str::startsWith($marquee->logo, ['http://', 'https://']) 
+                ? $marquee->logo 
+                : (Str::startsWith($marquee->logo, 'storage/') ? asset($marquee->logo) : asset('storage/' . $marquee->logo));
+            @endphp
+            <img src="{{ $logoUrl }}" alt="Logo" class="rounded me-3 border p-1" style="max-height: 80px; max-width: 120px; object-fit: contain;" />
           @else
             <div class="avatar avatar-3xl me-3">
               <div class="avatar-name rounded-circle bg-subtle-primary text-primary"><span>{{ substr($marquee->name, 0, 2) }}</span></div>
@@ -63,16 +77,16 @@
       <div class="card-body">
         <div class="mb-3">
           <h6 class="text-500 mb-1">Active Plan</h6>
-          <h4 class="text-primary">{{ $marquee->owners->first() && $marquee->owners->first()->subscriptionPlan ? $marquee->owners->first()->subscriptionPlan->name : 'None' }}</h4>
+          <h4 class="text-primary">{{ $plan ? $plan->name : 'None' }}</h4>
         </div>
         <div class="mb-3">
           <h6 class="text-500 mb-1">Plan Price</h6>
-          <p class="fw-semi-bold">Rs. {{ number_format($marquee->owners->first() && $marquee->owners->first()->subscriptionPlan ? $marquee->owners->first()->subscriptionPlan->price : 0, 2) }} / month</p>
+          <p class="fw-semi-bold">Rs. {{ number_format($plan ? $plan->price : 0, 2) }} / month</p>
         </div>
         <div class="mb-3">
           <h6 class="text-500 mb-1">Expires On</h6>
           <p class="fw-semi-bold text-danger">
-            {{ $marquee->owners->first() && $marquee->owners->first()->subscription_ends_at ? $marquee->owners->first()->subscription_ends_at->format('M d, Y') : 'Never (Lifetime)' }}
+            {{ $owner && $owner->subscription_ends_at ? $owner->subscription_ends_at->format('d/m/Y') : 'Never (Lifetime)' }}
           </p>
         </div>
         <hr />
@@ -81,20 +95,63 @@
           <ul class="list-unstyled mb-0">
             <li class="mb-1 d-flex justify-content-between fs-10">
               <span>Branches:</span>
-              <strong class="text-700">{{ $marquee->branches->count() }} / {{ $marquee->subscriptionPlan->max_branches ?? '∞' }}</strong>
+              <strong class="text-700">{{ $marquee->branches->count() }} / {{ $maxBranches }}</strong>
             </li>
             <li class="mb-1 d-flex justify-content-between fs-10">
               <span>Users / Staff:</span>
-              <strong class="text-700">{{ $marquee->users->count() }} / {{ $marquee->subscriptionPlan->max_users ?? '∞' }}</strong>
+              <strong class="text-700">{{ $marquee->users->count() }} / {{ $maxUsers }}</strong>
             </li>
             <li class="d-flex justify-content-between fs-10">
               <span>Storage Limit:</span>
-              <strong class="text-700">{{ $marquee->subscriptionPlan->storage_limit_mb ?? 0 }} MB</strong>
+              <strong class="text-700">{{ $storageLimit }}</strong>
             </li>
           </ul>
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Business Owner Details -->
+<div class="card mb-3">
+  <div class="card-header bg-light">
+    <h5 class="mb-0">Business Owner Details</h5>
+  </div>
+  <div class="card-body">
+    @forelse($marquee->owners as $owner)
+      <div class="row g-3 @if(!$loop->first) border-top mt-3 pt-3 @endif">
+        <div class="col-md-4">
+          <h6 class="text-500 mb-1">Owner Name</h6>
+          <p class="fw-semi-bold text-dark mb-0">{{ $owner->name }}</p>
+        </div>
+        <div class="col-md-4">
+          <h6 class="text-500 mb-1">Email Address</h6>
+          <p class="fw-semi-bold text-dark mb-0">{{ $owner->email }}</p>
+        </div>
+        <div class="col-md-4">
+          <h6 class="text-500 mb-1">Phone Number</h6>
+          <p class="fw-semi-bold text-dark mb-0">{{ $owner->phone ? $owner->phone : 'N/A' }}</p>
+        </div>
+        <div class="col-md-4">
+          <h6 class="text-500 mb-1">Username</h6>
+          <p class="fw-semi-bold text-dark mb-0">{{ $owner->username }}</p>
+        </div>
+        <div class="col-md-4">
+          <h6 class="text-500 mb-1">Status</h6>
+          <p class="mb-0">
+            <span class="badge badge-subtle-{{ $owner->status === 'active' ? 'success' : ($owner->status === 'suspended' ? 'danger' : 'secondary') }} rounded-pill">
+              {{ ucfirst($owner->status) }}
+            </span>
+          </p>
+        </div>
+        <div class="col-md-4">
+          <h6 class="text-500 mb-1">Created At</h6>
+          <p class="fw-semi-bold text-dark mb-0">{{ $owner->created_at ? $owner->created_at->format('d/m/Y') : 'N/A' }}</p>
+        </div>
+      </div>
+    @empty
+      <p class="text-muted mb-0">No business owners associated with this marquee.</p>
+    @endforelse
   </div>
 </div>
 
@@ -108,7 +165,8 @@
       <table class="table table-sm table-striped fs-10 mb-0">
         <thead class="bg-200 text-900">
           <tr>
-            <th class="px-3">Branch Name</th>
+            <th class="px-3" style="width: 50px;">No.</th>
+            <th>Branch Name</th>
             <th>City</th>
             <th>Phone</th>
             <th>POS Status</th>
@@ -116,9 +174,10 @@
           </tr>
         </thead>
         <tbody>
-          @forelse($marquee->branches as $branch)
+          @forelse($marquee->branches as $index => $branch)
             <tr>
-              <td class="px-3 fw-semi-bold">{{ $branch->name }}</td>
+              <td class="px-3 fw-semibold text-muted">{{ $index + 1 }}</td>
+              <td class="fw-semi-bold">{{ $branch->name }}</td>
               <td>{{ $branch->city }}</td>
               <td>{{ $branch->phone }}</td>
               <td>
@@ -136,7 +195,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="5" class="text-center py-3">No branches registered.</td>
+              <td colspan="6" class="text-center py-3">No branches registered.</td>
             </tr>
           @endforelse
         </tbody>
@@ -155,7 +214,8 @@
       <table class="table table-sm table-striped fs-10 mb-0">
         <thead class="bg-200 text-900">
           <tr>
-            <th class="px-3">Name</th>
+            <th class="px-3" style="width: 50px;">No.</th>
+            <th>Name</th>
             <th>Email</th>
             <th>Role</th>
             <th>Assigned Branch</th>
@@ -163,9 +223,10 @@
           </tr>
         </thead>
         <tbody>
-          @forelse($marquee->users as $user)
+          @forelse($marquee->users as $index => $user)
             <tr>
-              <td class="px-3 fw-semi-bold">{{ $user->name }}</td>
+              <td class="px-3 fw-semibold text-muted">{{ $index + 1 }}</td>
+              <td class="fw-semi-bold">{{ $user->name }}</td>
               <td>{{ $user->email }}</td>
               <td>{{ $user->role->label ?? 'None' }}</td>
               <td>{{ $user->branch->name ?? 'All Branches' }}</td>
@@ -177,7 +238,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="5" class="text-center py-3">No users registered.</td>
+              <td colspan="6" class="text-center py-3">No users registered.</td>
             </tr>
           @endforelse
         </tbody>
