@@ -87,7 +87,13 @@ class User extends Authenticatable
      */
     public function getPhoneAttribute($value)
     {
-        return $this->employee ? $this->employee->mobile_number : $value;
+        $raw = $this->employee ? $this->employee->mobile_number : $value;
+        return \App\Services\PhoneNumberService::formatForDisplay($raw);
+    }
+
+    public function setPhoneAttribute($value)
+    {
+        $this->attributes['phone'] = \App\Services\PhoneNumberService::normalize($value);
     }
 
     /**
@@ -215,6 +221,52 @@ class User extends Authenticatable
     }
 
     /**
+     * Get accessible branches for the user within a tenant marquee.
+     */
+    public function getAccessibleBranches(?int $marqueeId = null)
+    {
+        $targetMarqueeId = $marqueeId ?: $this->getActiveMarqueeId();
+
+        if ($this->isSuperAdmin()) {
+            $query = Branch::query();
+            if ($targetMarqueeId) {
+                $query->where('marquee_id', $targetMarqueeId);
+            }
+            return $query->where('status', 'active')->orderBy('name')->get();
+        }
+
+        if ($this->isBusinessOwner() || empty($this->branch_id)) {
+            return Branch::where('marquee_id', $targetMarqueeId)
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get();
+        }
+
+        // Branch-scoped staff / branch manager
+        if ($this->branch_id) {
+            $branch = Branch::where('id', $this->branch_id)
+                ->where('status', 'active')
+                ->first();
+            return $branch ? collect([$branch]) : collect();
+        }
+
+        return collect();
+    }
+
+    /**
+     * Check if the user has access to a specific branch.
+     */
+    public function hasAccessToBranch(int|string $branchId, ?int $marqueeId = null): bool
+    {
+        if (empty($branchId)) {
+            return false;
+        }
+
+        $accessibleBranches = $this->getAccessibleBranches($marqueeId);
+        return $accessibleBranches->contains('id', (int) $branchId);
+    }
+
+    /**
      * Check if the user is a super admin.
      */
     public function isSuperAdmin(): bool
@@ -325,7 +377,7 @@ class User extends Authenticatable
     {
         if ($this->isSuperAdmin()) return true;
         $limit = $this->getPlanLimit('max_branches');
-        $marqueeIds = $this->ownedMarquees()->pluck('id')->toArray();
+        $marqueeIds = $this->ownedMarquees()->pluck('marquees.id')->toArray();
         $count = Branch::whereIn('marquee_id', $marqueeIds)->count();
         return $count < $limit;
     }
@@ -337,7 +389,7 @@ class User extends Authenticatable
     {
         if ($this->isSuperAdmin()) return true;
         $limit = $this->getPlanLimit('max_users');
-        $marqueeIds = $this->ownedMarquees()->pluck('id')->toArray();
+        $marqueeIds = $this->ownedMarquees()->pluck('marquees.id')->toArray();
         $count = User::whereIn('marquee_id', $marqueeIds)->count();
         return $count < $limit;
     }

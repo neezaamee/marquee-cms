@@ -236,10 +236,50 @@
     @if($currentStep === 2)
         <div class="card mb-3 text-start">
             <div class="card-header bg-light">
-                <h6 class="mb-0 fw-bold"><span class="fas fa-calendar-alt me-2 text-primary"></span>Step 2: Event Details & Location</h6>
+                <h6 class="mb-0 fw-bold"><span class="fas fa-map-marker-alt me-2 text-primary"></span>Step 2: Booking Location & Event Details</h6>
             </div>
             <div class="card-body">
                 <div class="row g-3">
+                    <!-- Branch Selection -->
+                    <div class="col-12">
+                        <label class="form-label font-sans-serif fw-bold text-700" for="wizardBranchId">Branch / Location *</label>
+                        @if($isMultiBranchUser)
+                            <select wire:model.live="selectedBranchId" class="form-select @error('selectedBranchId') is-invalid @enderror" id="wizardBranchId">
+                                <option value="">Choose Branch...</option>
+                                @foreach($branchesList as $b)
+                                    <option value="{{ $b->id }}">
+                                        {{ $b->name }} @if($b->is_head_office) (Head Office) @endif — {{ $b->city }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('selectedBranchId') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <div class="form-text fs-12 text-600 mt-1">
+                                <span class="fas fa-info-circle me-1 text-primary"></span>Selecting a branch dynamically filters available halls and sets branch tax rate.
+                            </div>
+                        @else
+                            <div class="p-2 border rounded bg-light d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar avatar-l me-2 bg-primary-subtle rounded-circle p-2 d-flex align-items-center justify-content-center">
+                                        <span class="fas fa-building text-primary"></span>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-800 fs-12">
+                                            {{ $autoSelectedBranch?->name ?? ($branchesList->first()?->name ?? 'Main Branch') }}
+                                            @if($autoSelectedBranch?->is_head_office)
+                                                <span class="badge badge-subtle-primary ms-1 fs-12">Head Office</span>
+                                            @endif
+                                        </div>
+                                        <div class="fs-11 text-600">
+                                            <span class="fas fa-map-marker-alt me-1"></span>{{ $autoSelectedBranch?->address ?? '' }}, {{ $autoSelectedBranch?->city ?? '' }}
+                                            @if($autoSelectedBranch?->phone) | <span class="fas fa-phone me-1"></span>{{ $autoSelectedBranch?->phone }} @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="badge badge-subtle-success fs-12"><span class="fas fa-lock me-1"></span>Active Branch</span>
+                            </div>
+                        @endif
+                    </div>
+
                     <!-- Event Type (Searchable) -->
                     <div class="col-md-4">
                         <label class="form-label font-sans-serif fw-bold text-700">Event Type *</label>
@@ -269,39 +309,49 @@
                     <!-- Select Multiple Halls (Searchable) -->
                     <div class="col-md-4">
                         <label class="form-label font-sans-serif fw-bold text-700">Select Hall(s) *</label>
-                        <div class="position-relative" x-data="{ open: false }" @click.outside="open = false">
-                            <input wire:model.live.debounce.250ms="hallSearch" class="form-control" type="text" placeholder="Search and select halls..." @focus="open = true" @click="open = true" />
-                            <div x-show="open" class="position-absolute bg-white border rounded shadow w-100 z-3 mt-1 overflow-hidden" style="max-height: 200px; overflow-y: auto; display: none;">
-                                @forelse($filteredHalls as $hall)
-                                    <button wire:click="toggleHall({{ $hall['id'] }})" class="btn btn-link w-100 text-start text-decoration-none text-900 py-2 px-3 hover-bg-light border-bottom border-translucent" type="button">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <span class="fw-bold">{{ $hall['hall_name'] }}</span>
-                                                <span class="badge badge-subtle-secondary ms-1 fs-12">(Cap: {{ $hall['capacity'] }})</span>
+                        @if(empty($selectedBranchId))
+                            <div class="alert alert-subtle-warning fs-12 py-2 mb-0" role="alert">
+                                <span class="fas fa-exclamation-triangle me-1"></span>Select a branch above first.
+                            </div>
+                        @elseif($hallsList->isEmpty())
+                            <div class="alert alert-subtle-info fs-12 py-2 mb-0" role="alert">
+                                <span class="fas fa-info-circle me-1"></span>No active halls for this branch.
+                            </div>
+                        @else
+                            <div class="position-relative" x-data="{ open: false }" @click.outside="open = false">
+                                <input wire:model.live.debounce.250ms="hallSearch" class="form-control" type="text" placeholder="Search and select halls..." @focus="open = true" @click="open = true" />
+                                <div x-show="open" class="position-absolute bg-white border rounded shadow w-100 z-3 mt-1 overflow-hidden" style="max-height: 200px; overflow-y: auto; display: none;">
+                                    @forelse($filteredHalls as $hall)
+                                        <button wire:click="toggleHall({{ $hall['id'] }})" class="btn btn-link w-100 text-start text-decoration-none text-900 py-2 px-3 hover-bg-light border-bottom border-translucent" type="button">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <span class="fw-bold">{{ $hall['hall_name'] }}</span>
+                                                    <span class="badge badge-subtle-secondary ms-1 fs-12">(Cap: {{ $hall['capacity'] }})</span>
+                                                </div>
+                                                @if(in_array((string)$hall['id'], $selectedHallIds))
+                                                    <span class="fas fa-check text-success"></span>
+                                                @endif
                                             </div>
-                                            @if(in_array((string)$hall['id'], $selectedHallIds))
-                                                <span class="fas fa-check text-success"></span>
-                                            @endif
-                                        </div>
-                                    </button>
+                                        </button>
+                                    @empty
+                                        <div class="text-center py-2 fs-11 text-muted">No matching halls.</div>
+                                    @endforelse
+                                </div>
+                            </div>
+                            <div class="mt-2 d-flex flex-wrap gap-2">
+                                @forelse($selectedHallIds as $hId)
+                                    @php $hModel = \App\Models\Hall::find($hId); @endphp
+                                    @if($hModel)
+                                        <span class="badge badge-subtle-primary fs-11 p-2">
+                                            {{ $hModel->hall_name }} (Cap: {{ $hModel->capacity }})
+                                            <span wire:click="toggleHall({{ $hId }})" class="fas fa-times ms-2 cursor-pointer text-danger" title="Remove Hall"></span>
+                                        </span>
+                                    @endif
                                 @empty
-                                    <div class="text-center py-2 fs-11 text-muted">No matching halls.</div>
+                                    <span class="text-muted fs-11">No halls selected yet.</span>
                                 @endforelse
                             </div>
-                        </div>
-                        <div class="mt-2 d-flex flex-wrap gap-2">
-                            @forelse($selectedHallIds as $hId)
-                                @php $hModel = \App\Models\Hall::find($hId); @endphp
-                                @if($hModel)
-                                    <span class="badge badge-subtle-primary fs-11 p-2">
-                                        {{ $hModel->hall_name }} (Cap: {{ $hModel->capacity }})
-                                        <span wire:click="toggleHall({{ $hId }})" class="fas fa-times ms-2 cursor-pointer text-danger" title="Remove Hall"></span>
-                                    </span>
-                                @endif
-                            @empty
-                                <span class="text-muted fs-11">No halls selected yet.</span>
-                            @endforelse
-                        </div>
+                        @endif
                         @error('selectedHallIds') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
 

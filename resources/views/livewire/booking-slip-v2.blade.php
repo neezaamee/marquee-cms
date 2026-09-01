@@ -13,16 +13,38 @@
 
     <!-- Original Hidden Printable Area (Used as template source) -->
     <div id="original-invoice-content" style="display: none;">
+        @php
+            $marquee = $booking->effective_marquee ?? $booking->marquee ?? (auth()->user()->marquee ?? null);
+            $branch = $booking->effective_branch ?? $booking->branch ?? ($booking->hall?->branch ?? null);
+        @endphp
         <div class="row align-items-start pb-2 mb-2" id="brand-header" style="border-bottom: 2px solid #0056b3 !important;">
             <!-- Brand Info -->
             <div class="col-7 text-start">
                 <div class="title-brand text-primary fw-bold text-uppercase fs-20" id="brand-name" style="font-size: 20px; color: #0056b3; font-weight: bold; text-transform: uppercase; margin: 0;">
-                    {{ $booking->marquee->name ?? 'Royal Event Marquee' }}
+                    {{ $marquee->name ?? 'Royal Event Marquee' }}
                 </div>
-                <div class="text-600 fs-11" style="font-size: 11px; color: #666;">
-                    <span class="fas fa-map-marker-alt me-1"></span>{{ $booking->marquee->address ?? '' }}, {{ $booking->marquee->city ?? '' }}
-                    @if($booking->marquee->phone) | Ph: {{ $booking->marquee->phone }} @endif
-                </div>
+                @if($branch)
+                    <div class="text-800 fw-bold fs-12 text-uppercase text-secondary mt-1">
+                        <span class="fas fa-building me-1 text-primary"></span>{{ $branch->name }}
+                        @if($branch->is_head_office)
+                            <span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 10px;">Head Office</span>
+                        @endif
+                    </div>
+                    <div class="text-600 fs-11" style="font-size: 11px; color: #555;">
+                        <span class="fas fa-map-marker-alt me-1"></span>{{ $branch->address ? $branch->address . ', ' : '' }}{{ $branch->city ?? ($marquee->city ?? '') }}{{ $branch->province ? ', ' . $branch->province : '' }}
+                        @if($branch->phone || ($marquee->phone ?? null))
+                            | <span class="fas fa-phone me-1"></span>Ph: {{ $branch->phone ?: $marquee->phone }}
+                        @endif
+                        @if($branch->branch_manager)
+                            | <strong>Mgr:</strong> {{ $branch->branch_manager }}
+                        @endif
+                    </div>
+                @else
+                    <div class="text-600 fs-11" style="font-size: 11px; color: #666;">
+                        <span class="fas fa-map-marker-alt me-1"></span>{{ $marquee->address ?? '' }}, {{ $marquee->city ?? '' }}
+                        @if($marquee->phone ?? null) | Ph: {{ $marquee->phone }} @endif
+                    </div>
+                @endif
             </div>
             <!-- Title & References -->
             <div class="col-5 text-end">
@@ -31,21 +53,10 @@
                 </div>
                 <div class="ref-text font-monospace fs-11 text-secondary mt-1" style="font-size: 11px; color: #666; text-align: right; font-family: monospace; line-height: 1.35;">
                     <strong>Booking Reference:</strong> #{{ $booking->booking_number }}
+                    @if($branch)
+                        <br><strong>Branch:</strong> {{ $branch->name }}
+                    @endif
                 </div>
-                {{--@if($booking->finalBill && $booking->finalBill->fbr_sync_status === 'synced')
-                    <div class="mt-2 d-flex flex-column align-items-end">
-                        <div class="p-1 border bg-white text-center mb-1" style="width: 80px; height: 80px; border-radius: 4px;">
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data={{ urlencode($booking->finalBill->qr_code) }}" alt="FBR Verification QR" width="72" height="72" />
-                        </div>
-                        <div class="fs-11 fw-bold text-success"><span class="fas fa-check-circle me-1"></span>FBR Tax Compliant</div>
-                        <div class="fs-12 text-600 font-monospace">FBR INV: {{ $booking->finalBill->fbr_invoice_number }}</div>
-                        <div class="fs-12 text-600 font-monospace">USIN: {{ $booking->finalBill->usin }}</div>
-                    </div>
-                @else
-                    <div class="mt-2 d-inline-block p-2 border bg-light text-center" style="width: 70px; height: 70px; border-radius: 4px;">
-                        <span class="fas fa-qrcode fa-3x text-secondary"></span>
-                    </div>
-                @endif --}}
             </div>
         </div>
 
@@ -85,6 +96,12 @@
             <div class="col-6">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
                 <table class="table table-sm table-borderless fs-12 mb-0">
+                    @if($branch)
+                        <tr>
+                            <td class="text-600 px-0 py-1" style="width: 120px;">Branch:</td>
+                            <td class="text-800 fw-bold px-0 py-1">{{ $branch->name }}</td>
+                        </tr>
+                    @endif
                     <tr>
                         <td class="text-600 px-0 py-1" style="width: 120px;">Event / Hall:</td>
                         <td class="text-800 fw-bold px-0 py-1">

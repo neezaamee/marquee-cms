@@ -53,6 +53,27 @@ class MenuItemList extends Component
                 return;
             }
 
+            // Block deletion if referenced by packages
+            if ($item->packages()->exists()) {
+                session()->flash('error', 'Cannot delete this menu item because it is included in one or more packages.');
+                $this->confirmingDeletionId = null;
+                return;
+            }
+
+            // Block deletion if referenced by recipe
+            if ($item->recipe()->exists()) {
+                session()->flash('error', 'Cannot delete this menu item because an active recipe is linked to it.');
+                $this->confirmingDeletionId = null;
+                return;
+            }
+
+            // Block deletion if referenced in past/active bookings
+            if (\App\Models\BookingMenuItem::where('menu_item_id', $item->id)->exists()) {
+                session()->flash('error', 'Cannot delete this menu item because it is recorded in existing bookings. Deactivate it instead.');
+                $this->confirmingDeletionId = null;
+                return;
+            }
+
             $item->delete();
             $this->confirmingDeletionId = null;
             session()->flash('success', 'Menu item deleted successfully.');

@@ -39,13 +39,28 @@ class HallForm extends Component
         // Initialize lists
         if ($user->isSuperAdmin()) {
             $this->marquees = Marquee::orderBy('name')->get();
+            if (request()->has('branch_id')) {
+                $this->branch_id = (int) request()->query('branch_id');
+                $targetBranch = Branch::find($this->branch_id);
+                if ($targetBranch) {
+                    $this->marquee_id = $targetBranch->marquee_id;
+                    $this->branches = Branch::where('marquee_id', $this->marquee_id)->orderBy('name')->get();
+                }
+            }
         } else {
-            $this->marquee_id = $user->marquee_id;
-            $this->branches = Branch::where('marquee_id', $this->marquee_id)->orderBy('name')->get();
+            $this->marquee_id = $user->getActiveMarqueeId();
+            $this->branches = $user->getAccessibleBranches($this->marquee_id);
             
-            // Default branch for Branch Managers
-            if ($user->branch_id) {
+            // Default branch for Branch Managers / single-branch users
+            if ($user->branch_id && !$user->isBusinessOwner()) {
                 $this->branch_id = $user->branch_id;
+            } elseif (request()->has('branch_id')) {
+                $reqBranchId = (int) request()->query('branch_id');
+                if ($user->hasAccessToBranch($reqBranchId, $this->marquee_id)) {
+                    $this->branch_id = $reqBranchId;
+                }
+            } elseif ($this->branches->isNotEmpty()) {
+                $this->branch_id = $this->branches->first()->id;
             }
         }
 
@@ -123,24 +138,34 @@ class HallForm extends Component
      */
     public function save()
     {
+        $user = auth()->user();
+
         // Force set marquee_id for non-super admins to prevent manipulation
-        if (!auth()->user()->isSuperAdmin()) {
-            $this->marquee_id = auth()->user()->marquee_id;
+        if (!$user->isSuperAdmin()) {
+            $this->marquee_id = $user->getActiveMarqueeId();
             
-            // Force branch_id for Branch Managers
-            if (auth()->user()->branch_id) {
-                $this->branch_id = auth()->user()->branch_id;
+            // Force branch_id for single-branch users
+            if ($user->branch_id && !$user->isBusinessOwner()) {
+                $this->branch_id = $user->branch_id;
             }
         }
 
         $validatedData = $this->validate();
 
+        // Extra authorization check: verify user has access to the target branch
+        if (!$user->isSuperAdmin() && !$user->hasAccessToBranch($this->branch_id, $this->marquee_id)) {
+            abort(403, 'Unauthorized access to the selected branch.');
+        }
+
         if ($this->isEditMode) {
             $hall = Hall::findOrFail($this->hallId);
             
             // Security check
-            if (!auth()->user()->isSuperAdmin() && $hall->marquee_id !== auth()->user()->marquee_id) {
+            if (!$user->isSuperAdmin() && $hall->marquee_id !== $user->getActiveMarqueeId()) {
                 abort(403, 'Unauthorized operation.');
+            }
+            if ($user->branch_id && !$user->isBusinessOwner() && (int)$hall->branch_id !== (int)$user->branch_id) {
+                abort(403, 'Unauthorized operation on another branch hall.');
             }
 
             $hall->update($validatedData);

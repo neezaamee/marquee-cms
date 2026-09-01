@@ -38,8 +38,8 @@ class SupplierList extends Component
     protected $rules = [
         'name' => 'required|string|max:255',
         'contact_person' => 'nullable|string|max:255',
-        'mobile_number' => 'required|string|max:50',
-        'whatsapp_number' => 'nullable|string|max:50',
+        'mobile_number' => ['required', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
+        'whatsapp_number' => ['nullable', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
         'email' => 'nullable|email|max:255',
         'address' => 'nullable|string',
         'city' => 'nullable|string|max:255',
@@ -164,11 +164,15 @@ class SupplierList extends Component
         $query = Supplier::where('marquee_id', $marqueeId);
 
         if (!empty($this->search)) {
-            $query->where(function ($q) {
+            $cleanDigits = preg_replace('/[^0-9]/', '', $this->search);
+            $query->where(function ($q) use ($cleanDigits) {
                 $q->where('name', 'like', '%' . $this->search . '%')
                   ->orWhere('supplier_code', 'like', '%' . $this->search . '%')
-                  ->orWhere('contact_person', 'like', '%' . $this->search . '%')
-                  ->orWhere('mobile_number', 'like', '%' . $this->search . '%');
+                  ->orWhere('contact_person', 'like', '%' . $this->search . '%');
+
+                if (!empty($cleanDigits)) {
+                    $q->orWhere('mobile_number', 'like', '%' . $cleanDigits . '%');
+                }
             });
         }
 

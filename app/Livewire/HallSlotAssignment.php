@@ -39,7 +39,7 @@ class HallSlotAssignment extends Component
             $this->branches = Branch::where('marquee_id', $this->marquee_id)->orderBy('name')->get();
             $this->activeSlots = Slot::where('marquee_id', $this->marquee_id)->where('status', 'active')->orderBy('start_time')->get();
 
-            if ($user->branch_id) {
+            if ($user->branch_id && !$user->isBusinessOwner()) {
                 $this->branch_id = $user->branch_id;
                 $this->updatedBranchId($this->branch_id);
             }

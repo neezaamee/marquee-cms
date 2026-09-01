@@ -296,7 +296,7 @@ class CrudAccessTest extends TestCase
             'username' => 'johndoe',
             'marquee_id' => $marquee->id,
             'role_id' => $this->ownerRole->id,
-            'phone' => '+923007654321',
+            'phone' => '03007654321',
             'status' => 'active'
         ]);
 
@@ -307,7 +307,7 @@ class CrudAccessTest extends TestCase
             'address' => 'Test Address 123',
             'city' => 'Lahore',
             'province' => 'Punjab',
-            'phone' => '+923001234567',
+            'phone' => '03001234567',
             'status' => 'active'
         ]);
     }

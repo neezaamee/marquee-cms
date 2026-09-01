@@ -146,6 +146,24 @@ class AccountingModuleSeeder extends Seeder
                         'system' => true,
                         'desc' => 'Refundable Booking Security Deposits',
                     ],
+                    [
+                        'parent_code' => '2000',
+                        'account_code' => '2003',
+                        'name' => 'Customer Advances / Contract Liabilities',
+                        'type_code' => 'CURRENT_LIABILITIES',
+                        'nature' => 'Liability',
+                        'system' => true,
+                        'desc' => 'Unearned Customer Booking Advances & Contract Liabilities',
+                    ],
+                    [
+                        'parent_code' => '2000',
+                        'account_code' => '2004',
+                        'name' => 'Sales Tax Payable',
+                        'type_code' => 'CURRENT_LIABILITIES',
+                        'nature' => 'Liability',
+                        'system' => true,
+                        'desc' => 'Sales Tax & Government Levies Payable',
+                    ],
 
                     // Equity sub-accounts
                     [
@@ -194,6 +212,15 @@ class AccountingModuleSeeder extends Seeder
                         'nature' => 'Income',
                         'system' => true,
                         'desc' => 'Revenue from Hall Decoration Services',
+                    ],
+                    [
+                        'parent_code' => '4000',
+                        'account_code' => '4004',
+                        'name' => 'Cancellation Charges Income',
+                        'type_code' => 'OPERATING_REVENUE',
+                        'nature' => 'Income',
+                        'system' => true,
+                        'desc' => 'Earned Cancellation Penalties & Retained Forfeitures',
                     ],
 
                     // Expenses sub-accounts

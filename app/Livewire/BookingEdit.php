@@ -21,6 +21,12 @@ class BookingEdit extends Component
 {
     public Booking $booking;
 
+    // Branch scoping properties
+    public $selectedBranchId = '';
+    public $branchesList = [];
+    public $isMultiBranchUser = false;
+    public $canChangeBranch = false;
+
     // Form inputs
     public $selectedCustomerId = '';
     public $selectedEventTypeId = '';
@@ -121,6 +127,15 @@ class BookingEdit extends Component
         $this->selectedCustomerId = $booking->customer_id;
         $this->selectedEventTypeId = $booking->event_type_id;
         
+        $this->selectedBranchId = (string) ($booking->branch_id ?: ($booking->hall?->branch_id ?: ''));
+        
+        $marqueeId = $booking->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
+        $accessibleBranches = $user ? $user->getAccessibleBranches($marqueeId) : collect();
+        $this->branchesList = $accessibleBranches;
+
+        $this->isMultiBranchUser = $accessibleBranches->count() > 1;
+        $this->canChangeBranch = in_array($booking->booking_status, ['Draft', 'Reserved']) && ($isOwner || $this->isMultiBranchUser);
+
         $this->selectedHallIds = $booking->halls->pluck('id')->map(fn($id) => (string)$id)->toArray();
         if (empty($this->selectedHallIds) && $booking->hall_id) {
             $this->selectedHallIds = [(string)$booking->hall_id];
@@ -164,17 +179,27 @@ class BookingEdit extends Component
             $this->taxRate = round(($this->taxAmount * 100) / $this->subtotal, 2);
         } else {
             $this->taxRate = 13.00;
+            if ($this->selectedBranchId) {
+                $branch = \App\Models\Branch::find($this->selectedBranchId);
+                if ($branch && $branch->tax_rate !== null) {
+                    $this->taxRate = (float) $branch->tax_rate;
+                }
+            }
         }
 
-        $this->specialInstructions = $booking->special_instructions;
+        $this->specialInstructions = $booking->special_instructions ?? '';
         $this->bookingStatus = $booking->booking_status ?? 'Draft';
         $this->paymentStatus = $booking->payment_status ?? 'Unpaid';
 
         $this->loadDropdowns();
+        $this->loadExistingMenuItems();
+        $this->loadExistingAddons();
         $this->loadSlotsAndCheck();
+    }
 
-        // Load Add-ons
-        $marqueeId = auth()->user()->marquee_id;
+    public function loadExistingAddons()
+    {
+        $marqueeId = $this->booking->marquee_id ?? auth()->user()->getActiveMarqueeId();
         $this->addonsList = ExtraService::where('marquee_id', $marqueeId)
             ->where('status', 'Active')
             ->orderBy('service_name')
@@ -192,7 +217,7 @@ class BookingEdit extends Component
         }
 
         // Map already saved addons
-        foreach ($booking->extraServices as $saved) {
+        foreach ($this->booking->extraServices as $saved) {
             $addonId = $saved->extra_service_id;
             if ($addonId && isset($this->selectedAddons[$addonId])) {
                 $this->selectedAddons[$addonId]['selected'] = true;
@@ -207,10 +232,12 @@ class BookingEdit extends Component
                 ];
             }
         }
+    }
 
-        // Load custom menu items
+    public function loadExistingMenuItems()
+    {
         $this->bookingMenuItems = [];
-        foreach ($booking->menuItems as $item) {
+        foreach ($this->booking->menuItems as $item) {
             $this->bookingMenuItems[] = [
                 'id' => $item->id,
                 'item_name' => $item->item_name,
@@ -219,6 +246,49 @@ class BookingEdit extends Component
                 'managed_by_host' => (bool)($item->pivot->managed_by_host ?? false),
             ];
         }
+    }
+
+    public function updatedSelectedBranchId($value)
+    {
+        if (!$this->canChangeBranch && (int)$value !== (int)$this->booking->branch_id) {
+            session()->flash('error', 'Branch cannot be modified for confirmed or completed bookings.');
+            $this->selectedBranchId = (string) $this->booking->branch_id;
+            return;
+        }
+
+        $marqueeId = $this->booking->marquee_id ?: auth()->user()->getActiveMarqueeId();
+        $this->selectedHallIds = [];
+        $this->selectedHallId = '';
+
+        if (!empty($value)) {
+            $branch = \App\Models\Branch::find($value);
+            if ($branch && $branch->tax_rate !== null) {
+                $this->taxRate = (float) $branch->tax_rate;
+            }
+
+            $this->hallsList = Hall::where('marquee_id', $marqueeId)
+                ->where('branch_id', $value)
+                ->whereIn('status', ['active', 'Active'])
+                ->orderBy('hall_name')
+                ->get();
+
+            $this->filteredHalls = $this->hallsList->toArray();
+
+            if ($this->hallsList->isNotEmpty()) {
+                $this->selectedHallIds = [(string) $this->hallsList->first()->id];
+                $this->selectedHallId = $this->selectedHallIds[0];
+                $this->hallCharges = (float) $this->hallsList->first()->default_booking_price;
+            } else {
+                $this->hallCharges = 0.00;
+            }
+        } else {
+            $this->hallsList = collect();
+            $this->filteredHalls = [];
+            $this->hallCharges = 0.00;
+        }
+
+        $this->loadSlotsAndCheck();
+        $this->recalculatePrices();
     }
 
     public function loadDropdowns()
@@ -676,6 +746,7 @@ class BookingEdit extends Component
         }
 
         $rules = [
+            'selectedBranchId' => 'required|exists:branches,id',
             'selectedCustomerId' => 'required|exists:customers,id',
             'selectedEventTypeId' => 'required|exists:event_types,id',
             'selectedHallIds' => 'required|array|min:1',
@@ -702,7 +773,35 @@ class BookingEdit extends Component
             $rules['privacyGentsPercentage'] = 'required|integer|min:0|max:100';
         }
 
-        $this->validate($rules);
+        $this->validate($rules, [
+            'selectedBranchId.required' => 'Please select a branch for this booking.',
+            'selectedBranchId.exists' => 'The selected branch is invalid.',
+        ]);
+
+        $user = auth()->user();
+        $marqueeId = $this->booking->marquee_id ?? $user->getActiveMarqueeId();
+
+        // If branch changed, verify authorization and lock status
+        if ((int)$this->selectedBranchId !== (int)$this->booking->branch_id) {
+            if (!$this->canChangeBranch) {
+                $this->addError('selectedBranchId', 'Branch cannot be modified for confirmed or completed bookings.');
+                return;
+            }
+            if (!$user->hasAccessToBranch($this->selectedBranchId, $marqueeId)) {
+                $this->addError('selectedBranchId', 'You are not authorized to assign this branch.');
+                return;
+            }
+        }
+
+        $validHallCount = Hall::where('marquee_id', $marqueeId)
+            ->where('branch_id', $this->selectedBranchId)
+            ->whereIn('id', $this->selectedHallIds)
+            ->count();
+
+        if ($validHallCount !== count($this->selectedHallIds)) {
+            $this->addError('selectedHallIds', 'One or more selected halls do not belong to the chosen branch.');
+            return;
+        }
 
         if ($this->bookingStatus === 'Completed' && Carbon::parse($this->selectedDate)->startOfDay()->gt(Carbon::today())) {
             $this->addError('bookingStatus', 'Future bookings cannot be marked as Completed.');
@@ -719,12 +818,9 @@ class BookingEdit extends Component
             }
         }
 
-        $user = auth()->user();
-        $marqueeId = $this->booking->marquee_id ?? $user->getActiveMarqueeId();
         $userId = $user->id;
         $primaryHallId = reset($this->selectedHallIds);
-        $primaryHall = Hall::find($primaryHallId);
-        $branchId = $this->booking->branch_id ?? ($primaryHall ? $primaryHall->branch_id : $user->branch_id);
+        $branchId = (int) $this->selectedBranchId;
 
         try {
             DB::transaction(function () use ($marqueeId, $userId, $branchId, $primaryHallId) {

@@ -13,19 +13,44 @@
 
     <!-- Printable Area -->
     <div class="card bg-white shadow-none border p-4 p-md-5" id="printable-invoice">
+        @php
+            $marquee = $booking->effective_marquee ?? $booking->marquee ?? (auth()->user()->marquee ?? null);
+            $branch = $booking->effective_branch ?? $booking->branch ?? ($booking->hall?->branch ?? null);
+        @endphp
         <div class="row align-items-start mb-4">
             <!-- Brand Info -->
             <div class="col-6 text-start">
-                <h2 class="mb-1 text-primary fw-bold">{{ $booking->marquee->name ?? 'Royal Event Marquee' }}</h2>
-                <p class="mb-0 text-600 fs-12">
-                    <span class="fas fa-map-marker-alt me-1"></span>{{ $booking->marquee->address ?? '' }}, {{ $booking->marquee->city ?? '' }}
-                    @if($booking->marquee->phone) | <span class="fas fa-phone me-1"></span>{{ $booking->marquee->phone }} @endif
-                </p>
+                <h2 class="mb-1 text-primary fw-bold">{{ $marquee->name ?? 'Royal Event Marquee' }}</h2>
+                @if($branch)
+                    <div class="text-800 fw-bold fs-12 text-uppercase text-secondary mb-1">
+                        <span class="fas fa-building me-1 text-primary"></span>{{ $branch->name }}
+                        @if($branch->is_head_office)
+                            <span class="badge bg-primary-subtle text-primary ms-1 fs-12">Head Office</span>
+                        @endif
+                    </div>
+                    <p class="mb-0 text-600 fs-12">
+                        <span class="fas fa-map-marker-alt me-1"></span>{{ $branch->address ? $branch->address . ', ' : '' }}{{ $branch->city ?? ($marquee->city ?? '') }}{{ $branch->province ? ', ' . $branch->province : '' }}
+                        @if($branch->phone || ($marquee->phone ?? null))
+                            | <span class="fas fa-phone me-1"></span>{{ $branch->phone ?: $marquee->phone }}
+                        @endif
+                        @if($branch->branch_manager)
+                            | <strong>Manager:</strong> {{ $branch->branch_manager }}
+                        @endif
+                    </p>
+                @else
+                    <p class="mb-0 text-600 fs-12">
+                        <span class="fas fa-map-marker-alt me-1"></span>{{ $marquee->address ?? '' }}, {{ $marquee->city ?? '' }}
+                        @if($marquee->phone ?? null) | <span class="fas fa-phone me-1"></span>{{ $marquee->phone }} @endif
+                    </p>
+                @endif
             </div>
             <!-- Invoice Title & QR Code Placeholder -->
             <div class="col-6 text-end">
                 <h4 class="text-800 fw-bold mb-1 fs-9 fs-md-7">BOOKING CONFIRMATION</h4>
                 <div class="fs-12 font-monospace text-secondary">VOUCHER REFERENCE: #{{ $booking->booking_number }}</div>
+                @if($branch)
+                    <div class="fs-12 text-600 font-monospace">Branch: {{ $branch->name }}</div>
+                @endif
                 <div class="mt-2 d-inline-block p-2 border bg-light text-center" style="width: 70px; height: 70px; border-radius: 4px;">
                     <!-- Visual QR placeholder -->
                     <span class="fas fa-qrcode fa-3x text-secondary"></span>
@@ -79,6 +104,12 @@
             <div class="col-6">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
                 <table class="table table-sm table-borderless fs-12 mb-0">
+                    @if($branch)
+                        <tr>
+                            <td class="text-600 px-0 py-1" style="width: 120px;">Branch:</td>
+                            <td class="text-800 fw-bold px-0 py-1">{{ $branch->name }}</td>
+                        </tr>
+                    @endif
                     <tr>
                         <td class="text-600 px-0 py-1" style="width: 120px;">Booking Hall(s):</td>
                         <td class="text-800 fw-bold px-0 py-1">

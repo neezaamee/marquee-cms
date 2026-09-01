@@ -68,11 +68,15 @@ class StaffList extends Component
 
         // Search filter
         if (!empty($this->search)) {
-            $query->where(function($q) {
+            $cleanDigits = preg_replace('/[^0-9]/', '', $this->search);
+            $query->where(function($q) use ($cleanDigits) {
                 $q->where('name', 'like', '%' . $this->search . '%')
                   ->orWhere('employee_id', 'like', '%' . $this->search . '%')
-                  ->orWhere('cnic', 'like', '%' . $this->search . '%')
-                  ->orWhere('mobile_number', 'like', '%' . $this->search . '%');
+                  ->orWhere('cnic', 'like', '%' . $this->search . '%');
+
+                if (!empty($cleanDigits)) {
+                    $q->orWhere('mobile_number', 'like', '%' . $cleanDigits . '%');
+                }
             });
         }
 

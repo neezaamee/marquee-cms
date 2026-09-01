@@ -26,7 +26,8 @@ class UserController extends Controller
      */
     public function create()
     {
-        return redirect()->route('staff.index')->with('error', 'Users can only be created from the Staff Management section by adding logins to a staff member.');
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        return view('users.create');
     }
 
     /**
@@ -76,7 +77,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'password' => ['nullable', Rules\Password::defaults()],
-            'phone' => 'nullable|string|max:50',
+            'phone' => ['nullable', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
             'role_id' => 'required|exists:roles,id',
             'branch_id' => 'nullable|exists:branches,id',
             'status' => 'required|in:active,inactive',

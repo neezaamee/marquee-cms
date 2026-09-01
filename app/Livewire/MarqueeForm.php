@@ -109,30 +109,12 @@ class MarqueeForm extends Component
 
     public function formatPhoneNumber($phone)
     {
-        $clean = preg_replace('/[^0-9+]/', '', $phone);
-        if (str_starts_with($clean, '+')) {
-            $clean = '00' . substr($clean, 1);
-        }
-        if (preg_match('/^03\d{9}$/', $clean)) {
-            $clean = '0092' . substr($clean, 1);
-        }
-        elseif (preg_match('/^3\d{9}$/', $clean)) {
-            $clean = '0092' . $clean;
-        }
-        elseif (preg_match('/^923\d{9}$/', $clean)) {
-            $clean = '00' . $clean;
-        }
-        return $clean;
+        return \App\Services\PhoneNumberService::normalize($phone);
     }
 
     public function formatPhoneForUi($phone)
     {
-        $clean = preg_replace('/[^0-9]/', '', $phone);
-        if (preg_match('/^0092(3\d{9})$/', $clean, $matches)) {
-            $digits = '0' . $matches[1];
-            return substr($digits, 0, 4) . '-' . substr($digits, 4);
-        }
-        return $phone;
+        return \App\Services\PhoneNumberService::formatForDisplay($phone);
     }
 
     public function mount($marquee = null)
@@ -175,7 +157,7 @@ class MarqueeForm extends Component
             'phone' => [
                 'required',
                 'string',
-                'regex:/^00923\d{9}$/'
+                'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'
             ],
             'email' => 'required|email|max:255|unique:marquees,email,' . ($this->marqueeId ?? 'NULL'),
             'ntn' => 'nullable|string|max:50',
@@ -193,7 +175,7 @@ class MarqueeForm extends Component
                 $rules['owner_phone'] = [
                     'nullable',
                     'string',
-                    'regex:/^00923\d{9}$/'
+                    'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'
                 ];
                 $rules['subscription_plan_id'] = 'required|exists:subscription_plans,id';
                 $rules['subscription_ends_at'] = 'required|date|after_or_equal:today';
@@ -211,8 +193,8 @@ class MarqueeForm extends Component
             'owner_email.unique' => 'This email is already registered to a user account.',
             'owner_username.unique' => 'This username is already taken.',
             'selectedOwners.required' => 'Please select at least one Business Owner or create one inline.',
-            'phone.regex' => 'The phone number must be a valid 11-digit number starting with 03 (e.g. 0321-8611353).',
-            'owner_phone.regex' => 'The owner phone number must be a valid 11-digit number starting with 03 (e.g. 0321-8611353).',
+            'phone.regex' => 'The phone number must be a valid number (e.g. 0321-8611353).',
+            'owner_phone.regex' => 'The owner phone number must be a valid number (e.g. 0321-8611353).',
         ];
     }
 

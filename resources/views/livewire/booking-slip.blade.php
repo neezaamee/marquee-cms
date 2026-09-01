@@ -13,19 +13,50 @@
 
     <!-- Original Hidden Printable Area (Used as template source) -->
     <div id="original-invoice-content" style="display: none;">
+        @php
+            $marquee = $booking->effective_marquee ?? $booking->marquee ?? (auth()->user()->marquee ?? null);
+            $branch = $booking->effective_branch ?? $booking->branch ?? ($booking->hall?->branch ?? null);
+        @endphp
         <div class="row align-items-center mb-2" id="brand-header">
             <!-- Brand Info -->
             <div class="col-sm-6 text-start">
-                <h3 class="text-primary fw-black mb-1" id="brand-name">MARQUEE CMS</h3>
-                <h6 class="text-secondary fw-bold">{{ auth()->user()->marquee->name ?? 'Royal Event Marquee' }}</h6>
-                <div class="fs-12 text-600">
-                    {{ auth()->user()->marquee->address ?? 'Main Boulevard, Gulberg' }}, {{ auth()->user()->marquee->city ?? 'Lahore' }}
-                </div>
+                <h3 class="text-primary fw-black mb-0" id="brand-name">{{ $marquee->name ?? 'MARQUEE CMS' }}</h3>
+                @if($branch)
+                    <div class="text-800 fw-bold fs-11 text-uppercase text-secondary mt-1">
+                        <span class="fas fa-building me-1 text-primary"></span>{{ $branch->name }}
+                        @if($branch->is_head_office)
+                            <span class="badge badge-subtle-primary ms-1 fs-12">Head Office</span>
+                        @endif
+                    </div>
+                    <div class="fs-12 text-600 mt-1">
+                        <span class="fas fa-map-marker-alt me-1"></span>{{ $branch->address ? $branch->address . ', ' : '' }}{{ $branch->city ?? ($marquee->city ?? '') }}{{ $branch->province ? ', ' . $branch->province : '' }}
+                    </div>
+                    @if($branch->phone || ($marquee->phone ?? null))
+                        <div class="fs-12 text-600">
+                            <span class="fas fa-phone me-1"></span>{{ $branch->phone ?: $marquee->phone }}
+                            @if($branch->branch_manager)
+                                <span class="ms-2">| <strong>Manager:</strong> {{ $branch->branch_manager }}</span>
+                            @endif
+                        </div>
+                    @endif
+                @else
+                    <div class="fs-12 text-600 mt-1">
+                        <span class="fas fa-map-marker-alt me-1"></span>{{ $marquee->address ?? 'Main Boulevard, Gulberg' }}, {{ $marquee->city ?? 'Lahore' }}
+                    </div>
+                    @if($marquee->phone ?? null)
+                        <div class="fs-12 text-600">
+                            <span class="fas fa-phone me-1"></span>{{ $marquee->phone }}
+                        </div>
+                    @endif
+                @endif
             </div>
             <!-- Invoice Title & QR Code Placeholder -->
             <div class="col-sm-6 text-sm-end mt-2 mt-sm-0">
                 <h4 class="text-800 fw-bold mb-1">BOOKING CONFIRMATION</h4>
                 <div class="fs-11 font-monospace text-secondary">VOUCHER REFERENCE: #{{ $booking->booking_number }}</div>
+                @if($branch)
+                    <div class="fs-12 text-600 font-monospace">Branch: {{ $branch->name }}</div>
+                @endif
                 <div class="mt-2 d-inline-block p-1 border bg-light text-center" style="width: 50px; height: 50px; border-radius: 4px;">
                     <span class="fas fa-qrcode fa-2x text-secondary"></span>
                 </div>
@@ -37,6 +68,12 @@
             <div class="col-sm-6">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
                 <table class="table table-sm table-borderless fs-11 mb-0">
+                    @if($branch)
+                        <tr>
+                            <td class="text-600 px-0 py-1" style="width: 110px;">Branch:</td>
+                            <td class="text-800 fw-bold px-0 py-1">{{ $branch->name }}</td>
+                        </tr>
+                    @endif
                     <tr>
                         <td class="text-600 px-0 py-1" style="width: 110px;">Booking Hall(s):</td>
                         <td class="text-800 fw-bold px-0 py-1">
@@ -177,6 +214,42 @@
                             <td class="text-center">1</td>
                             <td class="text-end pe-3 text-secondary italic fs-10">Included in Setup</td>
                         </tr>
+                    @endif
+                    @if($booking->vendorSales && $booking->vendorSales->isNotEmpty())
+                        @foreach($booking->vendorSales as $vSale)
+                            @if($vSale->status !== 'cancelled')
+                                @php
+                                    $custCharge = (float) $vSale->sale_amount;
+                                    $custAdv = (float) $vSale->customer_paid;
+                                    $custRem = (float) $vSale->customer_remaining;
+                                @endphp
+                                <tr>
+                                    <td class="ps-3">{{ 3 + $loop->iteration }}</td>
+                                    <td>
+                                        <div class="fw-bold fs-11">{{ $vSale->service->service_name ?? 'Specialized Service' }}</div>
+                                        <div class="text-muted fs-10">
+                                            Provider: {{ $vSale->vendor->name ?? 'Partner Vendor' }} ({{ $vSale->vendor->vendor_type ?? 'Vendor' }})
+                                            @if(!$vSale->include_in_invoice)
+                                                <span class="badge badge-subtle-warning fs-9 ms-1">Direct Payment</span>
+                                            @elseif($custAdv > 0)
+                                                <span class="badge badge-subtle-success fs-9 ms-1">Adv: Rs. {{ number_format($custAdv) }} (Net Due: Rs. {{ number_format($custRem) }})</span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td class="text-center font-monospace">
+                                        @if($vSale->include_in_invoice)
+                                            Rs. {{ number_format($custCharge, 2) }}
+                                        @else
+                                            <span class="text-muted fs-10">(Direct Pay)</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">{{ (int)$vSale->quantity ?: 1 }}</td>
+                                    <td class="text-end pe-3 text-secondary italic fs-10">
+                                        {{ $vSale->include_in_invoice ? 'Invoiced' : 'Direct Pay' }}
+                                    </td>
+                                </tr>
+                            @endif
+                        @endforeach
                     @endif
                 </tbody>
             </table>

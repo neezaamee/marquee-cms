@@ -19,6 +19,8 @@ yarn-error.log
 !/storage/framework/sessions/.gitkeep
 /storage/framework/views/*
 !/storage/framework/views/.gitkeep
+/storage/framework/testing/*
+!/storage/framework/testing/.gitkeep
 /storage/*.key
 /storage/pail
 /public/storage
@@ -26,26 +28,34 @@ yarn-error.log
 /public/hot
 /public/fonts-manifest.dev.json
 
-# Local Databases
+# Local Databases & Dumps
 *.sqlite
 database/*.sqlite
 database/*.sql
+*.sql.gz
 
-# Testing cache
+# Testing cache & Scratch artifacts
 .phpunit.result.cache
 /.phpunit.cache
+scratch*.txt
+*.tmp
+*.bak
 
-# IDE and System Configurations
+# IDE, Editor and OS System Configurations
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
+Desktop.ini
 Homestead.json
 Homestead.yaml
 _ide_helper.php
+_ide_helper_models.php
+.phpstorm.meta.php
 /composer.phar
 /auth.json
 /.codex
 /.cursor/
 /.nova
 /.zed
+

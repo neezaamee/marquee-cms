@@ -26,10 +26,18 @@ class VendorSale extends Model
         'quantity',
         'unit',
         'sale_amount',
+        'customer_advance_amount',
+        'customer_paid_amount',
+        'customer_remaining_amount',
         'commission_type',
         'commission_rate',
         'commission_amount',
         'vendor_net_amount',
+        'advance_amount',
+        'paid_amount',
+        'remaining_amount',
+        'payment_status',
+        'include_in_invoice',
         'status', // draft, confirmed, settled, cancelled
         'override_reason',
         'override_by',
@@ -42,9 +50,16 @@ class VendorSale extends Model
         'sale_date' => 'date',
         'quantity' => 'decimal:2',
         'sale_amount' => 'decimal:2',
+        'customer_advance_amount' => 'decimal:2',
+        'customer_paid_amount' => 'decimal:2',
+        'customer_remaining_amount' => 'decimal:2',
         'commission_rate' => 'decimal:2',
         'commission_amount' => 'decimal:2',
         'vendor_net_amount' => 'decimal:2',
+        'advance_amount' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
+        'remaining_amount' => 'decimal:2',
+        'include_in_invoice' => 'boolean',
     ];
 
     /**
@@ -117,5 +132,70 @@ class VendorSale extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * Get ledger transactions associated with this sale.
+     */
+    public function ledgers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(VendorLedger::class, 'vendor_sale_id');
+    }
+
+    /**
+     * Get user who created this vendor sale record.
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get customer payments recorded specifically for this vendor service.
+     */
+    public function customerPayments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(BookingPayment::class, 'vendor_sale_id')->orderBy('payment_date', 'asc');
+    }
+
+    /**
+     * Helper: Customer charge amount.
+     */
+    public function getCustomerChargeAttribute(): float
+    {
+        return (float) $this->sale_amount;
+    }
+
+    /**
+     * Helper: Total Customer Advance & Installments Paid.
+     */
+    public function getCustomerPaidAttribute(): float
+    {
+        return (float) ($this->customer_paid_amount > 0 ? $this->customer_paid_amount : $this->customer_advance_amount);
+    }
+
+    /**
+     * Helper: Customer remaining balance to be charged.
+     */
+    public function getCustomerRemainingAttribute(): float
+    {
+        $paid = (float) ($this->customer_paid_amount > 0 ? $this->customer_paid_amount : $this->customer_advance_amount);
+        return max(0.00, (float) $this->sale_amount - $paid);
+    }
+
+    /**
+     * Helper: Vendor cost / payable amount.
+     */
+    public function getVendorCostAttribute(): float
+    {
+        return (float) $this->vendor_net_amount;
+    }
+
+    /**
+     * Helper: Calculated vendor remaining amount.
+     */
+    public function getVendorRemainingAttribute(): float
+    {
+        return max(0.00, (float) $this->vendor_net_amount - (float) $this->paid_amount);
     }
 }

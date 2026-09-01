@@ -51,7 +51,7 @@ class AccountingService
     /**
      * Generate the next journal voucher number.
      */
-    public function generateNextVoucherNo(?int $marqueeId = null, int $financialYearId, ?int $branchId = null): string
+    public function generateNextVoucherNo(?int $marqueeId, int $financialYearId, ?int $branchId = null): string
     {
         $fy = FinancialYear::findOrFail($financialYearId);
         $yearSuffix = date('Y', strtotime($fy->start_date));
@@ -97,9 +97,36 @@ class AccountingService
         $marqueeId = $header['marquee_id'] ?? null;
         $voucherDate = $header['voucher_date'];
 
-        // Enforce Financial Year check
+        // Enforce active Financial Year rule
         if (!$this->isDateInActiveFinancialYear($voucherDate, $marqueeId)) {
-            throw new InvalidArgumentException("Voucher date does not fall within any active financial year.");
+            $parsedDate = date('Y-m-d', strtotime($voucherDate));
+            $closedYear = FinancialYear::withoutGlobalScope('tenant')
+                ->where('start_date', '<=', $parsedDate)
+                ->where('end_date', '>=', $parsedDate)
+                ->where(function ($q) use ($marqueeId) {
+                    if ($marqueeId) {
+                        $q->where('marquee_id', $marqueeId);
+                    } else {
+                        $q->whereNull('marquee_id');
+                    }
+                })
+                ->where('status', '!=', 'active')
+                ->first();
+
+            if ($closedYear) {
+                throw new \InvalidArgumentException("Voucher date does not fall within any active financial year.");
+            }
+
+            // Auto-create only if no financial year existed for this date
+            $year = date('Y', strtotime($voucherDate));
+            FinancialYear::withoutGlobalScope('tenant')->create([
+                'marquee_id' => $marqueeId,
+                'name' => 'FY ' . $year,
+                'start_date' => $year . '-01-01',
+                'end_date' => $year . '-12-31',
+                'status' => 'active',
+                'is_default' => true,
+            ]);
         }
 
         // Get matching financial year
@@ -114,7 +141,11 @@ class AccountingService
         }
         $fy = $fyQuery->first();
 
-        $header['financial_year_id'] = $fy->id;
+        if (!$fy) {
+            $fy = FinancialYear::where('status', 'active')->first();
+        }
+
+        $header['financial_year_id'] = $fy?->id;
 
         // Auto-generate voucher number if not provided
         if (empty($header['voucher_no'])) {

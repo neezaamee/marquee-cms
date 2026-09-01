@@ -10,6 +10,7 @@ class VendorLedgerView extends Component
 {
     public ?Vendor $vendor = null;
     public $filterVendorId = '';
+    public $filterBookingId = '';
     public $dateFrom = '';
     public $dateTo = '';
 
@@ -21,6 +22,12 @@ class VendorLedgerView extends Component
         $this->vendor = $vendor;
         if ($vendor) {
             $this->filterVendorId = $vendor->id;
+        } elseif (request()->has('filterVendorId')) {
+            $this->filterVendorId = (int) request()->query('filterVendorId');
+        }
+
+        if (request()->has('booking_id')) {
+            $this->filterBookingId = (int) request()->query('booking_id');
         }
     }
 
@@ -34,6 +41,10 @@ class VendorLedgerView extends Component
             $query->where('vendor_id', $this->vendor->id);
         } elseif (!empty($this->filterVendorId)) {
             $query->where('vendor_id', $this->filterVendorId);
+        }
+
+        if (!empty($this->filterBookingId)) {
+            $query->where('booking_id', $this->filterBookingId);
         }
 
         if (!empty($this->dateFrom)) {

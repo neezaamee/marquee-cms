@@ -441,7 +441,7 @@
                                     <div class="fs-11 font-monospace fw-bold text-{{ $balance > 0 ? 'danger' : 'success' }}">
                                         Bal: Rs. {{ number_format($balance, 0) }}
                                     </div>
-                                    <div class="mt-1">
+                                    <div class="mt-1 d-flex flex-wrap gap-1">
                                         @php
                                             $paymentColors = [
                                                 'Unpaid' => 'danger',
@@ -450,45 +450,73 @@
                                                 'Refunded' => 'secondary'
                                             ];
                                             $pc = $paymentColors[$booking->payment_status] ?? 'secondary';
+                                            
+                                            $finColors = [
+                                                'Pending' => 'secondary',
+                                                'Partially Paid' => 'warning',
+                                                'Fully Paid' => 'info',
+                                                'Settled' => 'success',
+                                                'Refunded' => 'dark',
+                                                'Cancelled' => 'danger'
+                                            ];
+                                            $fc = $finColors[$booking->financial_status] ?? 'secondary';
                                         @endphp
                                         <span class="badge badge-subtle-{{ $pc }} fs-12">{{ $booking->payment_status }}</span>
+                                        @if($booking->financial_status && $booking->financial_status !== 'Pending')
+                                            <span class="badge badge-subtle-{{ $fc }} fs-12">{{ $booking->financial_status }}</span>
+                                        @endif
                                     </div>
                                 </td>
 
                                 <!-- Actions -->
                                 <td class="align-middle text-end px-3">
-                                    <div class="dropdown font-sans-serif d-inline-block">
-                                        <button class="btn btn-link text-600 dropdown-toggle dropdown-caret-none transition-none btn-sm" type="button" id="booking-actions-{{ $booking->id }}" data-bs-toggle="dropdown" data-boundary="viewport" aria-haspopup="true" aria-expanded="false">
-                                            <span class="fas fa-ellipsis-h fs-10"></span>
-                                        </button>
-                                        <div class="dropdown-menu dropdown-menu-end border py-0" aria-labelledby="booking-actions-{{ $booking->id }}">
-                                            <div class="bg-white dark__bg-1000 py-2 text-start">
-                                                <a class="dropdown-item" href="{{ route('bookings.show', $booking->id) }}">
-                                                    <span class="text-info fas fa-eye me-2"></span>View Details
-                                                </a>
-                                                <a class="dropdown-item" href="{{ route('bookings.slip', $booking->id) }}" target="_blank">
-                                                    <span class="text-success fas fa-print me-2"></span>Print Slip
-                                                </a>
-                                                <a class="dropdown-item" href="{{ route('bookings.kitchen-slip', ['booking' => $booking->id, 'lang' => 'bilingual']) }}" target="_blank">
-                                                    <span class="text-warning fas fa-utensils me-2"></span>Kitchen Slip
-                                                </a>
+                                    <div class="d-inline-flex align-items-center">
+                                        @if(!$booking->trashed())
+                                            <button wire:click="openPaymentModal({{ $booking->id }})" class="btn btn-falcon-primary btn-xs me-1" type="button" title="Quick Payment / Collection">
+                                                <span class="fas fa-hand-holding-usd me-1"></span>Pay
+                                            </button>
+                                        @endif
 
-                                                @if(!$booking->trashed() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings')))
-                                                    @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
-                                                        <a class="dropdown-item" href="{{ route('bookings.edit', $booking->id) }}">
-                                                            <span class="text-primary fas fa-edit me-2"></span>Edit Booking
-                                                        </a>
-                                                    @endif
-                                                @endif
-
-                                                @if(!$booking->trashed() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('cancel_bookings')))
-                                                    @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
-                                                        <div class="dropdown-divider"></div>
-                                                        <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $booking->id }})">
-                                                            <span class="fas fa-ban me-2"></span>Cancel & Delete
+                                        <div class="dropdown font-sans-serif d-inline-block">
+                                            <button class="btn btn-link text-600 dropdown-toggle dropdown-caret-none transition-none btn-sm" type="button" id="booking-actions-{{ $booking->id }}" data-bs-toggle="dropdown" data-boundary="viewport" aria-haspopup="true" aria-expanded="false">
+                                                <span class="fas fa-ellipsis-h fs-10"></span>
+                                            </button>
+                                            <div class="dropdown-menu dropdown-menu-end border py-0" aria-labelledby="booking-actions-{{ $booking->id }}">
+                                                <div class="bg-white dark__bg-1000 py-2 text-start">
+                                                    @if(!$booking->trashed())
+                                                        <button wire:click="openPaymentModal({{ $booking->id }})" class="dropdown-item text-primary fw-semi-bold" type="button">
+                                                            <span class="fas fa-hand-holding-usd me-2 text-primary"></span>Payment / Collection
                                                         </button>
+                                                        <div class="dropdown-divider"></div>
                                                     @endif
-                                                @endif
+
+                                                    <a class="dropdown-item" href="{{ route('bookings.show', $booking->id) }}">
+                                                        <span class="text-info fas fa-eye me-2"></span>View Details
+                                                    </a>
+                                                    <a class="dropdown-item" href="{{ route('bookings.slip', $booking->id) }}" target="_blank">
+                                                        <span class="text-success fas fa-print me-2"></span>Print Slip
+                                                    </a>
+                                                    <a class="dropdown-item" href="{{ route('bookings.kitchen-slip', ['booking' => $booking->id, 'lang' => 'bilingual']) }}" target="_blank">
+                                                        <span class="text-warning fas fa-utensils me-2"></span>Kitchen Slip
+                                                    </a>
+
+                                                    @if(!$booking->trashed() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings')))
+                                                        @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
+                                                            <a class="dropdown-item" href="{{ route('bookings.edit', $booking->id) }}">
+                                                                <span class="text-primary fas fa-edit me-2"></span>Edit Booking
+                                                            </a>
+                                                        @endif
+                                                    @endif
+
+                                                    @if(!$booking->trashed() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('cancel_bookings')))
+                                                        @if($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin'])))
+                                                            <div class="dropdown-divider"></div>
+                                                            <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $booking->id }})">
+                                                                <span class="fas fa-ban me-2"></span>Cancel & Delete
+                                                            </button>
+                                                        @endif
+                                                    @endif
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -517,6 +545,176 @@
             </div>
         @endif
     </div>
+
+    <!-- Quick Payment / Collection Modal -->
+    @if($showPaymentModal && $paymentBooking)
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.55); z-index: 1055;" role="dialog" aria-modal="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-primary text-white py-3">
+                        <div class="d-flex align-items-center">
+                            <span class="fas fa-hand-holding-usd fs-2 me-2"></span>
+                            <div>
+                                <h5 class="modal-title mb-0 text-white fw-bold">Record Payment / Collection</h5>
+                                <span class="fs-11 text-white-50">Booking #{{ $paymentBooking->booking_number }} &bull; {{ $paymentBooking->customer->full_name ?? 'Walk-in' }}</span>
+                            </div>
+                        </div>
+                        <button wire:click="closePaymentModal" class="btn-close btn-close-white" type="button" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body p-4">
+                        @if($errors->has('paymentSubmission'))
+                            <div class="alert alert-danger border-2 d-flex align-items-center mb-3" role="alert">
+                                <span class="fas fa-exclamation-circle me-2 fs-6"></span>
+                                <div class="flex-1">{{ $errors->first('paymentSubmission') }}</div>
+                            </div>
+                        @endif
+
+                        <!-- Financial Overview Cards -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-6 col-md-3">
+                                <div class="bg-light p-2.5 rounded border text-center">
+                                    <span class="fs-12 text-600 d-block text-uppercase fw-semi-bold">Total Bill</span>
+                                    <span class="fs-9 fw-bold text-dark font-monospace">Rs. {{ number_format($paymentBooking->effective_invoice_amount, 2) }}</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="bg-subtle-primary p-2.5 rounded border border-primary-subtle text-center">
+                                    <span class="fs-12 text-primary d-block text-uppercase fw-semi-bold">Advance Held</span>
+                                    <span class="fs-9 fw-bold text-primary font-monospace">Rs. {{ number_format($paymentBooking->advance_received, 2) }}</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="bg-subtle-success p-2.5 rounded border border-success-subtle text-center">
+                                    <span class="fs-12 text-success d-block text-uppercase fw-semi-bold">Total Paid</span>
+                                    <span class="fs-9 fw-bold text-success font-monospace">Rs. {{ number_format($paymentBooking->total_paid, 2) }}</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                @php
+                                    $rem = max(0.00, (float)$paymentBooking->effective_invoice_amount - (float)$paymentBooking->total_paid);
+                                @endphp
+                                <div class="bg-subtle-danger p-2.5 rounded border border-danger-subtle text-center">
+                                    <span class="fs-12 text-danger d-block text-uppercase fw-semi-bold">Outstanding</span>
+                                    <span class="fs-9 fw-bold text-danger font-monospace">Rs. {{ number_format($rem, 2) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Form -->
+                        <form wire:submit.prevent="postPayment">
+                            <div class="row g-3">
+                                <!-- Payment Type Selection -->
+                                <div class="col-12">
+                                    <label class="form-label fs-11 fw-bold text-700 mb-1">Transaction Nature / Type <span class="text-danger">*</span></label>
+                                    <div class="btn-group w-100" role="group">
+                                        @if(!$paymentBooking->is_revenue_recognized)
+                                            <button wire:click="setPaymentType('advance')" type="button" class="btn btn-sm {{ $paymentType === 'advance' ? 'btn-primary fw-bold' : 'btn-outline-primary' }}">
+                                                <i class="fas fa-shield-alt me-1"></i>Advance Payment (Contract Liability)
+                                            </button>
+                                        @else
+                                            <button wire:click="setPaymentType('receivable_payment')" type="button" class="btn btn-sm {{ $paymentType === 'receivable_payment' ? 'btn-primary fw-bold' : 'btn-outline-primary' }}">
+                                                <i class="fas fa-file-invoice-dollar me-1"></i>Receivable Settlement
+                                            </button>
+                                        @endif
+                                        <button wire:click="setPaymentType('refund')" type="button" class="btn btn-sm {{ $paymentType === 'refund' ? 'btn-danger fw-bold' : 'btn-outline-danger' }}">
+                                            <i class="fas fa-undo me-1"></i>Refund Disbursement
+                                        </button>
+                                    </div>
+                                    <div class="fs-12 text-500 mt-1">
+                                        @if($paymentType === 'advance')
+                                            <span class="text-primary"><i class="fas fa-info-circle me-1"></i>Credited to <strong>2003: Customer Advances (Liability)</strong>. Not recognized as income until event completion.</span>
+                                        @elseif($paymentType === 'receivable_payment')
+                                            <span class="text-success"><i class="fas fa-info-circle me-1"></i>Credited to <strong>1003: Accounts Receivable</strong> to clear outstanding balance on completed event.</span>
+                                        @else
+                                            <span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Debited to <strong>2003: Customer Advances</strong> & disbursed from selected Cash/Bank account.</span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <!-- Payment Amount -->
+                                <div class="col-md-6">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <label class="form-label fs-11 fw-bold text-700 mb-0">Amount (PKR) <span class="text-danger">*</span></label>
+                                        <button wire:click="fillFullRemaining" type="button" class="btn btn-link btn-xs p-0 text-primary fs-12 text-decoration-none">
+                                            Fill Balance (Rs. {{ number_format($paymentType === 'refund' ? $paymentBooking->advance_received : $rem, 0) }})
+                                        </button>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-text font-monospace fw-bold fs-11">Rs.</span>
+                                        <input wire:model="paymentAmount" type="number" step="0.01" min="1" class="form-control font-monospace fw-bold fs-10 @error('paymentAmount') is-invalid @enderror" placeholder="0.00" />
+                                    </div>
+                                    @error('paymentAmount') <span class="text-danger fs-11 d-block mt-1">{{ $message }}</span> @enderror
+                                </div>
+
+                                <!-- Payment Account (Cash / Bank) -->
+                                <div class="col-md-6">
+                                    <label class="form-label fs-11 fw-bold text-700 mb-1">Deposit / Disbursement Account <span class="text-danger">*</span></label>
+                                    <select wire:model="paymentAccountId" class="form-select @error('paymentAccountId') is-invalid @enderror">
+                                        <option value="">-- Default Cash in Hand (1001) --</option>
+                                        @foreach($cashBankAccounts as $cb)
+                                            <option value="{{ $cb->account_id }}">
+                                                [{{ strtoupper($cb->type) }}] {{ $cb->account->name ?? ($cb->bank_name . ' - ' . $cb->account_number) }} (COA: {{ $cb->account->account_code ?? 'Asset' }})
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('paymentAccountId') <span class="text-danger fs-11 d-block mt-1">{{ $message }}</span> @enderror
+                                </div>
+
+                                <!-- Payment Date -->
+                                <div class="col-md-4">
+                                    <label class="form-label fs-11 fw-bold text-700 mb-1">Payment Date <span class="text-danger">*</span></label>
+                                    <input wire:model="paymentDate" type="date" class="form-control @error('paymentDate') is-invalid @enderror" />
+                                    @error('paymentDate') <span class="text-danger fs-11 d-block mt-1">{{ $message }}</span> @enderror
+                                </div>
+
+                                <!-- Payment Method -->
+                                <div class="col-md-4">
+                                    <label class="form-label fs-11 fw-bold text-700 mb-1">Payment Method <span class="text-danger">*</span></label>
+                                    <select wire:model="paymentMethod" class="form-select @error('paymentMethod') is-invalid @enderror">
+                                        <option value="Cash">Cash in Hand</option>
+                                        <option value="Bank Transfer">Bank Transfer / Raast</option>
+                                        <option value="Cheque">Cheque</option>
+                                        <option value="Online / Card">Credit / Debit Card</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                    @error('paymentMethod') <span class="text-danger fs-11 d-block mt-1">{{ $message }}</span> @enderror
+                                </div>
+
+                                <!-- Reference / Transaction No -->
+                                <div class="col-md-4">
+                                    <label class="form-label fs-11 fw-bold text-700 mb-1">Transaction Ref # / Cheque #</label>
+                                    <input wire:model="transactionReference" type="text" class="form-control" placeholder="e.g. TXN-98421" />
+                                    @error('transactionReference') <span class="text-danger fs-11 d-block mt-1">{{ $message }}</span> @enderror
+                                </div>
+
+                                <!-- Remarks / Notes -->
+                                <div class="col-12">
+                                    <label class="form-label fs-11 fw-bold text-700 mb-1">Payment Remarks / Ledger Narration</label>
+                                    <input wire:model="paymentNotes" type="text" class="form-control" placeholder="e.g. Booking advance installment collected via Cash receipt" />
+                                    @error('paymentNotes') <span class="text-danger fs-11 d-block mt-1">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+
+                            <div class="modal-footer px-0 pb-0 pt-3 mt-3 border-top d-flex justify-content-between">
+                                <button wire:click="closePaymentModal" type="button" class="btn btn-falcon-default btn-sm">
+                                    <i class="fas fa-times me-1"></i>Cancel
+                                </button>
+                                <button type="submit" class="btn {{ $paymentType === 'refund' ? 'btn-danger' : 'btn-success' }} btn-sm" wire:loading.attr="disabled">
+                                    <span wire:loading.remove wire:target="postPayment">
+                                        <i class="fas fa-check-circle me-1"></i>{{ $paymentType === 'refund' ? 'Post Refund Voucher' : 'Post Payment & Generate Voucher' }}
+                                    </span>
+                                    <span wire:loading wire:target="postPayment">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>Posting Transaction...
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <!-- Cancel Confirmation Modal -->
     <div wire:ignore.self class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">

@@ -59,7 +59,25 @@
         <div class="row justify-content-center">
           <div class="col-lg-10 col-xl-9">
             <div class="d-flex align-items-center justify-content-center mb-4">
-              <img class="me-2" src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="45" />
+              @php
+                $activeMarquee = null;
+                if (auth()->check()) {
+                    $activeMarqueeId = auth()->user()->getActiveMarqueeId();
+                    if ($activeMarqueeId) {
+                        $activeMarquee = \App\Models\Marquee::find($activeMarqueeId);
+                    }
+                }
+              @endphp
+              @if($activeMarquee && $activeMarquee->logo)
+                @php
+                  $logoUrl = Str::startsWith($activeMarquee->logo, ['http://', 'https://']) 
+                    ? $activeMarquee->logo 
+                    : (Str::startsWith($activeMarquee->logo, 'storage/') ? asset($activeMarquee->logo) : asset('storage/' . $activeMarquee->logo));
+                @endphp
+                <img class="me-2" src="{{ $logoUrl }}" alt="Logo" width="45" style="object-fit: contain; max-height: 45px;" />
+              @else
+                <img class="me-2" src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="45" />
+              @endif
               <span class="font-sans-serif text-dark fw-bolder fs-3">marquee<span class="text-primary fw-semibold">cms</span></span>
             </div>
             

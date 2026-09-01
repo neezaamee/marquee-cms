@@ -63,6 +63,13 @@ class HallList extends Component
                 return;
             }
 
+            // Check if hall is referenced in bookings
+            if (\App\Models\Booking::where('hall_id', $hall->id)->exists()) {
+                session()->flash('error', 'Cannot delete this hall because it has historical or active event bookings. Set its status to Inactive instead.');
+                $this->confirmingDeletionId = null;
+                return;
+            }
+
             $hall->delete();
             $this->confirmingDeletionId = null;
             session()->flash('success', 'Hall deleted successfully.');
@@ -96,7 +103,7 @@ class HallList extends Component
         }
 
         // Branch filter: if user belongs to specific branch, force scope. Otherwise use select filter
-        if (!$user->isSuperAdmin() && $user->branch_id) {
+        if (!$user->isSuperAdmin() && $user->branch_id && !$user->isBusinessOwner()) {
             $query->where('branch_id', $user->branch_id);
             $this->filterBranch = $user->branch_id; // Sync filter select value
         } elseif (!empty($this->filterBranch)) {

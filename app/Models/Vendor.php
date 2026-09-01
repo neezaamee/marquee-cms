@@ -157,4 +157,24 @@ class Vendor extends Model
     {
         return (float) $this->sales()->whereIn('status', ['confirmed', 'settled'])->sum('commission_amount');
     }
+
+    public function setPhoneAttribute($value)
+    {
+        $this->attributes['phone'] = \App\Services\PhoneNumberService::normalize($value);
+    }
+
+    public function getPhoneAttribute($value)
+    {
+        return \App\Services\PhoneNumberService::formatForDisplay($value);
+    }
+
+    public function setAlternatePhoneAttribute($value)
+    {
+        $this->attributes['alternate_phone'] = \App\Services\PhoneNumberService::normalize($value);
+    }
+
+    public function getAlternatePhoneAttribute($value)
+    {
+        return \App\Services\PhoneNumberService::formatForDisplay($value);
+    }
 }

@@ -79,6 +79,78 @@
   </div>
 </div>
 
+<!-- Halls and Venues List -->
+<div class="card mb-3">
+  <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h5 class="mb-0">Halls & Venues ({{ $branch->halls->count() }})</h5>
+    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('create_halls'))
+      <a class="btn btn-falcon-primary btn-sm" href="{{ route('halls.create', ['branch_id' => $branch->id]) }}">
+        <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add Hall to this Branch
+      </a>
+    @endif
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive scrollbar">
+      <table class="table table-sm table-striped fs-10 mb-0">
+        <thead class="bg-200 text-900">
+          <tr>
+            <th class="px-3">Hall Name</th>
+            <th>Hall Code</th>
+            <th>Hall Type</th>
+            <th>Capacity</th>
+            <th>Default Rent (PKR)</th>
+            <th class="text-center">Status</th>
+            <th class="text-end px-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse($branch->halls as $hall)
+            <tr>
+              <td class="px-3 fw-semi-bold">
+                <a href="{{ route('halls.show', $hall->id) }}">{{ $hall->hall_name }}</a>
+              </td>
+              <td><code>{{ $hall->hall_code }}</code></td>
+              <td><span class="badge badge-subtle-info">{{ $hall->hall_type }}</span></td>
+              <td>{{ number_format($hall->capacity) }} Guests</td>
+              <td class="font-monospace">Rs. {{ number_format($hall->default_booking_price, 2) }}</td>
+              <td class="text-center">
+                <span class="badge badge-subtle-{{ $hall->status === 'active' ? 'success' : 'secondary' }} rounded-pill">
+                  {{ ucfirst($hall->status) }}
+                </span>
+              </td>
+              <td class="text-end px-3">
+                <div class="d-flex justify-content-end gap-2">
+                  <a class="btn btn-link p-0" href="{{ route('halls.show', $hall->id) }}" title="View">
+                    <span class="text-info fas fa-eye"></span>
+                  </a>
+                  @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_halls'))
+                    <a class="btn btn-link p-0" href="{{ route('halls.edit', $hall->id) }}" title="Edit">
+                      <span class="text-primary fas fa-edit"></span>
+                    </a>
+                  @endif
+                </div>
+              </td>
+            </tr>
+          @empty
+            <tr>
+              <td colspan="7" class="text-center py-4 text-muted">
+                No halls registered in this branch yet.
+                @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('create_halls'))
+                  <div class="mt-2">
+                    <a class="btn btn-sm btn-primary" href="{{ route('halls.create', ['branch_id' => $branch->id]) }}">
+                      <span class="fas fa-plus me-1"></span> Add First Hall
+                    </a>
+                  </div>
+                @endif
+              </td>
+            </tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- Users List -->
 <div class="card mb-3">
   <div class="card-header bg-light">

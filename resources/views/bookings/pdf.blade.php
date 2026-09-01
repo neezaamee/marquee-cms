@@ -217,23 +217,39 @@
         $addonsList = $isFinal ? $booking->finalBill->extraServices : $booking->extraServices;
         $totalPaid = $booking->payments->sum('amount');
         $balanceDue = max(0, $billing->grand_total - $totalPaid);
+        $marquee = $booking->effective_marquee ?? $booking->marquee ?? null;
+        $branch = $booking->effective_branch ?? $booking->branch ?? ($booking->hall?->branch ?? null);
     @endphp
     <div class="invoice-box">
         <!-- Header Info -->
         <table class="header-table">
             <tr>
                 <td>
-                    <div class="title-brand">{{ $booking->marquee->name ?? 'Royal Event Marquee' }}</div>
-                    <div style="font-size: 10px; color: #666;">
-                        {{ $booking->marquee->address ?? 'Main Boulevard' }}, {{ $booking->marquee->city ?? 'Lahore' }}
-                        @if($booking->marquee->phone) | Ph: {{ $booking->marquee->phone }} @endif
-                    </div>
+                    <div class="title-brand">{{ $marquee->name ?? 'Royal Event Marquee' }}</div>
+                    @if($branch)
+                        <div style="font-size: 11px; font-weight: bold; color: #444; text-transform: uppercase; margin-top: 2px;">
+                            {{ $branch->name }} @if($branch->is_head_office) (Head Office) @endif
+                        </div>
+                        <div style="font-size: 10px; color: #666; margin-top: 2px;">
+                            {{ $branch->address ? $branch->address . ', ' : '' }}{{ $branch->city ?? ($marquee->city ?? '') }}{{ $branch->province ? ', ' . $branch->province : '' }}
+                            @if($branch->phone || ($marquee->phone ?? null)) | Ph: {{ $branch->phone ?: $marquee->phone }} @endif
+                            @if($branch->branch_manager) | Mgr: {{ $branch->branch_manager }} @endif
+                        </div>
+                    @else
+                        <div style="font-size: 10px; color: #666; margin-top: 2px;">
+                            {{ $marquee->address ?? 'Main Boulevard' }}, {{ $marquee->city ?? 'Lahore' }}
+                            @if($marquee->phone ?? null) | Ph: {{ $marquee->phone }} @endif
+                        </div>
+                    @endif
                 </td>
                 <td>
                     <div class="title-invoice">{{ $isFinal ? 'Final Invoice' : 'Invoice' }}</div>
                     <div class="ref-text">
                         <strong>Invoice Ref:</strong> #INV-{{ str_pad($booking->id, 6, '0', STR_PAD_LEFT) }}<br>
                         <strong>Booking Number:</strong> #{{ $booking->booking_number }}<br>
+                        @if($branch)
+                            <strong>Branch:</strong> {{ $branch->name }}<br>
+                        @endif
                         <strong>Invoice Type:</strong> {{ $isFinal ? 'Actual Event-Day' : 'Contract Original' }}<br>
                         <strong>Date Generated:</strong> {{ now()->format('Y-m-d') }}
                     </div>
@@ -272,6 +288,12 @@
                 <td>
                     <div class="section-title">Event details</div>
                     <table class="meta-table">
+                        @if($branch)
+                            <tr>
+                                <td class="meta-label">Branch:</td>
+                                <td class="meta-value">{{ $branch->name }}</td>
+                            </tr>
+                        @endif
                         <tr>
                             <td class="meta-label">Event Date:</td>
                             <td class="meta-value">{{ $booking->booking_date->format('l, F d, Y') }}</td>
@@ -355,6 +377,46 @@
                         <td class="text-right font-monospace">Rs. {{ number_format($billing->extra_charges, 2) }}</td>
                     </tr>
                 @endif
+                @if($booking->vendorSales && $booking->vendorSales->isNotEmpty())
+                    @foreach($booking->vendorSales as $vSale)
+                        @if($vSale->status !== 'cancelled')
+                            @php
+                                $custCharge = (float) $vSale->sale_amount;
+                                $custAdv = (float) $vSale->customer_paid;
+                                $custRem = (float) $vSale->customer_remaining;
+                            @endphp
+                            <tr>
+                                <td class="text-center">{{ $rowNo++ }}</td>
+                                <td>
+                                    <strong>{{ $vSale->service->service_name ?? 'Specialized Service' }}</strong>
+                                    <div style="font-size: 9px; color: #777;">
+                                        Partner: {{ $vSale->vendor->name ?? 'Service Provider' }} ({{ $vSale->vendor->vendor_type ?? 'Vendor' }})
+                                        @if(!$vSale->include_in_invoice)
+                                            — <span style="color: #856404; font-weight: bold;">Direct Payment by Customer (Excluded from Invoice Total)</span>
+                                        @elseif($custAdv > 0)
+                                            — <span style="color: #28a745; font-weight: bold;">Advance Paid: Rs. {{ number_format($custAdv, 2) }}</span> (Net Due: Rs. {{ number_format($custRem, 2) }})
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="text-right font-monospace">
+                                    @if($vSale->include_in_invoice)
+                                        Rs. {{ number_format($custCharge, 2) }}
+                                    @else
+                                        <span style="color: #888;">(Direct Pay)</span>
+                                    @endif
+                                </td>
+                                <td class="text-center">{{ (int)$vSale->quantity ?: 1 }}</td>
+                                <td class="text-right font-monospace">
+                                    @if($vSale->include_in_invoice)
+                                        Rs. {{ number_format($custCharge, 2) }}
+                                    @else
+                                        <span style="color: #888;">Rs. 0.00</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endif
+                    @endforeach
+                @endif
             </tbody>
         </table>
 
@@ -396,6 +458,15 @@
                             <tr>
                                 <td class="summary-label">Add-ons Subtotal:</td>
                                 <td class="summary-value">Rs. {{ number_format($billing->extra_charges, 2) }}</td>
+                            </tr>
+                        @endif
+                        @php
+                            $invoicedVendorSalesSum = $booking->vendorSales->where('status', '!=', 'cancelled')->where('include_in_invoice', true)->sum('sale_amount');
+                        @endphp
+                        @if($invoicedVendorSalesSum > 0)
+                            <tr>
+                                <td class="summary-label">Service Providers (Billed):</td>
+                                <td class="summary-value">Rs. {{ number_format($invoicedVendorSalesSum, 2) }}</td>
                             </tr>
                         @endif
                         @if($billing->discount_amount > 0)

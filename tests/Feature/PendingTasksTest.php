@@ -137,6 +137,8 @@ class PendingTasksTest extends TestCase
 
         // 1. Create an attendance record
         $attendance = Attendance::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
             'employee_id' => $this->employee->id,
             'date' => '2026-08-06',
             'check_in' => '09:00:00',

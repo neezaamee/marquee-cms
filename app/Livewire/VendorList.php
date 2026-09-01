@@ -26,7 +26,7 @@ class VendorList extends Component
         'name' => 'required|string|max:255',
         'vendor_type' => 'required|string',
         'contact_person' => 'nullable|string|max:255',
-        'phone' => 'required|string|max:20',
+        'phone' => ['required', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
         'email' => 'nullable|email|max:255',
     ];
 

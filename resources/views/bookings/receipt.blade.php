@@ -21,22 +21,47 @@
         </div>
     </div>
 
+    @php
+        $marquee = $booking->effective_marquee ?? $booking->marquee ?? (auth()->user()->marquee ?? null);
+        $branch = $booking->effective_branch ?? $booking->branch ?? ($booking->hall?->branch ?? null);
+    @endphp
     <!-- Printable Area -->
     <div class="card bg-white shadow-none border p-4 p-md-5" id="printable-receipt">
         <div class="row align-items-center mb-4">
             <!-- Brand Info -->
             <div class="col-sm-6 text-start">
-                <h3 class="text-primary fw-black mb-1">MARQUEE CMS</h3>
-                <h6 class="text-secondary fw-bold">{{ auth()->user()->marquee->name ?? 'Royal Event Marquee' }}</h6>
-                <div class="fs-12 text-600">
-                    {{ auth()->user()->marquee->address ?? 'Main Boulevard, Gulberg' }}, {{ auth()->user()->marquee->city ?? 'Lahore' }}
-                </div>
+                <h3 class="text-primary fw-black mb-1">{{ $marquee->name ?? 'MARQUEE CMS' }}</h3>
+                @if($branch)
+                    <div class="text-800 fw-bold fs-12 text-uppercase text-secondary mb-1">
+                        <span class="fas fa-building me-1 text-primary"></span>{{ $branch->name }}
+                        @if($branch->is_head_office)
+                            <span class="badge bg-primary-subtle text-primary ms-1 fs-12">Head Office</span>
+                        @endif
+                    </div>
+                    <div class="fs-12 text-600">
+                        <span class="fas fa-map-marker-alt me-1"></span>{{ $branch->address ? $branch->address . ', ' : '' }}{{ $branch->city ?? ($marquee->city ?? '') }}{{ $branch->province ? ', ' . $branch->province : '' }}
+                        @if($branch->phone || ($marquee->phone ?? null))
+                            | <span class="fas fa-phone me-1"></span>{{ $branch->phone ?: $marquee->phone }}
+                        @endif
+                        @if($branch->branch_manager)
+                            | <strong>Manager:</strong> {{ $branch->branch_manager }}
+                        @endif
+                    </div>
+                @else
+                    <div class="fs-12 text-600">
+                        {{ $marquee->address ?? 'Main Boulevard, Gulberg' }}, {{ $marquee->city ?? 'Lahore' }}
+                        @if($marquee->phone ?? null) | <span class="fas fa-phone me-1"></span>{{ $marquee->phone }} @endif
+                    </div>
+                @endif
             </div>
             <!-- Receipt Voucher Reference -->
             <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
                 <h4 class="text-success fw-bold mb-1">PAYMENT RECEIPT</h4>
                 <div class="fs-11 font-monospace text-secondary">RECEIPT VOUCHER: #REC-{{ str_pad($payment->id, 6, '0', STR_PAD_LEFT) }}</div>
                 <div class="fs-11 font-monospace text-secondary">BOOKING REFERENCE: #{{ $booking->booking_number }}</div>
+                @if($branch)
+                    <div class="fs-12 text-600 font-monospace">Branch: {{ $branch->name }}</div>
+                @endif
             </div>
         </div>
 
@@ -78,6 +103,12 @@
             <div class="col-sm-6">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Booking & Event Details</span>
                 <table class="table table-sm table-borderless fs-11 mb-0">
+                    @if($branch)
+                        <tr>
+                            <td class="text-600 px-0 py-1" style="width: 120px;">Branch:</td>
+                            <td class="text-800 fw-bold px-0 py-1">{{ $branch->name }}</td>
+                        </tr>
+                    @endif
                     <tr>
                         <td class="text-600 px-0 py-1" style="width: 120px;">Booking Hall(s):</td>
                         <td class="text-800 fw-bold px-0 py-1">

@@ -27,14 +27,14 @@
                     <!-- Branch Selector -->
                     <div class="col-md-6">
                         <label class="form-label" for="branch_id">Select Branch *</label>
-                        <select wire:model.live="branch_id" class="form-select @error('branch_id') is-invalid @enderror" id="branch_id" required {{ (auth()->user()->branch_id && !auth()->user()->isSuperAdmin()) ? 'disabled' : '' }}>
+                        <select wire:model.live="branch_id" class="form-select @error('branch_id') is-invalid @enderror" id="branch_id" required {{ (auth()->user()->branch_id && !auth()->user()->isBusinessOwner() && !auth()->user()->isSuperAdmin()) ? 'disabled' : '' }}>
                             <option value="">Select a branch...</option>
                             @foreach($branches as $branch)
                                 <option value="{{ $branch->id }}">{{ $branch->name }} ({{ $branch->city }})</option>
                             @endforeach
                         </select>
                         @error('branch_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        @if(auth()->user()->branch_id && !auth()->user()->isSuperAdmin())
+                        @if(auth()->user()->branch_id && !auth()->user()->isBusinessOwner() && !auth()->user()->isSuperAdmin())
                             <small class="text-muted">Locked to your assigned branch.</small>
                         @endif
                     </div>

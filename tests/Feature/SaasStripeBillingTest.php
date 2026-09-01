@@ -548,7 +548,8 @@ class SaasStripeBillingTest extends TestCase
         // Assert user was created and phone was formatted to 0092...
         $user = User::where('email', 'owner_phone@test.com')->first();
         $this->assertNotNull($user);
-        $this->assertEquals('00923218611353', $user->phone);
+        $this->assertEquals('0321-8611353', $user->phone);
+        $this->assertEquals('03218611353', $user->getRawOriginal('phone'));
 
         // 2. Test uniqueness - trying to create another user with same phone fails
         Livewire::test(\App\Livewire\SuperAdmin\BusinessOwnerForm::class)

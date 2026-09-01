@@ -62,6 +62,13 @@ class EventTypeList extends Component
                 return;
             }
 
+            // Prevent deletion if event type is used in bookings
+            if (\App\Models\Booking::where('event_type_id', $eventType->id)->exists()) {
+                session()->flash('error', 'Cannot delete this event type because it is linked to existing bookings. Deactivate it instead.');
+                $this->confirmingDeletionId = null;
+                return;
+            }
+
             $eventType->delete();
             $this->confirmingDeletionId = null;
             session()->flash('success', 'Event type deleted successfully.');

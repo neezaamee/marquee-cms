@@ -19,38 +19,50 @@
 
     <!-- Main KPIs Row -->
     <div class="row g-3 mb-3">
-        <!-- Direct Event Revenue -->
-        <div class="col-md-4">
-            <div class="card overflow-hidden h-100">
+        <!-- Recognized Earned Revenue -->
+        <div class="col-md-3">
+            <div class="card overflow-hidden h-100 border border-success-subtle">
                 <div class="bg-holder bg-card" style="background-image:url({{ asset('assets/img/icons/spot-illustrations/corner-1.png') }});"></div>
                 <div class="card-body position-relative">
-                    <h6 class="text-uppercase text-600 fw-bold fs-11 text-success">Direct Event Revenue</h6>
-                    <div class="display-4 fs-4 mb-1 fw-black text-success font-monospace">Rs. {{ number_format($totalDirectRevenue, 2) }}</div>
-                    <p class="fs-12 text-500 mb-0">Event Rental + Catering + Custom Addons (Excludes Deposits)</p>
+                    <h6 class="text-uppercase text-600 fw-bold fs-11 text-success">Recognized Revenue</h6>
+                    <div class="display-4 fs-5 mb-1 fw-black text-success font-monospace">Rs. {{ number_format($totalRecognizedRevenue, 2) }}</div>
+                    <p class="fs-11 text-500 mb-0">Earned from completed events (General Ledger P&L)</p>
                 </div>
             </div>
         </div>
 
-        <!-- Payments Collected -->
-        <div class="col-md-4">
-            <div class="card overflow-hidden h-100">
+        <!-- Customer Advance Liability -->
+        <div class="col-md-3">
+            <div class="card overflow-hidden h-100 border border-primary-subtle">
                 <div class="bg-holder bg-card" style="background-image:url({{ asset('assets/img/icons/spot-illustrations/corner-2.png') }});"></div>
                 <div class="card-body position-relative">
-                    <h6 class="text-uppercase text-600 fw-bold fs-11 text-primary">Total Payments Collected</h6>
-                    <div class="display-4 fs-4 mb-1 fw-black text-primary font-monospace">Rs. {{ number_format($totalPaymentsCollected, 2) }}</div>
-                    <p class="fs-12 text-500 mb-0">Sum of all customer installments & advances received</p>
+                    <h6 class="text-uppercase text-600 fw-bold fs-11 text-primary">Advance Liability (Held)</h6>
+                    <div class="display-4 fs-5 mb-1 fw-black text-primary font-monospace">Rs. {{ number_format($totalAdvanceLiabilityHeld, 2) }}</div>
+                    <p class="fs-11 text-500 mb-0">Unearned advances held prior to event completion</p>
                 </div>
             </div>
         </div>
 
-        <!-- Outstanding Balance -->
-        <div class="col-md-4">
-            <div class="card overflow-hidden h-100">
+        <!-- Accounts Receivable -->
+        <div class="col-md-3">
+            <div class="card overflow-hidden h-100 border border-warning-subtle">
                 <div class="bg-holder bg-card" style="background-image:url({{ asset('assets/img/icons/spot-illustrations/corner-3.png') }});"></div>
                 <div class="card-body position-relative">
-                    <h6 class="text-uppercase text-600 fw-bold fs-11 text-warning">Outstanding Balance Due</h6>
-                    <div class="display-4 fs-4 mb-1 fw-black text-warning font-monospace">Rs. {{ number_format($totalOutstanding, 2) }}</div>
-                    <p class="fs-12 text-500 mb-0">Total remaining balances to be collected from clients</p>
+                    <h6 class="text-uppercase text-600 fw-bold fs-11 text-warning-emphasis">Accounts Receivable</h6>
+                    <div class="display-4 fs-5 mb-1 fw-black text-warning-emphasis font-monospace">Rs. {{ number_format($totalAccountsReceivable, 2) }}</div>
+                    <p class="fs-11 text-500 mb-0">Unpaid client balance due on completed events</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Net Cash/Bank Collected -->
+        <div class="col-md-3">
+            <div class="card overflow-hidden h-100 border border-info-subtle">
+                <div class="bg-holder bg-card" style="background-image:url({{ asset('assets/img/icons/spot-illustrations/corner-4.png') }});"></div>
+                <div class="card-body position-relative">
+                    <h6 class="text-uppercase text-600 fw-bold fs-11 text-info-emphasis">Net Cash/Bank Collected</h6>
+                    <div class="display-4 fs-5 mb-1 fw-black text-info-emphasis font-monospace">Rs. {{ number_format($totalPaymentsCollected, 2) }}</div>
+                    <p class="fs-11 text-500 mb-0">Total actual liquid funds received into accounts</p>
                 </div>
             </div>
         </div>

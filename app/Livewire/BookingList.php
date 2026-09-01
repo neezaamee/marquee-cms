@@ -39,6 +39,19 @@ class BookingList extends Component
     // Action State
     public $deleteId = null;
 
+    // Quick Payment / Collection Modal State
+    public $showPaymentModal = false;
+    public $paymentBookingId = null;
+    public $paymentBooking = null;
+    public $paymentType = 'advance'; // advance, receivable_payment, refund
+    public $paymentAmount = '';
+    public $paymentAccountId = null;
+    public $paymentDate = '';
+    public $paymentMethod = 'Cash';
+    public $transactionReference = '';
+    public $paymentNotes = '';
+    public $isSubmittingPayment = false;
+
     protected $queryString = [
         'search' => ['except' => ''],
         'filterStatus' => ['except' => ''],
@@ -290,14 +303,18 @@ class BookingList extends Component
         // Apply Search
         if (!empty($this->search)) {
             $searchTerm = '%' . $this->search . '%';
-            $query->where(function ($q) use ($searchTerm) {
+            $cleanDigits = preg_replace('/[^0-9]/', '', $this->search);
+            $query->where(function ($q) use ($searchTerm, $cleanDigits) {
                 $q->where('booking_number', 'like', $searchTerm)
-                  ->orWhereHas('customer', function ($cq) use ($searchTerm) {
+                  ->orWhereHas('customer', function ($cq) use ($searchTerm, $cleanDigits) {
                       $cq->where('full_name', 'like', $searchTerm)
                         ->orWhere('first_name', 'like', $searchTerm)
                         ->orWhere('last_name', 'like', $searchTerm)
-                        ->orWhere('phone_number', 'like', $searchTerm)
                         ->orWhere('customer_code', 'like', $searchTerm);
+
+                      if (!empty($cleanDigits)) {
+                          $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%');
+                      }
                   });
             });
         }
@@ -359,12 +376,19 @@ class BookingList extends Component
             // Re-filter collection or use having
         }
 
+        $cashBankAccounts = \App\Models\CashBankAccount::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where('status', 'active')
+            ->with(['account'])
+            ->get();
+
         return view('livewire.booking-list', [
             'bookings' => $bookings,
             'halls' => $halls,
             'branches' => $branches,
             'eventTypes' => $eventTypes,
             'operators' => $operators,
+            'cashBankAccounts' => $cashBankAccounts,
             'totalBookingsCount' => $totalBookingsCount,
             'confirmedBookingsCount' => $confirmedBookingsCount,
             'tentativeBookingsCount' => $tentativeBookingsCount,
@@ -375,6 +399,185 @@ class BookingList extends Component
             'outstandingPaymentsCount' => $outstandingPaymentsCount,
             'outstandingAmountSum' => $outstandingAmountSum,
         ]);
+    }
+
+    /**
+     * Open the Quick Payment / Collection Modal for a booking.
+     */
+    public function openPaymentModal(int $bookingId)
+    {
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $booking = Booking::with(['customer', 'payments', 'branch', 'hall', 'finalBill'])
+            ->where('marquee_id', $marqueeId)
+            ->findOrFail($bookingId);
+
+        $this->paymentBookingId = $booking->id;
+        $this->paymentBooking = $booking;
+        $this->paymentDate = date('Y-m-d');
+        $this->paymentMethod = 'Cash';
+        $this->paymentNotes = '';
+        $this->transactionReference = '';
+        $this->isSubmittingPayment = false;
+
+        // Auto-select primary Cash account
+        $defaultCashAcc = \App\Models\CashBankAccount::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where('type', 'cash')
+            ->where('status', 'active')
+            ->first();
+        $this->paymentAccountId = $defaultCashAcc?->account_id;
+
+        // Determine smart payment type and amount
+        if ($booking->is_revenue_recognized) {
+            $this->paymentType = 'receivable_payment';
+            $this->paymentAmount = (float) $booking->effective_receivable;
+        } else {
+            $this->paymentType = 'advance';
+            $remainingToPay = max(0.00, (float) $booking->effective_invoice_amount - (float) $booking->total_paid);
+            $this->paymentAmount = $remainingToPay;
+        }
+
+        $this->showPaymentModal = true;
+    }
+
+    /**
+     * Close the Quick Payment Modal.
+     */
+    public function closePaymentModal()
+    {
+        $this->showPaymentModal = false;
+        $this->paymentBookingId = null;
+        $this->paymentBooking = null;
+        $this->paymentAmount = '';
+        $this->paymentNotes = '';
+        $this->transactionReference = '';
+        $this->isSubmittingPayment = false;
+        $this->resetErrorBag();
+    }
+
+    /**
+     * Set payment type (Advance, Receivable Settlement, Refund).
+     */
+    public function setPaymentType(string $type)
+    {
+        if (!in_array($type, ['advance', 'receivable_payment', 'refund'])) {
+            return;
+        }
+        $this->paymentType = $type;
+
+        if (!$this->paymentBooking) {
+            return;
+        }
+
+        if ($type === 'refund') {
+            $this->paymentAmount = (float) $this->paymentBooking->advance_received;
+        } elseif ($type === 'receivable_payment') {
+            $this->paymentAmount = (float) $this->paymentBooking->effective_receivable;
+        } else {
+            $this->paymentAmount = max(0.00, (float) $this->paymentBooking->effective_invoice_amount - (float) $this->paymentBooking->total_paid);
+        }
+    }
+
+    /**
+     * Fill remaining balance into payment amount field.
+     */
+    public function fillFullRemaining()
+    {
+        if (!$this->paymentBooking) {
+            return;
+        }
+
+        if ($this->paymentType === 'refund') {
+            $this->paymentAmount = (float) $this->paymentBooking->advance_received;
+        } elseif ($this->paymentBooking->is_revenue_recognized) {
+            $this->paymentAmount = (float) $this->paymentBooking->effective_receivable;
+        } else {
+            $this->paymentAmount = max(0.00, (float) $this->paymentBooking->effective_invoice_amount - (float) $this->paymentBooking->total_paid);
+        }
+    }
+
+    /**
+     * Post payment transaction atomically to General Ledger, COA, and Customer Sub-ledger.
+     */
+    public function postPayment()
+    {
+        if ($this->isSubmittingPayment) {
+            return; // Idempotency protection against double-click
+        }
+
+        $this->validate([
+            'paymentAmount' => 'required|numeric|min:1',
+            'paymentDate' => 'required|date',
+            'paymentMethod' => 'required|string',
+            'paymentAccountId' => 'nullable|exists:accounts,id',
+            'paymentType' => 'required|in:advance,receivable_payment,refund',
+            'transactionReference' => 'nullable|string|max:255',
+            'paymentNotes' => 'nullable|string|max:500',
+        ]);
+
+        $this->isSubmittingPayment = true;
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+
+        $booking = Booking::with(['customer', 'payments', 'branch', 'hall', 'finalBill'])
+            ->where('marquee_id', $marqueeId)
+            ->findOrFail($this->paymentBookingId);
+
+        $amount = floatval($this->paymentAmount);
+
+        // Business Validation Rules
+        if ($this->paymentType === 'refund') {
+            $totalReceived = (float) $booking->payments()->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])->sum('amount');
+            $totalRefunded = (float) $booking->payments()->where('payment_type', 'refund')->sum('amount');
+            $maxRefundable = max(0.00, $totalReceived - $totalRefunded);
+
+            if ($amount > $maxRefundable) {
+                $this->addError('paymentAmount', 'Refund amount cannot exceed net payments received (Rs. ' . number_format($maxRefundable, 2) . ').');
+                $this->isSubmittingPayment = false;
+                return;
+            }
+        } elseif ($this->paymentType === 'receivable_payment') {
+            $receivable = (float) $booking->effective_receivable;
+            if ($receivable > 0 && $amount > ($receivable + 0.01)) {
+                $this->addError('paymentAmount', 'Payment amount cannot exceed outstanding accounts receivable (Rs. ' . number_format($receivable, 2) . ').');
+                $this->isSubmittingPayment = false;
+                return;
+            }
+        }
+
+        try {
+            $financialService = app(\App\Services\BookingFinancialService::class);
+
+            if ($this->paymentType === 'refund') {
+                $payment = $financialService->recordRefund($booking, [
+                    'amount' => $amount,
+                    'payment_date' => $this->paymentDate,
+                    'payment_method' => $this->paymentMethod,
+                    'account_id' => $this->paymentAccountId ?: null,
+                    'transaction_reference' => $this->transactionReference ?: null,
+                    'notes' => $this->paymentNotes ?: 'Refund processed from Booking List',
+                    'recorded_by' => auth()->id(),
+                ]);
+                $msg = 'Refund of Rs. ' . number_format($amount, 2) . ' processed successfully with Journal Voucher and Customer Ledger credit.';
+            } else {
+                $payment = $financialService->recordPayment($booking, [
+                    'amount' => $amount,
+                    'payment_date' => $this->paymentDate,
+                    'payment_method' => $this->paymentMethod,
+                    'account_id' => $this->paymentAccountId ?: null,
+                    'payment_type' => $this->paymentType,
+                    'transaction_reference' => $this->transactionReference ?: null,
+                    'notes' => $this->paymentNotes ?: 'Payment recorded from Booking List',
+                    'recorded_by' => auth()->id(),
+                ]);
+                $msg = 'Payment of Rs. ' . number_format($amount, 2) . ' recorded successfully (Voucher: ' . ($payment->journalVoucher?->voucher_no ?? 'Posted') . ').';
+            }
+
+            $this->closePaymentModal();
+            session()->flash('success', $msg);
+        } catch (\Exception $e) {
+            $this->addError('paymentSubmission', 'Payment posting failed: ' . $e->getMessage());
+            $this->isSubmittingPayment = false;
+        }
     }
 
     /**
@@ -390,11 +593,15 @@ class BookingList extends Component
 
         if (!empty($this->search)) {
             $searchTerm = '%' . $this->search . '%';
-            $query->where(function ($q) use ($searchTerm) {
+            $cleanDigits = preg_replace('/[^0-9]/', '', $this->search);
+            $query->where(function ($q) use ($searchTerm, $cleanDigits) {
                 $q->where('booking_number', 'like', $searchTerm)
-                  ->orWhereHas('customer', function ($cq) use ($searchTerm) {
-                      $cq->where('full_name', 'like', $searchTerm)
-                        ->orWhere('phone_number', 'like', $searchTerm);
+                  ->orWhereHas('customer', function ($cq) use ($searchTerm, $cleanDigits) {
+                      $cq->where('full_name', 'like', $searchTerm);
+
+                      if (!empty($cleanDigits)) {
+                          $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%');
+                      }
                   });
             });
         }

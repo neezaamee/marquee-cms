@@ -47,17 +47,24 @@
                 @elseif($booking->booking_status === 'Reserved')
                     <span class="badge badge-subtle-warning fs-11 rounded-pill">Reserved</span>
                 @elseif($booking->booking_status === 'Completed')
-                    <span class="badge badge-subtle-info fs-11 rounded-pill">Completed</span>
+                    <span class="badge badge-subtle-info fs-11 rounded-pill"><i class="fas fa-check-double me-1"></i>Completed & Revenue Recognized</span>
                 @elseif($booking->booking_status === 'Cancelled')
-                    <span class="badge badge-subtle-danger fs-11 rounded-pill">Cancelled</span>
+                    <span class="badge badge-subtle-danger fs-11 rounded-pill"><i class="fas fa-ban me-1"></i>Cancelled</span>
                 @else
                     <span class="badge badge-subtle-secondary fs-11 rounded-pill">{{ $booking->booking_status }}</span>
                 @endif
+
+                <span class="ms-3 fs-12 fw-bold text-600">Accounting State:</span>
+                @if($booking->is_revenue_recognized)
+                    <span class="badge bg-success-subtle text-success fs-11"><i class="fas fa-file-invoice-dollar me-1"></i>Revenue Recognized</span>
+                @else
+                    <span class="badge bg-warning-subtle text-warning-emphasis fs-11"><i class="fas fa-clock me-1"></i>Advance Liability (Unearned)</span>
+                @endif
             </div>
 
-            @if(!$booking->trashed() && ($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin']))))
+            @if(!$booking->trashed() && ($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin', 'business_owner']))))
                 <div class="d-flex align-items-center gap-1 flex-wrap">
-                    <span class="fs-12 text-600 fw-bold me-2">Transition Status:</span>
+                    <span class="fs-12 text-600 fw-bold me-2">Transition:</span>
                     @if($booking->booking_status !== 'Confirmed')
                         <button wire:click="updateStatus('Confirmed')" class="btn btn-success btn-xs" type="button"><span class="fas fa-check-circle me-1"></span>Confirm</button>
                     @endif
@@ -65,10 +72,12 @@
                         <button wire:click="updateStatus('Reserved')" class="btn btn-warning btn-xs text-white" type="button"><span class="fas fa-pause-circle me-1"></span>Reserve</button>
                     @endif
                     @if($booking->booking_status !== 'Completed' && $booking->booking_status !== 'Cancelled')
-                        <button wire:click="updateStatus('Completed')" class="btn btn-info btn-xs" type="button"><span class="fas fa-calendar-check me-1"></span>Complete</button>
+                        <button wire:click="updateStatus('Completed')" wire:confirm="Are you sure you want to mark this Event as Completed? This will automatically recognize earned revenue and release advance liabilities in the General Ledger." class="btn btn-info btn-xs" type="button">
+                            <span class="fas fa-calendar-check me-1"></span>Complete Event & Recognize Revenue
+                        </button>
                     @endif
                     @if($booking->booking_status !== 'Cancelled')
-                        <button wire:click="updateStatus('Cancelled')" class="btn btn-danger btn-xs" type="button"><span class="fas fa-times-circle me-1"></span>Cancel</button>
+                        <button wire:click="openBookingCancelModal" class="btn btn-danger btn-xs" type="button"><span class="fas fa-times-circle me-1"></span>Cancel & Settle</button>
                     @endif
                     @if($booking->booking_status !== 'Rejected' && $booking->booking_status !== 'Confirmed')
                         <button wire:click="updateStatus('Rejected')" class="btn btn-dark btn-xs" type="button"><span class="fas fa-ban me-1"></span>Reject</button>
@@ -100,7 +109,30 @@
                         <!-- Left Side Event Info -->
                         <div class="col-md-6 border-end border-translucent">
                             <h6 class="text-primary font-sans-serif fw-bold mb-2">Event Details</h6>
+                            @php
+                                $effectiveBranch = $booking->effective_branch ?? $booking->branch ?? ($booking->hall?->branch ?? null);
+                            @endphp
                             <table class="table table-sm table-borderless fs-11">
+                                @if($effectiveBranch)
+                                    <tr>
+                                        <td class="text-500 fw-bold px-0 py-1" style="width: 120px;">Branch:</td>
+                                        <td class="px-0 py-1 fw-bold text-800">
+                                            {{ $effectiveBranch->name }}
+                                            @if($effectiveBranch->is_head_office)
+                                                <span class="badge badge-subtle-primary ms-1 fs-12">Head Office</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-500 fw-bold px-0 py-1">Branch Location:</td>
+                                        <td class="px-0 py-1 text-700">
+                                            {{ $effectiveBranch->address ? $effectiveBranch->address . ', ' : '' }}{{ $effectiveBranch->city }}
+                                            @if($effectiveBranch->phone)
+                                                <span class="text-muted d-block fs-12"><i class="fas fa-phone me-1"></i>{{ $effectiveBranch->phone }}</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endif
                                 <tr>
                                     <td class="text-500 fw-bold px-0 py-1" style="width: 120px;">Event Type:</td>
                                     <td class="px-0 py-1 fw-bold text-800">{{ $booking->eventType->event_type_name ?? '—' }}</td>
@@ -320,49 +352,149 @@
 
             <!-- Event Vendor Services & Commission Card -->
             <div class="card mb-3">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0 fw-bold"><span class="fas fa-handshake me-2 text-primary"></span>Event Vendor Services & Partnerships</h6>
-                    <button wire:click="openVendorSaleModal" class="btn btn-falcon-success btn-xs"><i class="fas fa-plus me-1"></i> Add Vendor Service</button>
+                <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <h6 class="mb-0 fw-bold"><span class="fas fa-handshake me-2 text-primary"></span>Service Providers / Partner Vendors</h6>
+                        <div class="text-secondary fs-11">Manage external partner assignments, direct vs invoice billing, advance payouts, and ledger tracking.</div>
+                    </div>
+                    <button wire:click="openVendorSaleModal" class="btn btn-falcon-success btn-xs">
+                        <i class="fas fa-plus me-1"></i> Assign Service Provider
+                    </button>
                 </div>
-                <div class="card-body fs-12">
+                <div class="card-body fs-12 p-0">
                     @if($vendorSales->isNotEmpty())
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0 fs-12">
-                                <thead class="bg-200">
+                                <thead class="bg-200 text-800">
                                     <tr>
-                                        <th>Vendor</th>
+                                        <th class="px-3">Service Provider</th>
                                         <th>Service</th>
-                                        <th>Sale Amount</th>
-                                        <th>Commission %</th>
-                                        <th>Commission Income</th>
-                                        <th>Net Vendor Payable</th>
+                                        <th class="text-end">Customer Charge</th>
+                                        <th class="text-end">Cust. Advance</th>
+                                        <th class="text-end text-danger fw-bold">Cust. Remaining</th>
+                                        <th class="text-center">Billing Mode</th>
+                                        <th class="text-end">Vendor Cost</th>
+                                        <th class="text-end">Vendor Remaining</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-end px-3">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($vendorSales as $vs)
-                                        <tr>
-                                            <td class="fw-bold text-dark">{{ $vs->vendor->name ?? '—' }} <span class="badge badge-subtle-secondary fs-10">{{ $vs->vendor->vendor_type ?? '' }}</span></td>
-                                            <td><span class="badge badge-subtle-info">{{ $vs->service->service_name ?? 'Custom Service' }}</span></td>
-                                            <td class="fw-bold">Rs. {{ number_format($vs->sale_amount) }}</td>
-                                            <td><span class="badge badge-subtle-success">{{ $vs->commission_rate }}%</span></td>
-                                            <td class="fw-bold text-success">Rs. {{ number_format($vs->commission_amount) }}</td>
-                                            <td class="fw-bold text-primary">Rs. {{ number_format($vs->vendor_net_amount) }}</td>
+                                        @php
+                                            $custCharge = (float) $vs->sale_amount;
+                                            $custPaid = (float) $vs->customer_paid;
+                                            $custRemaining = (float) $vs->customer_remaining;
+                                            $vendCost = (float) $vs->vendor_net_amount;
+                                            $vendRemaining = (float) $vs->remaining_amount;
+                                            $statusBadge = match($vs->payment_status) {
+                                                'fully_paid' => 'success',
+                                                'partially_paid' => 'warning',
+                                                default => 'danger'
+                                            };
+                                            $isCancelled = $vs->status === 'cancelled';
+                                        @endphp
+                                        <tr class="{{ $isCancelled ? 'table-secondary opacity-75' : '' }}">
+                                            <td class="px-3 fw-bold text-dark">
+                                                {{ $vs->vendor->name ?? '—' }}
+                                                <div class="text-muted fs-11">{{ $vs->vendor->vendor_type ?? 'Vendor' }} ({{ $vs->vendor->vendor_code ?? '' }})</div>
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-subtle-info">{{ $vs->service->service_name ?? 'Custom Service' }}</span>
+                                            </td>
+                                            <td class="text-end font-monospace fw-bold text-dark">Rs. {{ number_format($custCharge, 2) }}</td>
+                                            <td class="text-end font-monospace text-success">
+                                                Rs. {{ number_format($custPaid, 2) }}
+                                            </td>
+                                            <td class="text-end font-monospace fw-bold {{ $custRemaining > 0 ? 'text-danger' : 'text-success' }}">
+                                                Rs. {{ number_format($custRemaining, 2) }}
+                                            </td>
+                                            <td class="text-center">
+                                                @if($vs->include_in_invoice)
+                                                    <span class="badge badge-subtle-success fs-10" title="Billed on Marquee Customer Invoice">
+                                                        <i class="fas fa-file-invoice me-1"></i>In Invoice
+                                                    </span>
+                                                @else
+                                                    <span class="badge badge-subtle-warning fs-10" title="Customer pays vendor directly. Excluded from invoice total.">
+                                                        <i class="fas fa-hand-holding-usd me-1"></i>Direct Pay
+                                                    </span>
+                                                @endif
+                                            </td>
+                                            <td class="text-end font-monospace text-primary fw-semi-bold">Rs. {{ number_format($vendCost, 2) }}</td>
+                                            <td class="text-end font-monospace fw-bold {{ $vendRemaining > 0 ? 'text-danger' : 'text-success' }}">
+                                                Rs. {{ number_format($vendRemaining, 2) }}
+                                            </td>
+                                            <td class="text-center">
+                                                @if($isCancelled)
+                                                    <span class="badge bg-danger text-white rounded-pill text-uppercase fs-10">Cancelled</span>
+                                                @else
+                                                    <span class="badge badge-subtle-{{ $statusBadge }} rounded-pill text-uppercase fs-11">
+                                                        {{ str_replace('_', ' ', $vs->payment_status ?: 'unpaid') }}
+                                                    </span>
+                                                @endif
+                                            </td>
+                                            <td class="text-end px-3">
+                                                <div class="d-flex justify-content-end gap-1">
+                                                    <!-- View Details Button -->
+                                                    <button wire:click="openVendorViewModal({{ $vs->id }})" class="btn btn-falcon-default btn-xs" title="View Full Details & History">
+                                                        <i class="fas fa-eye text-info"></i>
+                                                    </button>
+
+                                                    @if(!$isCancelled)
+                                                        <!-- Record Customer Advance Button -->
+                                                        @if($custRemaining > 0.01)
+                                                            <button wire:click="openCustomerPaymentModal({{ $vs->id }})" class="btn btn-falcon-success btn-xs" title="Record Customer Advance / Installment">
+                                                                <i class="fas fa-plus-circle me-1"></i>Cust. Adv
+                                                            </button>
+                                                        @endif
+
+                                                        <!-- Edit Button -->
+                                                        <button wire:click="openVendorEditModal({{ $vs->id }})" class="btn btn-falcon-default btn-xs" title="Edit Service Provider Details">
+                                                            <i class="fas fa-edit text-warning"></i>
+                                                        </button>
+
+                                                        <!-- Pay Vendor Installment Button -->
+                                                        @if($vendRemaining > 0.01)
+                                                            <button wire:click="openVendorPaymentModal({{ $vs->id }})" class="btn btn-falcon-primary btn-xs" title="Disburse Payout to Vendor">
+                                                                <i class="fas fa-money-bill-wave me-1"></i> Pay Vendor
+                                                            </button>
+                                                        @endif
+
+                                                        <!-- Cancel / Delete Button -->
+                                                        <button wire:click="confirmCancelVendorSale({{ $vs->id }})" class="btn btn-falcon-danger btn-xs" title="Cancel or Remove Vendor Service">
+                                                            <i class="fas fa-trash-alt"></i>
+                                                        </button>
+                                                    @endif
+
+                                                    <!-- Vendor Ledger Button -->
+                                                    <a href="{{ route('vendor-ledger.index', ['filterVendorId' => $vs->vendor_id]) }}" target="_blank" class="btn btn-falcon-default btn-xs" title="View Vendor Ledger">
+                                                        <i class="fas fa-book text-secondary"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
-                                <tfoot class="bg-light fw-bold">
+                                <tfoot class="bg-light fw-bold fs-11">
                                     <tr>
-                                        <td colspan="2" class="text-end">Vendor Totals:</td>
-                                        <td class="text-dark">Rs. {{ number_format($vendorSales->sum('sale_amount')) }}</td>
-                                        <td>—</td>
-                                        <td class="text-success">Rs. {{ number_format($vendorSales->sum('commission_amount')) }}</td>
-                                        <td class="text-primary">Rs. {{ number_format($vendorSales->sum('vendor_net_amount')) }}</td>
+                                        <td colspan="2" class="text-end px-3 text-700">Vendor Totals:</td>
+                                        <td class="text-end text-800 font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->sum('sale_amount'), 2) }}</td>
+                                        <td class="text-center text-muted fs-10">
+                                            In Invoice: Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->where('include_in_invoice', true)->sum('sale_amount'), 2) }}
+                                        </td>
+                                        <td class="text-end text-primary font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->sum('vendor_net_amount'), 2) }}</td>
+                                        <td class="text-end text-muted font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->sum('advance_amount'), 2) }}</td>
+                                        <td class="text-end text-success font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->sum('paid_amount'), 2) }}</td>
+                                        <td class="text-end text-danger font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->sum('remaining_amount'), 2) }}</td>
+                                        <td colspan="2"></td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
                     @else
-                        <p class="text-muted fs-11 mb-0">No external vendor services attached to this booking. Click "Add Vendor Service" to assign a florist, sound system, photographer, or decorator.</p>
+                        <div class="p-3 text-muted fs-11 mb-0">
+                            No external service providers attached to this booking. Click "Assign Service Provider" to assign a florist, sound system, photographer, or decorator with advance payouts and ledger tracking.
+                        </div>
                     @endif
                 </div>
             </div>
@@ -376,58 +508,116 @@
                     </span>
                 </div>
                 <div class="card-body">
-                    @if($booking->payments->isNotEmpty())
-                        <div class="table-responsive">
-                            <table class="table table-sm table-striped border fs-11 mb-0">
-                                <thead>
-                                    <tr class="bg-light text-700">
-                                        <th>Date</th>
-                                        <th>Method</th>
-                                        <th>Reference</th>
-                                        <th>Recorded By</th>
-                                        <th>Notes</th>
-                                        <th class="text-end" style="width: 120px;">Amount</th>
-                                        <th class="text-center" style="width: 80px;">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($booking->payments as $payment)
-                                        <tr>
-                                            <td class="align-middle fw-bold">{{ $payment->payment_date->format('M d, Y') }}</td>
-                                            <td class="align-middle"><span class="badge badge-subtle-primary">{{ $payment->payment_method }}</span></td>
-                                            <td class="align-middle font-monospace">{{ $payment->transaction_reference ?? '—' }}</td>
-                                            <td class="align-middle fw-semi-bold text-700">{{ $payment->recorder->name ?? 'System' }}</td>
-                                            <td class="align-middle text-muted">{{ $payment->notes ?? '—' }}</td>
-                                            <td class="align-middle text-end font-monospace fw-bold text-800">Rs. {{ number_format($payment->amount, 2) }}</td>
-                                            <td class="align-middle text-center">
-                                                <a href="{{ route('bookings.payment-receipt', $payment->id) }}" target="_blank" class="btn btn-falcon-default btn-xs" title="Print Receipt">
-                                                    <span class="fas fa-print"></span>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                    @php
-                                        $billingAmount = $booking->finalBill ? $booking->finalBill->grand_total : $booking->grand_total;
-                                        $balanceDue = max(0, $billingAmount - $booking->payments->sum('amount'));
-                                    @endphp
-                                    <tr class="table-info fw-bold fs-11">
-                                        <td colspan="6" class="text-end text-800">Total Payments Recorded:</td>
-                                        <td class="text-end text-800 font-monospace">Rs. {{ number_format($booking->payments->sum('amount'), 2) }}</td>
-                                    </tr>
-                                    <tr class="{{ $balanceDue <= 0 ? 'table-success' : 'table-warning' }} fw-bold fs-11">
-                                        <td colspan="6" class="text-end text-800">Outstanding Balance:</td>
-                                        <td class="text-end text-800 font-monospace">
-                                            Rs. {{ number_format($balanceDue, 2) }}
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    <!-- Nav Tabs for Payments vs Sub-Ledger -->
+                    <ul class="nav nav-tabs mb-3 fs-11" id="ledgerTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments-pane" type="button" role="tab"><i class="fas fa-receipt me-1"></i>Payment Receipts ({{ $booking->payments->count() }})</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold" id="subledger-tab" data-bs-toggle="tab" data-bs-target="#subledger-pane" type="button" role="tab"><i class="fas fa-book me-1"></i>Customer Sub-Ledger ({{ $customerLedgers->count() }})</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="ledgerTabsContent">
+                        <!-- Tab 1: Payment Receipts -->
+                        <div class="tab-pane fade show active" id="payments-pane" role="tabpanel">
+                            @if($booking->payments->isNotEmpty())
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped border fs-11 mb-0">
+                                        <thead>
+                                            <tr class="bg-light text-700">
+                                                <th>Date</th>
+                                                <th>Type</th>
+                                                <th>Method</th>
+                                                <th>Account</th>
+                                                <th>Voucher / Ref</th>
+                                                <th>Recorded By</th>
+                                                <th class="text-end" style="width: 120px;">Amount</th>
+                                                <th class="text-center" style="width: 80px;">Receipt</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($booking->payments as $payment)
+                                                <tr>
+                                                    <td class="align-middle fw-bold">{{ $payment->payment_date->format('M d, Y') }}</td>
+                                                    <td class="align-middle">
+                                                        @if($payment->payment_type === 'refund')
+                                                            <span class="badge badge-subtle-danger">Refund</span>
+                                                        @elseif($payment->payment_type === 'receivable_payment')
+                                                            <span class="badge badge-subtle-success">Receivable Settle</span>
+                                                        @else
+                                                            <span class="badge badge-subtle-info">Advance</span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="align-middle"><span class="badge badge-subtle-primary">{{ $payment->payment_method }}</span></td>
+                                                    <td class="align-middle text-muted">{{ $payment->account->name ?? 'Default Cash/Bank' }}</td>
+                                                    <td class="align-middle font-monospace">
+                                                        {{ $payment->journalVoucher?->voucher_no ?? ($payment->transaction_reference ?? '—') }}
+                                                    </td>
+                                                    <td class="align-middle fw-semi-bold text-700">{{ $payment->recorder->name ?? 'System' }}</td>
+                                                    <td class="align-middle text-end font-monospace fw-bold {{ $payment->payment_type === 'refund' ? 'text-danger' : 'text-800' }}">
+                                                        {{ $payment->payment_type === 'refund' ? '- ' : '' }}Rs. {{ number_format($payment->amount, 2) }}
+                                                    </td>
+                                                    <td class="align-middle text-center">
+                                                        <a href="{{ route('bookings.payment-receipt', $payment->id) }}" target="_blank" class="btn btn-falcon-default btn-xs" title="Print Receipt">
+                                                            <span class="fas fa-print"></span>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                            <tr class="table-info fw-bold fs-11">
+                                                <td colspan="6" class="text-end text-800">Net Payments Collected:</td>
+                                                <td class="text-end text-800 font-monospace">Rs. {{ number_format($booking->total_paid, 2) }}</td>
+                                                <td></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="text-center py-4 text-muted fs-11">
+                                    <span class="fas fa-info-circle me-1"></span>No payment transactions recorded in the ledger yet.
+                                </div>
+                            @endif
                         </div>
-                    @else
-                        <div class="text-center py-4 text-muted fs-11">
-                            <span class="fas fa-info-circle me-1"></span>No payment transactions recorded in the ledger yet.
+
+                        <!-- Tab 2: Customer Sub-Ledger -->
+                        <div class="tab-pane fade" id="subledger-pane" role="tabpanel">
+                            @if($customerLedgers->isNotEmpty())
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover border fs-11 mb-0">
+                                        <thead class="bg-light text-700">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Type</th>
+                                                <th>Reference / Voucher</th>
+                                                <th>Description</th>
+                                                <th class="text-end">Debit (Dr)</th>
+                                                <th class="text-end">Credit (Cr)</th>
+                                                <th class="text-end">Balance</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($customerLedgers as $cl)
+                                                <tr>
+                                                    <td class="align-middle fw-bold">{{ $cl->transaction_date->format('M d, Y') }}</td>
+                                                    <td class="align-middle"><span class="badge badge-subtle-secondary">{{ ucwords(str_replace('_', ' ', $cl->transaction_type)) }}</span></td>
+                                                    <td class="align-middle font-monospace">{{ $cl->journalVoucher?->voucher_no ?? ($cl->reference_number ?? '—') }}</td>
+                                                    <td class="align-middle text-700">{{ $cl->description }}</td>
+                                                    <td class="align-middle text-end font-monospace text-danger">{{ $cl->debit > 0 ? 'Rs. ' . number_format($cl->debit, 2) : '—' }}</td>
+                                                    <td class="align-middle text-end font-monospace text-success">{{ $cl->credit > 0 ? 'Rs. ' . number_format($cl->credit, 2) : '—' }}</td>
+                                                    <td class="align-middle text-end font-monospace fw-bold text-dark">Rs. {{ number_format($cl->running_balance, 2) }}</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="text-center py-4 text-muted fs-11">
+                                    <span class="fas fa-info-circle me-1"></span>No sub-ledger entries posted for this booking yet.
+                                </div>
+                            @endif
                         </div>
-                    @endif
+                    </div>
                 </div>
             </div>
 
@@ -479,6 +669,43 @@
 
         <!-- Right billing breakdown column -->
         <div class="col-lg-4">
+            <!-- Accounting & Financial Integration Card -->
+            <div class="card border border-200 mb-3 shadow-sm">
+                <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 text-white fs-12"><span class="fas fa-balance-scale me-2 text-warning"></span>Financial & Accounting Summary</h6>
+                    <span class="badge {{ $booking->is_financially_settled ? 'bg-success' : 'bg-warning text-dark' }} fs-11">
+                        {{ $booking->financial_status ?: 'Pending' }}
+                    </span>
+                </div>
+                <div class="card-body fs-11 p-3">
+                    <div class="d-flex justify-content-between mb-2 pb-1 border-bottom">
+                        <span class="text-600">Total Booking Value:</span>
+                        <strong class="font-monospace text-800">Rs. {{ number_format($booking->effective_invoice_amount, 2) }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2 pb-1 border-bottom">
+                        <span class="text-600">Customer Advance Liability (Held):</span>
+                        <strong class="font-monospace {{ $booking->effective_advance_liability > 0 ? 'text-primary fw-bold' : 'text-muted' }}">
+                            Rs. {{ number_format($booking->effective_advance_liability, 2) }}
+                        </strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2 pb-1 border-bottom">
+                        <span class="text-600">Earned Revenue Recognized:</span>
+                        <strong class="font-monospace {{ $booking->is_revenue_recognized ? 'text-success fw-bold' : 'text-muted' }}">
+                            Rs. {{ number_format($booking->revenue_recognized, 2) }}
+                        </strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2 pb-1 border-bottom">
+                        <span class="text-600">Accounts Receivable (Unpaid):</span>
+                        <strong class="font-monospace {{ $booking->effective_receivable > 0 ? 'text-danger fw-bold' : 'text-success' }}">
+                            Rs. {{ number_format($booking->effective_receivable, 2) }}
+                        </strong>
+                    </div>
+                    <div class="d-flex justify-content-between pt-1">
+                        <span class="text-800 fw-bold">Total Cash/Bank Collected:</span>
+                        <strong class="font-monospace text-success fw-bold">Rs. {{ number_format($booking->total_paid, 2) }}</strong>
+                    </div>
+                </div>
+            </div>
             <!-- If Final Bill exists, show Final Bill card first, then Original Bill below it! -->
             @if($booking->finalBill)
             <div class="card border border-success mb-3 shadow-sm">
@@ -720,14 +947,21 @@
                         <!-- Recording payments panel -->
                         @if($showPaymentModal)
                             <div class="border border-warning rounded p-2 bg-warning-subtle">
-                                <h6 class="fs-12 text-warning-800 fw-bold mb-2">Record Ledger Payment</h6>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="fs-12 text-warning-900 fw-bold mb-0">Record Payment Transaction</h6>
+                                    <span class="badge {{ $booking->is_revenue_recognized ? 'badge-subtle-success' : 'badge-subtle-info' }} fs-10">
+                                        {{ $booking->is_revenue_recognized ? 'Receivable Settlement' : 'Advance Liability' }}
+                                    </span>
+                                </div>
                                 <div class="mb-2">
-                                    <label class="form-label fs-11 mb-1">Amount Paid (Rs.) *</label>
-                                    <input wire:model="amountPaid" type="number" class="form-control form-control-sm fs-12" placeholder="e.g. 50000" />
+                                    <label class="form-label fs-11 mb-1">Amount to Receive (Rs.) *</label>
+                                    <input wire:model="amountPaid" type="number" step="0.01" class="form-control form-control-sm fs-12 font-monospace fw-bold" placeholder="e.g. 50000" />
+                                    @error('amountPaid') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label fs-11 mb-1">Payment Date *</label>
                                     <input wire:model="paymentDate" type="date" class="form-control form-control-sm fs-12" />
+                                    @error('paymentDate') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label fs-11 mb-1">Payment Method *</label>
@@ -735,25 +969,36 @@
                                         <option value="Cash">Cash</option>
                                         <option value="Bank Transfer">Bank Transfer</option>
                                         <option value="Cheque">Cheque</option>
-                                        <option value="Card">Card</option>
+                                        <option value="Card">Card / POS</option>
+                                        <option value="Online">Online Gateway</option>
+                                    </select>
+                                    @error('paymentMethod') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fs-11 mb-1">Receiving Cash / Bank Account</label>
+                                    <select wire:model="paymentAccountId" class="form-select form-select-sm fs-12">
+                                        <option value="">Auto Resolve by Method</option>
+                                        @foreach($cashBankAccounts as $cb)
+                                            <option value="{{ $cb->account_id }}">{{ $cb->account->name ?? $cb->bank_name }} ({{ strtoupper($cb->type) }})</option>
+                                        @endforeach
                                     </select>
                                 </div>
                                 <div class="mb-2">
-                                    <label class="form-label fs-11 mb-1">Transaction Ref / Cheque #</label>
-                                    <input wire:model="transactionReference" type="text" class="form-control form-control-sm fs-12" placeholder="e.g. TXN-123456" />
+                                    <label class="form-label fs-11 mb-1">Transaction Ref / Slip #</label>
+                                    <input wire:model="transactionReference" type="text" class="form-control form-control-sm fs-12" placeholder="e.g. TXN-123456 / Cheque #" />
                                 </div>
                                 <div class="mb-2">
-                                    <label class="form-label fs-11 mb-1">Notes / Remarks</label>
-                                    <input wire:model="paymentNote" type="text" class="form-control form-control-sm fs-12" placeholder="e.g. Advance cash payment" />
+                                    <label class="form-label fs-11 mb-1">Notes / Narration</label>
+                                    <input wire:model="paymentNote" type="text" class="form-control form-control-sm fs-12" placeholder="e.g. Booking advance deposit" />
                                 </div>
                                 <div class="d-flex justify-content-end gap-1">
                                     <button wire:click="$set('showPaymentModal', false)" class="btn btn-falcon-default btn-xs" type="button">Cancel</button>
-                                    <button wire:click="recordPayment" class="btn btn-warning btn-xs" type="button">Save Payment</button>
+                                    <button wire:click="recordPayment" class="btn btn-warning btn-xs" type="button">Post Payment Voucher</button>
                                 </div>
                             </div>
                         @else
-                            @if($booking->payment_status !== 'Paid')
-                                <button wire:click="$set('showPaymentModal', true)" class="btn btn-falcon-warning btn-sm w-100" type="button">
+                            @if(!$booking->is_financially_settled && $booking->booking_status !== 'Cancelled')
+                                <button wire:click="openPaymentModal" class="btn btn-falcon-warning btn-sm w-100" type="button">
                                     <span class="fas fa-wallet me-1"></span> Record Payment
                                 </button>
                             @endif
@@ -870,18 +1115,61 @@
                         </div>
 
                         <!-- Dynamic Live Calculation Result -->
-                        <div class="bg-light border rounded p-3 mb-2">
-                            <div class="d-flex justify-content-between">
+                        @php
+                            $fbCalculatedGrandTotal = $fbGuestCount * $fbPerPlatePrice + $fbHallCharges + $fbExtraCharges + $fbVendorCharges - $fbDiscountAmount + $fbTaxAmount + $booking->security_deposit;
+                            $fbTotalPaidByCust = (float) $booking->payments->sum('amount');
+                            $fbNetRemainingCustDue = max(0.00, $fbCalculatedGrandTotal - $fbTotalPaidByCust);
+                        @endphp
+                        <div class="bg-light border rounded p-3 mb-2 fs-12">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Package Catering ({{ $fbGuestCount }} guests):</span>
+                                <span class="fw-bold font-monospace">Rs. {{ number_format($fbGuestCount * $fbPerPlatePrice, 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Hall Setup & Rent:</span>
+                                <span class="fw-bold font-monospace">Rs. {{ number_format($fbHallCharges, 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Extra Add-ons:</span>
+                                <span class="fw-bold font-monospace">Rs. {{ number_format($fbExtraCharges, 2) }}</span>
+                            </div>
+                            @if($fbVendorCharges > 0)
+                                <div class="d-flex justify-content-between mb-1 text-primary">
+                                    <span>Service Providers (Billed via Marquee):</span>
+                                    <span class="fw-bold font-monospace">Rs. {{ number_format($fbVendorCharges, 2) }}</span>
+                                </div>
+                            @endif
+                            @if($fbDiscountAmount > 0)
+                                <div class="d-flex justify-content-between mb-1 text-danger">
+                                    <span>Discount Deducted:</span>
+                                    <span class="fw-bold font-monospace">- Rs. {{ number_format($fbDiscountAmount, 2) }}</span>
+                                </div>
+                            @endif
+                            <div class="d-flex justify-content-between border-top pt-1 mb-1">
                                 <span>Adjusted Subtotal:</span>
-                                <span class="fw-bold">Rs. {{ number_format($fbGuestCount * $fbPerPlatePrice + $fbHallCharges + $fbExtraCharges - $fbDiscountAmount, 2) }}</span>
+                                <span class="fw-bold font-monospace">Rs. {{ number_format($fbGuestCount * $fbPerPlatePrice + $fbHallCharges + $fbExtraCharges + $fbVendorCharges - $fbDiscountAmount, 2) }}</span>
                             </div>
-                            <div class="d-flex justify-content-between mt-1">
+                            <div class="d-flex justify-content-between mb-1">
                                 <span>Estimated Tax:</span>
-                                <span class="fw-bold">Rs. {{ number_format($fbTaxAmount, 2) }}</span>
+                                <span class="fw-bold font-monospace">Rs. {{ number_format($fbTaxAmount, 2) }}</span>
                             </div>
-                            <div class="d-flex justify-content-between mt-1 border-top pt-2 text-primary fw-bold">
-                                <span>Final Bill Grand Total:</span>
-                                <span>Rs. {{ number_format($fbGuestCount * $fbPerPlatePrice + $fbHallCharges + $fbExtraCharges - $fbDiscountAmount + $fbTaxAmount + $booking->security_deposit, 2) }}</span>
+                            @if($booking->security_deposit > 0)
+                                <div class="d-flex justify-content-between mb-1 text-info">
+                                    <span>Refundable Security Deposit:</span>
+                                    <span class="fw-bold font-monospace">Rs. {{ number_format($booking->security_deposit, 2) }}</span>
+                                </div>
+                            @endif
+                            <div class="d-flex justify-content-between mt-2 border-top pt-2 text-dark fw-bold fs-13">
+                                <span>Total Final Bill Amount:</span>
+                                <span class="font-monospace">Rs. {{ number_format($fbCalculatedGrandTotal, 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1 text-success fw-bold">
+                                <span>Less: Customer Advances / Payments Collected:</span>
+                                <span class="font-monospace">- Rs. {{ number_format($fbTotalPaidByCust, 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1 border-top pt-2 {{ $fbNetRemainingCustDue > 0 ? 'text-danger' : 'text-success' }} fw-bold fs-13">
+                                <span>Net Remaining Customer Balance Due:</span>
+                                <span class="font-monospace">Rs. {{ number_format($fbNetRemainingCustDue, 2) }}</span>
                             </div>
                         </div>
 
@@ -986,54 +1274,699 @@
         </div>
     @endif
 
-    <!-- Add Vendor Service Modal -->
+    <!-- Assign Service Provider / Vendor Modal -->
     @if($showVendorSaleModal)
         <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
-            <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
                 <div class="modal-content border-0 shadow-lg">
                     <div class="modal-header bg-success text-white py-2">
-                        <h6 class="modal-title fw-bold fs-13"><i class="fas fa-handshake me-2"></i>Add Vendor Service to Booking #{{ $booking->booking_number }}</h6>
+                        <h6 class="modal-title fw-bold fs-13"><i class="fas fa-handshake me-2"></i>Assign Service Provider to Booking #{{ $booking->booking_number }}</h6>
                         <button wire:click="$set('showVendorSaleModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
                     </div>
                     <form wire:submit.prevent="saveBookingVendorSale">
                         <div class="modal-body p-3 fs-12">
-                            <div class="mb-2">
-                                <label class="form-label fw-bold">Select Vendor Partner <span class="text-danger">*</span></label>
-                                <select wire:model.live="vsVendorId" class="form-select form-select-sm">
-                                    <option value="">-- Choose Vendor Partner --</option>
-                                    @foreach($allVendors as $v)
-                                        <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->vendor_type }})</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label fw-bold">Vendor Service (Optional)</label>
-                                <select wire:model="vsServiceId" class="form-select form-select-sm">
-                                    <option value="">-- Custom / Direct Service --</option>
-                                    @foreach($vsVendorServices as $vs)
-                                        <option value="{{ $vs->id }}">{{ $vs->service_name }} (Default Price: Rs. {{ number_format($vs->default_sale_price) }})</option>
-                                    @endforeach
-                                </select>
-                            </div>
                             <div class="row g-2 mb-2">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold">Sale Amount (Rs.) <span class="text-danger">*</span></label>
-                                    <input type="number" step="0.01" wire:model="vsSaleAmount" class="form-control form-control-sm @error('vsSaleAmount') is-invalid @enderror" placeholder="80000">
-                                    @error('vsSaleAmount') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    <label class="form-label fw-bold">Select Service Provider <span class="text-danger">*</span></label>
+                                    <select wire:model.live="vsVendorId" class="form-select form-select-sm @error('vsVendorId') is-invalid @enderror">
+                                        <option value="">-- Choose Service Provider --</option>
+                                        @foreach($allVendors as $v)
+                                            <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->vendor_type }}) - {{ $v->vendor_code }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('vsVendorId') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold">Custom Commission % (Override)</label>
-                                    <input type="number" step="0.01" wire:model="vsCommissionRate" class="form-control form-control-sm" placeholder="Auto-resolved if blank">
+                                    <label class="form-label fw-bold">Service Package / Offering</label>
+                                    <select wire:model.live="vsServiceId" class="form-select form-select-sm">
+                                        <option value="">-- Custom / Direct Service --</option>
+                                        @foreach($vsVendorServices as $vs)
+                                            <option value="{{ $vs->id }}">{{ $vs->service_name }} (Standard Price: Rs. {{ number_format($vs->default_sale_price) }})</option>
+                                        @endforeach
+                                    </select>
                                 </div>
                             </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-dark">Customer Charge (PKR) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" wire:model.live.debounce.400ms="vsCustomerCharge" class="form-control form-control-sm @error('vsCustomerCharge') is-invalid @enderror" placeholder="e.g. 25000">
+                                    <div class="text-muted fs-11">Total agreed price billed to customer</div>
+                                    @error('vsCustomerCharge') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-primary">Vendor Cost / Payable (PKR) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" wire:model.live.debounce.400ms="vsVendorCost" class="form-control form-control-sm @error('vsVendorCost') is-invalid @enderror" placeholder="e.g. 20000">
+                                    <div class="text-muted fs-11">Total amount owed to vendor</div>
+                                    @error('vsVendorCost') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Commission Rate (%)</label>
+                                    <input type="number" step="0.01" wire:model.live.debounce.400ms="vsCommissionRate" class="form-control form-control-sm" placeholder="Auto agreement rate">
+                                    <div class="text-muted fs-11">Marquee margin percentage</div>
+                                </div>
+                            </div>
+
+                            <!-- Customer Advance Section (Mandatory Option) -->
+                            <div class="card border-success border-2 bg-light p-2 mb-2">
+                                <div class="fw-bold text-uppercase fs-11 text-success mb-1">
+                                    <i class="fas fa-hand-holding-usd me-1"></i>Customer Advance Collection (Mandatory Option)
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold fs-11 text-dark">Customer Advance Received (PKR) <span class="text-danger">*</span></label>
+                                        <input type="number" step="0.01" wire:model.live.debounce.400ms="vsCustomerAdvance" class="form-control form-control-sm @error('vsCustomerAdvance') is-invalid @enderror" placeholder="0.00">
+                                        <div class="text-muted fs-10">Enter 0.00 if no advance received yet</div>
+                                        @error('vsCustomerAdvance') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold fs-11">Customer Payment Method</label>
+                                        <select wire:model="vsCustomerPaymentMethod" class="form-select form-select-sm">
+                                            <option value="Cash">Cash</option>
+                                            <option value="Bank Transfer">Bank Transfer</option>
+                                            <option value="Cheque">Cheque</option>
+                                            <option value="Online">Online / Card</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold fs-11">Customer Receipt / Ref #</label>
+                                        <input type="text" wire:model="vsCustomerReference" class="form-control form-control-sm" placeholder="e.g. REC-0912">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Billing Checkbox: Invoiced vs Direct Customer Payment -->
+                            <div class="form-check form-switch mb-2 p-2 ps-5 border rounded bg-light">
+                                <input class="form-check-input" type="checkbox" id="vsIncludeInInvoice" wire:model="vsIncludeInInvoice">
+                                <label class="form-check-label fw-bold text-dark fs-12 mb-0" for="vsIncludeInInvoice">
+                                    <span class="fas fa-file-invoice text-primary me-1"></span> Bill through Marquee Invoice (Customer pays Marquee)
+                                </label>
+                                <div class="text-muted fs-11 mt-1">
+                                    When checked, remaining customer balance is charged on the event invoice and final bill. When unchecked, customer pays vendor directly.
+                                </div>
+                            </div>
+
+                            <!-- Vendor Advance Payment Section (Optional) -->
+                            <div class="card bg-light border p-2 mb-2">
+                                <div class="fw-bold text-uppercase fs-11 text-700 mb-1"><i class="fas fa-money-bill-wave text-primary me-1"></i>Vendor Advance Payout (Disbursed to Vendor)</div>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold fs-11">Advance Paid to Vendor (PKR)</label>
+                                        <input type="number" step="0.01" wire:model.live.debounce.400ms="vsAdvanceAmount" class="form-control form-control-sm @error('vsAdvanceAmount') is-invalid @enderror" placeholder="0.00">
+                                        @error('vsAdvanceAmount') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold fs-11">Payout Method</label>
+                                        <select wire:model="vsPaymentMethod" class="form-select form-select-sm">
+                                            <option value="Cash">Cash</option>
+                                            <option value="Bank Transfer">Bank Transfer</option>
+                                            <option value="Cheque">Cheque</option>
+                                            <option value="Online">Online / Card</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold fs-11">Disbursed From Account</label>
+                                        <select wire:model="vsAccountId" class="form-select form-select-sm">
+                                            <option value="">-- Default Cash/Bank Account --</option>
+                                            @foreach($accounts as $acc)
+                                                <option value="{{ $acc->id }}">{{ $acc->name }} ({{ $acc->account_code }})</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Live Calculation Summary -->
+                            @php
+                                $custChargeVal = floatval($vsCustomerCharge);
+                                $custAdvVal = floatval($vsCustomerAdvance);
+                                $custRemVal = max(0.00, $custChargeVal - $custAdvVal);
+                                $vendCostVal = floatval($vsVendorCost);
+                                $vendAdvVal = floatval($vsAdvanceAmount);
+                                $vendRemVal = max(0.00, $vendCostVal - $vendAdvVal);
+                                $grossMarginVal = $custChargeVal - $vendCostVal;
+                            @endphp
+                            <div class="alert alert-info py-2 px-3 mb-2 fs-11">
+                                <div class="row g-2 text-center">
+                                    <div class="col-sm-3 border-end">
+                                        <div class="text-500 fw-bold">Customer Charge</div>
+                                        <div class="fw-bold fs-12 text-dark font-monospace">Rs. {{ number_format($custChargeVal, 2) }}</div>
+                                        <div class="text-success fs-10">Adv: Rs. {{ number_format($custAdvVal, 2) }}</div>
+                                    </div>
+                                    <div class="col-sm-3 border-end">
+                                        <div class="text-500 fw-bold text-danger">Cust. Remaining (Invoiced)</div>
+                                        <div class="fw-bold fs-12 text-danger font-monospace">Rs. {{ number_format($custRemVal, 2) }}</div>
+                                        <div class="text-muted fs-10">Charges on bill</div>
+                                    </div>
+                                    <div class="col-sm-3 border-end">
+                                        <div class="text-500 fw-bold">Vendor Cost (Payable)</div>
+                                        <div class="fw-bold fs-12 text-primary font-monospace">Rs. {{ number_format($vendCostVal, 2) }}</div>
+                                        <div class="text-muted fs-10">Owed: Rs. {{ number_format($vendRemVal, 2) }}</div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="text-500 fw-bold">Marquee Margin</div>
+                                        <div class="fw-bold fs-12 {{ $grossMarginVal >= 0 ? 'text-success' : 'text-danger' }} font-monospace">
+                                            Rs. {{ number_format($grossMarginVal, 2) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="mb-2">
-                                <label class="form-label fw-bold">Notes / Requirements</label>
-                                <textarea wire:model="vsNotes" class="form-control form-control-sm" rows="2" placeholder="Specific arrangement details, setup instructions..."></textarea>
+                                <label class="form-label fw-bold">Notes / Special Instructions</label>
+                                <textarea wire:model="vsNotes" class="form-control form-control-sm" rows="2" placeholder="Arrangement notes, timings, specific requirements..."></textarea>
                             </div>
                         </div>
                         <div class="modal-footer bg-light py-2">
                             <button wire:click="$set('showVendorSaleModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Cancel</button>
-                            <button type="submit" class="btn btn-success btn-sm px-4"><i class="fas fa-check-circle me-1"></i> Attach Vendor Service</button>
+                            <button type="submit" class="btn btn-success btn-sm px-4">
+                                <i class="fas fa-check-circle me-1"></i> Save Assignment & Post Ledger
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Record Customer Advance / Installment Modal -->
+    @if($showCustomerPaymentModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-success text-white py-2">
+                        <h6 class="modal-title fw-bold fs-13"><i class="fas fa-hand-holding-usd me-2"></i>Record Customer Advance / Installment</h6>
+                        <button wire:click="$set('showCustomerPaymentModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <form wire:submit.prevent="recordCustomerAdvancePayment">
+                        <div class="modal-body p-3 fs-12">
+                            <div class="alert alert-secondary py-2 px-3 mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-700">Service Provider:</span>
+                                    <strong class="text-dark">{{ $cpVendorName }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-700">Service:</span>
+                                    <span class="badge badge-subtle-info">{{ $cpServiceName }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-700">Total Customer Charge:</span>
+                                    <span class="font-monospace fw-bold text-dark">Rs. {{ number_format($cpCustomerCharge, 2) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-700 text-success">Total Advances Paid So Far:</span>
+                                    <span class="font-monospace text-success fw-bold">Rs. {{ number_format($cpCustomerPaid, 2) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between border-top pt-1 mt-1">
+                                    <span class="text-700 fw-bold">Remaining Customer Balance:</span>
+                                    <strong class="text-danger font-monospace fs-12">Rs. {{ number_format($cpCustomerRemaining, 2) }}</strong>
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Advance Payment Amount (PKR) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" wire:model="cpPaymentAmount" class="form-control form-control-sm @error('cpPaymentAmount') is-invalid @enderror">
+                                    @error('cpPaymentAmount') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Payment Date <span class="text-danger">*</span></label>
+                                    <input type="date" wire:model="cpPaymentDate" class="form-control form-control-sm @error('cpPaymentDate') is-invalid @enderror">
+                                    @error('cpPaymentDate') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Payment Method <span class="text-danger">*</span></label>
+                                    <select wire:model="cpPaymentMethod" class="form-select form-select-sm">
+                                        <option value="Cash">Cash</option>
+                                        <option value="Bank Transfer">Bank Transfer</option>
+                                        <option value="Cheque">Cheque</option>
+                                        <option value="Online">Online / Card</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Receipt / Transaction Ref #</label>
+                                    <input type="text" wire:model="cpReference" class="form-control form-control-sm" placeholder="e.g. REC-8912">
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Notes / Remarks</label>
+                                <textarea wire:model="cpNotes" class="form-control form-control-sm" rows="2" placeholder="e.g. Additional stage decoration advance received..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light py-2">
+                            <button wire:click="$set('showCustomerPaymentModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Cancel</button>
+                            <button type="submit" class="btn btn-success btn-sm px-4">
+                                <i class="fas fa-check-circle me-1"></i> Record Customer Advance
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- View Service Provider Modal -->
+    @if($showVendorViewModal && $viewingVendorSale)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-dark text-white py-2">
+                        <h6 class="modal-title fw-bold fs-13">
+                            <i class="fas fa-info-circle text-info me-2"></i>Service Provider Details — {{ $viewingVendorSale->vendor->name ?? 'Vendor' }}
+                        </h6>
+                        <button wire:click="$set('showVendorViewModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-3 fs-12">
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <div class="border rounded p-2 bg-light">
+                                    <div class="text-muted fs-11">Vendor / Partner</div>
+                                    <div class="fw-bold text-dark fs-13">{{ $viewingVendorSale->vendor->name ?? '—' }}</div>
+                                    <div class="text-secondary fs-11">{{ $viewingVendorSale->vendor->vendor_type ?? 'Vendor' }} ({{ $viewingVendorSale->vendor->vendor_code ?? '' }}) | Phone: {{ $viewingVendorSale->vendor->phone ?? '—' }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="border rounded p-2 bg-light">
+                                    <div class="text-muted fs-11">Service Provided</div>
+                                    <div class="fw-bold text-dark fs-13">{{ $viewingVendorSale->service->service_name ?? 'Custom / Direct Service' }}</div>
+                                    <div class="mt-1">
+                                        @if($viewingVendorSale->include_in_invoice)
+                                            <span class="badge badge-subtle-success fs-11"><i class="fas fa-file-invoice me-1"></i>Billed in Customer Invoice</span>
+                                        @else
+                                            <span class="badge badge-subtle-warning fs-11"><i class="fas fa-hand-holding-usd me-1"></i>Direct Payment by Customer</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Customer vs Vendor Financial Comparison -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <div class="card border-success border h-100 p-2 bg-light">
+                                    <div class="fw-bold text-success fs-11 text-uppercase mb-2"><i class="fas fa-user-check me-1"></i>Customer Account Breakdown</div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="text-muted">Customer Charge:</span>
+                                        <span class="font-monospace fw-bold text-dark">Rs. {{ number_format($viewingVendorSale->sale_amount, 2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="text-muted">Total Customer Advances:</span>
+                                        <span class="font-monospace text-success fw-bold">Rs. {{ number_format($viewingVendorSale->customer_paid, 2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between border-top pt-1">
+                                        <span class="fw-bold text-dark">Remaining to Charge Customer:</span>
+                                        <span class="font-monospace fw-bold {{ $viewingVendorSale->customer_remaining > 0 ? 'text-danger' : 'text-success' }}">
+                                            Rs. {{ number_format($viewingVendorSale->customer_remaining, 2) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-primary border h-100 p-2 bg-light">
+                                    <div class="fw-bold text-primary fs-11 text-uppercase mb-2"><i class="fas fa-truck me-1"></i>Vendor Payable Breakdown</div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="text-muted">Vendor Cost (Payable):</span>
+                                        <span class="font-monospace fw-bold text-primary">Rs. {{ number_format($viewingVendorSale->vendor_net_amount, 2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="text-muted">Total Disbursed to Vendor:</span>
+                                        <span class="font-monospace text-success fw-bold">Rs. {{ number_format($viewingVendorSale->paid_amount, 2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between border-top pt-1">
+                                        <span class="fw-bold text-dark">Remaining Owed to Vendor:</span>
+                                        <span class="font-monospace fw-bold {{ $viewingVendorSale->vendor_remaining > 0 ? 'text-danger' : 'text-success' }}">
+                                            Rs. {{ number_format($viewingVendorSale->vendor_remaining, 2) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Customer Advance Payments Ledger History -->
+                        <h6 class="fw-bold fs-12 mb-2 text-success"><i class="fas fa-receipt me-1"></i>Customer Advance Payments History</h6>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered align-middle mb-0 fs-11">
+                                <thead class="bg-200">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Receipt / Ref #</th>
+                                        <th>Method</th>
+                                        <th>Recorded By</th>
+                                        <th>Notes</th>
+                                        <th class="text-end">Amount Paid</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($viewingVendorSale->customerPayments as $cPay)
+                                        <tr>
+                                            <td>{{ \Carbon\Carbon::parse($cPay->payment_date)->format('M d, Y') }}</td>
+                                            <td class="font-monospace">{{ $cPay->transaction_reference ?? '—' }}</td>
+                                            <td><span class="badge badge-subtle-info">{{ $cPay->payment_method }}</span></td>
+                                            <td>{{ $cPay->recorder->name ?? 'System' }}</td>
+                                            <td class="text-muted">{{ $cPay->notes ?? '—' }}</td>
+                                            <td class="text-end font-monospace text-success fw-bold">Rs. {{ number_format($cPay->amount, 2) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-2">
+                                                @if((float)$viewingVendorSale->customer_advance_amount > 0)
+                                                    Initial customer advance: Rs. {{ number_format($viewingVendorSale->customer_advance_amount, 2) }}
+                                                @else
+                                                    No advance payments received from customer for this service yet.
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Vendor Ledger History for this Sale -->
+                        <h6 class="fw-bold fs-12 mb-2 text-700"><i class="fas fa-book me-1 text-primary"></i>Vendor Transaction & Payout Ledger History</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle mb-0 fs-11">
+                                <thead class="bg-200">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Ref / Voucher</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                        <th class="text-end">Credit (Payable)</th>
+                                        <th class="text-end">Debit (Paid)</th>
+                                        <th class="text-end">Running Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($viewingVendorSale->ledgers as $vLedger)
+                                        <tr>
+                                            <td>{{ \Carbon\Carbon::parse($vLedger->transaction_date)->format('M d, Y') }}</td>
+                                            <td class="font-monospace">{{ $vLedger->reference_number ?? '—' }}</td>
+                                            <td>
+                                                <span class="badge badge-subtle-secondary text-uppercase fs-10">
+                                                    {{ str_replace('_', ' ', $vLedger->transaction_type) }}
+                                                </span>
+                                            </td>
+                                            <td class="text-wrap" style="max-width: 250px;">{{ $vLedger->description }}</td>
+                                            <td class="text-end font-monospace text-primary">
+                                                {{ (float)$vLedger->sale_amount > 0 ? 'Rs. ' . number_format($vLedger->sale_amount, 2) : '—' }}
+                                            </td>
+                                            <td class="text-end font-monospace text-success fw-bold">
+                                                {{ (float)$vLedger->payment_amount > 0 ? 'Rs. ' . number_format($vLedger->payment_amount, 2) : '—' }}
+                                            </td>
+                                            <td class="text-end font-monospace fw-bold text-dark">
+                                                Rs. {{ number_format($vLedger->running_balance, 2) }}
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted py-2">No individual ledger records found for this sale.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light py-2">
+                        @if((float)$viewingVendorSale->customer_remaining > 0.01 && $viewingVendorSale->status !== 'cancelled')
+                            <button wire:click="openCustomerPaymentModal({{ $viewingVendorSale->id }})" type="button" class="btn btn-success btn-xs px-3">
+                                <i class="fas fa-hand-holding-usd me-1"></i> Record Customer Advance
+                            </button>
+                        @endif
+                        @if((float)$viewingVendorSale->remaining_amount > 0.01 && $viewingVendorSale->status !== 'cancelled')
+                            <button wire:click="openVendorPaymentModal({{ $viewingVendorSale->id }})" type="button" class="btn btn-primary btn-xs px-3">
+                                <i class="fas fa-money-bill-wave me-1"></i> Disburse Vendor Installment
+                            </button>
+                        @endif
+                        <button wire:click="$set('showVendorViewModal', false)" type="button" class="btn btn-secondary btn-xs px-3">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Edit Service Provider Modal -->
+    @if($showVendorEditModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-warning text-dark py-2">
+                        <h6 class="modal-title fw-bold fs-13"><i class="fas fa-edit me-2"></i>Edit Service Provider Assignment — {{ $veVendorName }}</h6>
+                        <button wire:click="$set('showVendorEditModal', false)" type="button" class="btn-close" aria-label="Close"></button>
+                    </div>
+                    <form wire:submit.prevent="saveEditedVendorSale">
+                        <div class="modal-body p-3 fs-12">
+                            <div class="alert alert-secondary py-2 px-3 mb-2">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <span class="text-700">Vendor:</span> <strong>{{ $veVendorName }}</strong>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-700">Service:</span> <span class="badge badge-subtle-info">{{ $veServiceName }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-dark">Customer Charge (PKR) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" wire:model.live.debounce.400ms="veCustomerCharge" class="form-control form-control-sm @error('veCustomerCharge') is-invalid @enderror">
+                                    @error('veCustomerCharge') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-primary">Vendor Cost / Payable (PKR) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" wire:model.live.debounce.400ms="veVendorCost" class="form-control form-control-sm @error('veVendorCost') is-invalid @enderror">
+                                    @error('veVendorCost') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Commission Rate (%)</label>
+                                    <input type="number" step="0.01" wire:model.live.debounce.400ms="veCommissionRate" class="form-control form-control-sm">
+                                </div>
+                            </div>
+
+                            <!-- Billing Checkbox: Invoiced vs Direct Customer Payment -->
+                            <div class="form-check form-switch mb-2 p-2 ps-5 border rounded bg-light">
+                                <input class="form-check-input" type="checkbox" id="veIncludeInInvoice" wire:model="veIncludeInInvoice">
+                                <label class="form-check-label fw-bold text-dark fs-12 mb-0" for="veIncludeInInvoice">
+                                    <span class="fas fa-file-invoice text-primary me-1"></span> Bill through Marquee Invoice (Customer pays Marquee)
+                                </label>
+                                <div class="text-muted fs-11 mt-1">
+                                    Uncheck if customer will pay the service provider directly without Marquee invoice billing.
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Notes / Reason for Edit</label>
+                                <textarea wire:model="veNotes" class="form-control form-control-sm" rows="2" placeholder="Adjustment details..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light py-2">
+                            <button wire:click="$set('showVendorEditModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Cancel</button>
+                            <button type="submit" class="btn btn-warning btn-sm px-4 fw-bold">
+                                <i class="fas fa-save me-1"></i> Update & Sync Ledger
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Cancel / Delete Service Provider Modal -->
+    @if($showVendorDeleteModal && $deletingVendorSale)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-danger text-white py-2">
+                        <h6 class="modal-title fw-bold fs-13"><i class="fas fa-exclamation-triangle me-2"></i>Cancel / Remove Service Provider</h6>
+                        <button wire:click="$set('showVendorDeleteModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <form wire:submit.prevent="executeDeleteOrCancelVendorSale">
+                        <div class="modal-body p-3 fs-12">
+                            <div class="alert alert-warning py-2 px-3 mb-2">
+                                <div><strong>Vendor:</strong> {{ $deletingVendorSale->vendor->name ?? 'Vendor' }}</div>
+                                <div><strong>Service:</strong> {{ $deletingVendorSale->service->service_name ?? 'Custom Service' }}</div>
+                                <div><strong>Customer Charge:</strong> Rs. {{ number_format($deletingVendorSale->sale_amount, 2) }}</div>
+                                <div><strong>Vendor Payable:</strong> Rs. {{ number_format($deletingVendorSale->vendor_net_amount, 2) }}</div>
+                                <div><strong>Total Paid to Vendor:</strong> Rs. {{ number_format($deletingVendorSale->paid_amount, 2) }}</div>
+                            </div>
+
+                            @if((float)$deletingVendorSale->paid_amount > 0)
+                                <div class="text-danger fw-bold mb-2">
+                                    <i class="fas fa-info-circle me-1"></i> Note: Payments totaling Rs. {{ number_format($deletingVendorSale->paid_amount, 2) }} have already been disbursed to this vendor. Removing this service will mark it as <strong>Cancelled</strong> and reverse any unpaid balance obligations from the vendor ledger.
+                                </div>
+                            @else
+                                <div class="text-muted mb-2">
+                                    No payouts have been disbursed. This assignment will be completely removed and associated ledger entries reversed.
+                                </div>
+                            @endif
+
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Reason for Cancellation / Removal</label>
+                                <textarea wire:model="cancelReason" class="form-control form-control-sm" rows="2" placeholder="e.g. Customer cancelled stage decorator request..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light py-2">
+                            <button wire:click="$set('showVendorDeleteModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Keep Service</button>
+                            <button type="submit" class="btn btn-danger btn-sm px-4">
+                                <i class="fas fa-trash-alt me-1"></i> Confirm Cancellation / Removal
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Vendor Installment Payment Modal -->
+    @if($showVendorPaymentModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-primary text-white py-2">
+                        <h6 class="modal-title fw-bold fs-13"><i class="fas fa-money-bill-wave me-2"></i>Record Vendor Payment Installment</h6>
+                        <button wire:click="$set('showVendorPaymentModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <form wire:submit.prevent="recordVendorInstallmentPayment">
+                        <div class="modal-body p-3 fs-12">
+                            <div class="alert alert-secondary py-2 px-3 mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-700">Vendor:</span>
+                                    <strong class="text-dark">{{ $vpVendorName }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-700">Service:</span>
+                                    <span class="badge badge-subtle-info">{{ $vpServiceName }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between border-top pt-1 mt-1">
+                                    <span class="text-700 fw-bold">Current Remaining Balance:</span>
+                                    <strong class="text-danger font-monospace fs-12">Rs. {{ number_format($vpRemainingBalance, 2) }}</strong>
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Payment Amount (PKR) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" wire:model="vpPaymentAmount" class="form-control form-control-sm @error('vpPaymentAmount') is-invalid @enderror">
+                                    @error('vpPaymentAmount') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Payment Date <span class="text-danger">*</span></label>
+                                    <input type="date" wire:model="vpPaymentDate" class="form-control form-control-sm @error('vpPaymentDate') is-invalid @enderror">
+                                    @error('vpPaymentDate') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Payment Method <span class="text-danger">*</span></label>
+                                    <select wire:model="vpPaymentMethod" class="form-select form-select-sm">
+                                        <option value="Cash">Cash</option>
+                                        <option value="Bank Transfer">Bank Transfer</option>
+                                        <option value="Cheque">Cheque</option>
+                                        <option value="Online">Online</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Paid From Account</label>
+                                    <select wire:model="vpAccountId" class="form-select form-select-sm">
+                                        <option value="">-- Default Cash/Bank Account --</option>
+                                        @foreach($accounts as $acc)
+                                            <option value="{{ $acc->id }}">{{ $acc->name }} ({{ $acc->account_code }})</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Reference / Cheque / Transaction #</label>
+                                <input type="text" wire:model="vpReference" class="form-control form-control-sm" placeholder="e.g. CHQ-98231, TRX-812739">
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Remarks / Notes</label>
+                                <textarea wire:model="vpRemarks" class="form-control form-control-sm" rows="2" placeholder="e.g. Stage decoration final installment payment..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light py-2">
+                            <button wire:click="$set('showVendorPaymentModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Cancel</button>
+                            <button type="submit" class="btn btn-primary btn-sm px-4">
+                                <i class="fas fa-check-circle me-1"></i> Post Payout & Update Ledger
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Booking Cancellation Settlement Modal -->
+    @if($showBookingCancelModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-danger text-white py-2">
+                        <h6 class="modal-title fw-bold fs-13"><i class="fas fa-ban me-2"></i>Booking Cancellation & Settlement</h6>
+                        <button wire:click="$set('showBookingCancelModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <form wire:submit.prevent="executeBookingCancellation">
+                        <div class="modal-body p-3 fs-12">
+                            <div class="alert alert-warning py-2 px-3 mb-3">
+                                <div><strong>Total Advance Liability Held:</strong> <span class="font-monospace fw-bold text-dark">Rs. {{ number_format($booking->advance_received, 2) }}</span></div>
+                                <div class="fs-11 text-600 mt-1">Specify the refund amount to return to the customer and the cancellation fee/penalty to retain as earned cancellation income.</div>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-sm-6">
+                                    <label class="form-label fw-bold">Refund to Customer (Rs.) *</label>
+                                    <input type="number" step="0.01" wire:model.live="bkCancelRefundAmount" class="form-control form-control-sm font-monospace text-success fw-bold">
+                                    @error('bkCancelRefundAmount') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label fw-bold">Cancellation Fee / Penalty (Rs.) *</label>
+                                    <input type="number" step="0.01" wire:model.live="bkCancelFeeAmount" class="form-control form-control-sm font-monospace text-danger fw-bold">
+                                    @error('bkCancelFeeAmount') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                                </div>
+                            </div>
+                            @error('bkCancelSum') <div class="alert alert-danger py-1 px-2 fs-11">{{ $message }}</div> @enderror
+
+                            @if((float)$bkCancelRefundAmount > 0)
+                                <div class="row g-2 mb-2">
+                                    <div class="col-sm-6">
+                                        <label class="form-label fw-bold">Disbursement Method *</label>
+                                        <select wire:model="bkCancelPaymentMethod" class="form-select form-select-sm">
+                                            <option value="Cash">Cash</option>
+                                            <option value="Bank Transfer">Bank Transfer</option>
+                                            <option value="Cheque">Cheque</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label fw-bold">Disbursing Account</label>
+                                        <select wire:model="bkCancelAccountId" class="form-select form-select-sm">
+                                            <option value="">Auto Resolve by Method</option>
+                                            @foreach($cashBankAccounts as $cb)
+                                                <option value="{{ $cb->account_id }}">{{ $cb->account->name ?? $cb->bank_name }} ({{ strtoupper($cb->type) }})</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                            @endif
+
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Cancellation Reason *</label>
+                                <textarea wire:model="bkCancelReason" class="form-control form-control-sm" rows="2" placeholder="e.g. Event cancelled due to date clash..."></textarea>
+                                @error('bkCancelReason') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                            </div>
+                            @error('cancellation') <div class="alert alert-danger py-1 px-2 fs-11">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="modal-footer bg-light py-2">
+                            <button wire:click="$set('showBookingCancelModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Keep Booking</button>
+                            <button type="submit" class="btn btn-danger btn-sm px-4">
+                                <i class="fas fa-times-circle me-1"></i> Confirm Cancellation
+                            </button>
                         </div>
                     </form>
                 </div>

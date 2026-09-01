@@ -143,7 +143,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'description' => 'Manages day-to-day operations and bookings of a specific branch.',
                 'permissions' => [
                     'view_bookings', 'create_bookings', 'edit_bookings', 'cancel_bookings',
-                    'view_halls', 'view_menus',
+                    'view_halls', 'create_halls', 'edit_halls', 'delete_halls',
+                    'view_menus',
                     'view_payments', 'create_payments',
                     'view_reports', 'manage_staff', 'manage_settings',
                     'view_inventory',

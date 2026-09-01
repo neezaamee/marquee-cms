@@ -44,4 +44,20 @@ class JournalVoucher extends Model
     {
         return $this->belongsTo(FinancialYear::class);
     }
+
+    /**
+     * Get the total debit sum of all double-entry items.
+     */
+    public function getTotalDebitAttribute(): float
+    {
+        return (float) $this->items()->sum('debit');
+    }
+
+    /**
+     * Get the total credit sum of all double-entry items.
+     */
+    public function getTotalCreditAttribute(): float
+    {
+        return (float) $this->items()->sum('credit');
+    }
 }

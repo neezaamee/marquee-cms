@@ -51,7 +51,7 @@ class MarqueeController extends Controller
             'address' => 'required|string|max:255',
             'city' => 'required|string|max:255',
             'province' => 'required|string|max:255',
-            'phone' => 'required|string|max:50',
+            'phone' => ['required', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
             'email' => 'required|email|max:255|unique:marquees,email',
             'ntn' => 'nullable|string|max:50',
             'strn' => 'nullable|string|max:50',
@@ -68,7 +68,7 @@ class MarqueeController extends Controller
             $rules['owner_username'] = 'required|string|max:255|unique:users,username';
             $rules['owner_email'] = 'required|email|max:255|unique:users,email';
             $rules['owner_password'] = 'required|string|min:8';
-            $rules['owner_phone'] = 'nullable|string|max:50';
+            $rules['owner_phone'] = ['nullable', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'];
         }
 
         $validated = $request->validate($rules);
@@ -160,7 +160,7 @@ class MarqueeController extends Controller
             'address' => 'required|string|max:255',
             'city' => 'required|string|max:255',
             'province' => 'required|string|max:255',
-            'phone' => 'required|string|max:50',
+            'phone' => ['required', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
             'email' => 'required|email|max:255|unique:marquees,email,' . $marquee->id,
             'ntn' => 'nullable|string|max:50',
             'strn' => 'nullable|string|max:50',

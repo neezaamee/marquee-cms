@@ -51,14 +51,38 @@ class Customer extends Model
                 $marqueeId = $customer->marquee_id;
 
                 if (empty($marqueeId) && auth()->check()) {
-                    $marqueeId = auth()->user()->marquee_id;
+                    $marqueeId = auth()->user()->getActiveMarqueeId();
                 }
 
-                $count = static::withoutGlobalScope('tenant')->withTrashed()
+                $existingCodes = static::withoutGlobalScopes()
+                    ->withTrashed()
                     ->where('marquee_id', $marqueeId)
-                    ->count();
+                    ->where('customer_code', 'like', 'CUST-%')
+                    ->pluck('customer_code');
 
-                $customer->customer_code = 'CUST-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
+                $maxSeq = 0;
+                foreach ($existingCodes as $code) {
+                    $parts = explode('-', $code);
+                    $seq = (int) end($parts);
+                    if ($seq > $maxSeq) {
+                        $maxSeq = $seq;
+                    }
+                }
+
+                $nextSeq = $maxSeq + 1;
+                do {
+                    $candidateCode = 'CUST-' . str_pad($nextSeq, 5, '0', STR_PAD_LEFT);
+                    $exists = static::withoutGlobalScopes()
+                        ->withTrashed()
+                        ->where('marquee_id', $marqueeId)
+                        ->where('customer_code', $candidateCode)
+                        ->exists();
+                    if ($exists) {
+                        $nextSeq++;
+                    }
+                } while ($exists);
+
+                $customer->customer_code = $candidateCode;
             }
 
             if (auth()->check() && empty($customer->created_by)) {
@@ -106,9 +130,25 @@ class Customer extends Model
 
     public function getTotalRevenueGeneratedAttribute(): float
     {
+        $recognized = (float) $this->bookings()
+            ->where('is_revenue_recognized', true)
+            ->sum('revenue_recognized');
+
+        if ($recognized > 0 || $this->bookings()->where('is_revenue_recognized', true)->exists()) {
+            return $recognized;
+        }
+
         return (float) $this->bookings()
             ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
             ->sum('grand_total');
+    }
+
+    public function getTotalAdvanceLiabilityAttribute(): float
+    {
+        return (float) $this->bookings()
+            ->where('is_revenue_recognized', false)
+            ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+            ->sum('advance_received');
     }
 
     public function getTotalInvoicedAmountAttribute(): float
@@ -124,15 +164,41 @@ class Customer extends Model
             ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
             ->pluck('id');
             
-        return (float) \App\Models\BookingPayment::whereIn('booking_id', $bookingIds)->sum('amount');
+        $received = (float) \App\Models\BookingPayment::whereIn('booking_id', $bookingIds)
+            ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])
+            ->sum('amount');
+
+        if ($received <= 0) {
+            $received = (float) \App\Models\BookingPayment::whereIn('booking_id', $bookingIds)->sum('amount');
+        }
+
+        $refunded = (float) \App\Models\BookingPayment::whereIn('booking_id', $bookingIds)
+            ->where('payment_type', 'refund')
+            ->sum('amount');
+
+        return max(0.00, $received - $refunded);
     }
 
     public function getOutstandingBalanceAttribute(): float
     {
+        if ($this->bookings()->where('is_revenue_recognized', true)->exists()) {
+            return (float) $this->bookings()
+                ->where('is_revenue_recognized', true)
+                ->sum('receivable_amount');
+        }
+
         return max(0.00, $this->total_invoiced_amount - $this->total_paid_amount);
     }
 
     // ───────────────────── Relationships ─────────────────────
+
+    /**
+     * Get the customer ledger transactions.
+     */
+    public function ledgers(): HasMany
+    {
+        return $this->hasMany(CustomerLedger::class)->orderBy('transaction_date', 'asc')->orderBy('id', 'asc');
+    }
 
     /**
      * Get the user who registered this customer.
@@ -159,11 +225,11 @@ class Customer extends Model
     }
 
     /**
-     * Future booking relationship mapping placeholder.
+     * Get the bookings for this customer.
      */
     public function bookings(): HasMany
     {
-        return $this->hasMany('App\Models\Booking');
+        return $this->hasMany(Booking::class);
     }
 
     /**
@@ -180,5 +246,25 @@ class Customer extends Model
     public function payments(): HasMany
     {
         return $this->hasMany('App\Models\Payment');
+    }
+
+    public function setPhoneNumberAttribute($value)
+    {
+        $this->attributes['phone_number'] = \App\Services\PhoneNumberService::normalize($value);
+    }
+
+    public function getPhoneNumberAttribute($value)
+    {
+        return \App\Services\PhoneNumberService::formatForDisplay($value);
+    }
+
+    public function setAlternatePhoneAttribute($value)
+    {
+        $this->attributes['alternate_phone'] = \App\Services\PhoneNumberService::normalize($value);
+    }
+
+    public function getAlternatePhoneAttribute($value)
+    {
+        return \App\Services\PhoneNumberService::formatForDisplay($value);
     }
 }

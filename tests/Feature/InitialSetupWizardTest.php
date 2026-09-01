@@ -84,7 +84,7 @@ class InitialSetupWizardTest extends TestCase
             // Step 1: Marquee details
             ->set('marquee_name', 'Grand Palace Marquee')
             ->set('business_type', 'Single Marquee')
-            ->set('phone', '+923009999999')
+            ->set('phone', '0300-9999999')
             ->set('email', 'grand@palace.com')
             ->set('address', '12 Main Boulevard')
             ->set('province', 'Punjab')
@@ -94,36 +94,55 @@ class InitialSetupWizardTest extends TestCase
             ->set('currency', 'PKR')
             ->set('tax_authority', 'PRA')
             ->call('nextStep')
+            ->assertHasNoErrors()
             ->assertSet('currentStep', 2)
 
             // Step 2: Branch details
             ->set('branch_name', 'Gulberg Branch')
-            ->set('branch_phone', '+92423999999')
+            ->set('branch_phone', '0342-3999999')
             ->set('branch_address', '12-A Ghalib Market')
             ->set('branch_province', 'Punjab')
             ->set('branch_city', 'Lahore')
             ->call('nextStep')
+            ->assertHasNoErrors()
             ->assertSet('currentStep', 3)
 
-            // Step 3: Hall details
-            ->set('hall_name', 'Executive Hall')
-            ->set('hall_code', 'EXEC-HL')
-            ->set('capacity', 400)
-            ->set('hall_type', 'Banquet')
-            ->set('default_booking_price', 150000)
+            // Step 3: Branch Config
+            ->set('tax_rate', 16.00)
+            ->set('default_payment_method', 'Cash')
             ->call('nextStep')
             ->assertSet('currentStep', 4)
 
-            // Step 4: Financial Year details
-            ->set('fy_name', 'FY 2026')
-            ->set('fy_start_date', '2026-01-01')
-            ->set('fy_end_date', '2026-12-31')
+            // Step 4: Halls Setup
+            ->set('new_hall_name', 'Executive Hall')
+            ->set('new_hall_code', 'EXEC-HL')
+            ->set('new_capacity', 400)
+            ->set('new_hall_type', 'Banquet')
+            ->set('new_default_booking_price', 150000)
+            ->call('addHall')
             ->call('nextStep')
             ->assertSet('currentStep', 5)
 
-            // Step 5: Defaults & Save
-            ->set('tax_rate', 16.00)
-            ->set('default_payment_method', 'Cash')
+            // Step 5: Departments
+            ->call('nextStep')
+            ->assertSet('currentStep', 6)
+
+            // Step 6: Booking Masters
+            ->call('nextStep')
+            ->assertSet('currentStep', 7)
+
+            // Step 7: Menu & Packages
+            ->call('nextStep')
+            ->assertSet('currentStep', 8)
+
+            // Step 8: Inventory
+            ->call('nextStep')
+            ->assertSet('currentStep', 9)
+
+            // Step 9: Finance Config & Launch
+            ->set('fy_name', 'FY 2026')
+            ->set('fy_start_date', '2026-01-01')
+            ->set('fy_end_date', '2026-12-31')
             ->call('finishSetup')
             ->assertHasNoErrors()
             ->assertRedirect('/dashboard');

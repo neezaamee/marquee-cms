@@ -15,8 +15,18 @@ class BookingView extends Component
     public $amountPaid = 0.00;
     public $paymentDate = '';
     public $paymentMethod = 'Cash';
+    public $paymentAccountId = null;
+    public $paymentType = 'advance';
     public $transactionReference = '';
     public $paymentNote = '';
+
+    // Booking Cancellation Modal State
+    public $showBookingCancelModal = false;
+    public $bkCancelRefundAmount = 0.00;
+    public $bkCancelFeeAmount = 0.00;
+    public $bkCancelReason = '';
+    public $bkCancelPaymentMethod = 'Cash';
+    public $bkCancelAccountId = null;
 
     // Deposit Processing Modal State
     public $showDepositModal = false;
@@ -39,6 +49,7 @@ class BookingView extends Component
     public $fbExtraCharges = 0.00;
     public $fbDiscountAmount = 0.00;
     public $fbTaxAmount = 0.00;
+    public $fbVendorCharges = 0.00;
     public $fbNotes = '';
     public $fbAddonsList = []; // Array of ['service_name' => string, 'unit_price' => float, 'quantity' => int, 'total_price' => float]
     public $newAddonName = '';
@@ -50,59 +61,400 @@ class BookingView extends Component
     public $kitchenLang = 'bilingual';
     public $kitchenInstructions = '';
 
-    // Vendor Service Sale Modal State
+    // Vendor Service Sale Modal State (Create)
     public $showVendorSaleModal = false;
     public $vsVendorId = '';
     public $vsServiceId = '';
-    public $vsSaleAmount = 0.00;
+    public $vsCustomerCharge = 0.00;
+    public $vsCustomerAdvance = 0.00;
+    public $vsCustomerPaymentMethod = 'Cash';
+    public $vsCustomerReference = '';
+    public $vsVendorCost = 0.00;
     public $vsCommissionRate = null;
+    public $vsAdvanceAmount = 0.00;
+    public $vsPaymentMethod = 'Cash';
+    public $vsAccountId = null;
+    public $vsReference = '';
     public $vsNotes = '';
+    public $vsIncludeInInvoice = true;
+
+    // Customer Subsequent Advance Installment Modal State
+    public $showCustomerPaymentModal = false;
+    public $cpSaleId = '';
+    public $cpVendorName = '';
+    public $cpServiceName = '';
+    public $cpCustomerCharge = 0.00;
+    public $cpCustomerPaid = 0.00;
+    public $cpCustomerRemaining = 0.00;
+    public $cpPaymentAmount = 0.00;
+    public $cpPaymentDate = '';
+    public $cpPaymentMethod = 'Cash';
+    public $cpReference = '';
+    public $cpNotes = '';
+
+    // Vendor Subsequent Installment Modal State
+    public $showVendorPaymentModal = false;
+    public $vpSaleId = '';
+    public $vpVendorName = '';
+    public $vpServiceName = '';
+    public $vpRemainingBalance = 0.00;
+    public $vpPaymentAmount = 0.00;
+    public $vpPaymentDate = '';
+    public $vpPaymentMethod = 'Cash';
+    public $vpReference = '';
+    public $vpAccountId = null;
+    public $vpRemarks = '';
+
+    // Vendor View Modal State
+    public $showVendorViewModal = false;
+    public $viewingVendorSaleId = null;
+
+    // Vendor Edit Modal State
+    public $showVendorEditModal = false;
+    public $veSaleId = null;
+    public $veVendorName = '';
+    public $veServiceName = '';
+    public $veCustomerCharge = 0.00;
+    public $veVendorCost = 0.00;
+    public $veCommissionRate = null;
+    public $veIncludeInInvoice = true;
+    public $veNotes = '';
+
+    // Vendor Delete / Cancel Confirmation Modal State
+    public $showVendorDeleteModal = false;
+    public $deletingVendorSaleId = null;
+    public $cancelReason = '';
 
     public function mount(Booking $booking)
     {
         $this->booking = $booking;
         $this->paymentDate = date('Y-m-d');
+        $this->vpPaymentDate = date('Y-m-d');
+        $this->cpPaymentDate = date('Y-m-d');
     }
 
     public function openVendorSaleModal()
     {
         $this->vsVendorId = '';
         $this->vsServiceId = '';
-        $this->vsSaleAmount = 0.00;
+        $this->vsCustomerCharge = 0.00;
+        $this->vsCustomerAdvance = 0.00;
+        $this->vsCustomerPaymentMethod = 'Cash';
+        $this->vsCustomerReference = '';
+        $this->vsVendorCost = 0.00;
         $this->vsCommissionRate = null;
+        $this->vsAdvanceAmount = 0.00;
+        $this->vsPaymentMethod = 'Cash';
+        $this->vsAccountId = null;
+        $this->vsReference = '';
         $this->vsNotes = '';
+        $this->vsIncludeInInvoice = true;
         $this->showVendorSaleModal = true;
+    }
+
+    public function updatedVsVendorId($val)
+    {
+        $this->vsServiceId = '';
+        $this->recalculateVendorCosts();
+    }
+
+    public function updatedVsServiceId($val)
+    {
+        if ($val) {
+            $service = \App\Models\VendorService::find($val);
+            if ($service && floatval($service->default_sale_price) > 0) {
+                $this->vsCustomerCharge = (float) $service->default_sale_price;
+            }
+        }
+        $this->recalculateVendorCosts();
+    }
+
+    public function updatedVsCustomerCharge($val)
+    {
+        $this->recalculateVendorCosts();
+    }
+
+    public function updatedVsCommissionRate($val)
+    {
+        $this->recalculateVendorCosts();
+    }
+
+    protected function recalculateVendorCosts()
+    {
+        if (!$this->vsVendorId) {
+            return;
+        }
+
+        $vendor = \App\Models\Vendor::find($this->vsVendorId);
+        if (!$vendor) return;
+
+        $service = $this->vsServiceId ? \App\Models\VendorService::find($this->vsServiceId) : null;
+        $serviceEngine = app(\App\Services\VendorCommissionService::class);
+        $agreement = $serviceEngine->resolveAgreement($vendor, $service, $this->booking->booking_date->format('Y-m-d'));
+        
+        $customerCharge = floatval($this->vsCustomerCharge);
+        $calc = $serviceEngine->calculateCommission(
+            $agreement,
+            $customerCharge,
+            $this->vsCommissionRate !== null && $this->vsCommissionRate !== '' ? floatval($this->vsCommissionRate) : null
+        );
+
+        $this->vsVendorCost = $calc['vendor_net_amount'];
+        if ($this->vsCommissionRate === null || $this->vsCommissionRate === '') {
+            $this->vsCommissionRate = $calc['commission_rate'];
+        }
     }
 
     public function saveBookingVendorSale()
     {
         $this->validate([
             'vsVendorId' => 'required|exists:vendors,id',
-            'vsSaleAmount' => 'required|numeric|min:1',
+            'vsCustomerCharge' => 'required|numeric|min:1',
+            'vsCustomerAdvance' => 'required|numeric|min:0',
+            'vsVendorCost' => 'required|numeric|min:0',
+            'vsAdvanceAmount' => 'nullable|numeric|min:0',
         ]);
 
+        if (floatval($this->vsCustomerAdvance) > floatval($this->vsCustomerCharge)) {
+            $this->addError('vsCustomerAdvance', 'Customer advance cannot exceed total customer charge (Rs. ' . number_format($this->vsCustomerCharge, 2) . ').');
+            return;
+        }
+
+        if (floatval($this->vsAdvanceAmount) > floatval($this->vsVendorCost)) {
+            $this->addError('vsAdvanceAmount', 'Advance paid to vendor cannot exceed total Vendor Cost (Rs. ' . number_format($this->vsVendorCost, 2) . ').');
+            return;
+        }
+
         $serviceEngine = app(\App\Services\VendorCommissionService::class);
-        $serviceEngine->createVendorSale([
+        $sale = $serviceEngine->createVendorSale([
             'vendor_id' => $this->vsVendorId,
             'vendor_service_id' => $this->vsServiceId ?: null,
             'booking_id' => $this->booking->id,
             'customer_id' => $this->booking->customer_id,
+            'branch_id' => $this->booking->branch_id,
             'event_date' => $this->booking->booking_date->format('Y-m-d'),
             'sale_date' => date('Y-m-d'),
             'quantity' => 1,
             'unit' => 'Event',
-            'sale_amount' => floatval($this->vsSaleAmount),
+            'sale_amount' => floatval($this->vsCustomerCharge),
+            'customer_advance_amount' => floatval($this->vsCustomerAdvance),
+            'customer_payment_method' => $this->vsCustomerPaymentMethod,
+            'customer_payment_reference' => $this->vsCustomerReference ?: null,
             'commission_rate' => $this->vsCommissionRate !== null && $this->vsCommissionRate !== '' ? floatval($this->vsCommissionRate) : null,
+            'advance_amount' => floatval($this->vsAdvanceAmount),
+            'payment_method' => $this->vsPaymentMethod,
+            'account_id' => $this->vsAccountId ?: null,
+            'reference_number' => $this->vsReference ?: null,
+            'include_in_invoice' => (bool) $this->vsIncludeInInvoice,
             'notes' => $this->vsNotes,
         ]);
 
         $this->booking->refresh();
         $this->showVendorSaleModal = false;
-        session()->flash('success', 'Vendor service linked to booking successfully.');
+        session()->flash('success', 'Service Provider assigned to booking successfully. Customer advance, vendor cost, and ledger balance recorded.');
+    }
+
+    public function openCustomerPaymentModal($saleId)
+    {
+        $sale = \App\Models\VendorSale::with(['vendor', 'service'])->findOrFail($saleId);
+        $this->cpSaleId = $sale->id;
+        $this->cpVendorName = $sale->vendor->name;
+        $this->cpServiceName = $sale->service?->service_name ?? 'Vendor Service';
+        $this->cpCustomerCharge = (float) $sale->sale_amount;
+        $this->cpCustomerPaid = (float) $sale->customer_paid;
+        $this->cpCustomerRemaining = (float) $sale->customer_remaining;
+        $this->cpPaymentAmount = (float) $sale->customer_remaining;
+        $this->cpPaymentDate = date('Y-m-d');
+        $this->cpPaymentMethod = 'Cash';
+        $this->cpReference = '';
+        $this->cpNotes = '';
+        $this->showCustomerPaymentModal = true;
+    }
+
+    public function recordCustomerAdvancePayment()
+    {
+        $this->validate([
+            'cpPaymentAmount' => 'required|numeric|min:1',
+            'cpPaymentDate' => 'required|date',
+            'cpPaymentMethod' => 'required|string',
+        ]);
+
+        $sale = \App\Models\VendorSale::findOrFail($this->cpSaleId);
+        if (floatval($this->cpPaymentAmount) > floatval($sale->customer_remaining)) {
+            $this->addError('cpPaymentAmount', 'Payment amount cannot exceed remaining customer balance (Rs. ' . number_format($sale->customer_remaining, 2) . ').');
+            return;
+        }
+
+        $serviceEngine = app(\App\Services\VendorCommissionService::class);
+        $serviceEngine->recordCustomerSalePayment($sale, floatval($this->cpPaymentAmount), [
+            'payment_date' => $this->cpPaymentDate,
+            'payment_method' => $this->cpPaymentMethod,
+            'transaction_reference' => $this->cpReference ?: null,
+            'notes' => $this->cpNotes ?: ("Customer advance payment for " . ($sale->service?->service_name ?? $sale->vendor?->name ?? 'Vendor Service')),
+        ]);
+
+        $this->booking->refresh();
+        $this->showCustomerPaymentModal = false;
+        session()->flash('success', 'Customer advance payment recorded successfully.');
+    }
+
+    public function openVendorViewModal($saleId)
+    {
+        $this->viewingVendorSaleId = $saleId;
+        $this->showVendorViewModal = true;
+    }
+
+    public function openVendorEditModal($saleId)
+    {
+        $sale = \App\Models\VendorSale::with(['vendor', 'service'])->findOrFail($saleId);
+        $this->veSaleId = $sale->id;
+        $this->veVendorName = $sale->vendor->name;
+        $this->veServiceName = $sale->service?->service_name ?? 'Custom Service';
+        $this->veCustomerCharge = (float) $sale->sale_amount;
+        $this->veVendorCost = (float) $sale->vendor_net_amount;
+        $this->veCommissionRate = (float) $sale->commission_rate;
+        $this->veIncludeInInvoice = (bool) $sale->include_in_invoice;
+        $this->veNotes = $sale->notes ?? '';
+        $this->showVendorEditModal = true;
+    }
+
+    public function updatedVeCustomerCharge($val)
+    {
+        $this->recalculateEditVendorCosts();
+    }
+
+    public function updatedVeCommissionRate($val)
+    {
+        $this->recalculateEditVendorCosts();
+    }
+
+    protected function recalculateEditVendorCosts()
+    {
+        $sale = \App\Models\VendorSale::find($this->veSaleId);
+        if (!$sale) return;
+
+        $customerCharge = floatval($this->veCustomerCharge);
+        $rate = $this->veCommissionRate !== null && $this->veCommissionRate !== '' ? floatval($this->veCommissionRate) : (float) $sale->commission_rate;
+        $commAmount = $customerCharge * ($rate / 100);
+        $this->veVendorCost = max(0.00, $customerCharge - $commAmount);
+    }
+
+    public function saveEditedVendorSale()
+    {
+        $this->validate([
+            'veCustomerCharge' => 'required|numeric|min:1',
+            'veVendorCost' => 'required|numeric|min:0',
+        ]);
+
+        $sale = \App\Models\VendorSale::findOrFail($this->veSaleId);
+        $serviceEngine = app(\App\Services\VendorCommissionService::class);
+
+        $serviceEngine->updateVendorSale($sale, [
+            'sale_amount' => floatval($this->veCustomerCharge),
+            'vendor_cost' => floatval($this->veVendorCost),
+            'commission_rate' => $this->veCommissionRate !== null && $this->veCommissionRate !== '' ? floatval($this->veCommissionRate) : null,
+            'include_in_invoice' => (bool) $this->veIncludeInInvoice,
+            'notes' => $this->veNotes,
+        ]);
+
+        $this->booking->refresh();
+        $this->showVendorEditModal = false;
+        session()->flash('success', 'Service Provider details updated successfully.');
+    }
+
+    public function confirmCancelVendorSale($saleId)
+    {
+        $this->deletingVendorSaleId = $saleId;
+        $this->cancelReason = '';
+        $this->showVendorDeleteModal = true;
+    }
+
+    public function executeDeleteOrCancelVendorSale()
+    {
+        $sale = \App\Models\VendorSale::findOrFail($this->deletingVendorSaleId);
+        $serviceEngine = app(\App\Services\VendorCommissionService::class);
+
+        if ((float) $sale->paid_amount > 0) {
+            $serviceEngine->cancelVendorSale($sale, $this->cancelReason ?: 'Cancelled from booking view');
+            session()->flash('warning', 'Vendor service cancelled. Unpaid payable obligations reversed on ledger.');
+        } else {
+            $serviceEngine->deleteVendorSale($sale);
+            session()->flash('success', 'Vendor service removed from booking successfully.');
+        }
+
+        $this->booking->refresh();
+        $this->showVendorDeleteModal = false;
+    }
+
+    public function openVendorPaymentModal($saleId)
+    {
+        $sale = \App\Models\VendorSale::with(['vendor', 'service'])->findOrFail($saleId);
+        $this->vpSaleId = $sale->id;
+        $this->vpVendorName = $sale->vendor->name;
+        $this->vpServiceName = $sale->service?->service_name ?? 'Vendor Service';
+        $this->vpRemainingBalance = (float) $sale->remaining_amount;
+        $this->vpPaymentAmount = (float) $sale->remaining_amount;
+        $this->vpPaymentDate = date('Y-m-d');
+        $this->vpPaymentMethod = 'Cash';
+        $this->vpReference = '';
+        $this->vpAccountId = null;
+        $this->vpRemarks = '';
+        $this->showVendorPaymentModal = true;
+    }
+
+    public function recordVendorInstallmentPayment()
+    {
+        $this->validate([
+            'vpPaymentAmount' => 'required|numeric|min:1',
+            'vpPaymentDate' => 'required|date',
+            'vpPaymentMethod' => 'required|string',
+        ]);
+
+        $sale = \App\Models\VendorSale::findOrFail($this->vpSaleId);
+        if (floatval($this->vpPaymentAmount) > floatval($sale->remaining_amount)) {
+            $this->addError('vpPaymentAmount', 'Payment amount cannot exceed remaining payable balance (Rs. ' . number_format($sale->remaining_amount, 2) . ').');
+            return;
+        }
+
+        $serviceEngine = app(\App\Services\VendorCommissionService::class);
+        $serviceEngine->recordVendorSalePayment($sale, floatval($this->vpPaymentAmount), [
+            'payment_date' => $this->vpPaymentDate,
+            'payment_method' => $this->vpPaymentMethod,
+            'reference_number' => $this->vpReference ?: null,
+            'account_id' => $this->vpAccountId ?: null,
+            'remarks' => $this->vpRemarks ?: 'Installment payment against booking',
+        ]);
+
+        $this->booking->refresh();
+        $this->showVendorPaymentModal = false;
+        session()->flash('success', 'Vendor payment installment recorded successfully with ledger & accounting voucher.');
     }
 
     /**
-     * Record a payment transaction and update payment status.
+     * Open Quick Payment Record Modal with smart defaults.
+     */
+    public function openPaymentModal()
+    {
+        $this->paymentDate = date('Y-m-d');
+        $this->paymentMethod = 'Cash';
+        $this->paymentAccountId = null;
+        $this->transactionReference = '';
+        $this->paymentNote = '';
+
+        if ($this->booking->is_revenue_recognized) {
+            $this->paymentType = 'receivable_payment';
+            $this->amountPaid = (float) $this->booking->effective_receivable;
+        } else {
+            $this->paymentType = 'advance';
+            $remainingToPay = max(0.00, (float) $this->booking->effective_invoice_amount - (float) $this->booking->total_paid);
+            $this->amountPaid = $remainingToPay;
+        }
+
+        $this->showPaymentModal = true;
+    }
+
+    /**
+     * Record a payment transaction via BookingFinancialService with double-entry journal voucher & customer ledger.
      */
     public function recordPayment()
     {
@@ -110,49 +462,22 @@ class BookingView extends Component
             'amountPaid' => 'required|numeric|min:1',
             'paymentDate' => 'required|date',
             'paymentMethod' => 'required|string',
+            'paymentAccountId' => 'nullable|exists:accounts,id',
             'transactionReference' => 'nullable|string|max:255',
             'paymentNote' => 'nullable|string|max:255',
         ]);
 
-        $oldPaymentStatus = $this->booking->payment_status;
-        
-        // 1. Create payment transaction record
-        \App\Models\BookingPayment::create([
-            'booking_id' => $this->booking->id,
+        $financialService = app(\App\Services\BookingFinancialService::class);
+
+        $payment = $financialService->recordPayment($this->booking, [
             'amount' => floatval($this->amountPaid),
             'payment_date' => $this->paymentDate,
             'payment_method' => $this->paymentMethod,
+            'account_id' => $this->paymentAccountId ?: null,
+            'payment_type' => $this->booking->is_revenue_recognized ? 'receivable_payment' : 'advance',
             'transaction_reference' => $this->transactionReference ?: null,
-            'recorded_by' => auth()->id(),
             'notes' => $this->paymentNote ?: null,
-        ]);
-
-        // 2. Sum all payments to update status
-        $totalPaid = $this->booking->payments()->sum('amount');
-        
-        $billingAmount = $this->booking->finalBill ? $this->booking->finalBill->grand_total : $this->booking->grand_total;
-        $newPaymentStatus = 'Unpaid';
-        if ($totalPaid > 0) {
-            if ($totalPaid >= $billingAmount) {
-                $newPaymentStatus = 'Paid';
-            } else {
-                $newPaymentStatus = 'Partially Paid';
-            }
-        }
-
-        $this->booking->update([
-            'payment_status' => $newPaymentStatus
-        ]);
-
-        // Add history log
-        BookingHistory::create([
-            'booking_id' => $this->booking->id,
-            'user_id' => auth()->id(),
-            'status_from' => $this->booking->booking_status,
-            'status_to' => $this->booking->booking_status,
-            'payment_status_from' => $oldPaymentStatus,
-            'payment_status_to' => $newPaymentStatus,
-            'notes' => 'Recorded ' . $this->paymentMethod . ' payment of Rs. ' . number_format($this->amountPaid, 2) . '. ' . $this->paymentNote,
+            'recorded_by' => auth()->id(),
         ]);
 
         $this->booking->refresh();
@@ -160,9 +485,10 @@ class BookingView extends Component
         $this->paymentNote = '';
         $this->transactionReference = '';
         $this->paymentDate = date('Y-m-d');
+        $this->paymentAccountId = null;
         $this->showPaymentModal = false;
 
-        session()->flash('success', 'Payment recorded successfully in transactions ledger.');
+        session()->flash('success', 'Payment of Rs. ' . number_format($payment->amount, 2) . ' recorded successfully with Journal Voucher and Customer Ledger entry.');
     }
 
     /**
@@ -229,7 +555,13 @@ class BookingView extends Component
         }
         $this->fbExtraCharges = $addonsSum;
 
-        $subtotal = $packageAmount + $this->fbHallCharges + $this->fbExtraCharges - $this->fbDiscountAmount;
+        $vendorCharges = (float) \App\Models\VendorSale::where('booking_id', $this->booking->id)
+            ->whereIn('status', ['confirmed', 'settled'])
+            ->where('include_in_invoice', true)
+            ->sum('sale_amount');
+        $this->fbVendorCharges = $vendorCharges;
+
+        $subtotal = $packageAmount + $this->fbHallCharges + $this->fbExtraCharges + $this->fbVendorCharges - $this->fbDiscountAmount;
         
         // Calculate tax based on original tax rate
         $origSubtotal = $this->booking->subtotal;
@@ -428,7 +760,7 @@ class BookingView extends Component
     }
 
     /**
-     * Transition booking status. Only owners/superadmins can unlock completed/cancelled events.
+     * Transition booking status. Handles Revenue Recognition on Completion and Cancellation Settlement.
      */
     public function updateStatus($newStatus)
     {
@@ -436,13 +768,31 @@ class BookingView extends Component
             return;
         }
 
-        if ($newStatus === 'Completed' && \Carbon\Carbon::parse($this->booking->booking_date)->startOfDay()->gt(\Carbon\Carbon::today())) {
-            session()->flash('error', 'Future bookings cannot be marked as Completed.');
+        if ($newStatus === 'Cancelled') {
+            $this->openBookingCancelModal();
             return;
         }
 
+        if ($newStatus === 'Completed') {
+            if (\Carbon\Carbon::parse($this->booking->booking_date)->startOfDay()->gt(\Carbon\Carbon::today())) {
+                session()->flash('error', 'Future bookings cannot be marked as Completed.');
+                return;
+            }
+
+            try {
+                $recService = app(\App\Services\RevenueRecognitionService::class);
+                $jv = $recService->recognizeRevenue($this->booking, date('Y-m-d'), auth()->id());
+                $this->booking->refresh();
+                session()->flash('success', "Event Completed! Revenue recognized successfully (Voucher: {$jv->voucher_no}).");
+                return;
+            } catch (\Exception $e) {
+                session()->flash('error', 'Failed to recognize revenue: ' . $e->getMessage());
+                return;
+            }
+        }
+
         $user = auth()->user();
-        $isOwner = $user->role && in_array($user->role->name, ['owner', 'super_admin']);
+        $isOwner = $user->role && in_array($user->role->name, ['owner', 'super_admin', 'business_owner']);
 
         if ($this->booking->booking_status === 'Completed' && !$isOwner) {
             session()->flash('error', 'Completed bookings cannot be changed to another status.');
@@ -471,6 +821,73 @@ class BookingView extends Component
 
         $this->booking->refresh();
         session()->flash('success', 'Booking status updated to ' . $newStatus);
+    }
+
+    /**
+     * Open Booking Cancellation Settlement Modal.
+     */
+    public function openBookingCancelModal()
+    {
+        $advanceHeld = (float) $this->booking->advance_received;
+        $this->bkCancelRefundAmount = $advanceHeld;
+        $this->bkCancelFeeAmount = 0.00;
+        $this->bkCancelReason = '';
+        $this->bkCancelPaymentMethod = 'Cash';
+        $this->bkCancelAccountId = null;
+        $this->showBookingCancelModal = true;
+    }
+
+    public function updatedBkCancelRefundAmount($val)
+    {
+        $advanceHeld = (float) $this->booking->advance_received;
+        $refund = floatval($val);
+        $this->bkCancelFeeAmount = max(0.00, $advanceHeld - $refund);
+    }
+
+    public function updatedBkCancelFeeAmount($val)
+    {
+        $advanceHeld = (float) $this->booking->advance_received;
+        $fee = floatval($val);
+        $this->bkCancelRefundAmount = max(0.00, $advanceHeld - $fee);
+    }
+
+    /**
+     * Execute Booking Cancellation with accounting entries.
+     */
+    public function executeBookingCancellation()
+    {
+        $this->validate([
+            'bkCancelRefundAmount' => 'required|numeric|min:0',
+            'bkCancelFeeAmount' => 'required|numeric|min:0',
+            'bkCancelReason' => 'required|string|min:3',
+            'bkCancelPaymentMethod' => 'required|string',
+        ]);
+
+        $advanceHeld = (float) $this->booking->advance_received;
+        $sum = floatval($this->bkCancelRefundAmount) + floatval($this->bkCancelFeeAmount);
+
+        if (abs($sum - $advanceHeld) > 0.01) {
+            $this->addError('bkCancelSum', 'Refund Amount + Cancellation Fee must equal total Advance Liability held (Rs. ' . number_format($advanceHeld, 2) . ').');
+            return;
+        }
+
+        try {
+            $financialService = app(\App\Services\BookingFinancialService::class);
+            $financialService->processCancellation($this->booking, [
+                'refund_amount' => floatval($this->bkCancelRefundAmount),
+                'cancellation_fee' => floatval($this->bkCancelFeeAmount),
+                'reason' => $this->bkCancelReason,
+                'payment_method' => $this->bkCancelPaymentMethod,
+                'account_id' => $this->bkCancelAccountId ?: null,
+                'recorded_by' => auth()->id(),
+            ]);
+
+            $this->booking->refresh();
+            $this->showBookingCancelModal = false;
+            session()->flash('success', 'Booking cancelled and financial liability settled.');
+        } catch (\Exception $e) {
+            $this->addError('cancellation', 'Cancellation failed: ' . $e->getMessage());
+        }
     }
 
     public function openGuestModal()
@@ -578,11 +995,36 @@ class BookingView extends Component
             ? \App\Models\VendorService::where('marquee_id', $marqueeId)->where('vendor_id', $this->vsVendorId)->get()
             : collect();
 
+        $accounts = \App\Models\Account::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
+
+        $viewingVendorSale = $this->viewingVendorSaleId
+            ? \App\Models\VendorSale::with(['vendor', 'service', 'booking', 'ledgers.creator', 'customerPayments.recorder'])->find($this->viewingVendorSaleId)
+            : null;
+
+        $deletingVendorSale = $this->deletingVendorSaleId
+            ? \App\Models\VendorSale::with(['vendor', 'service'])->find($this->deletingVendorSaleId)
+            : null;
+
+        $cashBankAccounts = \App\Models\CashBankAccount::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where('status', 'active')
+            ->with(['account'])
+            ->get();
+
+        $customerLedgers = $this->booking->customerLedgers()
+            ->with(['creator', 'journalVoucher'])
+            ->get();
+
         return view('livewire.booking-view', [
             'histories' => $histories,
             'vendorSales' => $vendorSales,
             'allVendors' => $allVendors,
             'vsVendorServices' => $vsVendorServices,
+            'accounts' => $accounts,
+            'cashBankAccounts' => $cashBankAccounts,
+            'customerLedgers' => $customerLedgers,
+            'viewingVendorSale' => $viewingVendorSale,
+            'deletingVendorSale' => $deletingVendorSale,
         ]);
     }
 }

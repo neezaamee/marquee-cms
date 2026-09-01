@@ -157,6 +157,10 @@ class CustomerProfile extends Component
             ->latest()
             ->paginate(5, ['*'], 'logsPage');
 
-        return view('livewire.customer-profile', compact('bookings', 'documents', 'communicationLogs'));
+        $customerLedgers = $this->customer->ledgers()
+            ->with(['booking', 'bookingPayment', 'journalVoucher'])
+            ->paginate(15, ['*'], 'ledgerPage');
+
+        return view('livewire.customer-profile', compact('bookings', 'documents', 'communicationLogs', 'customerLedgers'));
     }
 }

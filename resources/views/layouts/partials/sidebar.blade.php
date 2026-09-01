@@ -13,7 +13,25 @@
     </div>
     <a class="navbar-brand" href="{{ route('dashboard') }}">
       <div class="d-flex align-items-center py-3">
-        <img class="me-2" src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="50" />
+        @php
+          $activeMarquee = null;
+          if (auth()->check()) {
+              $activeMarqueeId = auth()->user()->getActiveMarqueeId();
+              if ($activeMarqueeId) {
+                  $activeMarquee = \App\Models\Marquee::find($activeMarqueeId);
+              }
+          }
+        @endphp
+        @if($activeMarquee && $activeMarquee->logo)
+          @php
+            $logoUrl = Str::startsWith($activeMarquee->logo, ['http://', 'https://']) 
+              ? $activeMarquee->logo 
+              : (Str::startsWith($activeMarquee->logo, 'storage/') ? asset($activeMarquee->logo) : asset('storage/' . $activeMarquee->logo));
+          @endphp
+          <img class="me-2" src="{{ $logoUrl }}" alt="Logo" width="50" style="object-fit: contain; max-height: 50px;" />
+        @else
+          <img class="me-2" src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="50" />
+        @endif
         <span class="font-sans-serif text-primary">M<span class="text-secondary fw-semibold">CMS</span></span>
       </div>
     </a>
@@ -752,7 +770,7 @@
 
         <!-- Financial Dashboard/Ledgers dropdown -->
         @php
-          $financeActive = Route::is('finance.revenue') || Route::is('finance.payments') || Route::is('finance.security-deposits');
+          $financeActive = Route::is('finance.revenue') || Route::is('finance.payments') || Route::is('finance.security-deposits') || Route::is('finance.advance-liabilities');
         @endphp
         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_payments'))
         <li class="nav-item">
@@ -767,6 +785,13 @@
               <a class="nav-link {{ Route::is('finance.revenue') ? 'active' : '' }}" href="{{ route('finance.revenue') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Revenue Dashboard</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.advance-liabilities') ? 'active' : '' }}" href="{{ route('finance.advance-liabilities') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Advance Liability Report</span>
                 </div>
               </a>
             </li>
@@ -790,7 +815,7 @@
 
         <!-- General Ledger Accounting dropdown -->
         @php
-          $accountingActive = Route::is('finance.financial-years') || Route::is('finance.chart-of-accounts') || Route::is('finance.opening-balances') || Route::is('finance.journal-vouchers.*') || Route::is('finance.general-ledger') || Route::is('finance.trial-balance') || Route::is('finance.profit-loss') || Route::is('finance.balance-sheet') || Route::is('finance.cash-bank');
+          $accountingActive = Route::is('finance.financial-years') || Route::is('finance.chart-of-accounts') || Route::is('finance.opening-balances') || Route::is('finance.journal-vouchers.*') || Route::is('finance.general-ledger') || Route::is('finance.trial-balance') || Route::is('finance.profit-loss') || Route::is('finance.balance-sheet') || Route::is('finance.cash-bank') || Route::is('finance.coa-categories') || Route::is('finance.expense-categories') || Route::is('finance.tax-configuration');
         @endphp
         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'))
         <li class="nav-item">
@@ -844,6 +869,24 @@
             <li class="nav-item">
               <a class="nav-link {{ Route::is('finance.cash-bank') ? 'active' : '' }}" href="{{ route('finance.cash-bank') }}">
                 <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Cash & Bank Accounts</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <div class="nav-link text-500 fs-11 fw-semibold text-uppercase ps-1 mt-2" style="pointer-events:none;">Configuration Masters</div>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.coa-categories') ? 'active' : '' }}" href="{{ route('finance.coa-categories') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">COA Categories</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.expense-categories') ? 'active' : '' }}" href="{{ route('finance.expense-categories') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Expense Categories</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.tax-configuration') ? 'active' : '' }}" href="{{ route('finance.tax-configuration') }}">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Tax & FBR Configuration</span></div>
               </a>
             </li>
           </ul>
@@ -1248,6 +1291,16 @@
           </a>
         </li>
 
+        <!-- Departments -->
+        <li class="nav-item">
+          <a class="nav-link {{ Route::is('departments.*') ? 'active' : '' }}" href="{{ route('departments.index') }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-sitemap text-success"></span></span>
+              <span class="nav-link-text ps-1">Departments</span>
+            </div>
+          </a>
+        </li>
+
         <!-- Booking Settings dropdown -->
         @php
           $bookingConfigActive = Route::is('slots.*') || Route::is('hall-slots.*') || Route::is('extra-services.*') || Route::is('event-types.*');
@@ -1389,36 +1442,36 @@
           </ul>
         </li>
 
-        <!-- Roles & Permissions placeholders -->
+        <!-- Roles & Permissions -->
+        @php
+          $rolesActive = Route::is('admin.roles') || Route::is('admin.permissions') || Route::is('admin.access-control');
+        @endphp
         <li class="nav-item">
-          <a class="nav-link dropdown-indicator collapsed" href="#rolesCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="rolesCollapse">
+          <a class="nav-link dropdown-indicator {{ $rolesActive ? '' : 'collapsed' }}" href="#rolesCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $rolesActive ? 'true' : 'false' }}" aria-controls="rolesCollapse">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-shield-alt"></span></span>
+              <span class="nav-link-icon"><span class="fas fa-shield-alt text-primary"></span></span>
               <span class="nav-link-text ps-1">Roles & Permissions</span>
             </div>
           </a>
-          <ul class="nav collapse" id="rolesCollapse" data-bs-parent="#navbarVerticalNav">
+          <ul class="nav collapse {{ $rolesActive ? 'show' : '' }}" id="rolesCollapse" data-bs-parent="#navbarVerticalNav">
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('admin.roles') ? 'active' : '' }}" href="{{ route('admin.roles') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Roles</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('admin.permissions') ? 'active' : '' }}" href="{{ route('admin.permissions') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Permissions</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('admin.access-control') ? 'active' : '' }}" href="{{ route('admin.access-control') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Access Control</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>
@@ -1657,6 +1710,13 @@
             </div>
           </a>
           <ul class="nav collapse" id="devToolsCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('super-admin.synthetic-data') ? 'active' : '' }}" href="{{ route('super-admin.synthetic-data') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1 text-primary fw-bold"><span class="fas fa-magic me-1"></span> Synthetic Data Studio</span>
+                </div>
+              </a>
+            </li>
             <li class="nav-item">
               <a class="nav-link text-muted" href="#!">
                 <div class="d-flex align-items-center">

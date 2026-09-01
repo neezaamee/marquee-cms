@@ -217,4 +217,39 @@ class AccountingReportsTest extends TestCase
             ->assertSet('reportData.is_balanced', true)
             ->assertSee('Rs. 125,000.00');
     }
+
+    /** @test */
+    public function test_general_ledger_loading()
+    {
+        $this->actingAs($this->user);
+
+        // Fetch Accounts
+        $cash = Account::where('marquee_id', $this->marquee->id)->where('account_code', '1001')->first();
+
+        // Test Livewire component loads
+        Livewire::test('finance.general-ledger')
+            ->set('account_id', $cash->id)
+            ->set('financial_year_id', $this->fy->id)
+            ->set('branch_id', $this->branch->id)
+            ->set('startDate', '2026-01-01')
+            ->set('endDate', '2026-12-31')
+            ->call('generateReport')
+            ->assertSee($this->branch->name)
+            ->assertSee($cash->name);
+    }
+
+    /** @test */
+    public function test_trial_balance_loading()
+    {
+        $this->actingAs($this->user);
+
+        // Test Livewire component loads
+        Livewire::test('finance.trial-balance')
+            ->set('financial_year_id', $this->fy->id)
+            ->set('branch_id', $this->branch->id)
+            ->set('asOfDate', '2026-12-31')
+            ->call('generateReport')
+            ->assertSee($this->branch->name)
+            ->assertSee('Trial Balance Sheet');
+    }
 }

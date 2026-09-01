@@ -48,6 +48,22 @@ class Marquee extends Model
     }
 
     /**
+     * Get the halls associated with this marquee.
+     */
+    public function halls()
+    {
+        return $this->hasMany(Hall::class);
+    }
+
+    /**
+     * Get the bookings associated with this marquee.
+     */
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    /**
      * Get the users associated with this marquee.
      */
     public function users()
@@ -75,5 +91,42 @@ class Marquee extends Model
             $marquee->branches()->withTrashed()->restore();
             $marquee->users()->withTrashed()->restore();
         });
+    }
+
+    /**
+     * Get the onboarding checklist status for this marquee.
+     */
+    public function getOnboardingChecklist()
+    {
+        $marqueeId = $this->id;
+        
+        $mainBranch = Branch::where('marquee_id', $marqueeId)->where('is_head_office', true)->first();
+        $ownerRole = Role::whereIn('name', ['owner', 'business_owner'])->first();
+        
+        return [
+            'marquee_info' => !empty($this->business_type),
+            'branch' => $mainBranch !== null,
+            'branch_config' => $mainBranch !== null && !empty($mainBranch->phone),
+            'halls' => Hall::where('marquee_id', $marqueeId)->exists(),
+            'departments' => Department::where('marquee_id', $marqueeId)->exists(),
+            'booking_masters' => EventType::where('marquee_id', $marqueeId)->exists() 
+                && Slot::where('marquee_id', $marqueeId)->exists(),
+            'menu_packages' => MenuCategory::where('marquee_id', $marqueeId)->exists() 
+                && Package::where('marquee_id', $marqueeId)->exists(),
+            'inventory' => InventoryUnit::where('marquee_id', $marqueeId)->exists() 
+                && Supplier::where('marquee_id', $marqueeId)->exists(),
+            'finance' => Account::where('marquee_id', $marqueeId)->exists() 
+                && PettyCashAccount::where('marquee_id', $marqueeId)->exists(),
+        ];
+    }
+
+    public function setPhoneAttribute($value)
+    {
+        $this->attributes['phone'] = \App\Services\PhoneNumberService::normalize($value);
+    }
+
+    public function getPhoneAttribute($value)
+    {
+        return \App\Services\PhoneNumberService::formatForDisplay($value);
     }
 }

@@ -111,38 +111,12 @@ class BusinessOwnerForm extends Component
 
     public function formatPhoneNumber($phone)
     {
-        // Strip out all non-numeric characters except maybe leading '+'
-        $clean = preg_replace('/[^0-9+]/', '', $phone);
-        
-        // If it starts with '+', replace with '00'
-        if (str_starts_with($clean, '+')) {
-            $clean = '00' . substr($clean, 1);
-        }
-        
-        // If it starts with '03' and has 11 digits (e.g. 03218611353)
-        if (preg_match('/^03\d{9}$/', $clean)) {
-            $clean = '0092' . substr($clean, 1);
-        }
-        // If it starts with '3' and has 10 digits (e.g. 3218611353)
-        elseif (preg_match('/^3\d{9}$/', $clean)) {
-            $clean = '0092' . $clean;
-        }
-        // If it starts with '923' and has 12 digits (e.g. 923218611353)
-        elseif (preg_match('/^923\d{9}$/', $clean)) {
-            $clean = '00' . $clean;
-        }
-        
-        return $clean;
+        return \App\Services\PhoneNumberService::normalize($phone);
     }
 
     public function formatPhoneForUi($phone)
     {
-        $clean = preg_replace('/[^0-9]/', '', $phone);
-        if (preg_match('/^0092(3\d{9})$/', $clean, $matches)) {
-            $digits = '0' . $matches[1]; // e.g. 03218611353
-            return substr($digits, 0, 4) . '-' . substr($digits, 4);
-        }
-        return $phone;
+        return \App\Services\PhoneNumberService::formatForDisplay($phone);
     }
 
     protected function rules()
@@ -154,8 +128,19 @@ class BusinessOwnerForm extends Component
             'phone' => [
                 'required',
                 'string',
-                'regex:/^00923\d{9}$/',
-                'unique:users,phone,' . ($this->userId ?? 'NULL')
+                'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/',
+                function ($attribute, $value, $fail) {
+                    $normalized = \App\Services\PhoneNumberService::normalize($value);
+                    $exists = \Illuminate\Support\Facades\DB::table('users')
+                        ->where('phone', $normalized)
+                        ->when($this->userId, function ($query) {
+                            $query->where('id', '!=', $this->userId);
+                        })
+                        ->exists();
+                    if ($exists) {
+                        $fail('This phone number is already registered.');
+                    }
+                }
             ],
             'status' => 'required|in:active,inactive,suspended',
             'subscription_plan_id' => 'required|exists:subscription_plans,id',
@@ -176,8 +161,7 @@ class BusinessOwnerForm extends Component
     {
         return [
             'phone.required' => 'Phone number is required.',
-            'phone.regex' => 'The phone number must be a valid 11-digit number starting with 03 (e.g. 0321-8611353).',
-            'phone.unique' => 'This phone number is already registered.',
+            'phone.regex' => 'The phone number must be a valid number (e.g. 0321-8611353).',
         ];
     }
 
@@ -186,9 +170,6 @@ class BusinessOwnerForm extends Component
         abort_unless(auth()->user()->isSuperAdmin(), 403);
 
         $data = $this->all();
-        if (!empty($this->phone)) {
-            $data['phone'] = $this->formatPhoneNumber($this->phone);
-        }
 
         // Run validation on data instead of mutating properties, preventing screen flicker
         $validator = \Illuminate\Support\Facades\Validator::make($data, $this->rules(), $this->messages());

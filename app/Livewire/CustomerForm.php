@@ -130,8 +130,8 @@ class CustomerForm extends Component
                     ->where('marquee_id', $marqueeId)
                     ->whereNull('deleted_at'),
             ],
-            'phone_number' => ['required', 'string', 'regex:/^((\+92)|(0092)|0)?3\d{9}$/'],
-            'alternate_phone' => ['nullable', 'string', 'regex:/^((\+92)|(0092)|0)?3\d{9}$/'],
+            'phone_number' => ['required', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
+            'alternate_phone' => ['nullable', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
             'address' => 'nullable|string',
             'city' => 'nullable|string|max:255',
             'province' => 'nullable|string|max:255',
@@ -140,7 +140,7 @@ class CustomerForm extends Component
             'status' => 'required|in:Active,Inactive,Blocked',
             'referred_by_type' => 'nullable|string|max:100',
             'referred_by_name' => 'nullable|string|max:255',
-            'referred_by_contact' => 'nullable|string|max:255',
+            'referred_by_contact' => ['nullable', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
             'photo' => 'nullable|image|max:2048', // Max 2MB profile picture
         ];
     }
@@ -149,8 +149,9 @@ class CustomerForm extends Component
         'cnic_national_id.regex' => 'The CNIC format must be XXXXX-XXXXXXX-X.',
         'cnic_national_id.unique' => 'This CNIC is already registered in your Marquee database.',
         'email.unique' => 'This email is already registered in your Marquee database.',
-        'phone_number.regex' => 'Invalid Pakistan phone number format (e.g. 03001234567 or +923001234567).',
-        'alternate_phone.regex' => 'Invalid Pakistan alternate phone number format.',
+        'phone_number.regex' => 'Invalid phone number format (e.g. 0300-1234567).',
+        'alternate_phone.regex' => 'Invalid alternate phone number format.',
+        'referred_by_contact.regex' => 'Invalid referral phone number format.',
         'company_name.required_if' => 'The company name field is required for Corporate customers.',
     ];
 
@@ -158,15 +159,6 @@ class CustomerForm extends Component
     {
         $user = auth()->user();
         abort_unless($user->isSuperAdmin() || $user->hasPermission('create_bookings'), 403);
-
-        // Strip dashes and spaces from phone numbers prior to validation
-        $this->phone_number = str_replace(['-', ' '], '', $this->phone_number);
-        if ($this->alternate_phone) {
-            $this->alternate_phone = str_replace(['-', ' '], '', $this->alternate_phone);
-        }
-        if ($this->referred_by_contact) {
-            $this->referred_by_contact = str_replace(['-', ' '], '', $this->referred_by_contact);
-        }
 
         $validatedData = $this->validate();
 

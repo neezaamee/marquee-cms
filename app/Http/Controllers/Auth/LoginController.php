@@ -35,9 +35,22 @@ class LoginController extends Controller
             'password' => $loginData['password'],
         ];
 
+        $user = \App\Models\User::withoutGlobalScope('tenant')->where($field, $loginInput)->first();
+        if ($user && !\Illuminate\Support\Facades\Hash::check($loginData['password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'login' => __('auth.failed'),
+            ]);
+        }
+
+        if ($user && strtolower($user->status) !== 'active') {
+            throw ValidationException::withMessages([
+                'login' => 'Your account has been deactivated. Please contact your administrator.',
+            ]);
+        }
+
         $remember = $request->boolean('remember');
 
-        if (Auth::attempt($credentials, $remember)) {
+        if (Auth::attempt(array_merge($credentials, ['status' => 'active']), $remember)) {
             $request->session()->regenerate();
 
             return redirect()->intended(route('dashboard'));

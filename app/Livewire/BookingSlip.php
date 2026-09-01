@@ -11,7 +11,7 @@ class BookingSlip extends Component
 
     public function mount(Booking $booking)
     {
-        $this->booking = $booking->load(['customer', 'hall', 'slot', 'package', 'eventType']);
+        $this->booking = $booking->load(['customer', 'hall', 'halls', 'slot', 'package', 'eventType', 'branch', 'marquee', 'hall.branch']);
     }
 
     public function render()

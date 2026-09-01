@@ -6,7 +6,25 @@
   
   <a class="navbar-brand me-1 me-sm-3" href="{{ route('dashboard') }}">
     <div class="d-flex align-items-center">
-      <img class="me-2" src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="50" />
+      @php
+        $activeMarquee = null;
+        if (auth()->check()) {
+            $activeMarqueeId = auth()->user()->getActiveMarqueeId();
+            if ($activeMarqueeId) {
+                $activeMarquee = \App\Models\Marquee::find($activeMarqueeId);
+            }
+        }
+      @endphp
+      @if($activeMarquee && $activeMarquee->logo)
+        @php
+          $logoUrl = Str::startsWith($activeMarquee->logo, ['http://', 'https://']) 
+            ? $activeMarquee->logo 
+            : (Str::startsWith($activeMarquee->logo, 'storage/') ? asset($activeMarquee->logo) : asset('storage/' . $activeMarquee->logo));
+        @endphp
+        <img class="me-2" src="{{ $logoUrl }}" alt="Logo" width="50" style="object-fit: contain; max-height: 50px;" />
+      @else
+        <img class="me-2" src="{{ asset('assets/img/icons/spot-illustrations/falcon.png') }}" alt="Logo" width="50" />
+      @endif
       <span class="font-sans-serif text-primary">marquee</span>
     </div>
   </a>

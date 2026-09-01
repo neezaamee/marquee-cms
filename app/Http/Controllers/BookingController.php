@@ -82,6 +82,8 @@ class BookingController extends Controller
     {
         abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this booking.');
 
+        $booking->load(['customer', 'hall', 'halls', 'slot', 'package', 'eventType', 'extraServices', 'menuItems', 'branch', 'marquee', 'hall.branch', 'payments', 'finalBill.extraServices', 'vendorSales.service', 'vendorSales.vendor']);
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('bookings.pdf', compact('booking'))
             ->setPaper('a4', 'portrait');
 
@@ -96,6 +98,8 @@ class BookingController extends Controller
         $booking = $payment->booking;
         abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this payment receipt.');
 
+        $booking->load(['customer', 'hall', 'halls', 'slot', 'package', 'eventType', 'branch', 'marquee', 'hall.branch']);
+
         return view('bookings.receipt', compact('payment', 'booking'));
     }
 
@@ -106,16 +110,30 @@ class BookingController extends Controller
     {
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
 
-        $query = Booking::with(['customer', 'hall', 'slot', 'package', 'payments', 'eventType']);
+        $user = auth()->user();
+        $activeMarqueeId = $user->getActiveMarqueeId();
+
+        $query = Booking::with(['customer', 'hall', 'slot', 'package', 'payments', 'eventType', 'branch', 'marquee'])
+            ->where('marquee_id', $activeMarqueeId);
+
+        if ($user->branch_id) {
+            $query->where('branch_id', $user->branch_id);
+        } elseif ($request->filled('filterBranch')) {
+            $query->where('branch_id', $request->input('filterBranch'));
+        }
 
         if ($request->filled('search')) {
             $searchTerm = '%' . $request->input('search') . '%';
-            $query->where(function ($q) use ($searchTerm) {
+            $cleanDigits = preg_replace('/[^0-9]/', '', $request->input('search'));
+            $query->where(function ($q) use ($searchTerm, $cleanDigits) {
                 $q->where('booking_number', 'like', $searchTerm)
-                  ->orWhereHas('customer', function ($cq) use ($searchTerm) {
+                  ->orWhereHas('customer', function ($cq) use ($searchTerm, $cleanDigits) {
                       $cq->where('first_name', 'like', $searchTerm)
-                        ->orWhere('last_name', 'like', $searchTerm)
-                        ->orWhere('phone_number', 'like', $searchTerm);
+                        ->orWhere('last_name', 'like', $searchTerm);
+
+                      if (!empty($cleanDigits)) {
+                          $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%');
+                      }
                   });
             });
         }
@@ -144,8 +162,7 @@ class BookingController extends Controller
             ->orderBy('id', 'desc')
             ->get();
 
-        $activeMarqueeId = auth()->user()->getActiveMarqueeId();
-        $marquee = $activeMarqueeId ? \App\Models\Marquee::find($activeMarqueeId) : auth()->user()->marquee;
+        $marquee = $activeMarqueeId ? \App\Models\Marquee::find($activeMarqueeId) : $user->marquee;
 
         return view('bookings.report', compact('bookings', 'marquee'));
     }
@@ -243,8 +260,8 @@ class BookingController extends Controller
             $groupedMenuItems[$deptName]['items'][] = $item;
         }
 
-        $marquee = auth()->user()->marquee;
-        $branch = $booking->hall->branch ?? null;
+        $marquee = $booking->marquee ?? (auth()->user()->marquee ?? null);
+        $branch = $booking->branch ?? ($booking->hall?->branch ?? null);
 
         return view('bookings.kitchen_slip', compact(
             'booking',
@@ -262,13 +279,19 @@ class BookingController extends Controller
     {
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
 
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
 
         // Retrieve bookings (including soft deleted so cancelled/deleted are visible but color-coded)
-        $bookings = Booking::withTrashed()
-            ->with(['customer', 'eventType', 'hall'])
-            ->where('marquee_id', $marqueeId)
-            ->get();
+        $query = Booking::withTrashed()
+            ->with(['customer', 'eventType', 'hall', 'branch'])
+            ->where('marquee_id', $marqueeId);
+
+        if ($user->branch_id) {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        $bookings = $query->get();
 
         $events = $bookings->map(function($booking) {
             $customerName = $booking->customer->full_name ?? 'Walk-in / Guest';

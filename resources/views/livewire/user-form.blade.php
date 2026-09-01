@@ -83,12 +83,23 @@
 
                     <!-- Phone -->
                     <div class="col-md-3">
-                        <label class="form-label" for="phone">Phone Number</label>
+                        <label class="form-label" for="phone">Phone Number *</label>
                         @if($employee_id)
                             <input class="form-control" id="phone" type="text" value="{{ $phone }}" disabled />
                         @else
-                            <input wire:model="phone" class="form-control @error('phone') is-invalid @enderror" id="phone" type="text" placeholder="e.g. +923007654321" />
+                            <input wire:model="phone" class="form-control @error('phone') is-invalid @enderror" id="phone" type="text" required placeholder="e.g. 0321-8662726" x-data x-init="IMask($el, { mask: '0000-0000000' })" />
                             @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        @endif
+                    </div>
+
+                    <!-- CNIC -->
+                    <div class="col-md-3">
+                        <label class="form-label" for="cnic">CNIC Number *</label>
+                        @if($employee_id)
+                            <input class="form-control" id="cnic" type="text" value="{{ $cnic }}" disabled />
+                        @else
+                            <input wire:model="cnic" class="form-control @error('cnic') is-invalid @enderror" id="cnic" type="text" required placeholder="e.g. 35201-1234567-1" x-data x-init="IMask($el, { mask: '00000-0000000-0' })" />
+                            @error('cnic') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         @endif
                     </div>
 

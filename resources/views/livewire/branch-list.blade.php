@@ -42,6 +42,7 @@
                             @endif
                             <th class="align-middle">City</th>
                             <th class="align-middle">Phone</th>
+                            <th class="align-middle text-center">Halls / Venues</th>
                             <th class="align-middle">FBR POS ID</th>
                             <th class="align-middle text-center">Status</th>
                             <th class="align-middle text-end px-3">Actions</th>
@@ -58,6 +59,11 @@
                                 @endif
                                 <td class="align-middle">{{ $branch->city }}</td>
                                 <td class="align-middle">{{ $branch->phone }}</td>
+                                <td class="align-middle text-center">
+                                    <a href="{{ route('halls.index', ['filterBranch' => $branch->id]) }}" class="badge badge-subtle-primary text-decoration-none">
+                                        <span class="fas fa-hotel me-1"></span>{{ $branch->halls_count ?? $branch->halls()->count() }} Halls
+                                    </a>
+                                </td>
                                 <td class="align-middle">
                                     @if($branch->fbr_pos_id)
                                         <span class="text-success"><span class="fas fa-check-circle me-1"></span>{{ $branch->fbr_pos_id }}</span>

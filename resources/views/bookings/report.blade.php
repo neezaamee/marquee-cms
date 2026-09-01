@@ -183,6 +183,9 @@
                         <td class="font-monospace fs-11">{{ $booking->customer->phone_number ?? '—' }}</td>
                         <td>{{ $booking->eventType->event_type_name ?? '—' }}</td>
                         <td>
+                            @if($booking->effective_branch)
+                                <div class="fw-bold text-primary fs-12 mb-1"><span class="fas fa-building me-1"></span>{{ $booking->effective_branch->name }}</div>
+                            @endif
                             @if($booking->halls->isNotEmpty())
                                 {{ $booking->halls->pluck('hall_name')->implode(', ') }}
                             @else

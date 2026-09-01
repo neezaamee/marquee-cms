@@ -11,6 +11,10 @@ use Livewire\Component;
 class AvailabilityChecker extends Component
 {
     // Scopes
+    public $branches = [];
+    public $selectedBranchId = '';
+    public $isMultiBranch = false;
+
     public $halls = [];
     public $selectedHallId = '';
     public $selectedDate = '';
@@ -32,19 +36,49 @@ class AvailabilityChecker extends Component
 
     public function mount()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? $user->getActiveMarqueeId() : null;
         
-        // Load active halls for tenant
-        $this->halls = Hall::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
-            ->orderBy('hall_name')
-            ->get();
+        $this->branches = $user ? $user->getAccessibleBranches($marqueeId) : collect();
+        $this->isMultiBranch = $this->branches->count() > 1;
 
+        if ($this->branches->isNotEmpty()) {
+            if ($user && $user->branch_id && $user->hasAccessToBranch($user->branch_id, $marqueeId)) {
+                $this->selectedBranchId = (string) $user->branch_id;
+            } else {
+                $this->selectedBranchId = (string) $this->branches->first()->id;
+            }
+        }
+
+        $this->loadHalls();
         $this->selectedDate = Carbon::today()->format('Y-m-d');
 
         if ($this->halls->isNotEmpty()) {
             $this->selectedHallId = (string) $this->halls->first()->id;
             $this->loadSlots();
+        }
+    }
+
+    public function updatedSelectedBranchId($value)
+    {
+        $this->selectedBranchId = (string) $value;
+        $this->loadHalls();
+        $this->selectedHallId = $this->halls->isNotEmpty() ? (string) $this->halls->first()->id : '';
+        $this->loadSlots();
+        $this->runCheck();
+    }
+
+    public function loadHalls()
+    {
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+        if (!empty($this->selectedBranchId)) {
+            $this->halls = Hall::where('marquee_id', $marqueeId)
+                ->where('branch_id', $this->selectedBranchId)
+                ->where('status', 'active')
+                ->orderBy('hall_name')
+                ->get();
+        } else {
+            $this->halls = collect();
         }
     }
 

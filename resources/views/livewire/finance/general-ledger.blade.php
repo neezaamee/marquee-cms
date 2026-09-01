@@ -80,7 +80,7 @@
                     @if($isSaas)
                         <span class="badge badge-subtle-primary rounded-pill">SaaS Platform</span>
                     @elseif($branch_id)
-                        <span class="badge badge-subtle-primary rounded-pill">{{ Branch::find($branch_id)->name }}</span>
+                        <span class="badge badge-subtle-primary rounded-pill">{{ \App\Models\Branch::find($branch_id)->name }}</span>
                     @else
                         <span class="badge badge-subtle-secondary rounded-pill">Central (All Branches)</span>
                     @endif

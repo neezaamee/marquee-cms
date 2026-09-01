@@ -57,6 +57,12 @@
                 <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h5 class="mb-0"><span class="fas fa-sitemap me-2 text-primary"></span>Inventory Categories</h5>
                     <div class="d-flex align-items-center gap-2">
+                        <!-- Status Filter -->
+                        <select wire:model.live="statusFilter" class="form-select form-select-sm" style="max-width: 150px;">
+                            <option value="all">All Statuses</option>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
                         <!-- Search -->
                         <div class="input-group input-group-sm">
                             <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search categories..." />
@@ -72,9 +78,17 @@
 
                 <div class="card-body p-0">
                     @if(session('success'))
-                        <div class="alert alert-success border-2 d-flex align-items-center m-3" role="alert">
+                        <div class="alert alert-success border-2 d-flex align-items-center m-3 animate__animated animate__fadeIn" role="alert">
                             <div class="bg-success me-3 icon-item"><span class="fas fa-check-circle text-white fs-8"></span></div>
                             <p class="mb-0 flex-1">{{ session('success') }}</p>
+                            <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    @endif
+
+                    @if(session('error'))
+                        <div class="alert alert-danger border-2 d-flex align-items-center m-3 animate__animated animate__fadeIn" role="alert">
+                            <div class="bg-danger me-3 icon-item"><span class="fas fa-times-circle text-white fs-8"></span></div>
+                            <p class="mb-0 flex-1">{{ session('error') }}</p>
                             <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
                     @endif

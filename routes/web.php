@@ -82,6 +82,11 @@ Route::middleware('auth')->group(function () {
             Route::resource('users', UserController::class);
             Route::get('staff/{staff}/logins', [StaffController::class, 'logins'])->name('staff.logins');
             Route::resource('staff', StaffController::class);
+            
+            // Roles & Permissions administration routes
+            Route::get('admin/roles', \App\Livewire\Administration\RolesManager::class)->name('admin.roles');
+            Route::get('admin/permissions', \App\Livewire\Administration\PermissionsManager::class)->name('admin.permissions');
+            Route::get('admin/access-control', \App\Livewire\Administration\AccessControl::class)->name('admin.access-control');
             Route::get('customers/referral-analytics', [CustomerController::class, 'referralAnalytics'])->name('customers.referral-analytics');
             Route::resource('customers', CustomerController::class);
             Route::resource('event-types', EventTypeController::class);
@@ -118,6 +123,7 @@ Route::middleware('auth')->group(function () {
             Route::get('finance/revenue', [FinanceController::class, 'revenue'])->name('finance.revenue');
             Route::get('finance/payments', [FinanceController::class, 'payments'])->name('finance.payments');
             Route::get('finance/security-deposits', [FinanceController::class, 'securityDeposits'])->name('finance.security-deposits');
+            Route::get('finance/advance-liabilities', [FinanceController::class, 'advanceLiabilities'])->name('finance.advance-liabilities');
 
             // Accounting Foundation Module
             Route::get('finance/financial-years', [AccountingController::class, 'financialYears'])->name('finance.financial-years');
@@ -131,6 +137,12 @@ Route::middleware('auth')->group(function () {
             Route::get('finance/profit-loss', [AccountingController::class, 'profitLoss'])->name('finance.profit-loss');
             Route::get('finance/balance-sheet', [AccountingController::class, 'balanceSheet'])->name('finance.balance-sheet');
             Route::get('finance/cash-bank', [AccountingController::class, 'cashBank'])->name('finance.cash-bank');
+
+            // Configuration: Global / System Masters
+            Route::view('finance/coa-categories', 'finance.coa-categories')->name('finance.coa-categories');
+            Route::view('finance/tax-configuration', 'finance.tax-configuration')->name('finance.tax-configuration');
+            Route::view('finance/expense-categories', 'finance.expense-categories')->name('finance.expense-categories');
+
 
             // Inventory Foundation Module
             Route::view('inventory/categories', 'inventory.categories')->name('inventory.categories');
@@ -244,5 +256,6 @@ Route::middleware('auth')->group(function () {
     Route::get('admin/trials/accounts', \App\Livewire\SuperAdmin\Trials\TrialAccounts::class)->name('super-admin.trials.accounts');
     Route::get('admin/trials/expiring', \App\Livewire\SuperAdmin\Trials\ExpiringTrials::class)->name('super-admin.trials.expiring');
     Route::get('admin/trials/conversions', \App\Livewire\SuperAdmin\Trials\TrialConversions::class)->name('super-admin.trials.conversions');
+    Route::get('admin/synthetic-data', \App\Livewire\SuperAdmin\DemoDataGenerator::class)->name('super-admin.synthetic-data');
     Route::get('settings/default-data', \App\Livewire\Owner\TenantDefaultManager::class)->name('owner.default-data');
 });

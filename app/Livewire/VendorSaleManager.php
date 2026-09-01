@@ -34,6 +34,11 @@ class VendorSaleManager extends Component
     public $unit = 'Event';
     public $sale_amount = 0.00;
     public $commission_rate = null;
+    public $advance_amount = 0.00;
+    public $payment_method = 'Cash';
+    public $account_id = null;
+    public $reference_number = '';
+    public $include_in_invoice = true;
     public $notes = '';
 
     public function mount(?Vendor $vendor = null)
@@ -58,6 +63,7 @@ class VendorSaleManager extends Component
         }
         $this->sale_date = date('Y-m-d');
         $this->event_date = date('Y-m-d');
+        $this->include_in_invoice = true;
         $this->showSaleModal = true;
     }
 
@@ -83,6 +89,7 @@ class VendorSaleManager extends Component
         $this->validate([
             'vendor_id' => 'required|exists:vendors,id',
             'sale_amount' => 'required|numeric|min:1',
+            'advance_amount' => 'nullable|numeric|min:0',
             'event_date' => 'required|date',
             'sale_date' => 'required|date',
         ]);
@@ -103,6 +110,11 @@ class VendorSaleManager extends Component
             'unit' => $this->unit,
             'sale_amount' => floatval($this->sale_amount),
             'commission_rate' => $this->commission_rate !== null && $this->commission_rate !== '' ? floatval($this->commission_rate) : null,
+            'advance_amount' => floatval($this->advance_amount),
+            'payment_method' => $this->payment_method,
+            'account_id' => $this->account_id ?: null,
+            'reference_number' => $this->reference_number ?: null,
+            'include_in_invoice' => (bool) $this->include_in_invoice,
             'notes' => $this->notes,
         ]);
 
@@ -122,6 +134,10 @@ class VendorSaleManager extends Component
         $this->unit = 'Event';
         $this->sale_amount = 0.00;
         $this->commission_rate = null;
+        $this->advance_amount = 0.00;
+        $this->payment_method = 'Cash';
+        $this->account_id = null;
+        $this->reference_number = '';
         $this->notes = '';
     }
 
@@ -137,32 +153,34 @@ class VendorSaleManager extends Component
             $query->where('vendor_id', $this->filterVendorId);
         }
 
+        if (!empty($this->filterStatus)) {
+            $query->where('status', $this->filterStatus);
+        }
+
         if (!empty($this->search)) {
-            $term = '%' . $this->search . '%';
-            $query->where(function ($q) use ($term) {
-                $q->where('vendor_sale_number', 'like', $term)
-                  ->orWhereHas('vendor', function ($vq) use ($term) {
-                      $vq->where('name', 'like', $term);
+            $query->where(function($q) {
+                $q->where('vendor_sale_number', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('vendor', function($vq) {
+                      $vq->where('name', 'like', '%' . $this->search . '%');
                   })
-                  ->orWhereHas('booking', function ($bq) use ($term) {
-                      $bq->where('booking_number', 'like', $term);
+                  ->orWhereHas('booking', function($bq) {
+                      $bq->where('booking_number', 'like', '%' . $this->search . '%');
                   });
             });
         }
 
-        $sales = $query->orderBy('sale_date', 'desc')->paginate(12);
-
+        $sales = $query->orderBy('sale_date', 'desc')->orderBy('id', 'desc')->paginate(10);
         $vendors = Vendor::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
-        $vendorServices = $this->vendor_id
-            ? VendorService::where('marquee_id', $marqueeId)->where('vendor_id', $this->vendor_id)->where('status', 'active')->get()
-            : collect();
-        $bookings = Booking::where('marquee_id', $marqueeId)->with('customer')->orderBy('booking_date', 'desc')->take(30)->get();
+        $vendorServices = $this->vendor_id ? VendorService::where('vendor_id', $this->vendor_id)->where('status', 'active')->get() : collect();
+        $bookings = Booking::where('marquee_id', $marqueeId)->whereNotIn('booking_status', ['Cancelled'])->orderBy('booking_date', 'desc')->limit(30)->get();
+        $accounts = \App\Models\Account::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
 
         return view('livewire.vendor-sale-manager', [
             'sales' => $sales,
             'vendors' => $vendors,
             'vendorServices' => $vendorServices,
             'bookings' => $bookings,
+            'accounts' => $accounts,
         ])->layout('layouts.admin');
     }
 }

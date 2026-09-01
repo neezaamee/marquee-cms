@@ -68,4 +68,20 @@ class VendorLedger extends Model
     {
         return $this->belongsTo(Booking::class);
     }
+
+    /**
+     * Get the user who recorded this ledger transaction.
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Alias for creator.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

@@ -89,7 +89,8 @@ class VendorManager extends Component
         $this->validate([
             'name' => 'required|string|max:255',
             'vendor_type' => 'required|string',
-            'phone' => 'required|string|max:50',
+            'phone' => ['required', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
+            'alternate_phone' => ['nullable', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
             'email' => 'nullable|email|max:255',
             'status' => 'required|string|in:active,inactive,suspended',
         ]);

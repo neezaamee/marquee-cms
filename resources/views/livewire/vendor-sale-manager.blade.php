@@ -90,9 +90,57 @@
                             </div>
                         </div>
 
+                        <!-- Advance Payment Section -->
+                        <div class="col-12">
+                            <div class="card bg-light border p-3">
+                                <div class="fw-bold text-uppercase fs-11 text-700 mb-2"><i class="fas fa-money-bill-wave text-success me-1"></i>Initial Vendor Advance Payout (Optional)</div>
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semi-bold fs-11">Advance Paid (PKR)</label>
+                                        <input type="number" step="0.01" wire:model="advance_amount" class="form-control @error('advance_amount') is-invalid @enderror" placeholder="0.00">
+                                        @error('advance_amount') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semi-bold fs-11">Payment Method</label>
+                                        <select wire:model="payment_method" class="form-select">
+                                            <option value="Cash">Cash</option>
+                                            <option value="Bank Transfer">Bank Transfer</option>
+                                            <option value="Cheque">Cheque</option>
+                                            <option value="Online">Online</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semi-bold fs-11">Disbursed From Account</label>
+                                        <select wire:model="account_id" class="form-select">
+                                            <option value="">-- Default Account --</option>
+                                            @foreach($accounts as $acc)
+                                                <option value="{{ $acc->id }}">{{ $acc->name }} ({{ $acc->account_code }})</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semi-bold fs-11">Reference #</label>
+                                        <input type="text" wire:model="reference_number" class="form-control" placeholder="e.g. ADV-01">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check form-switch p-2 ps-5 border rounded bg-light">
+                                <input class="form-check-input" type="checkbox" id="include_in_invoice" wire:model="include_in_invoice">
+                                <label class="form-check-label fw-bold text-dark fs-12 mb-0" for="include_in_invoice">
+                                    <span class="fas fa-file-invoice text-primary me-1"></span> Include in Customer Event Invoice (Customer pays Marquee)
+                                </label>
+                                <div class="text-muted fs-11 mt-1">
+                                    Uncheck if customer will pay the service provider directly without Marquee invoice billing.
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="col-12">
                             <label class="form-label fw-semi-bold" for="notes">Notes / Special Instructions</label>
-                            <textarea id="notes" wire:model="notes" class="form-control @error('notes') is-invalid @enderror" rows="3" placeholder="Sale details, contract terms, or override reason..."></textarea>
+                            <textarea id="notes" wire:model="notes" class="form-control @error('notes') is-invalid @enderror" rows="2" placeholder="Sale details, contract terms, or override reason..."></textarea>
                             @error('notes') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
@@ -148,14 +196,23 @@
                             @if(!$vendor) <th>Service Provider</th> @endif
                             <th>Booking / Customer</th>
                             <th>Event Date</th>
-                            <th>Sale Amount</th>
-                            <th>Commission Income</th>
-                            <th>Net Provider Payable</th>
-                            <th>Status</th>
+                            <th>Customer Charge</th>
+                            <th>Vendor Cost</th>
+                            <th>Advance Paid</th>
+                            <th>Total Paid</th>
+                            <th>Remaining Balance</th>
+                            <th class="text-center">Payment Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($sales as $sale)
+                            @php
+                                $statusBadge = match($sale->payment_status) {
+                                    'fully_paid' => 'success',
+                                    'partially_paid' => 'warning',
+                                    default => 'danger'
+                                };
+                            @endphp
                             <tr>
                                 <td class="fw-bold font-monospace text-primary">{{ $sale->vendor_sale_number }}</td>
                                 @if(!$vendor)
@@ -170,25 +227,22 @@
                                     @endif
                                 </td>
                                 <td>{{ $sale->event_date->format('d-M-Y') }}</td>
-                                <td class="fw-bold text-dark">Rs. {{ number_format($sale->sale_amount) }}</td>
-                                <td class="fw-bold text-success">
-                                    Rs. {{ number_format($sale->commission_amount) }}
-                                    <span class="badge badge-subtle-success fs-10 me-1">{{ $sale->commission_rate }}%</span>
+                                <td class="fw-bold text-dark font-monospace">Rs. {{ number_format($sale->sale_amount, 2) }}</td>
+                                <td class="fw-bold text-primary font-monospace">Rs. {{ number_format($sale->vendor_net_amount, 2) }}</td>
+                                <td class="text-muted font-monospace">Rs. {{ number_format($sale->advance_amount, 2) }}</td>
+                                <td class="text-success font-monospace fw-bold">Rs. {{ number_format($sale->paid_amount, 2) }}</td>
+                                <td class="fw-bold font-monospace {{ $sale->remaining_amount > 0 ? 'text-danger' : 'text-success' }}">
+                                    Rs. {{ number_format($sale->remaining_amount, 2) }}
                                 </td>
-                                <td class="fw-bold text-primary">Rs. {{ number_format($sale->vendor_net_amount) }}</td>
-                                <td>
-                                    @if($sale->status === 'confirmed')
-                                        <span class="badge badge-subtle-success">Confirmed</span>
-                                    @elseif($sale->status === 'settled')
-                                        <span class="badge badge-subtle-info">Settled</span>
-                                    @else
-                                        <span class="badge badge-subtle-secondary">{{ ucfirst($sale->status) }}</span>
-                                    @endif
+                                <td class="text-center">
+                                    <span class="badge badge-subtle-{{ $statusBadge }} rounded-pill text-uppercase">
+                                        {{ str_replace('_', ' ', $sale->payment_status ?: 'unpaid') }}
+                                    </span>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="{{ $vendor ? 7 : 8 }}" class="text-center py-4 text-muted">No sales recorded.</td>
+                                <td colspan="{{ $vendor ? 9 : 10 }}" class="text-center py-4 text-muted">No sales recorded.</td>
                             </tr>
                         @endforelse
                     </tbody>

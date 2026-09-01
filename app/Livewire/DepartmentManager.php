@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Employee;
 use Livewire\Component;
@@ -14,9 +15,11 @@ class DepartmentManager extends Component
     public $search = '';
     public $filterType = '';
     public $filterStatus = '';
+    public $filterBranch = '';
 
     // Form fields
     public $departmentId;
+    public $branch_id;
     public $department_code;
     public $name;
     public $department_type = 'Operations';
@@ -29,55 +32,80 @@ class DepartmentManager extends Component
 
     protected $paginationTheme = 'bootstrap';
 
-    protected $rules = [
-        'name' => 'required|string|max:255',
-        'department_type' => 'required|string',
-        'manager_id' => 'nullable|exists:employees,id',
-        'description' => 'nullable|string',
-        'status' => 'required|string',
-        'display_order' => 'required|integer|min:0',
-    ];
+    protected function rules()
+    {
+        return [
+            'branch_id' => 'required|exists:branches,id',
+            'name' => 'required|string|max:255',
+            'department_type' => 'required|string',
+            'manager_id' => 'nullable|exists:employees,id',
+            'description' => 'nullable|string',
+            'status' => 'required|string|in:Active,Inactive',
+            'display_order' => 'required|integer|min:0',
+        ];
+    }
+
+    public function updatedBranchId()
+    {
+        if (!$this->departmentId) {
+            $this->department_code = $this->generateNextCode();
+        }
+    }
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
-        $branchId = auth()->user()->branch_id;
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
 
-        $query = Department::where('marquee_id', $marqueeId);
+        // Load branches for this tenant
+        $branches = Branch::where('marquee_id', $marqueeId)->orderBy('is_head_office', 'desc')->orderBy('name')->get();
 
-        if ($branchId) {
-            $query->where('branch_id', $branchId);
+        $query = Department::where('departments.marquee_id', $marqueeId)->with(['branch', 'manager']);
+
+        // Branch filtering
+        if ($user->branch_id) {
+            $query->where('departments.branch_id', $user->branch_id);
+            $this->filterBranch = $user->branch_id;
+        } elseif ($this->filterBranch) {
+            $query->where('departments.branch_id', $this->filterBranch);
         }
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('department_code', 'like', '%' . $this->search . '%');
+                $q->where('departments.name', 'like', '%' . $this->search . '%')
+                  ->orWhere('departments.department_code', 'like', '%' . $this->search . '%');
             });
         }
 
         if ($this->filterType) {
-            $query->where('department_type', $this->filterType);
+            $query->where('departments.department_type', $this->filterType);
         }
 
         if ($this->filterStatus) {
-            $query->where('status', $this->filterStatus);
+            $query->where('departments.status', $this->filterStatus);
         }
 
-        $departments = $query->orderBy('display_order', 'asc')->paginate(10);
-        $employees = Employee::where('marquee_id', $marqueeId);
-        if ($branchId) {
-            $employees->where('branch_id', $branchId);
-        }
-        $employeesList = (clone $employees)->orderBy('name', 'asc')->get();
+        $departments = $query->orderBy('departments.display_order', 'asc')->paginate(10);
 
-        $totalDepts = Department::where('marquee_id', $marqueeId)->when($branchId, fn($q) => $q->where('branch_id', $branchId))->count();
-        $activeDepts = Department::where('marquee_id', $marqueeId)->when($branchId, fn($q) => $q->where('branch_id', $branchId))->where('status', 'Active')->count();
-        $kitchenDepts = Department::where('marquee_id', $marqueeId)->when($branchId, fn($q) => $q->where('branch_id', $branchId))->where('department_type', 'Kitchen Production')->count();
-        $totalAssignedStaff = Employee::where('marquee_id', $marqueeId)->when($branchId, fn($q) => $q->where('branch_id', $branchId))->whereNotNull('department_id')->count();
+        // Load employees for manager selection
+        $employeesQuery = Employee::where('marquee_id', $marqueeId);
+        $targetBranch = $this->branch_id ?: ($user->branch_id ?: $this->filterBranch);
+        if ($targetBranch) {
+            $employeesQuery->where(function($q) use ($targetBranch) {
+                $q->where('branch_id', $targetBranch)->orWhereNull('branch_id');
+            });
+        }
+        $employeesList = $employeesQuery->orderBy('name', 'asc')->get();
+
+        $effectiveBranch = $user->branch_id ?: $this->filterBranch;
+        $totalDepts = Department::where('marquee_id', $marqueeId)->when($effectiveBranch, fn($q) => $q->where('branch_id', $effectiveBranch))->count();
+        $activeDepts = Department::where('marquee_id', $marqueeId)->when($effectiveBranch, fn($q) => $q->where('branch_id', $effectiveBranch))->where('status', 'Active')->count();
+        $kitchenDepts = Department::where('marquee_id', $marqueeId)->when($effectiveBranch, fn($q) => $q->where('branch_id', $effectiveBranch))->where('department_type', 'Kitchen Production')->count();
+        $totalAssignedStaff = Employee::where('marquee_id', $marqueeId)->when($effectiveBranch, fn($q) => $q->where('branch_id', $effectiveBranch))->whereNotNull('department_id')->count();
 
         return view('livewire.department-manager', [
             'departments' => $departments,
+            'branches' => $branches,
             'employees' => $employeesList,
             'totalDepts' => $totalDepts,
             'activeDepts' => $activeDepts,
@@ -88,8 +116,8 @@ class DepartmentManager extends Component
 
     public function generateNextCode()
     {
-        $marqueeId = auth()->user()->marquee_id;
-        $branchId = auth()->user()->branch_id ?: 1;
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $branchId = $this->branch_id ?: (auth()->user()->branch_id ?: Branch::where('marquee_id', $marqueeId)->value('id'));
         $count = Department::where('marquee_id', $marqueeId)->where('branch_id', $branchId)->count();
         return 'DEPT-' . str_pad($count + 1, 3, '0', STR_PAD_LEFT);
     }
@@ -97,6 +125,14 @@ class DepartmentManager extends Component
     public function openCreateForm()
     {
         $this->resetForm();
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
+        
+        $this->branch_id = $user->branch_id 
+            ?: ($this->filterBranch 
+            ?: (Branch::where('marquee_id', $marqueeId)->where('is_head_office', true)->value('id') 
+            ?: Branch::where('marquee_id', $marqueeId)->value('id')));
+
         $this->department_code = $this->generateNextCode();
         $this->isFormOpen = true;
     }
@@ -104,6 +140,7 @@ class DepartmentManager extends Component
     public function resetForm()
     {
         $this->departmentId = null;
+        $this->branch_id = null;
         $this->name = '';
         $this->department_type = 'Operations';
         $this->manager_id = null;
@@ -117,17 +154,16 @@ class DepartmentManager extends Component
     {
         $this->validate();
 
-        $marqueeId = auth()->user()->marquee_id;
-        $branchId = auth()->user()->branch_id;
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
 
-        if (!$branchId) {
-            $this->addError('branch_id', 'Please make sure you are logged in to a branch.');
-            return;
-        }
+        // Verify that the branch belongs to the tenant
+        $branch = Branch::where('marquee_id', $marqueeId)->findOrFail($this->branch_id);
 
         if ($this->departmentId) {
-            $department = Department::findOrFail($this->departmentId);
+            $department = Department::where('marquee_id', $marqueeId)->findOrFail($this->departmentId);
             $department->update([
+                'branch_id' => $branch->id,
                 'name' => $this->name,
                 'department_type' => $this->department_type,
                 'manager_id' => $this->manager_id,
@@ -140,7 +176,7 @@ class DepartmentManager extends Component
         } else {
             Department::create([
                 'marquee_id' => $marqueeId,
-                'branch_id' => $branchId,
+                'branch_id' => $branch->id,
                 'department_code' => $this->department_code,
                 'name' => $this->name,
                 'department_type' => $this->department_type,
@@ -159,8 +195,11 @@ class DepartmentManager extends Component
 
     public function edit($id)
     {
-        $department = Department::findOrFail($id);
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $department = Department::where('marquee_id', $marqueeId)->findOrFail($id);
+        
         $this->departmentId = $department->id;
+        $this->branch_id = $department->branch_id;
         $this->department_code = $department->department_code;
         $this->name = $department->name;
         $this->department_type = $department->department_type;
@@ -174,7 +213,25 @@ class DepartmentManager extends Component
 
     public function delete($id)
     {
-        $department = Department::findOrFail($id);
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $department = Department::where('marquee_id', $marqueeId)->findOrFail($id);
+
+        // Referential safety checks:
+        if ($department->employees()->exists()) {
+            session()->flash('error', 'Cannot delete department because active staff/employees are assigned to it.');
+            return;
+        }
+
+        if ($department->stockLedgers()->exists() || $department->stockRequests()->exists() || $department->stockIssues()->exists()) {
+            session()->flash('error', 'Cannot delete department because historical inventory transactions or stock ledgers exist for it.');
+            return;
+        }
+
+        if ($department->productions()->exists()) {
+            session()->flash('error', 'Cannot delete department because historical kitchen production batches exist for it.');
+            return;
+        }
+
         $department->delete();
         session()->flash('message', 'Department deleted successfully.');
     }

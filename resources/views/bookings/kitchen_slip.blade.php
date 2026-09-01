@@ -197,12 +197,25 @@
         <div class="header-border d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center">
                 @if(!empty($marquee->logo))
-                    <img src="{{ Storage::url($marquee->logo) }}" alt="Logo" style="height: 60px; width: auto;" class="me-3">
+                    @php
+                        $marqueeLogoUrl = Str::startsWith($marquee->logo, ['http://', 'https://']) 
+                            ? $marquee->logo 
+                            : (Str::startsWith($marquee->logo, 'storage/') ? asset($marquee->logo) : asset('storage/' . $marquee->logo));
+                    @endphp
+                    <img src="{{ $marqueeLogoUrl }}" alt="Logo" style="height: 60px; width: auto;" class="me-3">
                 @endif
                 <div>
                     <h3 class="fw-bold mb-0 text-uppercase">{{ $marquee->name ?? 'Marquee CMS' }}</h3>
-                    <div class="text-secondary fw-semibold fs-12">{{ $branch->name ?? 'Main Branch' }} — {{ $marquee->city ?? 'Pakistan' }}</div>
-                    <div class="text-muted fs-12"><i class="fas fa-phone me-1"></i> {{ $marquee->phone ?? '' }}</div>
+                    @if($branch)
+                        <div class="text-primary fw-bold fs-12 text-uppercase">{{ $branch->name }} @if($branch->is_head_office)(Head Office)@endif</div>
+                        <div class="text-secondary fs-12">{{ $branch->address ? $branch->address . ', ' : '' }}{{ $branch->city ?? ($marquee->city ?? '') }}</div>
+                        @if($branch->phone || ($marquee->phone ?? null))
+                            <div class="text-muted fs-12"><i class="fas fa-phone me-1"></i> {{ $branch->phone ?: $marquee->phone }} @if($branch->branch_manager) | Mgr: {{ $branch->branch_manager }} @endif</div>
+                        @endif
+                    @else
+                        <div class="text-secondary fw-semibold fs-12">{{ $marquee->address ?? 'Main Branch' }} — {{ $marquee->city ?? 'Pakistan' }}</div>
+                        <div class="text-muted fs-12"><i class="fas fa-phone me-1"></i> {{ $marquee->phone ?? '' }}</div>
+                    @endif
                 </div>
             </div>
             <div class="text-end">
@@ -248,7 +261,16 @@
                 <!-- Venue / Hall -->
                 <div class="col-3">
                     <div class="info-label">Hall / Venue / ہال</div>
-                    <div class="info-value">{{ $booking->hall->hall_name ?? 'Main Hall' }}</div>
+                    <div class="info-value">
+                        @if($booking->halls->isNotEmpty())
+                            {{ $booking->halls->pluck('hall_name')->implode(', ') }}
+                        @else
+                            {{ $booking->hall->hall_name ?? 'Main Hall' }}
+                        @endif
+                        @if($branch)
+                            <div class="text-muted fs-11">({{ $branch->name }})</div>
+                        @endif
+                    </div>
                 </div>
 
                 <!-- Shift / Timings -->

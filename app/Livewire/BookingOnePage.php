@@ -19,6 +19,12 @@ use Livewire\Component;
 
 class BookingOnePage extends Component
 {
+    // Branch state
+    public $selectedBranchId = '';
+    public $branchesList = [];
+    public $isMultiBranchUser = false;
+    public $autoSelectedBranch = null;
+
     // Search & Selection state
     public $selectedCustomerId = '';
     public $customerSearch = '';
@@ -118,7 +124,69 @@ class BookingOnePage extends Component
     public function mount()
     {
         $this->selectedDate = Carbon::today()->addDay()->format('Y-m-d');
+        
+        $user = auth()->user();
+        $marqueeId = $user ? $user->getActiveMarqueeId() : null;
+        $accessibleBranches = $user ? $user->getAccessibleBranches($marqueeId) : collect();
+        $this->branchesList = $accessibleBranches;
+
+        if ($accessibleBranches->count() === 1) {
+            $this->selectedBranchId = (string) $accessibleBranches->first()->id;
+            $this->autoSelectedBranch = $accessibleBranches->first();
+            $this->isMultiBranchUser = false;
+        } elseif ($accessibleBranches->count() > 1) {
+            $this->isMultiBranchUser = true;
+            if ($user && $user->branch_id && $user->hasAccessToBranch($user->branch_id, $marqueeId)) {
+                $this->selectedBranchId = (string) $user->branch_id;
+            } else {
+                $headOffice = $accessibleBranches->firstWhere('is_head_office', true);
+                $this->selectedBranchId = (string) ($headOffice ? $headOffice->id : $accessibleBranches->first()->id);
+            }
+        }
+
+        // Load dynamic tax rate from selected branch
+        if ($this->selectedBranchId) {
+            $branch = \App\Models\Branch::find($this->selectedBranchId);
+            if ($branch && $branch->tax_rate !== null) {
+                $this->taxRate = (float) $branch->tax_rate;
+            }
+        }
+
         $this->loadDropdowns();
+    }
+
+    public function updatedSelectedBranchId($value)
+    {
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $this->selectedHallIds = [];
+        $this->selectedHallId = '';
+
+        if (!empty($value)) {
+            $branch = \App\Models\Branch::find($value);
+            if ($branch && $branch->tax_rate !== null) {
+                $this->taxRate = (float) $branch->tax_rate;
+            }
+
+            $this->hallsList = Hall::where('marquee_id', $marqueeId)
+                ->where('branch_id', $value)
+                ->whereIn('status', ['active', 'Active'])
+                ->orderBy('hall_name')
+                ->get();
+
+            if ($this->hallsList->isNotEmpty()) {
+                $this->selectedHallIds = [(string) $this->hallsList->first()->id];
+                $this->selectedHallId = $this->selectedHallIds[0];
+                $this->hallCharges = (float) $this->hallsList->first()->default_booking_price;
+            } else {
+                $this->hallCharges = 0.00;
+            }
+        } else {
+            $this->hallsList = collect();
+            $this->hallCharges = 0.00;
+        }
+
+        $this->loadSlotsAndCheck();
+        $this->recalculatePrices();
     }
 
     public function loadDropdowns()
@@ -130,10 +198,15 @@ class BookingOnePage extends Component
             ->orderBy('sort_order')
             ->get();
 
-        $this->hallsList = Hall::where('marquee_id', $marqueeId)
-            ->whereIn('status', ['active', 'Active'])
-            ->orderBy('hall_name')
-            ->get();
+        if (!empty($this->selectedBranchId)) {
+            $this->hallsList = Hall::where('marquee_id', $marqueeId)
+                ->where('branch_id', $this->selectedBranchId)
+                ->whereIn('status', ['active', 'Active'])
+                ->orderBy('hall_name')
+                ->get();
+        } else {
+            $this->hallsList = collect();
+        }
 
         $this->packagesList = Package::where('marquee_id', $marqueeId)
             ->whereIn('status', ['active', 'Active'])
@@ -162,6 +235,7 @@ class BookingOnePage extends Component
         if ($this->hallsList->isNotEmpty() && empty($this->selectedHallIds)) {
             $this->selectedHallIds = [(string)$this->hallsList->first()->id];
             $this->selectedHallId = $this->selectedHallIds[0];
+            $this->hallCharges = (float) $this->hallsList->first()->default_booking_price;
         }
 
         $this->searchCustomers();
@@ -177,11 +251,15 @@ class BookingOnePage extends Component
 
         if (!empty($this->customerSearch)) {
             $term = '%' . $this->customerSearch . '%';
-            $query->where(function ($q) use ($term) {
+            $cleanDigits = preg_replace('/[^0-9]/', '', $this->customerSearch);
+            $query->where(function ($q) use ($term, $cleanDigits) {
                 $q->where('first_name', 'like', $term)
                   ->orWhere('last_name', 'like', $term)
-                  ->orWhere('phone_number', 'like', $term)
                   ->orWhere('customer_code', 'like', $term);
+                  
+                if (!empty($cleanDigits)) {
+                    $q->orWhere('phone_number', 'like', '%' . $cleanDigits . '%');
+                }
             });
         }
 
@@ -622,6 +700,7 @@ class BookingOnePage extends Component
     public function submitBooking()
     {
         $rules = [
+            'selectedBranchId' => 'required|exists:branches,id',
             'selectedCustomerId' => 'required|exists:customers,id',
             'selectedEventTypeId' => 'required|exists:event_types,id',
             'selectedHallIds' => 'required|array|min:1',
@@ -647,7 +726,31 @@ class BookingOnePage extends Component
             $rules['privacyGentsPercentage'] = 'required|integer|min:0|max:100';
         }
 
-        $this->validate($rules);
+        $this->validate($rules, [
+            'selectedBranchId.required' => 'Please select a branch for this booking.',
+            'selectedBranchId.exists' => 'The selected branch is invalid.',
+        ]);
+
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
+        $userId = $user->id;
+
+        // Security check: User must have access to the selected branch
+        if (!$user->hasAccessToBranch($this->selectedBranchId, $marqueeId)) {
+            $this->addError('selectedBranchId', 'You are not authorized to create bookings for this branch.');
+            return;
+        }
+
+        // Security check: Verify all selected halls belong to the chosen branch and tenant
+        $validHallCount = Hall::where('marquee_id', $marqueeId)
+            ->where('branch_id', $this->selectedBranchId)
+            ->whereIn('id', $this->selectedHallIds)
+            ->count();
+
+        if ($validHallCount !== count($this->selectedHallIds)) {
+            $this->addError('selectedHallIds', 'One or more selected halls do not belong to the chosen branch.');
+            return;
+        }
 
         if ($this->privacyRequired) {
             $ladies = intval($this->privacyLadiesPercentage);
@@ -664,11 +767,7 @@ class BookingOnePage extends Component
             return;
         }
 
-        $user = auth()->user();
-        $marqueeId = $user->getActiveMarqueeId();
-        $userId = $user->id;
-        $primaryHall = Hall::find($this->selectedHallId);
-        $branchId = $user->branch_id ?? ($primaryHall ? $primaryHall->branch_id : null);
+        $branchId = (int) $this->selectedBranchId;
 
         try {
             $booking = DB::transaction(function () use ($marqueeId, $userId, $branchId) {

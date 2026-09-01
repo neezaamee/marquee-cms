@@ -277,4 +277,90 @@ class StaffManagementTest extends TestCase
             'name' => 'Branch Manager User Updated'
         ]);
     }
+
+    public function test_inactive_user_cannot_log_in()
+    {
+        $inactiveUser = User::create([
+            'name'       => 'Inactive Staff',
+            'email'      => 'inactive@test.com',
+            'username'   => 'inactivestaff',
+            'password'   => bcrypt('password123'),
+            'role_id'    => $this->ownerRole->id,
+            'marquee_id' => $this->marquee->id,
+            'branch_id'  => $this->branch->id,
+            'status'     => 'inactive',
+        ]);
+
+        $response = $this->post(route('login'), [
+            'login'    => 'inactivestaff',
+            'password' => 'password123',
+        ]);
+
+        $response->assertSessionHasErrors('login');
+        $this->assertGuest();
+    }
+
+    public function test_active_user_can_log_in()
+    {
+        $activeUser = User::create([
+            'name'       => 'Active Staff',
+            'email'      => 'active@test.com',
+            'username'   => 'activestaff',
+            'password'   => bcrypt('password123'),
+            'role_id'    => $this->ownerRole->id,
+            'marquee_id' => $this->marquee->id,
+            'branch_id'  => $this->branch->id,
+            'status'     => 'active',
+        ]);
+
+        $response = $this->post(route('login'), [
+            'login'    => 'activestaff',
+            'password' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('dashboard'));
+        $this->assertAuthenticatedAs($activeUser);
+    }
+
+    public function test_tenant_a_cannot_view_or_edit_tenant_b_staff()
+    {
+        $marqueeB = Marquee::create([
+            'name'                 => 'Other Marquee',
+            'address'             => '456 Other St',
+            'city'                => 'Karachi',
+            'province'            => 'Sindh',
+            'phone'               => '+923007654321',
+            'email'               => 'other@test.com',
+            'status'              => 'active',
+            'subscription_plan_id' => $this->plan->id,
+        ]);
+
+        $branchB = Branch::create([
+            'marquee_id' => $marqueeB->id,
+            'name'       => 'Karachi Branch',
+            'address'    => '456 Other St',
+            'city'       => 'Karachi',
+            'province'   => 'Sindh',
+            'phone'      => '+923008888888',
+            'status'     => 'active',
+        ]);
+
+        $employeeB = Employee::create([
+            'employee_id'     => 'EMP-99999',
+            'marquee_id'      => $marqueeB->id,
+            'branch_id'       => $branchB->id,
+            'name'            => 'Tenant B Employee',
+            'cnic'            => '42101-9999999-9',
+            'mobile_number'   => '+923009998877',
+            'designation'     => 'Chef / Cook',
+            'joining_date'    => '2026-01-01',
+            'salary'          => 45000,
+            'employment_type' => 'Permanent',
+            'status'          => 'active',
+        ]);
+
+        // Attempt to edit employee B as Owner A (scoped out by BelongsToTenant route binding)
+        $response = $this->actingAs($this->owner)->get(route('staff.edit', $employeeB->id));
+        $response->assertNotFound();
+    }
 }

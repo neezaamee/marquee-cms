@@ -233,27 +233,90 @@
                     @if($activeTab === 'financials')
                         <div class="tab-pane fade show active">
                             <div class="row g-3 mb-4">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <div class="bg-subtle-info text-info p-3 rounded border border-info-subtle">
                                         <h4 class="mb-1 text-info">PKR {{ number_format($customer->total_invoiced_amount, 2) }}</h4>
                                         <p class="mb-0 fs-11 fw-semi-bold">Total Invoiced Amount</p>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <div class="bg-subtle-success text-success p-3 rounded border border-success-subtle">
-                                        <h4 class="mb-1 text-success">PKR {{ number_format($customer->total_paid_amount, 2) }}</h4>
-                                        <p class="mb-0 fs-11 fw-semi-bold">Total Paid Amount</p>
+                                <div class="col-md-3">
+                                    <div class="bg-subtle-primary text-primary p-3 rounded border border-primary-subtle">
+                                        <h4 class="mb-1 text-primary">PKR {{ number_format($customer->total_advance_liability, 2) }}</h4>
+                                        <p class="mb-0 fs-11 fw-semi-bold">Advance Held (Liability)</p>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
+                                    <div class="bg-subtle-success text-success p-3 rounded border border-success-subtle">
+                                        <h4 class="mb-1 text-success">PKR {{ number_format($customer->total_paid_amount, 2) }}</h4>
+                                        <p class="mb-0 fs-11 fw-semi-bold">Total Payments Received</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
                                     <div class="bg-subtle-danger text-danger p-3 rounded border border-danger-subtle">
                                         <h4 class="mb-1 text-danger">PKR {{ number_format($customer->outstanding_balance, 2) }}</h4>
-                                        <p class="mb-0 fs-11 fw-semi-bold">Outstanding Balance</p>
+                                        <p class="mb-0 fs-11 fw-semi-bold">Accounts Receivable (Due)</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <h5 class="mb-3 text-800"><span class="fas fa-file-invoice-dollar me-2 text-primary"></span>Invoices & Billing History</h5>
+                            <!-- Customer Sub-Ledger Statement -->
+                            <div class="card mb-4 border border-200">
+                                <div class="card-header bg-light py-2">
+                                    <h6 class="mb-0 fw-bold text-800"><span class="fas fa-book me-2 text-primary"></span>Customer Financial Sub-Ledger Statement</h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    @if($customerLedgers->isNotEmpty())
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover border-0 fs-11 mb-0 align-middle">
+                                                <thead class="bg-200 text-800">
+                                                    <tr>
+                                                        <th class="px-3">Date</th>
+                                                        <th>Type</th>
+                                                        <th>Booking #</th>
+                                                        <th>Voucher / Ref</th>
+                                                        <th>Description</th>
+                                                        <th class="text-end">Debit (Dr)</th>
+                                                        <th class="text-end">Credit (Cr)</th>
+                                                        <th class="text-end px-3">Running Balance</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($customerLedgers as $cl)
+                                                        <tr>
+                                                            <td class="px-3 fw-bold">{{ $cl->transaction_date->format('d-M-Y') }}</td>
+                                                            <td><span class="badge badge-subtle-secondary">{{ ucwords(str_replace('_', ' ', $cl->transaction_type)) }}</span></td>
+                                                            <td>
+                                                                @if($cl->booking)
+                                                                    <a href="{{ route('bookings.show', $cl->booking_id) }}" class="font-monospace">#{{ $cl->booking->booking_number }}</a>
+                                                                @else
+                                                                    <span class="text-muted">—</span>
+                                                                @endif
+                                                            </td>
+                                                            <td class="font-monospace text-muted">{{ $cl->journalVoucher?->voucher_no ?? ($cl->reference_number ?? '—') }}</td>
+                                                            <td class="text-700">{{ $cl->description }}</td>
+                                                            <td class="text-end font-monospace text-danger">{{ $cl->debit > 0 ? 'Rs. ' . number_format($cl->debit, 2) : '—' }}</td>
+                                                            <td class="text-end font-monospace text-success">{{ $cl->credit > 0 ? 'Rs. ' . number_format($cl->credit, 2) : '—' }}</td>
+                                                            <td class="text-end px-3 font-monospace fw-bold text-dark">Rs. {{ number_format($cl->running_balance, 2) }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        @if($customerLedgers->hasPages())
+                                            <div class="p-2 border-top">
+                                                {{ $customerLedgers->links() }}
+                                            </div>
+                                        @endif
+                                    @else
+                                        <div class="text-center py-4 text-muted fs-11">
+                                            <span class="fas fa-book-open fa-2x mb-2 d-block text-400"></span>
+                                            No ledger postings recorded for this customer yet.
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <h5 class="mb-3 text-800"><span class="fas fa-file-invoice-dollar me-2 text-primary"></span>Bookings & Invoices</h5>
                             <div class="table-responsive">
                                 <table class="table table-sm table-striped fs-10 align-middle">
                                     <thead class="bg-200">

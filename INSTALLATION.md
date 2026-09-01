@@ -17,7 +17,7 @@ Follow this guide to install and run MarqueeCMS on your local machine.
 Clone the project repository to your web server root directory:
 ```bash
 git clone https://github.com/neezaamee/marquee-cms.git
-cd MarqueeCMS
+cd marquee-cms
 ```
 
 ### 2. Dependency Installations
@@ -43,16 +43,16 @@ php artisan key:generate
 ```
 
 ### 4. Database Creation & Migration
-Create a blank database named `marquee_cms` in your local MySQL instance.
+Create a blank database named `marqueecms` in your local MySQL instance.
 
 Edit the `.env` database configuration details:
 ```env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=marquee_cms
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
+DB_DATABASE=marqueecms
+DB_USERNAME=root
+DB_PASSWORD=
 ```
 
 Run database tables migrations and seed default platform settings:

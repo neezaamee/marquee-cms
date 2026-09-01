@@ -4,12 +4,13 @@ namespace App\Models;
 
 use App\Traits\HasAuditColumns;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
 class AccountType extends Model
 {
-    use HasAuditColumns;
+    use HasFactory, HasAuditColumns;
 
     protected $fillable = [
         'marquee_id',

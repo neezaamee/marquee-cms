@@ -229,11 +229,51 @@
 
             <!-- PANEL 2: EVENT DETAILS & LOCATION -->
             <div class="card mb-3 text-start">
-                <div class="card-header bg-light">
-                    <h6 class="mb-0 fw-bold"><span class="fas fa-calendar-alt me-2 text-primary"></span>Event Details & Location</h6>
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold"><span class="fas fa-map-marker-alt me-2 text-primary"></span>Booking Location & Event Schedule</h6>
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
+                        <!-- Branch Selection Section -->
+                        <div class="col-12">
+                            <label class="form-label font-sans-serif fw-bold text-700" for="selectedBranchId">Branch / Facility Location *</label>
+                            @if($isMultiBranchUser)
+                                <select wire:model.live="selectedBranchId" class="form-select @error('selectedBranchId') is-invalid @enderror" id="selectedBranchId">
+                                    <option value="">Choose Branch...</option>
+                                    @foreach($branchesList as $b)
+                                        <option value="{{ $b->id }}">
+                                            {{ $b->name }} @if($b->is_head_office) (Head Office) @endif — {{ $b->city }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('selectedBranchId') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                <div class="form-text fs-12 text-600 mt-1">
+                                    <span class="fas fa-info-circle me-1 text-primary"></span>Halls and pricing are dynamically filtered by the selected physical branch location.
+                                </div>
+                            @else
+                                <div class="p-2 border rounded bg-light d-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar avatar-l me-2 bg-primary-subtle rounded-circle p-2 d-flex align-items-center justify-content-center">
+                                            <span class="fas fa-building text-primary"></span>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-800 fs-12">
+                                                {{ $autoSelectedBranch?->name ?? ($branchesList->first()?->name ?? 'Main Branch') }}
+                                                @if($autoSelectedBranch?->is_head_office)
+                                                    <span class="badge badge-subtle-primary ms-1 fs-12">Head Office</span>
+                                                @endif
+                                            </div>
+                                            <div class="fs-11 text-600">
+                                                <span class="fas fa-map-marker-alt me-1"></span>{{ $autoSelectedBranch?->address ?? '' }}, {{ $autoSelectedBranch?->city ?? '' }}
+                                                @if($autoSelectedBranch?->phone) | <span class="fas fa-phone me-1"></span>{{ $autoSelectedBranch?->phone }} @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span class="badge badge-subtle-success fs-12"><span class="fas fa-lock me-1"></span>Active Branch</span>
+                                </div>
+                            @endif
+                        </div>
+
                         <!-- Event Type Dropdown -->
                         <div class="col-md-6">
                             <label class="form-label font-sans-serif fw-bold text-700" for="selectedEventTypeId">Event Type *</label>
@@ -255,30 +295,43 @@
 
                         <!-- Select Multiple Halls -->
                         <div class="col-12">
-                            <label class="form-label font-sans-serif fw-bold text-700">Select Hall(s) *</label>
-                            <div class="row g-2">
-                                @foreach($hallsList as $hall)
-                                    <div class="col-md-6 col-xxl-4">
-                                        <div class="card border h-100 cursor-pointer transition-base hover-shadow {{ in_array((string)$hall->id, $selectedHallIds) ? 'border-primary bg-primary-subtle bg-opacity-25' : '' }}" wire:click="toggleHall({{ $hall->id }})">
-                                            <div class="card-body p-3">
-                                                <div class="d-flex align-items-center justify-content-between">
-                                                    <div>
-                                                        <h6 class="mb-1 {{ in_array((string)$hall->id, $selectedHallIds) ? 'text-primary fw-bold' : 'text-900' }}">{{ $hall->hall_name }}</h6>
-                                                        <span class="fs-11 text-600">Capacity: {{ $hall->capacity }}</span>
-                                                    </div>
-                                                    <div>
-                                                        @if(in_array((string)$hall->id, $selectedHallIds))
-                                                            <span class="fas fa-check-circle text-primary fs-8"></span>
-                                                        @else
-                                                            <span class="far fa-circle text-300 fs-8"></span>
-                                                        @endif
+                            <label class="form-label font-sans-serif fw-bold text-700">Select Venue Hall(s) *</label>
+                            @if(empty($selectedBranchId))
+                                <div class="alert alert-subtle-warning fs-12 py-2 mb-0" role="alert">
+                                    <span class="fas fa-exclamation-triangle me-1"></span>Please select a Branch above to view and assign halls.
+                                </div>
+                            @elseif($hallsList->isEmpty())
+                                <div class="alert alert-subtle-info fs-12 py-2 mb-0" role="alert">
+                                    <span class="fas fa-info-circle me-1"></span>No active halls configured for this branch. Please create a hall in Branch Settings.
+                                </div>
+                            @else
+                                <div class="row g-2">
+                                    @foreach($hallsList as $hall)
+                                        <div class="col-md-6 col-xxl-4">
+                                            <div class="card border h-100 cursor-pointer transition-base hover-shadow {{ in_array((string)$hall->id, $selectedHallIds) ? 'border-primary bg-primary-subtle bg-opacity-25' : '' }}" wire:click="toggleHall({{ $hall->id }})">
+                                                <div class="card-body p-3">
+                                                    <div class="d-flex align-items-center justify-content-between">
+                                                        <div>
+                                                            <h6 class="mb-1 {{ in_array((string)$hall->id, $selectedHallIds) ? 'text-primary fw-bold' : 'text-900' }}">{{ $hall->hall_name }}</h6>
+                                                            <span class="fs-11 text-600">Capacity: {{ $hall->capacity }} guests</span>
+                                                            @if($hall->default_booking_price > 0)
+                                                                <div class="fs-11 text-primary fw-semi-bold">Rent: Rs. {{ number_format($hall->default_booking_price) }}</div>
+                                                            @endif
+                                                        </div>
+                                                        <div>
+                                                            @if(in_array((string)$hall->id, $selectedHallIds))
+                                                                <span class="fas fa-check-circle text-primary fs-8"></span>
+                                                            @else
+                                                                <span class="far fa-circle text-300 fs-8"></span>
+                                                            @endif
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                @endforeach
-                            </div>
+                                    @endforeach
+                                </div>
+                            @endif
                             @error('selectedHallIds') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                         </div>
                     </div>

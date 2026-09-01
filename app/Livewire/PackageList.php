@@ -59,6 +59,13 @@ class PackageList extends Component
                 return;
             }
 
+            // Block deletion if package is referenced in bookings
+            if (\App\Models\Booking::where('package_id', $package->id)->exists()) {
+                session()->flash('error', 'Cannot delete this package because it is attached to existing bookings. Set its status to Inactive or Archived instead.');
+                $this->confirmingDeletionId = null;
+                return;
+            }
+
             $package->delete();
             $this->confirmingDeletionId = null;
             session()->flash('success', 'Package deleted successfully.');

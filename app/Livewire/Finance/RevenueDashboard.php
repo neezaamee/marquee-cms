@@ -30,32 +30,40 @@ class RevenueDashboard extends Component
         // Clone query for computing stats
         $bookings = $query->get();
 
-        // 2. Calculate Stats
-        // Direct Revenue = Subtotal + Tax (excludes refundable security deposits)
-        $totalDirectRevenue = $bookings->sum(function($b) {
-            return $b->subtotal + $b->tax_amount;
-        });
+        // 2. Calculate Realized vs Unearned Accounting Metrics
+        // A. Earned & Recognized Revenue (from completed events)
+        $totalRecognizedRevenue = (float) $bookings->where('is_revenue_recognized', true)->sum('revenue_recognized');
+
+        // B. Customer Advance Liability (held as contract liabilities for upcoming events)
+        $totalAdvanceLiabilityHeld = (float) $bookings->where('is_revenue_recognized', false)->sum('advance_received');
+
+        // C. Accounts Receivable (unpaid balance on completed events)
+        $totalAccountsReceivable = (float) $bookings->where('is_revenue_recognized', true)->sum('receivable_amount');
 
         // Held Deposits (Liability, not revenue)
-        $securityDepositsHeld = $bookings->where('deposit_status', 'Held')->sum('security_deposit');
+        $securityDepositsHeld = (float) $bookings->where('deposit_status', 'Held')->sum('security_deposit');
         
         // Refunded Deposits
-        $securityDepositsRefunded = $bookings->sum('deposit_refunded_amount');
+        $securityDepositsRefunded = (float) $bookings->sum('deposit_refunded_amount');
         
         // Deducted Deposits (Deductions due to damage become auxiliary income)
-        $securityDepositsDeducted = $bookings->sum('deposit_deducted_amount');
+        $securityDepositsDeducted = (float) $bookings->sum('deposit_deducted_amount');
 
-        // Total Billings (Direct Revenue + Security Deposits currently held/retained)
-        $totalBillings = $bookings->sum('grand_total');
+        // Total Billings (Commercial contract sum)
+        $totalBillings = (float) $bookings->sum('grand_total');
 
         // 3. Payments Tracking
-        // Query payments through scoped bookings
         $bookingIds = $bookings->pluck('id')->toArray();
         
-        $totalPaymentsCollected = BookingPayment::whereIn('booking_id', $bookingIds)->sum('amount');
-        
-        // Outstanding Balance (Total Billings - Payments collected)
-        $totalOutstanding = max(0, $totalBillings - $totalPaymentsCollected);
+        $totalPaymentsCollected = (float) BookingPayment::whereIn('booking_id', $bookingIds)
+            ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])
+            ->sum('amount');
+
+        $totalRefundsDisbursed = (float) BookingPayment::whereIn('booking_id', $bookingIds)
+            ->where('payment_type', 'refund')
+            ->sum('amount');
+
+        $netPaymentsCollected = max(0.00, $totalPaymentsCollected - $totalRefundsDisbursed);
 
         // 4. Payment Method breakdown
         $paymentMethodsBreakdown = BookingPayment::whereIn('booking_id', $bookingIds)
@@ -65,19 +73,22 @@ class RevenueDashboard extends Component
 
         // 5. Recent Payments
         $recentPayments = BookingPayment::whereIn('booking_id', $bookingIds)
-            ->with(['booking.customer', 'recorder'])
+            ->with(['booking.customer', 'recorder', 'account', 'journalVoucher'])
             ->orderBy('payment_date', 'desc')
             ->orderBy('id', 'desc')
             ->limit(8)
             ->get();
 
         return view('livewire.finance.revenue-dashboard', [
-            'totalDirectRevenue' => $totalDirectRevenue,
+            'totalRecognizedRevenue' => $totalRecognizedRevenue,
+            'totalAdvanceLiabilityHeld' => $totalAdvanceLiabilityHeld,
+            'totalAccountsReceivable' => $totalAccountsReceivable,
             'securityDepositsHeld' => $securityDepositsHeld,
             'securityDepositsRefunded' => $securityDepositsRefunded,
             'securityDepositsDeducted' => $securityDepositsDeducted,
-            'totalPaymentsCollected' => $totalPaymentsCollected,
-            'totalOutstanding' => $totalOutstanding,
+            'totalBillings' => $totalBillings,
+            'totalPaymentsCollected' => $netPaymentsCollected,
+            'totalRefundsDisbursed' => $totalRefundsDisbursed,
             'paymentMethodsBreakdown' => $paymentMethodsBreakdown,
             'recentPayments' => $recentPayments,
         ]);

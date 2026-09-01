@@ -42,9 +42,15 @@ class Booking extends Model
         'tax_amount',
         'subtotal',
         'grand_total',
+        'advance_received',
+        'revenue_recognized',
+        'receivable_amount',
+        'is_revenue_recognized',
+        'revenue_recognized_at',
         'special_instructions',
-        'booking_status', // Draft, Reserved, Confirmed, Cancelled, Rejected
+        'booking_status', // Draft, Reserved, Confirmed, Completed, Cancelled, Rejected
         'payment_status', // Unpaid, Partially Paid, Paid, Refunded
+        'financial_status', // Pending, Partially Paid, Fully Paid, Settled, Refunded, Cancelled
         'created_by',
         'deposit_status', // Held, Refunded, Deducted
         'deposit_refunded_amount',
@@ -58,6 +64,14 @@ class Booking extends Model
         'privacy_required',
         'privacy_ladies_percentage',
         'privacy_gents_percentage',
+    ];
+
+    protected $attributes = [
+        'is_revenue_recognized' => false,
+        'advance_received' => 0.00,
+        'revenue_recognized' => 0.00,
+        'receivable_amount' => 0.00,
+        'financial_status' => 'Pending',
     ];
 
     protected $casts = [
@@ -76,6 +90,11 @@ class Booking extends Model
         'tax_amount' => 'float',
         'subtotal' => 'float',
         'grand_total' => 'float',
+        'advance_received' => 'float',
+        'revenue_recognized' => 'float',
+        'receivable_amount' => 'float',
+        'is_revenue_recognized' => 'boolean',
+        'revenue_recognized_at' => 'datetime',
         'deposit_refunded_amount' => 'float',
         'deposit_deducted_amount' => 'float',
         'no_food' => 'boolean',
@@ -100,6 +119,22 @@ class Booking extends Model
     public function getIsGuestConfirmedAttribute(): bool
     {
         return $this->guest_status === 'Confirmed' || !is_null($this->confirmed_guests);
+    }
+
+    /**
+     * Get the effective branch for this booking (direct or via hall).
+     */
+    public function getEffectiveBranchAttribute(): ?Branch
+    {
+        return $this->branch ?? $this->hall?->branch;
+    }
+
+    /**
+     * Get the effective marquee (tenant) for this booking.
+     */
+    public function getEffectiveMarqueeAttribute(): ?Marquee
+    {
+        return $this->marquee ?? ($this->branch?->marquee ?? ($this->hall?->branch?->marquee ?? auth()->user()?->marquee));
     }
 
     /**
@@ -134,13 +169,38 @@ class Booking extends Model
 
                 $prefix = Carbon::now()->format('dmY');
 
-                // Find how many bookings have been created for this tenant with this prefix
-                $count = static::withoutGlobalScope('tenant')->withTrashed()
+                // Determine the highest existing sequential number for this prefix and tenant (ignoring ALL scopes and including soft deletes)
+                $existingNumbers = static::withoutGlobalScopes()
+                    ->withTrashed()
                     ->where('marquee_id', $marqueeId)
                     ->where('booking_number', 'like', "{$prefix}-%")
-                    ->count();
+                    ->pluck('booking_number');
 
-                $model->booking_number = $prefix . '-' . str_pad($count + 1, 6, '0', STR_PAD_LEFT);
+                $maxSeq = 0;
+                foreach ($existingNumbers as $num) {
+                    $parts = explode('-', $num);
+                    $seq = (int) end($parts);
+                    if ($seq > $maxSeq) {
+                        $maxSeq = $seq;
+                    }
+                }
+
+                $nextSeq = $maxSeq + 1;
+
+                // Loop to guarantee absolute uniqueness in case of race condition
+                do {
+                    $candidateNumber = $prefix . '-' . str_pad($nextSeq, 6, '0', STR_PAD_LEFT);
+                    $exists = static::withoutGlobalScopes()
+                        ->withTrashed()
+                        ->where('marquee_id', $marqueeId)
+                        ->where('booking_number', $candidateNumber)
+                        ->exists();
+                    if ($exists) {
+                        $nextSeq++;
+                    }
+                } while ($exists);
+
+                $model->booking_number = $candidateNumber;
             }
         });
 
@@ -157,13 +217,29 @@ class Booking extends Model
                             ->notify(new \App\Notifications\BookingStatusNotification($booking, $oldStatus, $newStatus));
                     }
 
-                    // Log simulated SMS broadcast to customer phone
-                    if ($customer->phone_number) {
-                        \Illuminate\Support\Facades\Log::info("SMS ALERT Sent to {$customer->phone_number}: Booking #{$booking->booking_number} status updated from {$oldStatus} to {$newStatus}.");
+                    $rawPhone = $customer->getRawOriginal('phone_number') ?? $customer->phone_number;
+                    if ($rawPhone) {
+                        \Illuminate\Support\Facades\Log::info("SMS ALERT Sent to {$rawPhone}: Booking #{$booking->booking_number} status updated from {$oldStatus} to {$newStatus}.");
                     }
                 }
             }
         });
+    }
+
+    /**
+     * Get the tenant marquee associated with this booking.
+     */
+    public function marquee(): BelongsTo
+    {
+        return $this->belongsTo(Marquee::class);
+    }
+
+    /**
+     * Get the branch associated with this booking.
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     /**
@@ -231,11 +307,78 @@ class Booking extends Model
     }
 
     /**
+     * Get the customer ledger entries for this booking.
+     */
+    public function customerLedgers(): HasMany
+    {
+        return $this->hasMany(CustomerLedger::class)->orderBy('transaction_date', 'asc')->orderBy('id', 'asc');
+    }
+
+    /**
+     * Get the effective commercial gross invoice amount.
+     */
+    public function getEffectiveInvoiceAmountAttribute(): float
+    {
+        return (float) ($this->finalBill ? $this->finalBill->grand_total : $this->grand_total);
+    }
+
+    /**
+     * Get total valid payments received from customer (excluding refunds).
+     */
+    public function getTotalPaidAttribute(): float
+    {
+        $received = (float) $this->payments()->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])->sum('amount');
+        $refunded = (float) $this->payments()->where('payment_type', 'refund')->sum('amount');
+        return max(0.00, $received - $refunded);
+    }
+
+    /**
+     * Get current Customer Advance Liability (Contract Liability).
+     * Strictly 0 if revenue is recognized or event cancelled.
+     */
+    public function getEffectiveAdvanceLiabilityAttribute(): float
+    {
+        if ($this->is_revenue_recognized || in_array($this->booking_status, ['Completed', 'Cancelled', 'Rejected'])) {
+            return 0.00;
+        }
+
+        return (float) $this->advance_received;
+    }
+
+    /**
+     * Get current Accounts Receivable (amount owed by customer after revenue is recognized).
+     */
+    public function getEffectiveReceivableAttribute(): float
+    {
+        if (!$this->is_revenue_recognized) {
+            return 0.00;
+        }
+
+        return (float) $this->receivable_amount;
+    }
+
+    /**
+     * Check if the booking is financially settled.
+     */
+    public function getIsFinanciallySettledAttribute(): bool
+    {
+        return $this->is_revenue_recognized && $this->effective_receivable <= 0.01;
+    }
+
+    /**
      * Get the customized extra services (add-ons) for this booking.
      */
     public function extraServices(): HasMany
     {
         return $this->hasMany(BookingExtraService::class);
+    }
+
+    /**
+     * Get the vendor / partner services assigned to this booking.
+     */
+    public function vendorSales(): HasMany
+    {
+        return $this->hasMany(VendorSale::class)->whereIn('status', ['confirmed', 'settled'])->orderBy('id', 'asc');
     }
 
     /**

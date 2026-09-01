@@ -8,13 +8,26 @@
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
+                        @if($isMultiBranch)
+                            <div class="col-12">
+                                <label class="form-label font-sans-serif fw-bold text-700" for="checkerBranchId">Select Branch *</label>
+                                <select wire:model.live="selectedBranchId" class="form-select" id="checkerBranchId">
+                                    @foreach($branches as $b)
+                                        <option value="{{ $b->id }}">{{ $b->name }} ({{ $b->city }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+
                         <!-- Select Hall -->
                         <div class="col-12">
                             <label class="form-label font-sans-serif fw-bold text-700" for="selectedHallId">Select Hall *</label>
                             <select wire:model.live="selectedHallId" class="form-select" id="selectedHallId">
-                                @foreach($halls as $hall)
-                                    <option value="{{ $hall->id }}">{{ $hall->hall_name }} (Capacity: {{ $hall->seating_capacity }})</option>
-                                @endforeach
+                                @forelse($halls as $hall)
+                                    <option value="{{ $hall->id }}">{{ $hall->hall_name }} (Capacity: {{ $hall->seating_capacity ?? $hall->capacity }})</option>
+                                @empty
+                                    <option value="">No halls available for this branch</option>
+                                @endforelse
                             </select>
                         </div>
 

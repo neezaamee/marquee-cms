@@ -28,6 +28,47 @@
                         @error('selectedCustomerId') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
+                    <!-- Branch / Facility Location -->
+                    <div class="col-12">
+                        <label class="form-label font-sans-serif fw-bold text-700" for="editBranchId">Branch / Facility Location *</label>
+                        @if($canChangeBranch)
+                            <select wire:model.live="selectedBranchId" class="form-select @error('selectedBranchId') is-invalid @enderror" id="editBranchId">
+                                <option value="">Choose Branch...</option>
+                                @foreach($branchesList as $b)
+                                    <option value="{{ $b->id }}">
+                                        {{ $b->name }} @if($b->is_head_office) (Head Office) @endif — {{ $b->city }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('selectedBranchId') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <div class="form-text fs-12 text-600 mt-1">
+                                <span class="fas fa-info-circle me-1 text-primary"></span>Changing branch resets hall selection and updates availability for the new branch.
+                            </div>
+                        @else
+                            @php $currBranch = \App\Models\Branch::find($selectedBranchId) ?? $booking->branch; @endphp
+                            <div class="p-2 border rounded bg-light d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar avatar-l me-2 bg-primary-subtle rounded-circle p-2 d-flex align-items-center justify-content-center">
+                                        <span class="fas fa-building text-primary"></span>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-800 fs-12">
+                                            {{ $currBranch?->name ?? 'Main Branch' }}
+                                            @if($currBranch?->is_head_office)
+                                                <span class="badge badge-subtle-primary ms-1 fs-12">Head Office</span>
+                                            @endif
+                                        </div>
+                                        <div class="fs-11 text-600">
+                                            <span class="fas fa-map-marker-alt me-1"></span>{{ $currBranch?->address ?? '' }}, {{ $currBranch?->city ?? '' }}
+                                            @if($currBranch?->phone) | <span class="fas fa-phone me-1"></span>{{ $currBranch?->phone }} @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="badge badge-subtle-secondary fs-12"><span class="fas fa-lock me-1"></span>Branch Locked</span>
+                            </div>
+                        @endif
+                    </div>
+
                     <!-- Event Type (Searchable) -->
                     <div class="col-md-4">
                         <label class="form-label font-sans-serif fw-bold text-700">Event Type *</label>

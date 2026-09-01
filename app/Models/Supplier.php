@@ -66,4 +66,24 @@ class Supplier extends Model
     {
         return $this->hasMany(PurchaseInvoice::class, 'supplier_id');
     }
+
+    public function setMobileNumberAttribute($value)
+    {
+        $this->attributes['mobile_number'] = \App\Services\PhoneNumberService::normalize($value);
+    }
+
+    public function getMobileNumberAttribute($value)
+    {
+        return \App\Services\PhoneNumberService::formatForDisplay($value);
+    }
+
+    public function setWhatsappNumberAttribute($value)
+    {
+        $this->attributes['whatsapp_number'] = \App\Services\PhoneNumberService::normalize($value);
+    }
+
+    public function getWhatsappNumberAttribute($value)
+    {
+        return \App\Services\PhoneNumberService::formatForDisplay($value);
+    }
 }

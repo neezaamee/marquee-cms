@@ -30,13 +30,7 @@ class DashboardController extends Controller
                 $isSetupCompleted = (bool) $marquee->is_setup_completed;
 
                 if (!$isSetupCompleted) {
-                    $setupChecklist = [
-                        'marquee_info' => !empty($marquee->business_type),
-                        'branch' => \App\Models\Branch::where('marquee_id', $marqueeId)->exists(),
-                        'hall' => \App\Models\Hall::where('marquee_id', $marqueeId)->exists(),
-                        'financial_year' => \App\Models\FinancialYear::where('marquee_id', $marqueeId)->exists(),
-                        'event_types' => \App\Models\EventType::where('marquee_id', $marqueeId)->exists(),
-                    ];
+                    $setupChecklist = $marquee->getOnboardingChecklist();
                     
                     if (!in_array(false, $setupChecklist, true)) {
                         $marquee->update(['is_setup_completed' => true]);
@@ -48,39 +42,21 @@ class DashboardController extends Controller
                 $setupChecklist = [
                     'marquee_info' => false,
                     'branch' => false,
-                    'hall' => false,
-                    'financial_year' => false,
-                    'event_types' => false,
+                    'branch_config' => false,
+                    'halls' => false,
+                    'departments' => false,
+                    'booking_masters' => false,
+                    'menu_packages' => false,
+                    'inventory' => false,
+                    'finance' => false,
                 ];
             }
         }
 
-        // Scoping is automatically handled by the BelongsToTenant global scope
-        $totalBookings = Booking::count();
-        $activeHalls = Hall::where('status', 'active')->count();
-        $menuPackages = Package::where('status', 'Active')->count();
-
-        // Calculate Monthly Revenue based on payment recorded date
-        $startOfMonth = Carbon::now()->startOfMonth()->toDateString();
-        $endOfMonth = Carbon::now()->endOfMonth()->toDateString();
-        $monthlyRevenue = BookingPayment::whereHas('booking')
-            ->whereBetween('payment_date', [$startOfMonth, $endOfMonth])
-            ->sum('amount');
-
-        // Fetch next 5 upcoming bookings
-        $recentBookings = Booking::with(['customer', 'hall', 'eventType', 'slot'])
-            ->whereDate('booking_date', '>=', Carbon::today()->toDateString())
-            ->whereIn('booking_status', ['Reserved', 'Confirmed'])
-            ->orderBy('booking_date', 'asc')
-            ->limit(5)
-            ->get();
+        $isSuperAdmin = $user->isSuperAdmin();
 
         return view('dashboard', compact(
-            'totalBookings',
-            'activeHalls',
-            'menuPackages',
-            'monthlyRevenue',
-            'recentBookings',
+            'isSuperAdmin',
             'isSetupCompleted',
             'setupChecklist'
         ));

@@ -145,12 +145,16 @@ class SecurityDepositLedger extends Component
         // Apply filters
         if (!empty($this->search)) {
             $term = '%' . $this->search . '%';
-            $query->where(function($q) use ($term) {
+            $cleanDigits = preg_replace('/[^0-9]/', '', $this->search);
+            $query->where(function($q) use ($term, $cleanDigits) {
                 $q->where('booking_number', 'like', $term)
-                  ->orWhereHas('customer', function($cq) use ($term) {
+                  ->orWhereHas('customer', function($cq) use ($term, $cleanDigits) {
                       $cq->where('first_name', 'like', $term)
-                        ->orWhere('last_name', 'like', $term)
-                        ->orWhere('phone_number', 'like', $term);
+                        ->orWhere('last_name', 'like', $term);
+
+                      if (!empty($cleanDigits)) {
+                          $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%');
+                      }
                   });
             });
         }

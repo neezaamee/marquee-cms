@@ -3,6 +3,7 @@
 namespace App\Livewire\Finance;
 
 use App\Models\Account;
+use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -24,6 +25,10 @@ class ExpenseCategoryManager extends Component
     public $editId = null;
     public $confirmingDeletion = null;
 
+    // Filter / search
+    public $search = '';
+    public $statusFilter = 'all';
+
     protected $rules = [
         'name' => 'required|string|max:100',
         'parent_id' => 'nullable|exists:expense_categories,id',
@@ -42,6 +47,16 @@ class ExpenseCategoryManager extends Component
         $this->resetInputFields();
     }
 
+    public function updatingSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingStatusFilter()
+    {
+        $this->resetPage();
+    }
+
     public function resetInputFields()
     {
         $this->name = '';
@@ -58,6 +73,7 @@ class ExpenseCategoryManager extends Component
 
     public function save()
     {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_expense_settings'), 403);
         $this->validate();
 
         $marqueeId = auth()->user()->marquee_id;
@@ -129,17 +145,27 @@ class ExpenseCategoryManager extends Component
 
     public function confirmDelete($id)
     {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_expense_settings'), 403);
         $this->confirmingDeletion = $id;
     }
 
     public function deleteCategory()
     {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_expense_settings'), 403);
         if ($this->confirmingDeletion) {
             $category = ExpenseCategory::findOrFail($this->confirmingDeletion);
             
             // Check if there are child subcategories
             if ($category->children()->exists()) {
                 session()->flash('error', 'Cannot delete a parent category with subcategories.');
+                $this->confirmingDeletion = null;
+                return;
+            }
+
+            // Block if category is referenced by existing expenses
+            $hasExpenses = Expense::where('expense_category_id', $category->id)->exists();
+            if ($hasExpenses) {
+                session()->flash('error', 'Cannot delete this category because it has recorded expenses. Deactivate it instead.');
                 $this->confirmingDeletion = null;
                 return;
             }
@@ -168,12 +194,24 @@ class ExpenseCategoryManager extends Component
             ->orderBy('account_code')
             ->get();
 
-        // Get categories formatted hierarchical
-        $categoriesList = ExpenseCategory::where('marquee_id', $marqueeId)
+        // Get categories formatted hierarchical with search & status filters
+        $categoryQuery = ExpenseCategory::where('marquee_id', $marqueeId)
             ->with(['parent', 'defaultAccount'])
             ->orderBy('display_order')
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
+
+        if (!empty($this->search)) {
+            $categoryQuery->where(function ($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                  ->orWhere('category_code', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        if ($this->statusFilter !== 'all') {
+            $categoryQuery->where('is_active', $this->statusFilter === 'active');
+        }
+
+        $categoriesList = $categoryQuery->get();
 
         return view('livewire.finance.expense-category-manager', [
             'accounts' => $accounts,

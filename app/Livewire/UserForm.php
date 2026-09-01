@@ -25,11 +25,22 @@ class UserForm extends Component
     public $phone = '';
     public $status = 'active';
     public $employee_id = null;
+    public $cnic = '';
 
     // Lists
     public $marquees = [];
     public $branches = [];
     public $roles = [];
+
+    public function formatPhoneNumber($phone)
+    {
+        return \App\Services\PhoneNumberService::normalize($phone);
+    }
+
+    public function formatPhoneForUi($phone)
+    {
+        return \App\Services\PhoneNumberService::formatForDisplay($phone);
+    }
 
     public function mount($user = null)
     {
@@ -50,6 +61,11 @@ class UserForm extends Component
             : Role::where('name', '!=', 'super_admin')->orderBy('label')->get();
 
         if ($user) {
+            // Tenant isolation check
+            if (!$currentUser->isSuperAdmin() && $user->marquee_id !== $currentUser->marquee_id) {
+                abort(403, 'Unauthorized operation.');
+            }
+
             $this->isEditMode = true;
             $this->userId = $user->id;
             $this->marquee_id = $user->marquee_id;
@@ -64,9 +80,10 @@ class UserForm extends Component
             $this->name = $user->name;
             $this->email = $user->email;
             $this->username = $user->username;
-            $this->phone = $user->phone;
+            $this->phone = $this->formatPhoneForUi($user->phone);
             $this->status = $user->status;
             $this->employee_id = $user->employee_id;
+            $this->cnic = $user->employee ? $user->employee->cnic : '';
         }
     }
 
@@ -93,7 +110,10 @@ class UserForm extends Component
 
         if (!$this->employee_id) {
             $rules['name'] = 'required|string|max:255';
-            $rules['phone'] = 'nullable|string|max:50';
+            $rules['phone'] = ['required', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'];
+            $rules['cnic'] = ['required', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'];
+        } else {
+            $rules['cnic'] = 'nullable|string';
         }
 
         if (auth()->user()->isSuperAdmin()) {
@@ -107,6 +127,14 @@ class UserForm extends Component
         }
 
         return $rules;
+    }
+
+    protected function messages()
+    {
+        return [
+            'phone.regex' => 'The phone number must be a valid Pakistani number starting with 03 (e.g. 0321-8611353).',
+            'cnic.regex' => 'The CNIC format must be XXXXX-XXXXXXX-X (e.g. 35201-1234567-1).',
+        ];
     }
 
     public function save()
@@ -133,7 +161,37 @@ class UserForm extends Component
             $validatedData['password'] = Hash::make($validatedData['password']);
         }
 
-        if ($this->employee_id) {
+        if (!$this->employee_id) {
+            $cleanPhone = $this->formatPhoneNumber($this->phone);
+            
+            // Map role to designation
+            $role = Role::find($this->role_id);
+            $designation = match($role->name) {
+                'branch_manager' => 'Branch Manager',
+                'booking_officer' => 'Booking Officer',
+                'accountant' => 'Accountant',
+                'store_keeper' => 'Store Keeper',
+                'kitchen_manager' => 'Kitchen Manager',
+                default => 'Helper / Labor',
+            };
+
+            $employee = \App\Models\Employee::create([
+                'marquee_id' => $this->marquee_id,
+                'branch_id' => $this->branch_id,
+                'name' => $this->name,
+                'cnic' => $this->cnic,
+                'mobile_number' => $cleanPhone,
+                'designation' => $designation,
+                'joining_date' => now()->format('Y-m-d'),
+                'salary' => 0.00,
+                'employment_type' => 'Permanent',
+                'status' => 'active',
+            ]);
+
+            $validatedData['employee_id'] = $employee->id;
+            $validatedData['name'] = $this->name;
+            $validatedData['phone'] = $cleanPhone;
+        } else {
             $employee = \App\Models\Employee::find($this->employee_id);
             if ($employee) {
                 $validatedData['name'] = $employee->name;

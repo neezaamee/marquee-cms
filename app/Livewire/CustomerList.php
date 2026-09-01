@@ -74,16 +74,20 @@ class CustomerList extends Component
 
         // Apply Search
         if (!empty($this->search)) {
-            $query->where(function ($q) {
+            $cleanDigits = preg_replace('/[^0-9]/', '', $this->search);
+            $query->where(function ($q) use ($cleanDigits) {
                 $q->where('first_name', 'like', '%' . $this->search . '%')
                   ->orWhere('last_name', 'like', '%' . $this->search . '%')
                   ->orWhere('customer_code', 'like', '%' . $this->search . '%')
                   ->orWhere('email', 'like', '%' . $this->search . '%')
-                  ->orWhere('phone_number', 'like', '%' . $this->search . '%')
                   ->orWhere('cnic_national_id', 'like', '%' . $this->search . '%')
                   ->orWhere('company_name', 'like', '%' . $this->search . '%')
-                  ->orWhere('referred_by_name', 'like', '%' . $this->search . '%')
-                  ->orWhere('referred_by_contact', 'like', '%' . $this->search . '%');
+                  ->orWhere('referred_by_name', 'like', '%' . $this->search . '%');
+
+                if (!empty($cleanDigits)) {
+                    $q->orWhere('phone_number', 'like', '%' . $cleanDigits . '%')
+                      ->orWhere('referred_by_contact', 'like', '%' . $cleanDigits . '%');
+                }
             });
         }
 

@@ -32,4 +32,13 @@ class FinanceController extends Controller
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_payments'), 403);
         return view('finance.security-deposits');
     }
+
+    /**
+     * Display the customer advance contract liability report.
+     */
+    public function advanceLiabilities()
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_payments'), 403);
+        return view('finance.advance-liabilities');
+    }
 }

@@ -92,11 +92,39 @@ class Employee extends Model
         static::creating(function (Employee $employee) {
             if (empty($employee->employee_id)) {
                 $marqueeId = $employee->marquee_id;
+                if (empty($marqueeId) && auth()->check()) {
+                    $marqueeId = auth()->user()->getActiveMarqueeId();
+                }
 
-                // Count existing employees (including trashed) globally to get the next serial
-                $count = static::withoutGlobalScope('tenant')->withTrashed()->count();
+                $existingIds = static::withoutGlobalScopes()
+                    ->withTrashed()
+                    ->where('marquee_id', $marqueeId)
+                    ->where('employee_id', 'like', 'EMP-%')
+                    ->pluck('employee_id');
 
-                $employee->employee_id = 'EMP-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
+                $maxSeq = 0;
+                foreach ($existingIds as $eId) {
+                    $parts = explode('-', $eId);
+                    $seq = (int) end($parts);
+                    if ($seq > $maxSeq) {
+                        $maxSeq = $seq;
+                    }
+                }
+
+                $nextSeq = $maxSeq + 1;
+                do {
+                    $candidateId = 'EMP-' . str_pad($nextSeq, 5, '0', STR_PAD_LEFT);
+                    $exists = static::withoutGlobalScopes()
+                        ->withTrashed()
+                        ->where('marquee_id', $marqueeId)
+                        ->where('employee_id', $candidateId)
+                        ->exists();
+                    if ($exists) {
+                        $nextSeq++;
+                    }
+                } while ($exists);
+
+                $employee->employee_id = $candidateId;
             }
         });
 
@@ -175,5 +203,15 @@ class Employee extends Model
     public function departmentAttendances()
     {
         return $this->hasMany(DepartmentAttendance::class);
+    }
+
+    public function setMobileNumberAttribute($value)
+    {
+        $this->attributes['mobile_number'] = \App\Services\PhoneNumberService::normalize($value);
+    }
+
+    public function getMobileNumberAttribute($value)
+    {
+        return \App\Services\PhoneNumberService::formatForDisplay($value);
     }
 }

@@ -35,16 +35,21 @@
                     </div>
 
                     <!-- Preview Logo -->
-                    <div class="col-md-6 d-flex align-items-center gap-3">
+                    <div class="mb-3">
                         @if ($logo)
-                            <div>
-                                <small class="text-muted d-block mb-1">New Preview:</small>
+                            <div class="d-block mb-2">
+                                <small class="text-muted d-block mb-1">Temporary Preview:</small>
                                 <img src="{{ $logo->temporaryUrl() }}" class="rounded border" width="60" height="60" style="object-fit: contain;">
                             </div>
                         @elseif ($existingLogo)
-                            <div>
+                            @php
+                                $existingLogoUrl = Str::startsWith($existingLogo, ['http://', 'https://']) 
+                                    ? $existingLogo 
+                                    : (Str::startsWith($existingLogo, 'storage/') ? asset($existingLogo) : asset('storage/' . $existingLogo));
+                            @endphp
+                            <div class="d-block mb-2">
                                 <small class="text-muted d-block mb-1">Current Logo:</small>
-                                <img src="{{ asset('storage/' . $existingLogo) }}" class="rounded border" width="60" height="60" style="object-fit: contain;">
+                                <img src="{{ $existingLogoUrl }}" class="rounded border" width="60" height="60" style="object-fit: contain;">
                             </div>
                         @endif
                     </div>

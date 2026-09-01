@@ -10,7 +10,16 @@
 
     @if (session()->has('message'))
         <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <span class="fas fa-check-circle me-1"></span>
             {{ session('message') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if (session()->has('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span class="fas fa-exclamation-triangle me-1"></span>
+            {{ session('error') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     @endif
@@ -81,17 +90,29 @@
                     </div>
                     <div class="card-body">
                         <form wire:submit.prevent="save">
+                            @if(!auth()->user()->branch_id && count($branches) > 1)
+                                <div class="mb-3">
+                                    <label class="form-label fw-semi-bold">Branch <span class="text-danger">*</span></label>
+                                    <select wire:model.live="branch_id" class="form-select form-select-sm @error('branch_id') is-invalid @enderror">
+                                        @foreach($branches as $b)
+                                            <option value="{{ $b->id }}">{{ $b->name }}{{ $b->is_head_office ? ' (Main)' : '' }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('branch_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                            @endif
+
                             <div class="mb-3">
                                 <label class="form-label font-monospace">Code (Auto)</label>
                                 <input type="text" wire:model="department_code" class="form-control form-control-sm bg-200" readonly>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Department Name</label>
+                                <label class="form-label">Department Name <span class="text-danger">*</span></label>
                                 <input type="text" wire:model="name" class="form-control form-control-sm @error('name') is-invalid @enderror" placeholder="e.g. BBQ Kitchen">
                                 @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Type</label>
+                                <label class="form-label">Type <span class="text-danger">*</span></label>
                                 <select wire:model="department_type" class="form-select form-select-sm">
                                     <option value="Kitchen Production">Kitchen Production</option>
                                     <option value="Operations">Operations</option>
@@ -140,7 +161,15 @@
             <div class="card border border-200">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h5 class="mb-0">Departments Register</h5>
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 flex-wrap">
+                        @if(!auth()->user()->branch_id && count($branches) > 1)
+                            <select wire:model.live="filterBranch" class="form-select form-select-sm" style="max-width: 160px;">
+                                <option value="">All Branches</option>
+                                @foreach($branches as $b)
+                                    <option value="{{ $b->id }}">{{ $b->name }}</option>
+                                @endforeach
+                            </select>
+                        @endif
                         <input type="text" wire:model.live.debounce.300ms="search" class="form-control form-control-sm" placeholder="Search departments..." style="max-width: 180px;">
                         <select wire:model.live="filterType" class="form-select form-select-sm" style="max-width: 150px;">
                             <option value="">All Types</option>
@@ -162,6 +191,7 @@
                                 <tr>
                                     <th class="px-3">Code</th>
                                     <th>Name</th>
+                                    <th>Branch</th>
                                     <th>Type</th>
                                     <th>Manager</th>
                                     <th>Order</th>
@@ -174,6 +204,7 @@
                                     <tr>
                                         <td class="px-3 font-monospace fw-bold">{{ $dept->department_code }}</td>
                                         <td class="fw-semi-bold">{{ $dept->name }}</td>
+                                        <td><span class="badge badge-subtle-primary">{{ $dept->branch->name ?? 'Main' }}</span></td>
                                         <td><span class="badge bg-light text-dark">{{ $dept->department_type }}</span></td>
                                         <td>{{ $dept->manager->name ?? '—' }}</td>
                                         <td>{{ $dept->display_order }}</td>
@@ -183,17 +214,17 @@
                                             </span>
                                         </td>
                                         <td class="text-end px-3">
-                                            <button wire:click="edit({{ $dept->id }})" class="btn btn-link btn-sm p-0 me-2 text-warning">
+                                            <button wire:click="edit({{ $dept->id }})" class="btn btn-link btn-sm p-0 me-2 text-warning" title="Edit">
                                                 <span class="fas fa-edit"></span>
                                             </button>
-                                            <button onclick="confirm('Are you sure you want to delete this department?') || event.stopImmediatePropagation()" wire:click="delete({{ $dept->id }})" class="btn btn-link btn-sm p-0 text-danger">
+                                            <button onclick="confirm('Are you sure you want to delete this department?') || event.stopImmediatePropagation()" wire:click="delete({{ $dept->id }})" class="btn btn-link btn-sm p-0 text-danger" title="Delete">
                                                 <span class="fas fa-trash"></span>
                                             </button>
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="text-center py-4 text-muted">No departments found.</td>
+                                        <td colspan="8" class="text-center py-4 text-muted">No departments found.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

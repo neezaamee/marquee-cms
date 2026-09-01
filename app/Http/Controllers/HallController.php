@@ -30,11 +30,18 @@ class HallController extends Controller
      */
     public function show(Hall $hall)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_halls'), 403);
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->hasPermission('view_halls'), 403);
         
-        // Ensure tenant scoping if not super admin
-        if (!auth()->user()->isSuperAdmin() && $hall->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this hall.');
+        // Ensure tenant and branch scoping if not super admin
+        if (!$user->isSuperAdmin()) {
+            $marqueeId = $user->getActiveMarqueeId();
+            if ($hall->marquee_id !== $marqueeId) {
+                abort(403, 'Unauthorized access to this hall.');
+            }
+            if ($user->branch_id && (int)$hall->branch_id !== (int)$user->branch_id) {
+                abort(403, 'Unauthorized access to another branch hall.');
+            }
         }
 
         $hall->load(['branch', 'creator', 'slots']);
@@ -46,11 +53,18 @@ class HallController extends Controller
      */
     public function edit(Hall $hall)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_halls'), 403);
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->hasPermission('edit_halls'), 403);
         
-        // Ensure tenant scoping if not super admin
-        if (!auth()->user()->isSuperAdmin() && $hall->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this hall.');
+        // Ensure tenant and branch scoping if not super admin
+        if (!$user->isSuperAdmin()) {
+            $marqueeId = $user->getActiveMarqueeId();
+            if ($hall->marquee_id !== $marqueeId) {
+                abort(403, 'Unauthorized access to this hall.');
+            }
+            if ($user->branch_id && (int)$hall->branch_id !== (int)$user->branch_id) {
+                abort(403, 'Unauthorized access to another branch hall.');
+            }
         }
 
         return view('halls.edit', compact('hall'));

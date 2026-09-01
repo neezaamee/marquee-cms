@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use App\Traits\HasAuditColumns;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class JournalVoucherItem extends Model
 {
-    use HasAuditColumns;
+    use HasFactory, HasAuditColumns;
 
     protected $fillable = [
         'journal_voucher_id',

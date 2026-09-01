@@ -54,7 +54,7 @@ class StaffController extends Controller
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
             'cnic'            => 'required|string|max:20',
-            'mobile_number'   => 'required|string|max:20',
+            'mobile_number'   => ['required', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
             'designation'     => 'required|string',
             'joining_date'    => 'required|date',
             'salary'          => 'required|numeric|min:0',
@@ -130,7 +130,7 @@ class StaffController extends Controller
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
             'cnic'            => 'required|string|max:20',
-            'mobile_number'   => 'required|string|max:20',
+            'mobile_number'   => ['required', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
             'designation'     => 'required|string',
             'joining_date'    => 'required|date',
             'salary'          => 'required|numeric|min:0',

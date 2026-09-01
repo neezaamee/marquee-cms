@@ -2,491 +2,321 @@
 
 namespace Database\Seeders;
 
+use App\Models\Account;
+use App\Models\Attendance;
 use App\Models\Booking;
 use App\Models\BookingExtraService;
-use App\Models\BookingHistory;
 use App\Models\BookingPayment;
 use App\Models\Branch;
+use App\Models\CashBankAccount;
 use App\Models\Customer;
+use App\Models\CustomerCommunicationLog;
+use App\Models\CustomerLedger;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EventType;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Models\ExtraService;
+use App\Models\FinancialYear;
 use App\Models\Hall;
+use App\Models\InventoryCategory;
+use App\Models\InventoryItem;
+use App\Models\InventoryUnit;
+use App\Models\JournalVoucher;
 use App\Models\Marquee;
 use App\Models\Package;
 use App\Models\Slot;
+use App\Models\Supplier;
 use App\Models\User;
+use App\Models\Vendor;
+use App\Models\VendorSale;
+use App\Models\VendorService;
+use App\Services\BookingFinancialService;
+use App\Services\RevenueRecognitionService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class DummyDataSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Run the database seeds using Factories.
      */
     public function run(): void
     {
-        // 1. If database is completely empty of marquees, run core seeders first
+        // 1. Ensure master setup data exists
         if (Marquee::count() === 0) {
-            $this->command->info('No marquees found. Running default DatabaseSeeder first...');
+            $this->command->info('No marquees found. Bootstrapping DatabaseSeeder first...');
             $this->call(DatabaseSeeder::class);
+        } else {
+            $this->call([
+                AccountingModuleSeeder::class,
+                DepartmentSeeder::class,
+                InventoryModuleSeeder::class,
+                ExpenseModuleSeeder::class,
+            ]);
         }
 
         $marquees = Marquee::all();
-        $admin = User::where('email', 'superadmin@marquee.cms')->first();
-        $adminId = $admin ? $admin->id : null;
+        $financialService = app(BookingFinancialService::class);
+        $recognitionService = app(RevenueRecognitionService::class);
 
         foreach ($marquees as $marquee) {
-            $this->command->info("Seeding dummy testing data for Marquee: {$marquee->name}");
+            $this->command->info("Seeding rich testing & demo data for: {$marquee->name}");
 
-            // 2. Seed Realistic Customers
-            $customersData = [
-                [
-                    'customer_type' => 'Individual',
-                    'first_name' => 'Muhammad',
-                    'last_name' => 'Ali',
-                    'email' => 'ali.testing@example.com',
-                    'phone_number' => '+923005550101',
-                    'cnic_national_id' => '35201-1111111-1',
-                    'address' => 'House 12, Street 3, Sector Y, DHA',
-                    'city' => $marquee->city ?: 'Lahore',
-                    'province' => $marquee->province ?: 'Punjab',
-                ],
-                [
-                    'customer_type' => 'Individual',
-                    'first_name' => 'Fatima',
-                    'last_name' => 'Sajid',
-                    'email' => 'fatima.sajid@example.com',
-                    'phone_number' => '+923005550102',
-                    'cnic_national_id' => '35201-2222222-2',
-                    'address' => 'Apartment 4B, Royal Heights, Gulberg III',
-                    'city' => $marquee->city ?: 'Lahore',
-                    'province' => $marquee->province ?: 'Punjab',
-                ],
-                [
-                    'customer_type' => 'Individual',
-                    'first_name' => 'Ayesha',
-                    'last_name' => 'Khan',
-                    'email' => 'ayesha.khan@example.com',
-                    'phone_number' => '+923005550103',
-                    'cnic_national_id' => '35201-3333333-3',
-                    'address' => 'Plot 45, Phase V, DHA',
-                    'city' => $marquee->city ?: 'Lahore',
-                    'province' => $marquee->province ?: 'Punjab',
-                ],
-                [
-                    'customer_type' => 'Individual',
-                    'first_name' => 'Zainab',
-                    'last_name' => 'Bibi',
-                    'email' => 'zainab.bibi@example.com',
-                    'phone_number' => '+923005550104',
-                    'cnic_national_id' => '35201-4444444-4',
-                    'address' => 'House 102-C, Model Town',
-                    'city' => $marquee->city ?: 'Lahore',
-                    'province' => $marquee->province ?: 'Punjab',
-                ],
-                [
-                    'customer_type' => 'Individual',
-                    'first_name' => 'Hamza',
-                    'last_name' => 'Riaz',
-                    'email' => 'hamza.riaz@example.com',
-                    'phone_number' => '+923005550105',
-                    'cnic_national_id' => '35201-5555555-5',
-                    'address' => 'Sector G, Phase I, DHA',
-                    'city' => $marquee->city ?: 'Lahore',
-                    'province' => $marquee->province ?: 'Punjab',
-                ],
-                [
-                    'customer_type' => 'Corporate',
-                    'first_name' => 'Kamran',
-                    'last_name' => 'Siddiqui',
-                    'company_name' => 'Systems Limited',
-                    'email' => 'corporate.contact@systemsltd.example.com',
-                    'phone_number' => '+924211179779',
-                    'cnic_national_id' => '35201-6666666-6',
-                    'ntn_number' => '4455667-8',
-                    'address' => 'Software Technology Park, Lahore',
-                    'city' => $marquee->city ?: 'Lahore',
-                    'province' => $marquee->province ?: 'Punjab',
-                ],
-                [
-                    'customer_type' => 'Corporate',
-                    'first_name' => 'Saad',
-                    'last_name' => 'Ahmed',
-                    'company_name' => 'Telenor Pakistan',
-                    'email' => 'events@telenor.example.com',
-                    'phone_number' => '+923455550111',
-                    'cnic_national_id' => '35201-7777777-7',
-                    'ntn_number' => '1122334-5',
-                    'address' => 'Telenor 345 HQ, Sector G-10, Islamabad',
-                    'city' => 'Islamabad',
-                    'province' => 'Islamabad Capital Territory',
-                ],
-                [
-                    'customer_type' => 'Corporate',
-                    'first_name' => 'Nabeel',
-                    'last_name' => 'Qureshi',
-                    'company_name' => 'Nestle Pakistan Ltd',
-                    'email' => 'nestle.bookings@nestle.example.com',
-                    'phone_number' => '+924235550122',
-                    'cnic_national_id' => '35201-8888888-8',
-                    'ntn_number' => '7788990-1',
-                    'address' => 'Ferozepur Road, Lahore',
-                    'city' => $marquee->city ?: 'Lahore',
-                    'province' => $marquee->province ?: 'Punjab',
-                ]
-            ];
-
-            $createdCustomers = [];
-            foreach ($customersData as $index => $cust) {
-                // Ensure unique customer code per marquee
-                $code = 'CUST-' . str_pad($index + 1, 6, '0', STR_PAD_LEFT);
-                
-                $customer = Customer::updateOrCreate(
-                    [
-                        'marquee_id' => $marquee->id,
-                        'email' => $cust['email'],
-                    ],
-                    [
-                        'customer_code' => $code,
-                        'customer_type' => $cust['customer_type'],
-                        'first_name' => $cust['first_name'],
-                        'last_name' => $cust['last_name'],
-                        'company_name' => $cust['company_name'] ?? null,
-                        'gender' => $index % 2 === 0 ? 'Male' : 'Female',
-                        'phone_number' => $cust['phone_number'],
-                        'cnic_national_id' => $cust['cnic_national_id'],
-                        'ntn_number' => $cust['ntn_number'] ?? null,
-                        'address' => $cust['address'],
-                        'city' => $cust['city'],
-                        'province' => $cust['province'],
-                        'status' => 'Active',
-                        'created_by' => $adminId,
-                    ]
-                );
-                $createdCustomers[] = $customer;
+            $branches = $marquee->branches;
+            if ($branches->isEmpty()) {
+                $branches = collect([Branch::factory()->headOffice()->create(['marquee_id' => $marquee->id])]);
             }
+            $mainBranch = $branches->first();
 
-            // 3. Seed Staff/Employees for each branch of the marquee
-            $branches = Branch::where('marquee_id', $marquee->id)->get();
-            $employeeDesignations = [
-                ['title' => 'Hall Manager', 'salary' => 75000.00, 'type' => 'Full-time'],
-                ['title' => 'Front Desk Executive', 'salary' => 45000.00, 'type' => 'Full-time'],
-                ['title' => 'Executive Chef', 'salary' => 90000.00, 'type' => 'Full-time'],
-                ['title' => 'Inventory Assistant', 'salary' => 35000.00, 'type' => 'Full-time'],
-                ['title' => 'Lead Valet Driver', 'salary' => 25000.00, 'type' => 'Contractor'],
-                ['title' => 'Security Coordinator', 'salary' => 30000.00, 'type' => 'Full-time'],
-            ];
-
-            $names = [
-                'Sajid Mahmood', 'Kamran Khan', 'Chef Zakir', 'Noman Shah', 'Farhan Ghafoor', 'Zafar Iqbal',
-                'Rashid Latif', 'Yousaf Ali', 'Chef Shirazi', 'Bilal Ahmed', 'Akram Mughal', 'Haris Rauf'
-            ];
-
-            $empIndex = 0;
-            foreach ($branches as $branch) {
-                for ($i = 0; $i < 4; $i++) {
-                    $desig = $employeeDesignations[$i];
-                    $name = $names[($empIndex) % count($names)];
-                    $empIdStr = 'EMP-' . $branch->id . '-' . str_pad($i + 1, 3, '0', STR_PAD_LEFT);
-
-                    Employee::updateOrCreate(
-                        [
-                            'employee_id' => $empIdStr,
-                            'marquee_id' => $marquee->id,
-                        ],
-                        [
-                            'branch_id' => $branch->id,
-                            'name' => $name,
-                            'cnic' => '35201-' . rand(1000000, 9999999) . '-1',
-                            'mobile_number' => '+92321' . rand(1000000, 9999999),
-                            'designation' => $desig['title'],
-                            'joining_date' => Carbon::now()->subMonths(rand(3, 24))->format('Y-m-d'),
-                            'salary' => $desig['salary'],
-                            'employment_type' => $desig['type'],
-                            'status' => 'active',
-                        ]
-                    );
-                    $empIndex++;
-                }
-            }
-
-            // 4. Seed Bookings
-            // Fetch halls, event types, packages, slots, extra services
+            $adminUser = User::where('marquee_id', $marquee->id)->first() ?? User::first();
             $halls = Hall::where('marquee_id', $marquee->id)->get();
-            $eventTypes = EventType::where('marquee_id', $marquee->id)->get();
-            $packages = Package::where('marquee_id', $marquee->id)->get();
-            $slots = Slot::where('marquee_id', $marquee->id)->get();
-            $extraServices = ExtraService::where('marquee_id', $marquee->id)->get();
-
-            if ($halls->isEmpty() || $eventTypes->isEmpty() || $packages->isEmpty() || $slots->isEmpty()) {
-                $this->command->warn("Missing base configurations (halls, slots, packages, or event types) for marquee: {$marquee->name}. Skipping bookings seeding.");
-                continue;
+            if ($halls->isEmpty()) {
+                $halls = collect([
+                    Hall::factory()->marquee()->create(['marquee_id' => $marquee->id, 'branch_id' => $mainBranch->id]),
+                    Hall::factory()->banquet()->create(['marquee_id' => $marquee->id, 'branch_id' => $mainBranch->id]),
+                ]);
             }
 
-            // Create a variety of past, present, and future events
-            $bookingDates = [
-                // Past dates (Completed/Paid)
-                Carbon::now()->subDays(25),
-                Carbon::now()->subDays(15),
-                Carbon::now()->subDays(5),
-                // Near Future/Today (Confirmed/Partial/Unpaid)
-                Carbon::now()->addDays(1),
-                Carbon::now()->addDays(4),
-                Carbon::now()->addDays(7),
-                // Far Future (Reserved/Draft/Unpaid)
-                Carbon::now()->addDays(15),
-                Carbon::now()->addDays(30),
-                Carbon::now()->addDays(45),
-                Carbon::now()->addDays(60),
-                Carbon::now()->addDays(90),
-            ];
+            $slots = Slot::where('marquee_id', $marquee->id)->get();
+            if ($slots->isEmpty()) {
+                $slots = collect([
+                    Slot::factory()->create(['marquee_id' => $marquee->id, 'slot_name' => 'Night Shift']),
+                    Slot::factory()->create(['marquee_id' => $marquee->id, 'slot_name' => 'Lunch Shift']),
+                ]);
+            }
 
-            foreach ($bookingDates as $index => $bDate) {
-                // Pick random related objects
-                $hall = $halls[$index % $halls->count()];
-                $eventType = $eventTypes[$index % $eventTypes->count()];
-                $package = $packages[$index % $packages->count()];
-                $slot = $slots[$index % $slots->count()];
-                $customer = $createdCustomers[$index % count($createdCustomers)];
+            $eventTypes = EventType::where('marquee_id', $marquee->id)->get();
+            if ($eventTypes->isEmpty()) {
+                $eventTypes = collect([
+                    EventType::factory()->create(['marquee_id' => $marquee->id, 'event_type_name' => 'Wedding Barat']),
+                    EventType::factory()->create(['marquee_id' => $marquee->id, 'event_type_name' => 'Walima Reception']),
+                ]);
+            }
 
-                // Calculate realistic stats
-                $guests = rand($package->minimum_guests, min($package->maximum_guests ?: 500, $hall->capacity));
-                $perPlate = (float) $package->per_plate_price;
-                $packageAmount = $perPlate * $guests;
-                $hallCharges = (float) $hall->default_booking_price;
-                
-                // Add some extra charges (like 10,000 for lighting)
-                $extraCharges = $index % 3 === 0 ? 15000.00 : 0.00;
-                // Add discount for corporates or special promotions
-                $discount = $index % 4 === 0 ? 10000.00 : 0.00;
-                $securityDeposit = 20000.00;
+            $packages = Package::where('marquee_id', $marquee->id)->get();
+            $extraServices = ExtraService::where('marquee_id', $marquee->id)->get();
+            $departments = Department::where('marquee_id', $marquee->id)->get();
 
-                $subtotal = $packageAmount + $hallCharges + $extraCharges - $discount;
-                // Tax (16% local services tax)
-                $taxAmount = round($subtotal * 0.16, 2);
-                $grandTotal = $subtotal + $taxAmount;
+            $cashAccount = Account::where('marquee_id', $marquee->id)->where('account_code', '1001')->first()
+                ?? Account::factory()->cash()->create(['marquee_id' => $marquee->id]);
+            $bankAccount = Account::where('marquee_id', $marquee->id)->where('account_code', '1002')->first()
+                ?? Account::factory()->bank()->create(['marquee_id' => $marquee->id]);
 
-                // Determine booking/payment statuses based on event date
-                $isPast = $bDate->isPast();
-                if ($isPast) {
-                    $bookingStatus = 'Confirmed';
-                    $paymentStatus = 'Paid';
-                    $depositStatus = 'Refunded';
-                    $depositRefunded = $securityDeposit;
-                    $depositDeducted = 0.00;
-                } else {
-                    // Future booking cases
-                    if ($index % 4 === 0) {
-                        $bookingStatus = 'Draft';
-                        $paymentStatus = 'Unpaid';
-                        $depositStatus = 'Held';
-                        $depositRefunded = 0.00;
-                        $depositDeducted = 0.00;
-                    } elseif ($index % 4 === 1) {
-                        $bookingStatus = 'Cancelled';
-                        $paymentStatus = 'Refunded';
-                        $depositStatus = 'Refunded';
-                        $depositRefunded = $securityDeposit;
-                        $depositDeducted = 0.00;
-                    } elseif ($index % 4 === 2) {
-                        $bookingStatus = 'Reserved';
-                        $paymentStatus = 'Partially Paid';
-                        $depositStatus = 'Held';
-                        $depositRefunded = 0.00;
-                        $depositDeducted = 0.00;
-                    } else {
-                        $bookingStatus = 'Confirmed';
-                        $paymentStatus = 'Paid';
-                        $depositStatus = 'Held';
-                        $depositRefunded = 0.00;
-                        $depositDeducted = 0.00;
-                    }
-                }
+            // 2. Seed 25 Realistic Pakistani Customers & CRM Communication Logs
+            $this->command->info('→ Generating Pakistani Customers & CRM History...');
+            $customers = Customer::factory()->count(25)->create([
+                'marquee_id' => $marquee->id,
+            ]);
 
-                // Create Booking
-                $booking = Booking::create([
+            foreach ($customers->take(12) as $cust) {
+                CustomerCommunicationLog::factory()->count(rand(1, 3))->create([
+                    'customer_id' => $cust->id,
+                    'logged_by' => $adminUser->id,
+                ]);
+            }
+
+            // 3. Seed Staff / Employees & Monthly Attendance
+            $this->command->info('→ Generating Staff & Attendance Logs...');
+            foreach ($departments as $dept) {
+                $employees = Employee::factory()->count(3)->create([
                     'marquee_id' => $marquee->id,
-                    'customer_id' => $customer->id,
-                    'event_type_id' => $eventType->id,
-                    'hall_id' => $hall->id,
-                    'slot_id' => $slot->id,
-                    'package_id' => $package->id,
-                    'booking_date' => $bDate->format('Y-m-d'),
-                    'start_time' => $bDate->copy()->setTimeFromTimeString($slot->start_time),
-                    'end_time' => $bDate->copy()->setTimeFromTimeString($slot->end_time),
-                    'guest_count' => $guests,
-                    'per_plate_price' => $perPlate,
-                    'package_amount' => $packageAmount,
-                    'hall_charges' => $hallCharges,
-                    'extra_charges' => $extraCharges,
-                    'discount_amount' => $discount,
-                    'security_deposit' => $securityDeposit,
-                    'tax_amount' => $taxAmount,
-                    'subtotal' => $subtotal,
-                    'grand_total' => $grandTotal,
-                    'booking_status' => $bookingStatus,
-                    'payment_status' => $paymentStatus,
-                    'deposit_status' => $depositStatus,
-                    'deposit_refunded_amount' => $depositRefunded ?? 0.00,
-                    'deposit_deducted_amount' => $depositDeducted ?? 0.00,
-                    'deposit_notes' => $isPast ? 'Events completed. Full security deposit refunded.' : null,
-                    'special_instructions' => 'Seeded test event. Please arrange stage lighting early.',
-                    'created_by' => $adminId,
+                    'branch_id' => $mainBranch->id,
+                    'department_id' => $dept->id,
                 ]);
 
-                // Sync booking_halls pivot
-                $booking->halls()->sync([$hall->id]);
-
-                // Attach custom menu items (from the package's menu items)
-                $menuItems = $package->menuItems;
-                $pivotData = [];
-                foreach ($menuItems as $mItem) {
-                    $pivotData[$mItem->id] = [
-                        'custom_note' => $index % 3 === 0 ? 'Extra spicy handi' : null,
-                        'managed_by_host' => ($index % 2 === 0),
-                    ];
-                }
-                $booking->menuItems()->sync($pivotData);
-
-                // Attach customized extra services
-                if ($extraServices->isNotEmpty()) {
-                    // Pick 2 random extra services
-                    $shuffled = $extraServices->shuffle();
-                    for ($k = 0; $k < min(2, $shuffled->count()); $k++) {
-                        $srv = $shuffled[$k];
-                        BookingExtraService::create([
-                            'booking_id' => $booking->id,
-                            'extra_service_id' => $srv->id,
-                            'service_name' => $srv->service_name,
-                            'unit_price' => $srv->default_price,
-                            'quantity' => 1,
-                            'total_price' => $srv->default_price,
+                foreach ($employees as $emp) {
+                    for ($d = 1; $d <= 10; $d++) {
+                        Attendance::factory()->present()->create([
+                            'marquee_id' => $marquee->id,
+                            'branch_id' => $mainBranch->id,
+                            'employee_id' => $emp->id,
+                            'date' => Carbon::today()->subDays($d)->format('Y-m-d'),
+                            'created_by' => $adminUser->id,
                         ]);
                     }
                 }
+            }
 
-                // Add payments
-                $totalToPay = $grandTotal + $securityDeposit;
-                if ($paymentStatus === 'Paid') {
-                    // Seed full payment
-                    BookingPayment::create([
-                        'booking_id' => $booking->id,
-                        'amount' => $totalToPay,
-                        'payment_date' => $bDate->copy()->subDays(10)->format('Y-m-d'),
-                        'payment_method' => $index % 2 === 0 ? 'Cash' : 'Bank Transfer',
-                        'transaction_reference' => $index % 2 === 0 ? null : 'TXN-' . strtoupper(Str::random(10)),
-                        'recorded_by' => $adminId,
-                        'notes' => 'Received full payment including security deposit.',
-                    ]);
-                } elseif ($paymentStatus === 'Partially Paid') {
-                    // Seed advance deposit (e.g. 50,000)
-                    BookingPayment::create([
-                        'booking_id' => $booking->id,
-                        'amount' => 50000.00,
-                        'payment_date' => $bDate->copy()->subDays(12)->format('Y-m-d'),
-                        'payment_method' => 'Cheque',
-                        'transaction_reference' => 'CHQ-509121',
-                        'recorded_by' => $adminId,
-                        'notes' => 'Received advance booking token amount.',
-                    ]);
-                } elseif ($paymentStatus === 'Refunded') {
-                    // Seed original payment
-                    BookingPayment::create([
-                        'booking_id' => $booking->id,
-                        'amount' => 50000.00,
-                        'payment_date' => $bDate->copy()->subDays(15)->format('Y-m-d'),
-                        'payment_method' => 'Cash',
-                        'recorded_by' => $adminId,
-                        'notes' => 'Original booking deposit.',
-                    ]);
-                    // Seed negative refund payment
-                    BookingPayment::create([
-                        'booking_id' => $booking->id,
-                        'amount' => -50000.00,
-                        'payment_date' => $bDate->copy()->subDays(1)->format('Y-m-d'),
-                        'payment_method' => 'Cash',
-                        'recorded_by' => $adminId,
-                        'notes' => 'Refunded client due to event cancellation.',
+            // 4. Seed Suppliers & Inventory Items
+            $this->command->info('→ Generating Suppliers & Kitchen Inventory Items...');
+            Supplier::factory()->count(6)->create(['marquee_id' => $marquee->id]);
+
+            $invCats = InventoryCategory::where('marquee_id', $marquee->id)->get();
+            $invUnits = InventoryUnit::where('marquee_id', $marquee->id)->get();
+
+            if ($invCats->isNotEmpty() && $invUnits->isNotEmpty()) {
+                foreach ($invCats as $cat) {
+                    InventoryItem::factory()->count(3)->create([
+                        'marquee_id' => $marquee->id,
+                        'category_id' => $cat->id,
+                        'unit_id' => $invUnits->first()->id,
                     ]);
                 }
+            }
 
-                // Add Booking Audit Log Histories
-                BookingHistory::create([
-                    'booking_id' => $booking->id,
-                    'user_id' => $adminId,
-                    'status_from' => null,
-                    'status_to' => 'Draft',
-                    'payment_status_from' => null,
-                    'payment_status_to' => 'Unpaid',
-                    'notes' => 'Booking generated from testing data seeder.',
+            // 5. Seed Vendors & Vendor Services
+            $this->command->info('→ Generating Partner Vendors & Service Catalogs...');
+            $vendors = Vendor::factory()->count(5)->create(['marquee_id' => $marquee->id]);
+            foreach ($vendors as $ven) {
+                VendorService::factory()->count(2)->create([
+                    'marquee_id' => $marquee->id,
+                    'vendor_id' => $ven->id,
+                ]);
+            }
+
+            $currency = \App\Models\Currency::where('marquee_id', $marquee->id)->first()
+                ?? \App\Models\Currency::factory()->create(['marquee_id' => $marquee->id]);
+
+            // 6. Seed Operational Expenses
+            $this->command->info('→ Generating Operating Expenses...');
+            $expCats = ExpenseCategory::where('marquee_id', $marquee->id)->get();
+            if ($expCats->isNotEmpty()) {
+                foreach ($expCats as $expCat) {
+                    Expense::factory()->count(2)->paid()->create([
+                        'marquee_id' => $marquee->id,
+                        'branch_id' => $mainBranch->id,
+                        'expense_category_id' => $expCat->id,
+                        'currency_id' => $currency->id,
+                    ]);
+                }
+            }
+
+            // 7. Seed Bookings in diverse realistic lifecycle & financial stages
+            $this->command->info('→ Generating Bookings, Payment Receipts, Journal Vouchers & Sub-Ledger Entries...');
+
+            // A. Upcoming Confirmed Bookings with Cash/Bank Advances
+            for ($i = 0; $i < 10; $i++) {
+                $hall = $halls->random();
+                $slot = $slots->random();
+                $evType = $eventTypes->random();
+                $cust = $customers->random();
+
+                $booking = Booking::factory()->upcoming()->create([
+                    'marquee_id' => $marquee->id,
+                    'branch_id' => $mainBranch->id,
+                    'customer_id' => $cust->id,
+                    'hall_id' => $hall->id,
+                    'slot_id' => $slot->id,
+                    'event_type_id' => $evType->id,
+                    'created_by' => $adminUser->id,
                 ]);
 
-                if ($bookingStatus !== 'Draft') {
-                    BookingHistory::create([
-                        'booking_id' => $booking->id,
-                        'user_id' => $adminId,
-                        'status_from' => 'Draft',
-                        'status_to' => $bookingStatus,
-                        'payment_status_from' => 'Unpaid',
-                        'payment_status_to' => $paymentStatus,
-                        'notes' => "Status transitioned to {$bookingStatus} with payment state {$paymentStatus}.",
-                    ]);
-                }
-            }
-            // 5. Seed SaaS Invoices & Payments for this Marquee
-            $billingCycles = \App\Models\BillingCycle::all();
-            if ($billingCycles->isNotEmpty()) {
-                $cycle = $billingCycles->first(); // Default to Monthly
-                $plan = $marquee->subscriptionPlan ?: \App\Models\SubscriptionPlan::first();
-                if ($plan) {
-                    // Seed a past Paid invoice and payment
-                    $invoice1 = \App\Models\SaasInvoice::create([
-                        'marquee_id' => $marquee->id,
-                        'subscription_plan_id' => $plan->id,
-                        'billing_cycle_id' => $cycle->id,
-                        'amount' => $plan->monthly_price ?: $plan->price,
-                        'tax' => 0.00,
-                        'discount' => 0.00,
-                        'total_amount' => $plan->monthly_price ?: $plan->price,
-                        'payment_status' => 'Paid',
-                        'invoice_status' => 'Paid',
-                        'due_date' => Carbon::now()->subMonths(1),
-                        'paid_date' => Carbon::now()->subMonths(1)->addDays(2),
-                        'notes' => 'Initial subscription invoice.',
-                    ]);
+                // Record Advance Payment (e.g. 30% - 50% deposit)
+                $advanceAmount = round(($booking->grand_total * rand(30, 50)) / 100, -3);
+                $payAcc = rand(0, 1) ? $cashAccount : $bankAccount;
 
-                    \App\Models\SaasPayment::create([
-                        'payment_reference' => '',
-                        'invoice_id' => $invoice1->id,
-                        'marquee_id' => $marquee->id,
-                        'amount' => $invoice1->total_amount,
+                $financialService->recordPayment($booking, [
+                    'amount' => $advanceAmount,
+                    'payment_date' => Carbon::now()->subDays(rand(1, 15))->format('Y-m-d'),
+                    'payment_method' => $payAcc->account_code === '1001' ? 'Cash' : 'Bank Transfer',
+                    'account_id' => $payAcc->id,
+                    'payment_type' => 'advance',
+                    'transaction_reference' => 'ADV-' . rand(10000, 99999),
+                    'notes' => 'Token advance deposit against wedding booking',
+                    'recorded_by' => $adminUser->id,
+                ]);
+            }
+
+            // B. Today's Events
+            for ($i = 0; $i < 2; $i++) {
+                $hall = $halls->random();
+                $slot = $slots->random();
+                $evType = $eventTypes->random();
+                $cust = $customers->random();
+
+                $booking = Booking::factory()->today()->create([
+                    'marquee_id' => $marquee->id,
+                    'branch_id' => $mainBranch->id,
+                    'customer_id' => $cust->id,
+                    'hall_id' => $hall->id,
+                    'slot_id' => $slot->id,
+                    'event_type_id' => $evType->id,
+                    'created_by' => $adminUser->id,
+                ]);
+
+                $advanceAmount = round($booking->grand_total * 0.5, -3);
+                $financialService->recordPayment($booking, [
+                    'amount' => $advanceAmount,
+                    'payment_date' => Carbon::now()->subDays(5)->format('Y-m-d'),
+                    'payment_method' => 'Cash',
+                    'account_id' => $cashAccount?->id,
+                    'payment_type' => 'advance',
+                    'notes' => 'Advance payment for today event',
+                    'recorded_by' => $adminUser->id,
+                ]);
+            }
+
+            // C. Completed & Financially Settled Past Events
+            for ($i = 0; $i < 8; $i++) {
+                $hall = $halls->random();
+                $slot = $slots->random();
+                $evType = $eventTypes->random();
+                $cust = $customers->random();
+
+                $booking = Booking::factory()->past()->create([
+                    'marquee_id' => $marquee->id,
+                    'branch_id' => $mainBranch->id,
+                    'customer_id' => $cust->id,
+                    'hall_id' => $hall->id,
+                    'slot_id' => $slot->id,
+                    'event_type_id' => $evType->id,
+                    'created_by' => $adminUser->id,
+                ]);
+
+                // 1. Pre-event advance (e.g. 60%)
+                $advanceAmount = round($booking->grand_total * 0.6, -3);
+                $financialService->recordPayment($booking, [
+                    'amount' => $advanceAmount,
+                    'payment_date' => Carbon::parse($booking->booking_date)->subDays(10)->format('Y-m-d'),
+                    'payment_method' => 'Cash',
+                    'account_id' => $cashAccount?->id,
+                    'payment_type' => 'advance',
+                    'notes' => 'Initial booking advance',
+                    'recorded_by' => $adminUser->id,
+                ]);
+
+                // 2. Event Completion -> Revenue Recognition
+                $recognitionService->recognizeRevenue($booking, $booking->booking_date->format('Y-m-d'), $adminUser->id);
+                $booking->refresh();
+
+                // 3. Post-event Final Settlement for remaining receivable
+                $remaining = (float) $booking->receivable_amount;
+                if ($remaining > 0) {
+                    $financialService->recordPayment($booking, [
+                        'amount' => $remaining,
+                        'payment_date' => Carbon::parse($booking->booking_date)->addDay()->format('Y-m-d'),
                         'payment_method' => 'Bank Transfer',
-                        'transaction_id' => 'TXN-PAID-' . rand(100000, 999999),
-                        'payment_date' => Carbon::now()->subMonths(1)->addDays(2),
-                        'notes' => 'Received bank transfer.',
-                    ]);
-
-                    // Seed a future Pending invoice
-                    \App\Models\SaasInvoice::create([
-                        'marquee_id' => $marquee->id,
-                        'subscription_plan_id' => $plan->id,
-                        'billing_cycle_id' => $cycle->id,
-                        'amount' => $plan->monthly_price ?: $plan->price,
-                        'tax' => 0.00,
-                        'discount' => 0.00,
-                        'total_amount' => $plan->monthly_price ?: $plan->price,
-                        'payment_status' => 'Unpaid',
-                        'invoice_status' => 'Pending',
-                        'due_date' => Carbon::now()->addDays(14),
-                        'notes' => 'Upcoming renewal invoice.',
+                        'account_id' => $bankAccount?->id,
+                        'payment_type' => 'receivable_payment',
+                        'notes' => 'Post-event final balance settlement',
+                        'recorded_by' => $adminUser->id,
                     ]);
                 }
             }
+
+            // D. Draft / Tentative Reservations
+            for ($i = 0; $i < 4; $i++) {
+                $hall = $halls->random();
+                $slot = $slots->random();
+                $evType = $eventTypes->random();
+
+                Booking::factory()->draft()->upcoming()->create([
+                    'marquee_id' => $marquee->id,
+                    'branch_id' => $mainBranch->id,
+                    'customer_id' => $customers->random()->id,
+                    'hall_id' => $hall->id,
+                    'slot_id' => $slot->id,
+                    'event_type_id' => $evType->id,
+                    'created_by' => $adminUser->id,
+                ]);
+            }
+
+            $this->command->info("✓ Completed synthetic data generation for {$marquee->name}!");
         }
 
-        $this->command->info('Dummy testing data seeded successfully!');
+        $this->command->info('🎉 All demo & testing data seeded successfully using Laravel Factories.');
     }
 }

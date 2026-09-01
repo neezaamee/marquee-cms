@@ -114,9 +114,31 @@
     <div class="col-lg-8">
         <div class="card h-100">
             <div class="card-header bg-light">
-                <h5 class="mb-0"><span class="fas fa-folder me-2 text-primary"></span>Category Hierarchy</h5>
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0"><span class="fas fa-folder me-2 text-primary"></span>Category Hierarchy</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <!-- Status Filter -->
+                        <select wire:model.live="statusFilter" class="form-select form-select-sm" style="max-width: 140px;">
+                            <option value="all">All Statuses</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                        <!-- Search -->
+                        <div class="input-group input-group-sm">
+                            <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search categories..." />
+                            <span class="input-group-text"><span class="fas fa-search"></span></span>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="card-body p-0">
+                @if(session('error'))
+                    <div class="alert alert-danger border-2 d-flex align-items-center m-3 animate__animated animate__fadeIn" role="alert">
+                        <div class="bg-danger me-3 icon-item"><span class="fas fa-times-circle text-white fs-8"></span></div>
+                        <p class="mb-0 flex-grow-1 text-danger-800">{{ session('error') }}</p>
+                        <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
                 <div class="table-responsive scrollbar">
                     <table class="table table-sm table-striped fs-10 mb-0 align-middle table-hover">
                         <thead class="bg-200 text-900">

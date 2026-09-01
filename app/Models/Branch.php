@@ -23,6 +23,10 @@ class Branch extends Model
         'fbr_pos_key',
         'fbr_sandbox_mode',
         'is_head_office',
+        'tax_rate',
+        'invoice_prefix',
+        'booking_prefix',
+        'branch_manager',
     ];
 
     protected $casts = [
@@ -38,6 +42,14 @@ class Branch extends Model
     }
 
     /**
+     * Get the halls belonging to this branch.
+     */
+    public function halls()
+    {
+        return $this->hasMany(Hall::class);
+    }
+
+    /**
      * Boot the model.
      */
     protected static function booted()
@@ -50,5 +62,15 @@ class Branch extends Model
                     ->update(['is_head_office' => false]);
             }
         });
+    }
+
+    public function setPhoneAttribute($value)
+    {
+        $this->attributes['phone'] = \App\Services\PhoneNumberService::normalize($value);
+    }
+
+    public function getPhoneAttribute($value)
+    {
+        return \App\Services\PhoneNumberService::formatForDisplay($value);
     }
 }

@@ -73,7 +73,7 @@
                         <span class="text-muted fs-11">As of: <strong>{{ date('M d, Y', strtotime($reportData['as_of_date'])) }}</strong> | Financial Year: <strong>{{ $reportData['financial_year']->name }}</strong></span>
                     </div>
                     @if($branch_id)
-                        <span class="badge badge-subtle-primary rounded-pill">{{ Branch::find($branch_id)->name }}</span>
+                        <span class="badge badge-subtle-primary rounded-pill">{{ \App\Models\Branch::find($branch_id)->name }}</span>
                     @else
                         <span class="badge badge-subtle-secondary rounded-pill">Central (All Branches)</span>
                     @endif

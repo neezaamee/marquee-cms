@@ -128,6 +128,22 @@ class VendorCommissionService
             );
 
             // 2. Create Vendor Sale (Historical Snapshot)
+            $advanceAmount = floatval($data['advance_amount'] ?? 0.00);
+            $advanceAmount = min($advanceAmount, $commissionCalc['vendor_net_amount']);
+            $paidAmount = $advanceAmount;
+            $remainingAmount = max(0.00, $commissionCalc['vendor_net_amount'] - $paidAmount);
+            
+            $paymentStatus = 'unpaid';
+            if ($paidAmount >= $commissionCalc['vendor_net_amount'] && $paidAmount > 0) {
+                $paymentStatus = 'fully_paid';
+            } elseif ($paidAmount > 0) {
+                $paymentStatus = 'partially_paid';
+            }
+
+            $customerAdvance = isset($data['customer_advance_amount']) ? floatval($data['customer_advance_amount']) : 0.00;
+            $customerPaid = $customerAdvance;
+            $customerRemaining = max(0.00, $saleAmount - $customerPaid);
+
             $sale = VendorSale::create([
                 'marquee_id' => $vendor->marquee_id,
                 'branch_id' => $data['branch_id'] ?? $vendor->branch_id,
@@ -141,19 +157,45 @@ class VendorCommissionService
                 'quantity' => $data['quantity'] ?? 1,
                 'unit' => $data['unit'] ?? ($service?->unit ?? 'Event'),
                 'sale_amount' => $saleAmount,
+                'customer_advance_amount' => $customerAdvance,
+                'customer_paid_amount' => $customerPaid,
+                'customer_remaining_amount' => $customerRemaining,
                 'commission_type' => $commissionCalc['commission_type'],
                 'commission_rate' => $commissionCalc['commission_rate'],
                 'commission_amount' => $commissionCalc['commission_amount'],
                 'vendor_net_amount' => $commissionCalc['vendor_net_amount'],
+                'advance_amount' => $advanceAmount,
+                'paid_amount' => $paidAmount,
+                'remaining_amount' => $remainingAmount,
+                'payment_status' => $paymentStatus,
+                'include_in_invoice' => isset($data['include_in_invoice']) ? (bool) $data['include_in_invoice'] : true,
                 'status' => 'confirmed',
                 'override_reason' => $data['override_reason'] ?? null,
                 'override_by' => isset($data['override_reason']) ? auth()->id() : null,
                 'notes' => $data['notes'] ?? null,
             ]);
 
-            // 3. Post to Vendor Ledger
+            // If customer advance was paid and booking exists, record customer payment receipt via BookingFinancialService
+            if ($customerAdvance > 0 && $sale->booking_id && $sale->booking) {
+                $custPaymentMethod = $data['customer_payment_method'] ?? ($data['payment_method'] ?? 'Cash');
+                $custRef = $data['customer_payment_reference'] ?? ('CUST-ADV-' . $sale->vendor_sale_number);
+                $custAccountId = $data['customer_account_id'] ?? null;
+
+                app(\App\Services\BookingFinancialService::class)->recordPayment($sale->booking, [
+                    'amount' => $customerAdvance,
+                    'payment_date' => $data['customer_payment_date'] ?? $saleDate,
+                    'payment_method' => $custPaymentMethod,
+                    'account_id' => $custAccountId,
+                    'vendor_sale_id' => $sale->id,
+                    'transaction_reference' => $custRef,
+                    'notes' => "Customer Advance for " . ($service?->service_name ?? $vendor->name) . " (Sale #" . $sale->vendor_sale_number . ")",
+                    'recorded_by' => auth()->id(),
+                ]);
+            }
+
+            // 3. Post Sale Credit to Vendor Ledger
             $lastBalance = $vendor->current_balance;
-            $newBalance = $lastBalance + $sale->vendor_net_amount;
+            $runningBalanceAfterCredit = $lastBalance + $sale->vendor_net_amount;
 
             VendorLedger::create([
                 'marquee_id' => $vendor->marquee_id,
@@ -164,18 +206,308 @@ class VendorCommissionService
                 'transaction_date' => $saleDate,
                 'reference_number' => $sale->vendor_sale_number,
                 'transaction_type' => 'sale_credit',
-                'description' => "Vendor Sale for " . ($service?->service_name ?? $vendor->name) . " (Commission: Rs. " . number_format($sale->commission_amount, 2) . ")",
+                'description' => "Vendor Service Assignment: " . ($service?->service_name ?? $vendor->name) . " (Vendor Cost: Rs. " . number_format($sale->vendor_net_amount, 2) . ", Commission: Rs. " . number_format($sale->commission_amount, 2) . ")",
                 'sale_amount' => $sale->sale_amount,
                 'commission_amount' => $sale->commission_amount,
                 'payment_amount' => 0.00,
-                'running_balance' => $newBalance,
+                'running_balance' => $runningBalanceAfterCredit,
                 'created_by' => auth()->id(),
             ]);
 
-            // 4. Post Financial Journal Voucher to Accounting Module
+            // 4. If advance payout to vendor was made, post advance ledger entry and accounting voucher
+            if ($advanceAmount > 0) {
+                $runningBalanceAfterAdvance = $runningBalanceAfterCredit - $advanceAmount;
+                $paymentMethod = $data['payment_method'] ?? 'Cash';
+                $refNumber = $data['reference_number'] ?? ('ADV-' . $sale->vendor_sale_number);
+
+                VendorLedger::create([
+                    'marquee_id' => $vendor->marquee_id,
+                    'branch_id' => $sale->branch_id,
+                    'vendor_id' => $vendor->id,
+                    'vendor_sale_id' => $sale->id,
+                    'booking_id' => $sale->booking_id,
+                    'transaction_date' => $saleDate,
+                    'reference_number' => $refNumber,
+                    'transaction_type' => 'advance_payment',
+                    'description' => "Advance payout to vendor for " . ($service?->service_name ?? $vendor->name) . " via " . $paymentMethod,
+                    'sale_amount' => 0.00,
+                    'commission_amount' => 0.00,
+                    'payment_amount' => $advanceAmount,
+                    'running_balance' => $runningBalanceAfterAdvance,
+                    'created_by' => auth()->id(),
+                ]);
+
+                // Post Advance Journal Voucher
+                $this->postVendorPaymentToAccounting($vendor, $advanceAmount, [
+                    'branch_id' => $sale->branch_id,
+                    'transaction_date' => $saleDate,
+                    'reference_number' => $refNumber,
+                    'payment_method' => $paymentMethod,
+                    'account_id' => $data['account_id'] ?? null,
+                    'notes' => "Advance payment to vendor " . $vendor->name . " for " . ($service?->service_name ?? 'Service') . " (Sale #" . $sale->vendor_sale_number . ")",
+                ]);
+            }
+
+            // 5. Post Financial Journal Voucher to Accounting Module for the sale
             $this->postVendorSaleToAccounting($sale);
 
             return $sale;
+        });
+    }
+
+    /**
+     * Update an existing Vendor Sale (e.g. adjust prices, commission, invoice inclusion, notes).
+     */
+    public function updateVendorSale(VendorSale $sale, array $data): VendorSale
+    {
+        return DB::transaction(function () use ($sale, $data) {
+            $vendor = $sale->vendor;
+            $service = isset($data['vendor_service_id']) ? VendorService::find($data['vendor_service_id']) : $sale->service;
+            $saleAmount = isset($data['sale_amount']) ? floatval($data['sale_amount']) : (float) $sale->sale_amount;
+            $customVendorCost = isset($data['vendor_cost']) && $data['vendor_cost'] !== '' ? floatval($data['vendor_cost']) : null;
+
+            // Recalculate commission / vendor net amount
+            if ($customVendorCost !== null) {
+                $vendorNetAmount = $customVendorCost;
+                $commissionAmount = max(0.00, $saleAmount - $vendorNetAmount);
+                $commissionRate = $saleAmount > 0 ? round(($commissionAmount / $saleAmount) * 100, 2) : 0.00;
+                $commissionType = 'percentage';
+            } else {
+                $agreement = $sale->agreement ?? $this->resolveAgreement($vendor, $service, $sale->event_date?->format('Y-m-d'));
+                $overrideRate = isset($data['commission_rate']) && $data['commission_rate'] !== '' ? floatval($data['commission_rate']) : null;
+                $calc = $this->calculateCommission($agreement, $saleAmount, $overrideRate);
+                $commissionType = $calc['commission_type'];
+                $commissionRate = $calc['commission_rate'];
+                $commissionAmount = $calc['commission_amount'];
+                $vendorNetAmount = $calc['vendor_net_amount'];
+            }
+
+            $paidAmount = (float) $sale->paid_amount;
+            $remainingAmount = max(0.00, $vendorNetAmount - $paidAmount);
+            $paymentStatus = $paidAmount <= 0 ? 'unpaid' : ($remainingAmount <= 0.01 ? 'fully_paid' : 'partially_paid');
+
+            $oldVendorNet = (float) $sale->vendor_net_amount;
+            $diffNet = $vendorNetAmount - $oldVendorNet;
+
+            $sale->update([
+                'vendor_service_id' => $service?->id,
+                'sale_amount' => $saleAmount,
+                'commission_type' => $commissionType,
+                'commission_rate' => $commissionRate,
+                'commission_amount' => $commissionAmount,
+                'vendor_net_amount' => $vendorNetAmount,
+                'remaining_amount' => $remainingAmount,
+                'payment_status' => $paymentStatus,
+                'status' => $paymentStatus === 'fully_paid' ? 'settled' : 'confirmed',
+                'include_in_invoice' => isset($data['include_in_invoice']) ? (bool) $data['include_in_invoice'] : $sale->include_in_invoice,
+                'notes' => $data['notes'] ?? $sale->notes,
+            ]);
+
+            // If net payable changed, record adjustment in Vendor Ledger
+            if (abs($diffNet) > 0.01) {
+                $currentBalance = $vendor->current_balance;
+                $newBalance = max(0.00, $currentBalance + $diffNet);
+
+                VendorLedger::create([
+                    'marquee_id' => $vendor->marquee_id,
+                    'branch_id' => $sale->branch_id,
+                    'vendor_id' => $vendor->id,
+                    'vendor_sale_id' => $sale->id,
+                    'booking_id' => $sale->booking_id,
+                    'transaction_date' => now()->format('Y-m-d'),
+                    'reference_number' => 'ADJ-' . $sale->vendor_sale_number,
+                    'transaction_type' => 'sale_credit',
+                    'description' => "Cost Adjustment for " . ($service?->service_name ?? $vendor->name) . " (New Cost: Rs. " . number_format($vendorNetAmount, 2) . ", Diff: Rs. " . number_format($diffNet, 2) . ")",
+                    'sale_amount' => $saleAmount,
+                    'commission_amount' => $commissionAmount,
+                    'payment_amount' => 0.00,
+                    'running_balance' => $newBalance,
+                    'created_by' => auth()->id(),
+                ]);
+            }
+
+            return $sale;
+        });
+    }
+
+    /**
+     * Cancel a Vendor Sale and reverse unpaid ledger obligations.
+     */
+    public function cancelVendorSale(VendorSale $sale, string $reason = 'Cancelled by user'): bool
+    {
+        return DB::transaction(function () use ($sale, $reason) {
+            if ($sale->status === 'cancelled') {
+                return true;
+            }
+
+            $vendor = $sale->vendor;
+            $unpaidAmount = (float) $sale->remaining_amount;
+
+            $sale->update([
+                'status' => 'cancelled',
+                'override_reason' => $reason,
+                'notes' => ($sale->notes ? $sale->notes . "\n" : "") . "Cancelled: " . $reason,
+            ]);
+
+            // If there was an unpaid payable balance, reverse it on the vendor ledger
+            if ($unpaidAmount > 0) {
+                $currentBalance = $vendor->current_balance;
+                $newBalance = max(0.00, $currentBalance - $unpaidAmount);
+
+                VendorLedger::create([
+                    'marquee_id' => $vendor->marquee_id,
+                    'branch_id' => $sale->branch_id,
+                    'vendor_id' => $vendor->id,
+                    'vendor_sale_id' => $sale->id,
+                    'booking_id' => $sale->booking_id,
+                    'transaction_date' => now()->format('Y-m-d'),
+                    'reference_number' => 'CNCL-' . $sale->vendor_sale_number,
+                    'transaction_type' => 'settlement_payout',
+                    'description' => "Cancelled Assignment: " . ($sale->service?->service_name ?? $vendor->name) . " (Unpaid Reversal: Rs. " . number_format($unpaidAmount, 2) . " - " . $reason . ")",
+                    'sale_amount' => 0.00,
+                    'commission_amount' => 0.00,
+                    'payment_amount' => $unpaidAmount,
+                    'running_balance' => $newBalance,
+                    'created_by' => auth()->id(),
+                ]);
+            }
+
+            return true;
+        });
+    }
+
+    /**
+     * Delete a Vendor Sale if no payouts were made.
+     */
+    public function deleteVendorSale(VendorSale $sale): bool
+    {
+        return DB::transaction(function () use ($sale) {
+            if ((float) $sale->paid_amount > 0) {
+                // If payments were made, cancel instead of hard deleting to preserve ledger audit trail
+                return $this->cancelVendorSale($sale, 'Deleted after payout disbursement');
+            }
+
+            $vendor = $sale->vendor;
+            $vendorCost = (float) $sale->vendor_net_amount;
+
+            // Remove ledger entries associated with this sale
+            VendorLedger::where('vendor_sale_id', $sale->id)->delete();
+
+            $sale->delete();
+
+            return true;
+        });
+    }
+
+    /**
+     * Record a subsequent payment/installment for a specific VendorSale.
+     */
+    public function recordVendorSalePayment(VendorSale $sale, float $paymentAmount, array $params = []): VendorLedger
+    {
+        return DB::transaction(function () use ($sale, $paymentAmount, $params) {
+            $vendor = $sale->vendor;
+            $paymentDate = $params['payment_date'] ?? now()->format('Y-m-d');
+            $paymentMethod = $params['payment_method'] ?? 'Cash';
+            $refNumber = $params['reference_number'] ?? ('PAY-' . $sale->vendor_sale_number . '-' . time());
+            $accountId = $params['account_id'] ?? null;
+            $remarks = $params['remarks'] ?? 'Vendor installment payment';
+
+            // 1. Update VendorSale payment metrics
+            $newPaidAmount = (float) $sale->paid_amount + $paymentAmount;
+            $newRemainingAmount = max(0.00, (float) $sale->vendor_net_amount - $newPaidAmount);
+            $newPaymentStatus = $newRemainingAmount <= 0.01 ? 'fully_paid' : 'partially_paid';
+
+            $sale->update([
+                'paid_amount' => $newPaidAmount,
+                'remaining_amount' => $newRemainingAmount,
+                'payment_status' => $newPaymentStatus,
+                'status' => $newPaymentStatus === 'fully_paid' ? 'settled' : 'confirmed',
+            ]);
+
+            // 2. Post to Vendor Ledger
+            $currentBalance = $vendor->current_balance;
+            $newRunningBalance = max(0.00, $currentBalance - $paymentAmount);
+
+            $ledgerEntry = VendorLedger::create([
+                'marquee_id' => $vendor->marquee_id,
+                'branch_id' => $sale->branch_id ?? $vendor->branch_id,
+                'vendor_id' => $vendor->id,
+                'vendor_sale_id' => $sale->id,
+                'booking_id' => $sale->booking_id,
+                'transaction_date' => $paymentDate,
+                'reference_number' => $refNumber,
+                'transaction_type' => 'settlement_payout',
+                'description' => "Installment payout for " . ($sale->service?->service_name ?? $vendor->name) . " on Booking #" . ($sale->booking?->booking_number ?? 'N/A') . " via " . $paymentMethod . " (" . $remarks . ")",
+                'sale_amount' => 0.00,
+                'commission_amount' => 0.00,
+                'payment_amount' => $paymentAmount,
+                'running_balance' => $newRunningBalance,
+                'created_by' => auth()->id(),
+            ]);
+
+            // 3. Post Accounting Journal Voucher
+            $this->postVendorPaymentToAccounting($vendor, $paymentAmount, [
+                'branch_id' => $sale->branch_id ?? $vendor->branch_id,
+                'transaction_date' => $paymentDate,
+                'reference_number' => $refNumber,
+                'payment_method' => $paymentMethod,
+                'account_id' => $accountId,
+                'notes' => "Installment payment to " . $vendor->name . " for Booking #" . ($sale->booking?->booking_number ?? 'N/A') . " - " . $remarks,
+            ]);
+
+            return $ledgerEntry;
+        });
+    }
+
+    /**
+     * Record a subsequent advance/installment payment received from the customer for a VendorSale.
+     */
+    public function recordCustomerSalePayment(VendorSale $sale, float $paymentAmount, array $params = []): \App\Models\BookingPayment
+    {
+        return DB::transaction(function () use ($sale, $paymentAmount, $params) {
+            $paymentDate = $params['payment_date'] ?? now()->format('Y-m-d');
+            $paymentMethod = $params['payment_method'] ?? 'Cash';
+            $refNumber = $params['transaction_reference'] ?? ('CUST-ADV-' . $sale->vendor_sale_number . '-' . time());
+            $notes = $params['notes'] ?? ("Customer advance installment for " . ($sale->service?->service_name ?? $sale->vendor?->name ?? 'Vendor Service'));
+
+            // 1. Create BookingPayment record via BookingFinancialService
+            if ($sale->booking) {
+                $payment = app(\App\Services\BookingFinancialService::class)->recordPayment($sale->booking, [
+                    'amount' => $paymentAmount,
+                    'payment_date' => $paymentDate,
+                    'payment_method' => $paymentMethod,
+                    'account_id' => $params['account_id'] ?? null,
+                    'vendor_sale_id' => $sale->id,
+                    'transaction_reference' => $refNumber,
+                    'notes' => $notes,
+                    'recorded_by' => auth()->id(),
+                ]);
+            } else {
+                $payment = \App\Models\BookingPayment::create([
+                    'booking_id' => $sale->booking_id,
+                    'vendor_sale_id' => $sale->id,
+                    'amount' => $paymentAmount,
+                    'payment_date' => $paymentDate,
+                    'payment_method' => $paymentMethod,
+                    'transaction_reference' => $refNumber,
+                    'notes' => $notes,
+                    'recorded_by' => auth()->id(),
+                ]);
+            }
+
+            // 2. Recalculate customer paid and remaining balance on VendorSale
+            $totalCustomerPaid = (float) \App\Models\BookingPayment::where('vendor_sale_id', $sale->id)->sum('amount');
+            if ($totalCustomerPaid <= 0) {
+                $totalCustomerPaid = (float) $sale->customer_paid_amount + $paymentAmount;
+            }
+            $customerRemaining = max(0.00, (float) $sale->sale_amount - $totalCustomerPaid);
+
+            $sale->update([
+                'customer_paid_amount' => $totalCustomerPaid,
+                'customer_remaining_amount' => $customerRemaining,
+            ]);
+
+            return $payment;
         });
     }
 
@@ -385,6 +717,84 @@ class VendorCommissionService
                 'debit' => 0.00,
                 'credit' => $settlement->paid_amount,
                 'narration' => 'Payment issued via ' . $settlement->payment_method,
+            ]);
+        }
+
+        return $jv;
+    }
+
+    /**
+     * Generate accounting journal voucher entries for an advance or installment payout.
+     */
+    protected function postVendorPaymentToAccounting(Vendor $vendor, float $amount, array $params): ?JournalVoucher
+    {
+        if ($amount <= 0) {
+            return null;
+        }
+
+        $liabilityType = AccountType::where('name', 'Current Liabilities')->orWhere('code', 'CLIAB')->first();
+        if (!$liabilityType) {
+            $liabilityType = AccountType::create(['name' => 'Current Liabilities', 'code' => 'CLIAB', 'nature' => 'Liability']);
+        }
+
+        $payableAccount = Account::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $vendor->marquee_id)
+            ->where('name', 'Vendor Payable Clearing')
+            ->first();
+
+        if (!$payableAccount) {
+            $payableAccount = Account::withoutGlobalScope('tenant')->withTrashed()->firstOrCreate(
+                ['marquee_id' => $vendor->marquee_id, 'name' => 'Vendor Payable Clearing'],
+                [
+                    'account_code' => '2150-VEN',
+                    'account_type_id' => $liabilityType->id,
+                    'nature' => 'Liability',
+                    'description' => 'Net liabilities payable to contracted event vendors',
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        $fy = \App\Models\FinancialYear::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $vendor->marquee_id)->where('status', 'active')->first();
+        if (!$fy) {
+            $fy = \App\Models\FinancialYear::create([
+                'marquee_id' => $vendor->marquee_id,
+                'name' => 'FY ' . date('Y'),
+                'start_date' => date('Y-01-01'),
+                'end_date' => date('Y-12-31'),
+                'status' => 'active',
+                'is_default' => true,
+            ]);
+        }
+
+        $jvNumber = 'JV-VPAY-' . time() . '-' . rand(100, 999);
+        $jv = JournalVoucher::create([
+            'marquee_id' => $vendor->marquee_id,
+            'branch_id' => $params['branch_id'] ?? $vendor->branch_id,
+            'financial_year_id' => $fy->id,
+            'voucher_no' => $jvNumber,
+            'voucher_date' => $params['transaction_date'] ?? now()->format('Y-m-d'),
+            'reference' => $params['reference_number'] ?? $jvNumber,
+            'notes' => $params['notes'] ?? ("Payout to vendor " . $vendor->name),
+            'status' => 'posted',
+        ]);
+
+        // Debit Vendor Payable Clearing (Reduces liability)
+        JournalVoucherItem::create([
+            'journal_voucher_id' => $jv->id,
+            'account_id' => $payableAccount->id,
+            'debit' => $amount,
+            'credit' => 0.00,
+            'narration' => $params['notes'] ?? 'Vendor payout',
+        ]);
+
+        // Credit Cash / Bank Account (if provided)
+        if (!empty($params['account_id'])) {
+            JournalVoucherItem::create([
+                'journal_voucher_id' => $jv->id,
+                'account_id' => $params['account_id'],
+                'debit' => 0.00,
+                'credit' => $amount,
+                'narration' => 'Disbursed via ' . ($params['payment_method'] ?? 'Cash'),
             ]);
         }
 

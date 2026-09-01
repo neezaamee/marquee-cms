@@ -17,7 +17,7 @@ trait BelongsToBranch
         static::creating(function ($model) {
             if (Auth::check() && ! $model->branch_id) {
                 $user = Auth::user();
-                if ($user->branch_id) {
+                if ($user->branch_id && ! $user->isBusinessOwner()) {
                     $model->branch_id = $user->branch_id;
                 }
             }
@@ -27,8 +27,8 @@ trait BelongsToBranch
         static::addGlobalScope('branch', function (Builder $builder) {
             if (Auth::check()) {
                 $user = Auth::user();
-                // If user is restricted to a branch and is not a super admin, apply scope
-                if ($user && $user->branch_id && ! $user->isSuperAdmin()) {
+                // If user is restricted to a branch and is not a super admin or business owner, apply scope
+                if ($user && $user->branch_id && ! $user->isSuperAdmin() && ! $user->isBusinessOwner()) {
                     $builder->where($builder->getModel()->getTable() . '.branch_id', $user->branch_id);
                 }
             }
