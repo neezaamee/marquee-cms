@@ -448,7 +448,7 @@
                                     <div class="fs-11 font-monospace fw-bold text-{{ $balance > 0 ? 'danger' : 'success' }}">
                                         Bal: Rs. {{ number_format($balance, 0) }}
                                     </div>
-                                    <div class="mt-1 d-flex flex-wrap gap-1 align-items-center">
+                                    <div class="mt-1 d-flex flex-wrap gap-1">
                                         @php
                                             $paymentColors = [
                                                 'Unpaid' => 'danger',
@@ -473,19 +473,17 @@
                                             <span class="badge badge-subtle-{{ $fc }} fs-12">{{ $booking->financial_status }}</span>
                                         @endif
                                     </div>
-
-                                    @if(!$booking->trashed() && $balance > 0)
-                                        <div class="mt-1">
-                                            <button wire:click="openPaymentModal({{ $booking->id }})" class="btn btn-falcon-success btn-xs" type="button" title="Post or Acknowledge Payment Entry to Cash / Bank">
-                                                <span class="fas fa-check-circle me-1"></span>Post Payment
-                                            </button>
-                                        </div>
-                                    @endif
                                 </td>
 
                                 <!-- Actions -->
                                 <td class="align-middle text-end px-3">
                                     <div class="d-inline-flex align-items-center">
+                                        @if(!$booking->trashed())
+                                            <button wire:click="openPaymentModal({{ $booking->id }})" class="btn btn-falcon-primary btn-xs me-1" type="button" title="Quick Payment / Collection">
+                                                <span class="fas fa-hand-holding-usd me-1"></span>Pay
+                                            </button>
+                                        @endif
+
                                         <div class="dropdown font-sans-serif d-inline-block">
                                             <button class="btn btn-link text-600 dropdown-toggle dropdown-caret-none transition-none btn-sm" type="button" id="booking-actions-{{ $booking->id }}" data-bs-toggle="dropdown" data-boundary="viewport" aria-haspopup="true" aria-expanded="false">
                                                 <span class="fas fa-ellipsis-h fs-10"></span>
@@ -493,8 +491,8 @@
                                             <div class="dropdown-menu dropdown-menu-end border py-0" aria-labelledby="booking-actions-{{ $booking->id }}">
                                                 <div class="bg-white dark__bg-1000 py-2 text-start">
                                                     @if(!$booking->trashed())
-                                                        <button wire:click="openPaymentModal({{ $booking->id }})" class="dropdown-item text-success fw-semi-bold" type="button">
-                                                            <span class="fas fa-check-double me-2 text-success"></span>Post / Acknowledge Payment
+                                                        <button wire:click="openPaymentModal({{ $booking->id }})" class="dropdown-item text-primary fw-semi-bold" type="button">
+                                                            <span class="fas fa-hand-holding-usd me-2 text-primary"></span>Payment / Collection
                                                         </button>
                                                         <div class="dropdown-divider"></div>
                                                     @endif

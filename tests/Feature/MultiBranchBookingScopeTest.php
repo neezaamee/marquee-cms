@@ -648,8 +648,7 @@ class MultiBranchBookingScopeTest extends TestCase
         Livewire::actingAs($this->owner)
             ->test(\App\Livewire\BookingList::class)
             ->assertSee($this->slot->slot_name)
-            ->assertSee('Post Payment')
-            ->assertDontSeeHtml('<span class="fas fa-hand-holding-usd me-1"></span>Pay');
+            ->assertSeeHtml('<span class="fas fa-hand-holding-usd me-1"></span>Pay');
     }
 
     /**
