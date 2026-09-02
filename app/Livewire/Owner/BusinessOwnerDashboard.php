@@ -12,6 +12,7 @@ use App\Models\Hall;
 use App\Models\InventoryItem;
 use App\Models\Marquee;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class BusinessOwnerDashboard extends Component
@@ -118,14 +119,27 @@ class BusinessOwnerDashboard extends Component
             ->get();
 
         // 6. Operational Safeguards & Alerts
+        $stockBalances = DB::table('inventory_stock_ledgers')
+            ->where('marquee_id', $marqueeId)
+            ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
+            ->groupBy('item_id')
+            ->select('item_id', DB::raw('COALESCE(SUM(qty_in - qty_out), 0) as balance'))
+            ->pluck('balance', 'item_id');
+
         $lowStockItems = InventoryItem::where('marquee_id', $marqueeId)
+            ->where('status', 'Active')
             ->with('unit')
-            ->where(function ($q) {
-                $q->whereColumn('current_stock', '<=', 'min_stock_level')
-                  ->orWhere('current_stock', '<=', 5);
+            ->get()
+            ->map(function ($item) use ($stockBalances) {
+                $item->current_stock = (float) ($stockBalances[$item->id] ?? 0.0);
+                return $item;
             })
+            ->filter(function ($item) {
+                return $item->current_stock <= $item->minimum_stock_level || $item->current_stock <= 5;
+            })
+            ->sortBy('current_stock')
             ->take(5)
-            ->get();
+            ->values();
 
         $overdueReceivablesCount = (clone $bookingQuery)
             ->where('booking_date', '<', Carbon::today()->format('Y-m-d'))

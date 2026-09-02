@@ -327,7 +327,7 @@
                             <span class="fas fa-boxes me-1"></span> <strong>{{ $lowStockItems->count() }} Low Stock Inventory Items:</strong>
                             <div class="text-700 fs-11 mt-1">
                                 @foreach($lowStockItems->take(3) as $item)
-                                    <span class="badge bg-warning-subtle text-warning me-1">{{ $item->name }}: {{ $item->current_stock }} {{ $item->unit->unit_symbol ?? '' }}</span>
+                                    <span class="badge bg-warning-subtle text-warning me-1">{{ $item->name }}: {{ $item->current_stock }} {{ $item->unit->short_code ?? $item->unit->name ?? '' }}</span>
                                 @endforeach
                             </div>
                         </div>

@@ -10,6 +10,10 @@ use App\Models\Customer;
 use App\Models\Employee;
 use App\Models\Expense;
 use App\Models\Hall;
+use App\Models\InventoryCategory;
+use App\Models\InventoryItem;
+use App\Models\InventoryStockLedger;
+use App\Models\InventoryUnit;
 use App\Models\Marquee;
 use App\Models\Role;
 use App\Models\SubscriptionPlan;
@@ -173,5 +177,52 @@ class DynamicDashboardTest extends TestCase
             ->assertStatus(200)
             ->assertSee('Initial Business Configuration Required')
             ->assertSee('Open Setup Wizard');
+    }
+
+    /** @test */
+    public function test_business_owner_dashboard_renders_low_stock_alerts_correctly()
+    {
+        $category = InventoryCategory::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'Raw Meat & Poultry',
+            'status' => 'Active',
+        ]);
+
+        $unit = InventoryUnit::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'Kilogram',
+            'short_code' => 'kg',
+            'status' => 'Active',
+        ]);
+
+        $item = InventoryItem::create([
+            'marquee_id' => $this->marquee->id,
+            'item_code' => 'RAW-CHK-01',
+            'name' => 'Chicken Breast Boneless',
+            'category_id' => $category->id,
+            'unit_id' => $unit->id,
+            'minimum_stock_level' => 20.00,
+            'reorder_level' => 30.00,
+            'status' => 'Active',
+        ]);
+
+        // Stock in 10 kg (which is <= 20 kg minimum stock)
+        InventoryStockLedger::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch1->id,
+            'item_id' => $item->id,
+            'transaction_date' => now()->toDateString(),
+            'transaction_type' => 'GRN',
+            'qty_in' => 10.00,
+            'qty_out' => 0.00,
+            'running_balance' => 10.00,
+            'unit_price' => 800.00,
+            'total_cost' => 8000.00,
+        ]);
+
+        Livewire::actingAs($this->businessOwner)
+            ->test(BusinessOwnerDashboard::class)
+            ->assertSee('Low Stock Inventory Items')
+            ->assertSee('Chicken Breast Boneless: 10 kg');
     }
 }
