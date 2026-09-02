@@ -542,4 +542,81 @@ class MultiBranchBookingScopeTest extends TestCase
 
         $this->assertEquals($prefix . '-000002', $b2->booking_number);
     }
+
+    /**
+     * Test 13: Business Owner login loads assigned shift slots in Step 3 of Booking Wizard.
+     */
+    public function test_owner_booking_wizard_step_3_slot_selection(): void
+    {
+        // Owner with marquee_id = null linked via ownedMarquees
+        $ownerUser = User::create([
+            'name' => 'Owner Multi Marquee',
+            'email' => 'owner.multim@example.com',
+            'password' => bcrypt('password'),
+            'role_id' => $this->owner->role_id,
+            'marquee_id' => null,
+        ]);
+        $ownerUser->ownedMarquees()->attach($this->marquee->id);
+
+        // Assign slot explicitly to hallCity1
+        $this->hallCity1->slots()->sync([
+            $this->slot->id => [
+                'marquee_id' => $this->marquee->id,
+                'created_by' => $ownerUser->id,
+                'status' => 'active',
+            ]
+        ]);
+
+        $bookingDate = Carbon::tomorrow()->addDays(2)->format('Y-m-d');
+
+        Livewire::actingAs($ownerUser)
+            ->test(BookingWizard::class)
+            ->set('selectedCustomerId', $this->customer->id)
+            ->call('nextStep') // Step 2
+            ->assertSet('currentStep', 2)
+            ->set('selectedBranchId', (string)$this->branchCity->id)
+            ->set('selectedEventTypeId', $this->eventType->id)
+            ->set('selectedHallIds', [(string)$this->hallCity1->id])
+            ->set('selectedDate', $bookingDate)
+            ->call('nextStep') // Step 3
+            ->assertSet('currentStep', 3)
+            ->assertCount('availableSlotsList', 1)
+            ->set('checkType', 'slot')
+            ->set('selectedSlotId', (string)$this->slot->id)
+            ->assertSet('isAvailable', true)
+            ->assertSet('availabilityChecked', true)
+            ->call('nextStep') // Step 4
+            ->assertSet('currentStep', 4)
+            ->assertHasNoErrors();
+    }
+
+    /**
+     * Test 14: Business Owner login loads assigned shift slots in Booking One Page form.
+     */
+    public function test_owner_booking_one_page_slot_selection(): void
+    {
+        $ownerUser = User::create([
+            'name' => 'Owner One Page',
+            'email' => 'owner.onepage@example.com',
+            'password' => bcrypt('password'),
+            'role_id' => $this->owner->role_id,
+            'marquee_id' => null,
+        ]);
+        $ownerUser->ownedMarquees()->attach($this->marquee->id);
+
+        $bookingDate = Carbon::tomorrow()->addDays(3)->format('Y-m-d');
+
+        Livewire::actingAs($ownerUser)
+            ->test(BookingOnePage::class)
+            ->set('selectedCustomerId', $this->customer->id)
+            ->set('selectedBranchId', (string)$this->branchCity->id)
+            ->set('selectedEventTypeId', $this->eventType->id)
+            ->set('selectedHallIds', [(string)$this->hallCity1->id])
+            ->set('selectedDate', $bookingDate)
+            ->set('checkType', 'slot')
+            ->assertCount('availableSlotsList', 1)
+            ->set('selectedSlotId', (string)$this->slot->id)
+            ->assertSet('isAvailable', true)
+            ->assertSet('availabilityChecked', true);
+    }
 }

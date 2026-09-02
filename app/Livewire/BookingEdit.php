@@ -20,6 +20,7 @@ use Livewire\Component;
 class BookingEdit extends Component
 {
     public Booking $booking;
+    public $marquee_id = null;
 
     // Branch scoping properties
     public $selectedBranchId = '';
@@ -130,6 +131,7 @@ class BookingEdit extends Component
         $this->selectedBranchId = (string) ($booking->branch_id ?: ($booking->hall?->branch_id ?: ''));
         
         $marqueeId = $booking->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
+        $this->marquee_id = $marqueeId;
         $accessibleBranches = $user ? $user->getAccessibleBranches($marqueeId) : collect();
         $this->branchesList = $accessibleBranches;
 
@@ -343,11 +345,14 @@ class BookingEdit extends Component
 
     public function updatedEventTypeSearch()
     {
+        $user = auth()->user();
+        $marqueeId = $this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
+
         if (empty($this->eventTypeSearch)) {
             $this->filteredEventTypes = $this->eventTypesList->toArray();
         } else {
             $term = '%' . $this->eventTypeSearch . '%';
-            $this->filteredEventTypes = EventType::where('marquee_id', auth()->user()->marquee_id)
+            $this->filteredEventTypes = EventType::where('marquee_id', $marqueeId)
                 ->whereIn('status', ['active', 'Active'])
                 ->where('event_type_name', 'like', $term)
                 ->orderBy('sort_order')
@@ -364,11 +369,14 @@ class BookingEdit extends Component
 
     public function updatedHallSearch()
     {
+        $user = auth()->user();
+        $marqueeId = $this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
+
         if (empty($this->hallSearch)) {
             $this->filteredHalls = $this->hallsList->toArray();
         } else {
             $term = '%' . $this->hallSearch . '%';
-            $this->filteredHalls = Hall::where('marquee_id', auth()->user()->marquee_id)
+            $this->filteredHalls = Hall::where('marquee_id', $marqueeId)
                 ->whereIn('status', ['active', 'Active'])
                 ->where('hall_name', 'like', $term)
                 ->orderBy('hall_name')
@@ -407,16 +415,46 @@ class BookingEdit extends Component
     public function loadSlotsAndCheck()
     {
         if (empty($this->selectedHallIds) || empty($this->selectedDate)) {
+            $this->availableSlotsList = [];
             return;
         }
 
         $service = new AvailabilityService();
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
 
-        $slots = Slot::where('marquee_id', $marqueeId)
-            ->whereIn('status', ['active', 'Active'])
-            ->orderBy('start_time')
-            ->get();
+        $selectedHalls = Hall::with(['slots' => function ($q) {
+            $q->whereIn('slots.status', ['active', 'Active']);
+        }])->whereIn('id', $this->selectedHallIds)->get();
+
+        $marqueeId = $selectedHalls->first()?->marquee_id ?: ($this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null));
+
+        // Check if selected halls have specific assigned slots configured
+        $assignedSlotIds = collect();
+        $hasSpecificAssignments = false;
+
+        foreach ($selectedHalls as $hall) {
+            $hallSlotIds = $hall->slots->pluck('id');
+            if ($hallSlotIds->isNotEmpty()) {
+                $hasSpecificAssignments = true;
+                if ($assignedSlotIds->isEmpty()) {
+                    $assignedSlotIds = $hallSlotIds;
+                } else {
+                    $assignedSlotIds = $assignedSlotIds->intersect($hallSlotIds);
+                }
+            }
+        }
+
+        if ($hasSpecificAssignments && $assignedSlotIds->isNotEmpty()) {
+            $slots = Slot::whereIn('id', $assignedSlotIds)
+                ->whereIn('status', ['active', 'Active'])
+                ->orderBy('start_time')
+                ->get();
+        } else {
+            $slots = Slot::where('marquee_id', $marqueeId)
+                ->whereIn('status', ['active', 'Active'])
+                ->orderBy('start_time')
+                ->get();
+        }
 
         $this->availableSlotsList = [];
 
@@ -601,7 +639,8 @@ class BookingEdit extends Component
 
     public function updatedMenuItemSearch()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
         if (empty($this->menuItemSearch)) {
             $this->menuItemsAutocomplete = [];
             return;

@@ -19,6 +19,8 @@ use Livewire\Component;
 
 class BookingOnePage extends Component
 {
+    public $marquee_id = null;
+
     // Branch state
     public $selectedBranchId = '';
     public $branchesList = [];
@@ -127,6 +129,7 @@ class BookingOnePage extends Component
         
         $user = auth()->user();
         $marqueeId = $user ? $user->getActiveMarqueeId() : null;
+        $this->marquee_id = $marqueeId;
         $accessibleBranches = $user ? $user->getAccessibleBranches($marqueeId) : collect();
         $this->branchesList = $accessibleBranches;
 
@@ -287,7 +290,8 @@ class BookingOnePage extends Component
             $this->newReferralContact = str_replace(['-', ' '], '', $this->newReferralContact);
         }
 
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
 
         $this->validate([
             'newFirstName' => 'required|string|max:255',
@@ -409,15 +413,47 @@ class BookingOnePage extends Component
 
     public function loadSlotsAndCheck()
     {
-        if (empty($this->selectedHallIds) || empty($this->selectedDate)) return;
+        if (empty($this->selectedHallIds) || empty($this->selectedDate)) {
+            $this->availableSlotsList = [];
+            return;
+        }
 
         $service = new AvailabilityService();
-        $marqueeId = auth()->user()->marquee_id;
-        
-        $slots = Slot::where('marquee_id', $marqueeId)
-            ->whereIn('status', ['active', 'Active'])
-            ->orderBy('start_time')
-            ->get();
+        $user = auth()->user();
+
+        $selectedHalls = Hall::with(['slots' => function ($q) {
+            $q->whereIn('slots.status', ['active', 'Active']);
+        }])->whereIn('id', $this->selectedHallIds)->get();
+
+        $marqueeId = $selectedHalls->first()?->marquee_id ?: ($this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null));
+
+        // Check if selected halls have specific assigned slots configured
+        $assignedSlotIds = collect();
+        $hasSpecificAssignments = false;
+
+        foreach ($selectedHalls as $hall) {
+            $hallSlotIds = $hall->slots->pluck('id');
+            if ($hallSlotIds->isNotEmpty()) {
+                $hasSpecificAssignments = true;
+                if ($assignedSlotIds->isEmpty()) {
+                    $assignedSlotIds = $hallSlotIds;
+                } else {
+                    $assignedSlotIds = $assignedSlotIds->intersect($hallSlotIds);
+                }
+            }
+        }
+
+        if ($hasSpecificAssignments && $assignedSlotIds->isNotEmpty()) {
+            $slots = Slot::whereIn('id', $assignedSlotIds)
+                ->whereIn('status', ['active', 'Active'])
+                ->orderBy('start_time')
+                ->get();
+        } else {
+            $slots = Slot::where('marquee_id', $marqueeId)
+                ->whereIn('status', ['active', 'Active'])
+                ->orderBy('start_time')
+                ->get();
+        }
 
         $this->availableSlotsList = [];
 
@@ -549,7 +585,8 @@ class BookingOnePage extends Component
 
     public function updatedMenuItemSearch()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
         if (empty($this->menuItemSearch)) {
             $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)->orderBy('item_name')->get();
         } else {
