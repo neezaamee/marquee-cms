@@ -34,7 +34,8 @@ class SlotForm extends Component
         if ($user->isSuperAdmin()) {
             $this->marquees = Marquee::orderBy('name')->get();
         } else {
-            $this->marquee_id = $user->marquee_id;
+            $this->marquees = $user->getAccessibleMarquees();
+            $this->marquee_id = $user->getActiveMarqueeId();
         }
 
         if ($slot) {
@@ -88,8 +89,10 @@ class SlotForm extends Component
      */
     public function save()
     {
-        if (!auth()->user()->isSuperAdmin()) {
-            $this->marquee_id = auth()->user()->marquee_id;
+        $user = auth()->user();
+
+        if (!$user->isSuperAdmin()) {
+            $this->marquee_id = $user->getActiveMarqueeId();
         }
 
         $validatedData = $this->validate();
@@ -98,7 +101,7 @@ class SlotForm extends Component
             $slot = Slot::findOrFail($this->slotId);
 
             // Security check
-            if (!auth()->user()->isSuperAdmin() && $slot->marquee_id !== auth()->user()->marquee_id) {
+            if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($slot->marquee_id)) {
                 abort(403, 'Unauthorized operation.');
             }
 

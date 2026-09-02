@@ -17,12 +17,13 @@ class SlotList extends Component
      */
     public function toggleStatus(int $id)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'), 403);
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasPermission('manage_settings'), 403);
 
         $slot = Slot::findOrFail($id);
 
         // Tenant security check
-        if (!auth()->user()->isSuperAdmin() && $slot->marquee_id !== auth()->user()->marquee_id) {
+        if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($slot->marquee_id)) {
             session()->flash('error', 'Unauthorized operation.');
             return;
         }
@@ -51,13 +52,14 @@ class SlotList extends Component
      */
     public function deleteRecord()
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'), 403);
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasPermission('manage_settings'), 403);
 
         if ($this->confirmingDeletionId) {
             $slot = Slot::findOrFail($this->confirmingDeletionId);
 
             // Tenant security check
-            if (!auth()->user()->isSuperAdmin() && $slot->marquee_id !== auth()->user()->marquee_id) {
+            if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($slot->marquee_id)) {
                 session()->flash('error', 'Unauthorized operation.');
                 $this->confirmingDeletionId = null;
                 return;

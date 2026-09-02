@@ -10,10 +10,12 @@ use App\Models\Role;
 use App\Models\Slot;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Livewire\HallSlotAssignment;
 use App\Services\AvailabilityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class HallSlotTest extends TestCase
@@ -218,5 +220,91 @@ class HallSlotTest extends TestCase
 
         // Clean up temporary table
         Schema::dropIfExists('bookings');
+    }
+
+    /**
+     * Test Business Owner can access Hall Slot Assignment and select branches.
+     */
+    public function test_owner_can_access_hall_slot_assignment_and_select_branch()
+    {
+        $owner = User::create([
+            'name' => 'Owner Test',
+            'email' => 'owner.test@example.com',
+            'password' => bcrypt('password'),
+            'role_id' => $this->ownerRole->id,
+            'branch_id' => $this->branch->id,
+        ]);
+        $owner->ownedMarquees()->attach($this->marquee->id);
+
+        $branch2 = Branch::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'DHA Branch 2',
+            'address' => 'DHA Phase 5',
+            'city' => 'Lahore',
+            'province' => 'Punjab',
+            'phone' => '+92423987654',
+            'status' => 'active',
+        ]);
+
+        $hall1 = Hall::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'hall_name' => 'Executive Hall',
+            'hall_code' => 'EH1',
+            'capacity' => 500,
+            'hall_type' => 'Marquee',
+            'default_booking_price' => 50000,
+            'status' => 'active',
+        ]);
+
+        $hall2 = Hall::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $branch2->id,
+            'hall_name' => 'Imperial Hall',
+            'hall_code' => 'IH2',
+            'capacity' => 700,
+            'hall_type' => 'Banquet',
+            'default_booking_price' => 70000,
+            'status' => 'active',
+        ]);
+
+        $slot = Slot::create([
+            'marquee_id' => $this->marquee->id,
+            'slot_name' => 'Evening Slot',
+            'start_time' => '19:00:00',
+            'end_time' => '23:00:00',
+            'status' => 'active',
+        ]);
+
+        // 1. Owner can access route
+        $this->actingAs($owner)
+            ->get(route('hall-slots.index'))
+            ->assertStatus(200);
+
+        // 2. Owner can interact with Livewire component and select branch / hall
+        Livewire::actingAs($owner)
+            ->test(HallSlotAssignment::class)
+            ->assertSee('Hall Slot Assignments')
+            ->assertSet('branch_id', null)
+            ->set('branch_id', $this->branch->id)
+            ->assertCount('halls', 1)
+            ->set('selectedHallId', $hall1->id)
+            ->assertSee('Evening Slot')
+            ->call('toggleSlotAssignment', $slot->id)
+            ->assertSee('Slot assigned successfully.');
+
+        $this->assertTrue($hall1->fresh()->slots->contains('id', $slot->id));
+
+        // 3. Switch to Branch 2
+        Livewire::actingAs($owner)
+            ->test(HallSlotAssignment::class)
+            ->set('branch_id', $branch2->id)
+            ->assertCount('halls', 1)
+            ->set('selectedHallId', $hall2->id)
+            ->assertSee('Evening Slot')
+            ->call('toggleSlotAssignment', $slot->id)
+            ->assertSee('Slot assigned successfully.');
+
+        $this->assertTrue($hall2->fresh()->slots->contains('id', $slot->id));
     }
 }

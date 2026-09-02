@@ -221,6 +221,26 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user has access to a specific marquee company/tenant.
+     */
+    public function hasAccessToMarquee(int|string|null $marqueeId): bool
+    {
+        if (empty($marqueeId)) {
+            return false;
+        }
+
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        if ((int) $this->getActiveMarqueeId() === (int) $marqueeId) {
+            return true;
+        }
+
+        return $this->getAccessibleMarquees()->contains('id', (int) $marqueeId);
+    }
+
+    /**
      * Get accessible branches for the user within a tenant marquee.
      */
     public function getAccessibleBranches(?int $marqueeId = null)

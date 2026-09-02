@@ -13,6 +13,7 @@ class HallSlotAssignmentController extends Controller
     {
         abort_unless(
             auth()->user()->isSuperAdmin() || 
+            auth()->user()->isBusinessOwner() || 
             auth()->user()->hasPermission('manage_settings') || 
             auth()->user()->hasPermission('edit_halls'), 
             403
