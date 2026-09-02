@@ -619,4 +619,109 @@ class MultiBranchBookingScopeTest extends TestCase
             ->assertSet('isAvailable', true)
             ->assertSet('availabilityChecked', true);
     }
+
+    /**
+     * Test 15: Booking list displays shift slot name and post payment action.
+     */
+    public function test_booking_list_shows_slot_name_and_payment_actions(): void
+    {
+        $booking = Booking::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branchCity->id,
+            'customer_id' => $this->customer->id,
+            'event_type_id' => $this->eventType->id,
+            'hall_id' => $this->hallCity1->id,
+            'slot_id' => $this->slot->id,
+            'booking_date' => Carbon::tomorrow()->format('Y-m-d'),
+            'start_time' => '19:00:00',
+            'end_time' => '23:00:00',
+            'guest_count' => 200,
+            'tentative_guests' => 200,
+            'confirmed_guests' => 220,
+            'per_plate_price' => 1500,
+            'grand_total' => 330000,
+            'booking_status' => 'Confirmed',
+            'payment_status' => 'Partially Paid',
+            'created_by' => $this->owner->id,
+        ]);
+
+        Livewire::actingAs($this->owner)
+            ->test(\App\Livewire\BookingList::class)
+            ->assertSee($this->slot->slot_name)
+            ->assertSee('Post Payment')
+            ->assertDontSeeHtml('<span class="fas fa-hand-holding-usd me-1"></span>Pay');
+    }
+
+    /**
+     * Test 16: Dishes already added to booking menu are excluded from autocomplete search.
+     */
+    public function test_booking_wizard_dish_search_excludes_added_dishes(): void
+    {
+        $category = \App\Models\MenuCategory::create([
+            'marquee_id' => $this->marquee->id,
+            'category_code' => 'MC01',
+            'category_name' => 'Main Course',
+            'status' => 'active',
+        ]);
+
+        $dish1 = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marquee->id,
+            'category_id' => $category->id,
+            'item_code' => 'ITM-001',
+            'item_name' => 'Chicken Biryani Special',
+            'selling_price' => 250.00,
+            'cost_price' => 150.00,
+            'status' => 'active',
+        ]);
+        $dish2 = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marquee->id,
+            'category_id' => $category->id,
+            'item_code' => 'ITM-002',
+            'item_name' => 'Mutton Karahi Special',
+            'selling_price' => 450.00,
+            'cost_price' => 300.00,
+            'status' => 'active',
+        ]);
+
+        $component = Livewire::actingAs($this->owner)
+            ->test(BookingWizard::class)
+            ->set('menuItemSearch', 'Special');
+
+        $autocomplete = $component->get('menuItemsAutocomplete');
+        $this->assertTrue(collect($autocomplete)->pluck('id')->contains($dish1->id));
+        $this->assertTrue(collect($autocomplete)->pluck('id')->contains($dish2->id));
+
+        // Select dish 1
+        $component->call('selectMenuItem', $dish1->id);
+
+        // Re-check autocomplete: dish 1 should be gone, dish 2 should remain
+        $component->set('menuItemSearch', 'Special');
+        $autocompleteAfter = $component->get('menuItemsAutocomplete');
+        $this->assertFalse(collect($autocompleteAfter)->pluck('id')->contains($dish1->id));
+        $this->assertTrue(collect($autocompleteAfter)->pluck('id')->contains($dish2->id));
+
+        // Remove dish 1
+        $component->call('removeMenuItem', 0);
+        $component->set('menuItemSearch', 'Special');
+        $autocompleteRestored = $component->get('menuItemsAutocomplete');
+        $this->assertTrue(collect($autocompleteRestored)->pluck('id')->contains($dish1->id));
+    }
+
+    /**
+     * Test 17: One Page booking form properly computes tentative and confirmed guests.
+     */
+    public function test_booking_one_page_tentative_and_confirmed_guests_calculation(): void
+    {
+        Livewire::actingAs($this->owner)
+            ->test(BookingOnePage::class)
+            ->set('tentativeGuests', 150)
+            ->assertSet('guestCount', 150)
+            ->assertSet('guestStatus', 'Tentative')
+            ->set('confirmedGuests', 180)
+            ->assertSet('guestCount', 180)
+            ->assertSet('guestStatus', 'Confirmed')
+            ->set('confirmedGuests', null)
+            ->assertSet('guestCount', 150)
+            ->assertSet('guestStatus', 'Tentative');
+    }
 }

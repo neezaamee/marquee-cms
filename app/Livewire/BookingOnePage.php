@@ -231,9 +231,7 @@ class BookingOnePage extends Component
             ];
         }
 
-        $this->menuItemsAutocomplete = MenuItem::where('marquee_id', $marqueeId)
-            ->orderBy('item_name')
-            ->get();
+        $this->updatedMenuItemSearch();
 
         if ($this->hallsList->isNotEmpty() && empty($this->selectedHallIds)) {
             $this->selectedHallIds = [(string)$this->hallsList->first()->id];
@@ -575,6 +573,7 @@ class BookingOnePage extends Component
             ];
         }
 
+        $this->updatedMenuItemSearch();
         $this->recalculatePrices();
     }
 
@@ -587,12 +586,22 @@ class BookingOnePage extends Component
     {
         $user = auth()->user();
         $marqueeId = $this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
+
+        $selectedDishIds = collect($this->bookingMenuItems)->pluck('id')->filter()->toArray();
+
+        $query = MenuItem::with('category')->where('marquee_id', $marqueeId);
+        if (!empty($selectedDishIds)) {
+            $query->whereNotIn('id', $selectedDishIds);
+        }
+
         if (empty($this->menuItemSearch)) {
-            $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)->orderBy('item_name')->get();
+            $this->menuItemsAutocomplete = $query->orderBy('item_name')->get();
         } else {
             $term = '%' . $this->menuItemSearch . '%';
-            $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)
-                ->where('item_name', 'like', $term)->orderBy('item_name')->get();
+            $this->menuItemsAutocomplete = $query
+                ->where('item_name', 'like', $term)
+                ->orderBy('item_name')
+                ->get();
         }
     }
 
@@ -627,6 +636,7 @@ class BookingOnePage extends Component
         if (isset($this->bookingMenuItems[$index])) {
             unset($this->bookingMenuItems[$index]);
             $this->bookingMenuItems = array_values($this->bookingMenuItems);
+            $this->updatedMenuItemSearch();
         }
     }
 

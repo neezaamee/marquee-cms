@@ -646,8 +646,15 @@ class BookingEdit extends Component
             return;
         }
 
+        $selectedDishIds = collect($this->bookingMenuItems)->pluck('id')->filter()->toArray();
+
+        $query = \App\Models\MenuItem::with('category')->where('marquee_id', $marqueeId);
+        if (!empty($selectedDishIds)) {
+            $query->whereNotIn('id', $selectedDishIds);
+        }
+
         $term = '%' . $this->menuItemSearch . '%';
-        $this->menuItemsAutocomplete = \App\Models\MenuItem::with('category')->where('marquee_id', $marqueeId)
+        $this->menuItemsAutocomplete = $query
             ->where('item_name', 'like', $term)
             ->orderBy('item_name')
             ->get();
@@ -695,6 +702,7 @@ class BookingEdit extends Component
         if (isset($this->bookingMenuItems[$index])) {
             unset($this->bookingMenuItems[$index]);
             $this->bookingMenuItems = array_values($this->bookingMenuItems); // Reset keys
+            $this->updatedMenuItemSearch();
         }
     }
 

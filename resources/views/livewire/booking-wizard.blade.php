@@ -545,13 +545,13 @@
                             <!-- Headcount Section (Tentative & Confirmed) -->
                             <div class="col-md-3">
                                 <label class="form-label font-sans-serif fw-bold text-700" for="tentativeGuests">Tentative Guests *</label>
-                                <input wire:model.live="tentativeGuests" class="form-control" type="number" id="tentativeGuests" min="1" placeholder="Initial estimate" />
+                                <input wire:model.live.debounce.350ms="tentativeGuests" class="form-control" type="number" id="tentativeGuests" min="1" placeholder="Initial estimate" />
                                 @error('tentativeGuests') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                             </div>
 
                             <div class="col-md-3">
                                 <label class="form-label font-sans-serif fw-bold text-700" for="confirmedGuests">Confirmed Guests</label>
-                                <input wire:model.live="confirmedGuests" class="form-control" type="number" id="confirmedGuests" min="0" placeholder="Confirmed count" />
+                                <input wire:model.live.debounce.350ms="confirmedGuests" class="form-control" type="number" id="confirmedGuests" min="0" placeholder="Confirmed count" />
                                 @error('confirmedGuests') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                             </div>
 
@@ -578,7 +578,7 @@
                                     <label class="form-label font-sans-serif fw-bold text-700" for="perPlatePrice">Per Plate Rate *</label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">Rs.</span>
-                                        <input wire:model.live="perPlatePrice" class="form-control" type="number" id="perPlatePrice" step="0.01" />
+                                        <input wire:model.live.debounce.350ms="perPlatePrice" class="form-control" type="number" id="perPlatePrice" step="0.01" />
                                     </div>
                                     @error('perPlatePrice') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                 </div>
@@ -589,7 +589,7 @@
                                 <label class="form-label font-sans-serif fw-bold text-700" for="hallCharges">Hall Rent Charges</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rs.</span>
-                                    <input wire:model.live="hallCharges" class="form-control" type="number" id="hallCharges" step="0.01" />
+                                    <input wire:model.live.debounce.350ms="hallCharges" class="form-control" type="number" id="hallCharges" step="0.01" />
                                 </div>
                                 @error('hallCharges') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                             </div>
@@ -609,7 +609,7 @@
                                 <label class="form-label font-sans-serif fw-bold text-700" for="securityDeposit">Refundable Security Deposit</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rs.</span>
-                                    <input wire:model.live="securityDeposit" class="form-control" type="number" id="securityDeposit" step="0.01" />
+                                    <input wire:model.live.debounce.350ms="securityDeposit" class="form-control" type="number" id="securityDeposit" step="0.01" />
                                 </div>
                                 <span class="text-muted fs-11">Tracked separately, not counted as event revenue.</span>
                                 @error('securityDeposit') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
@@ -620,7 +620,7 @@
                                 <label class="form-label font-sans-serif fw-bold text-700" for="discountAmount">Discount Amount</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rs.</span>
-                                    <input wire:model.live="discountAmount" class="form-control" type="number" id="discountAmount" step="0.01" />
+                                    <input wire:model.live.debounce.350ms="discountAmount" class="form-control" type="number" id="discountAmount" step="0.01" />
                                 </div>
                                 @error('discountAmount') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                             </div>
@@ -629,7 +629,7 @@
                             <div class="col-md-6">
                                 <label class="form-label font-sans-serif fw-bold text-700" for="taxRate">Tax Rate (%)</label>
                                 <div class="input-group input-group-sm">
-                                    <input wire:model.live="taxRate" class="form-control" type="number" id="taxRate" step="0.01" />
+                                    <input wire:model.live.debounce.350ms="taxRate" class="form-control" type="number" id="taxRate" step="0.01" />
                                     <span class="input-group-text">%</span>
                                 </div>
                                 @error('taxRate') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
@@ -647,7 +647,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label font-sans-serif fw-bold text-700" for="privacyLadiesPercentage">Ladies Percentage (%) *</label>
                                     <div class="input-group input-group-sm">
-                                        <input wire:model.live="privacyLadiesPercentage" class="form-control @error('privacyLadiesPercentage') is-invalid @enderror" type="number" id="privacyLadiesPercentage" min="0" max="100" />
+                                        <input wire:model.live.debounce.350ms="privacyLadiesPercentage" class="form-control @error('privacyLadiesPercentage') is-invalid @enderror" type="number" id="privacyLadiesPercentage" min="0" max="100" />
                                         <span class="input-group-text">%</span>
                                     </div>
                                     @error('privacyLadiesPercentage') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
@@ -655,7 +655,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label font-sans-serif fw-bold text-700" for="privacyGentsPercentage">Gents Percentage (%) *</label>
                                     <div class="input-group input-group-sm">
-                                        <input wire:model.live="privacyGentsPercentage" class="form-control @error('privacyGentsPercentage') is-invalid @enderror" type="number" id="privacyGentsPercentage" min="0" max="100" />
+                                        <input wire:model.live.debounce.350ms="privacyGentsPercentage" class="form-control @error('privacyGentsPercentage') is-invalid @enderror" type="number" id="privacyGentsPercentage" min="0" max="100" />
                                         <span class="input-group-text">%</span>
                                     </div>
                                     @error('privacyGentsPercentage') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror

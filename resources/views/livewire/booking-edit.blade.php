@@ -250,7 +250,7 @@
                                     <label class="form-label font-sans-serif fw-bold text-700" for="perPlatePrice">Per Plate Rate *</label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">Rs.</span>
-                                        <input wire:model.live="perPlatePrice" class="form-control" type="number" id="perPlatePrice" step="0.01" />
+                                        <input wire:model.live.debounce.350ms="perPlatePrice" class="form-control" type="number" id="perPlatePrice" step="0.01" />
                                     </div>
                                 </div>
                             @endif
@@ -259,7 +259,7 @@
                                 <label class="form-label font-sans-serif fw-bold text-700" for="hallCharges">Hall Rent Charges</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rs.</span>
-                                    <input wire:model.live="hallCharges" class="form-control" type="number" id="hallCharges" step="0.01" />
+                                    <input wire:model.live.debounce.350ms="hallCharges" class="form-control" type="number" id="hallCharges" step="0.01" />
                                 </div>
                             </div>
 
@@ -275,7 +275,7 @@
                                 <label class="form-label font-sans-serif fw-bold text-700" for="securityDeposit">Refundable Security Deposit</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rs.</span>
-                                    <input wire:model.live="securityDeposit" class="form-control" type="number" id="securityDeposit" step="0.01" />
+                                    <input wire:model.live.debounce.350ms="securityDeposit" class="form-control" type="number" id="securityDeposit" step="0.01" />
                                 </div>
                             </div>
 
@@ -283,14 +283,14 @@
                                 <label class="form-label font-sans-serif fw-bold text-700" for="discountAmount">Discount Amount</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rs.</span>
-                                    <input wire:model.live="discountAmount" class="form-control" type="number" id="discountAmount" step="0.01" />
+                                    <input wire:model.live.debounce.350ms="discountAmount" class="form-control" type="number" id="discountAmount" step="0.01" />
                                 </div>
                             </div>
 
                             <div class="col-md-6">
                                 <label class="form-label font-sans-serif fw-bold text-700" for="taxRate">Tax Rate (%)</label>
                                 <div class="input-group input-group-sm">
-                                    <input wire:model.live="taxRate" class="form-control" type="number" id="taxRate" step="0.01" />
+                                    <input wire:model.live.debounce.350ms="taxRate" class="form-control" type="number" id="taxRate" step="0.01" />
                                     <span class="input-group-text">%</span>
                                 </div>
                             </div>

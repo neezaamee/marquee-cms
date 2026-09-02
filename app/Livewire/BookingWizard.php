@@ -288,9 +288,7 @@ class BookingWizard extends Component
         }
 
         // Load all menu items for autocomplete/addition dropdown
-        $this->menuItemsAutocomplete = MenuItem::where('marquee_id', $marqueeId)
-            ->orderBy('item_name')
-            ->get();
+        $this->updatedMenuItemSearch();
 
         $this->filteredEventTypes = $this->eventTypesList->toArray();
         $this->filteredHalls = $this->hallsList->toArray();
@@ -698,6 +696,7 @@ class BookingWizard extends Component
             ];
         }
 
+        $this->updatedMenuItemSearch();
         $this->recalculatePrices();
     }
 
@@ -708,14 +707,21 @@ class BookingWizard extends Component
 
     public function updatedMenuItemSearch()
     {
-        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $user = auth()->user();
+        $marqueeId = $this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
+
+        $selectedDishIds = collect($this->bookingMenuItems)->pluck('id')->filter()->toArray();
+
+        $query = MenuItem::with('category')->where('marquee_id', $marqueeId);
+        if (!empty($selectedDishIds)) {
+            $query->whereNotIn('id', $selectedDishIds);
+        }
+
         if (empty($this->menuItemSearch)) {
-            $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)
-                ->orderBy('item_name')
-                ->get();
+            $this->menuItemsAutocomplete = $query->orderBy('item_name')->get();
         } else {
             $term = '%' . $this->menuItemSearch . '%';
-            $this->menuItemsAutocomplete = MenuItem::with('category')->where('marquee_id', $marqueeId)
+            $this->menuItemsAutocomplete = $query
                 ->where('item_name', 'like', $term)
                 ->orderBy('item_name')
                 ->get();
@@ -764,6 +770,7 @@ class BookingWizard extends Component
         if (isset($this->bookingMenuItems[$index])) {
             unset($this->bookingMenuItems[$index]);
             $this->bookingMenuItems = array_values($this->bookingMenuItems); // Reset keys
+            $this->updatedMenuItemSearch();
         }
     }
 
