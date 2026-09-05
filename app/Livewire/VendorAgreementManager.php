@@ -28,10 +28,23 @@ class VendorAgreementManager extends Component
     public $notes = '';
     public $status = 'active';
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        $id = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        if (!$id && $user?->isSuperAdmin()) {
+            return \App\Models\Marquee::first()?->id;
+        }
+        return $id;
+    }
+
     public function mount(?Vendor $vendor = null)
     {
-        if ($vendor && !auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this Service Provider.');
+        $user = auth()->user();
+        if ($vendor && $user && !$user->isSuperAdmin()) {
+            if ($vendor->marquee_id && !$user->hasAccessToMarquee($vendor->marquee_id)) {
+                abort(403, 'Unauthorized access to this Service Provider.');
+            }
         }
         $this->vendor = $vendor;
         if ($vendor) {
@@ -52,7 +65,8 @@ class VendorAgreementManager extends Component
 
     public function editAgreement($id)
     {
-        $agr = VendorCommissionAgreement::where('marquee_id', auth()->user()->marquee_id)->findOrFail($id);
+        $marqueeId = $this->getMarqueeId();
+        $agr = VendorCommissionAgreement::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->findOrFail($id);
         $this->agreementId = $agr->id;
         $this->selectedVendorId = $agr->vendor_id;
         $this->vendor_service_id = $agr->vendor_service_id;
@@ -73,6 +87,8 @@ class VendorAgreementManager extends Component
 
     public function saveAgreement()
     {
+        $marqueeId = $this->getMarqueeId();
+
         $this->validate([
             'selectedVendorId' => 'required|exists:vendors,id',
             'commission_type' => 'required|string|in:percentage,fixed_per_event,fixed_monthly,hybrid',
@@ -84,11 +100,10 @@ class VendorAgreementManager extends Component
             'status' => 'required|string|in:active,expired,draft,terminated',
         ]);
 
-        $marqueeId = auth()->user()->marquee_id;
-        Vendor::where('marquee_id', $marqueeId)->findOrFail($this->selectedVendorId);
+        Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->findOrFail($this->selectedVendorId);
 
         if ($this->agreementId) {
-            VendorCommissionAgreement::where('marquee_id', $marqueeId)->findOrFail($this->agreementId);
+            VendorCommissionAgreement::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->findOrFail($this->agreementId);
         }
 
         VendorCommissionAgreement::updateOrCreate(
@@ -130,21 +145,26 @@ class VendorAgreementManager extends Component
         $this->settlement_terms = 'Net 30 days after event completion';
         $this->notes = '';
         $this->status = 'active';
+        if ($this->vendor) {
+            $this->selectedVendorId = $this->vendor->id;
+        } else {
+            $this->selectedVendorId = null;
+        }
     }
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
-        $query = VendorCommissionAgreement::where('marquee_id', $marqueeId)->with(['vendor', 'service']);
+        $query = VendorCommissionAgreement::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->with(['vendor', 'service']);
         if ($this->vendor) {
             $query->where('vendor_id', $this->vendor->id);
         }
 
         $agreements = $query->orderBy('effective_from', 'desc')->get();
-        $vendors = Vendor::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
+        $vendors = Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
         $services = $this->selectedVendorId
-            ? VendorService::where('marquee_id', $marqueeId)->where('vendor_id', $this->selectedVendorId)->get()
+            ? VendorService::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('vendor_id', $this->selectedVendorId)->get()
             : collect();
 
         return view('livewire.vendor-agreement-manager', [

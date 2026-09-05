@@ -736,83 +736,8 @@ class SetupWizard extends Component
             }
         }
         elseif ($step == 9) {
-            // Seed finance configuration
-            $coaExists = Account::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->exists();
-            if (!$coaExists) {
-                $seededTypes = [];
-                $typesData = [
-                    ['name' => 'Current Assets', 'code' => 'CURRENT_ASSETS', 'nature' => 'Asset'],
-                    ['name' => 'Fixed Assets', 'code' => 'FIXED_ASSETS', 'nature' => 'Asset'],
-                    ['name' => 'Current Liabilities', 'code' => 'CURRENT_LIABILITIES', 'nature' => 'Liability'],
-                    ['name' => 'Long-Term Liabilities', 'code' => 'LONG_TERM_LIABILITIES', 'nature' => 'Liability'],
-                    ['name' => 'Owner Equity', 'code' => 'OWNER_EQUITY', 'nature' => 'Equity'],
-                    ['name' => 'Retained Earnings', 'code' => 'RETAINED_EARNINGS', 'nature' => 'Equity'],
-                    ['name' => 'Operating Revenue', 'code' => 'OPERATING_REVENUE', 'nature' => 'Income'],
-                    ['name' => 'Other Income', 'code' => 'OTHER_INCOME', 'nature' => 'Income'],
-                    ['name' => 'Direct Expenses', 'code' => 'DIRECT_EXPENSES', 'nature' => 'Expense'],
-                    ['name' => 'Operating Expenses', 'code' => 'OPERATING_EXPENSES', 'nature' => 'Expense'],
-                ];
-                foreach ($typesData as $td) {
-                    $seededTypes[$td['code']] = AccountType::firstOrCreate(
-                        ['code' => $td['code']],
-                        ['name' => $td['name'], 'nature' => $td['nature']]
-                    );
-                }
-
-                $topLevelAccounts = [
-                    '1000' => ['name' => 'Assets', 'nature' => 'Asset', 'code_type' => 'CURRENT_ASSETS'],
-                    '2000' => ['name' => 'Liabilities', 'nature' => 'Liability', 'code_type' => 'CURRENT_LIABILITIES'],
-                    '3000' => ['name' => 'Equity', 'nature' => 'Equity', 'code_type' => 'OWNER_EQUITY'],
-                    '4000' => ['name' => 'Income', 'nature' => 'Income', 'code_type' => 'OPERATING_REVENUE'],
-                    '5000' => ['name' => 'Expenses', 'nature' => 'Expense', 'code_type' => 'DIRECT_EXPENSES'],
-                ];
-
-                $topLevelInstances = [];
-                foreach ($topLevelAccounts as $code => $data) {
-                    $topLevelInstances[$code] = Account::create([
-                        'marquee_id' => $marqueeId,
-                        'account_code' => $code,
-                        'name' => $data['name'],
-                        'parent_id' => null,
-                        'account_type_id' => $seededTypes[$data['code_type']]->id,
-                        'nature' => $data['nature'],
-                        'is_active' => true,
-                        'system_generated' => true,
-                        'description' => "Root account for {$data['name']}",
-                    ]);
-                }
-
-                $subAccounts = [
-                    ['parent' => '1000', 'code' => '1001', 'name' => 'Cash', 'type' => 'CURRENT_ASSETS', 'nature' => 'Asset', 'system' => true, 'desc' => 'General Cash Account'],
-                    ['parent' => '1000', 'code' => '1002', 'name' => 'Bank', 'type' => 'CURRENT_ASSETS', 'nature' => 'Asset', 'system' => true, 'desc' => 'Default Bank Account'],
-                    ['parent' => '1000', 'code' => '1003', 'name' => 'Accounts Receivable', 'type' => 'CURRENT_ASSETS', 'nature' => 'Asset', 'system' => true, 'desc' => 'Outstanding Customer Payments'],
-                    ['parent' => '1000', 'code' => '1004', 'name' => 'Inventory', 'type' => 'CURRENT_ASSETS', 'nature' => 'Asset', 'system' => true, 'desc' => 'Inventory Assets'],
-                    ['parent' => '2000', 'code' => '2001', 'name' => 'Accounts Payable', 'type' => 'CURRENT_LIABILITIES', 'nature' => 'Liability', 'system' => true, 'desc' => 'Outstanding Vendor Payments'],
-                    ['parent' => '2000', 'code' => '2002', 'name' => 'Security Deposits', 'type' => 'CURRENT_LIABILITIES', 'nature' => 'Liability', 'system' => true, 'desc' => 'Refundable Booking Security Deposits'],
-                    ['parent' => '3000', 'code' => '3001', 'name' => 'Owner\'s Capital', 'type' => 'OWNER_EQUITY', 'nature' => 'Equity', 'system' => true, 'desc' => 'Capital Invested by Owner'],
-                    ['parent' => '3000', 'code' => '3501', 'name' => 'Retained Earnings', 'type' => 'RETAINED_EARNINGS', 'nature' => 'Equity', 'system' => true, 'desc' => 'Accumulated Earnings'],
-                    ['parent' => '4000', 'code' => '4001', 'name' => 'Hall Booking Revenue', 'type' => 'OPERATING_REVENUE', 'nature' => 'Income', 'system' => true, 'desc' => 'Revenue from Hall Bookings'],
-                    ['parent' => '4000', 'code' => '4002', 'name' => 'Catering Revenue', 'type' => 'OPERATING_REVENUE', 'nature' => 'Income', 'system' => true, 'desc' => 'Revenue from Catering Services'],
-                    ['parent' => '5000', 'code' => '5501', 'name' => 'Salaries', 'type' => 'OPERATING_EXPENSES', 'nature' => 'Expense', 'system' => true, 'desc' => 'Employee Salaries'],
-                    ['parent' => '5000', 'code' => '5502', 'name' => 'Utilities', 'type' => 'OPERATING_EXPENSES', 'nature' => 'Expense', 'system' => true, 'desc' => 'Electricity, Gas, and Water Bills'],
-                    ['parent' => '5000', 'code' => '5503', 'name' => 'Maintenance', 'type' => 'OPERATING_EXPENSES', 'nature' => 'Expense', 'system' => true, 'desc' => 'Hall Repair & Maintenance Costs']
-                ];
-
-                foreach ($subAccounts as $sub) {
-                    $parentInstance = $topLevelInstances[$sub['parent']];
-                    Account::create([
-                        'marquee_id' => $marqueeId,
-                        'account_code' => $sub['code'],
-                        'name' => $sub['name'],
-                        'parent_id' => $parentInstance->id,
-                        'account_type_id' => $seededTypes[$sub['type']]->id,
-                        'nature' => $sub['nature'],
-                        'is_active' => true,
-                        'system_generated' => $sub['system'],
-                        'description' => $sub['desc'],
-                    ]);
-                }
-            }
+            // Seed complete standard Chart of Accounts & Active Financial Year
+            app(\App\Services\AccountingService::class)->seedTenantDefaultAccounts($marqueeId);
 
             // Seed Currencies
             $pkrExists = Currency::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('code', 'PKR')->exists();

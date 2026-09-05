@@ -7,7 +7,7 @@ use App\Repositories\ExpenseRepositoryInterface;
 
 class ExpenseRepository implements ExpenseRepositoryInterface
 {
-    public function all(array $filters = [])
+    protected function buildQuery(array $filters = [])
     {
         $query = Expense::query()->with(['category', 'type', 'branch', 'supplier', 'employee', 'currency']);
 
@@ -39,6 +39,10 @@ class ExpenseRepository implements ExpenseRepositoryInterface
             $query->where('department', $filters['department']);
         }
 
+        if (!empty($filters['payment_method'])) {
+            $query->where('payment_method', $filters['payment_method']);
+        }
+
         if (!empty($filters['payment_status'])) {
             $query->where('payment_status', $filters['payment_status']);
         }
@@ -62,7 +66,17 @@ class ExpenseRepository implements ExpenseRepositoryInterface
             });
         }
 
-        return $query->orderBy('expense_date', 'desc')->orderBy('id', 'desc')->get();
+        return $query->orderBy('expense_date', 'desc')->orderBy('id', 'desc');
+    }
+
+    public function all(array $filters = [])
+    {
+        return $this->buildQuery($filters)->get();
+    }
+
+    public function paginate(int $perPage = 10, array $filters = [])
+    {
+        return $this->buildQuery($filters)->paginate($perPage);
     }
 
     public function find(int $id): ?Expense

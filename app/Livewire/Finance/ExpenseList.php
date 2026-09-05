@@ -3,8 +3,10 @@
 namespace App\Livewire\Finance;
 
 use App\Models\Branch;
+use App\Models\CashBankAccount;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\PettyCashAccount;
 use App\Models\Supplier;
 use App\Repositories\ExpenseRepositoryInterface;
 use App\Services\ExpenseService;
@@ -14,6 +16,8 @@ use Livewire\WithPagination;
 class ExpenseList extends Component
 {
     use WithPagination;
+
+    protected $paginationTheme = 'bootstrap';
 
     // Filters
     public $search = '';
@@ -25,6 +29,16 @@ class ExpenseList extends Component
     public $payment_status = '';
     public $start_date = '';
     public $end_date = '';
+
+    public function updatingSearch() { $this->resetPage(); }
+    public function updatingStatus() { $this->resetPage(); }
+    public function updatingBranchId() { $this->resetPage(); }
+    public function updatingExpenseCategoryId() { $this->resetPage(); }
+    public function updatingSupplierId() { $this->resetPage(); }
+    public function updatingPaymentMethod() { $this->resetPage(); }
+    public function updatingPaymentStatus() { $this->resetPage(); }
+    public function updatingStartDate() { $this->resetPage(); }
+    public function updatingEndDate() { $this->resetPage(); }
 
     // Bulk actions
     public $selectedExpenses = [];
@@ -43,7 +57,8 @@ class ExpenseList extends Component
     public function updatedSelectAll($value)
     {
         if ($value) {
-            $marqueeId = auth()->user()->marquee_id;
+            $user = auth()->user();
+            $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
             $this->selectedExpenses = Expense::where('marquee_id', $marqueeId)->pluck('id')->map(fn($id) => (string)$id)->toArray();
         } else {
             $this->selectedExpenses = [];
@@ -142,7 +157,8 @@ class ExpenseList extends Component
 
     public function render(ExpenseRepositoryInterface $repository)
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         $filters = [
             'status' => $this->status,
@@ -157,29 +173,17 @@ class ExpenseList extends Component
         ];
 
         // Fetch paginated expenses
-        $expenses = $repository->all($filters);
-        
-        // Paginate manually since repo returns collections for reports or we can paginate in repo.
-        // Let's implement manual pagination for repository collection
-        $currentPage = \Livewire\Features\SupportPagination\SupportPagination::getPage();
-        $perPage = 10;
-        $paginatedExpenses = new \Illuminate\Pagination\LengthAwarePaginator(
-            $expenses->forPage($currentPage, $perPage),
-            $expenses->count(),
-            $perPage,
-            $currentPage,
-            ['path' => url()->current()]
-        );
+        $expenses = $repository->paginate(10, $filters);
 
         $branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
         $categories = ExpenseCategory::where('marquee_id', $marqueeId)->where('is_active', true)->get();
         $suppliers = Supplier::where('marquee_id', $marqueeId)->get();
 
-        $bankAccounts = \App\Models\CashBankAccount::where('marquee_id', $marqueeId)->get();
+        $bankAccounts = CashBankAccount::where('marquee_id', $marqueeId)->get();
         $pettyDrawers = PettyCashAccount::where('marquee_id', $marqueeId)->where('is_active', true)->get();
 
         return view('livewire.finance.expense-list', [
-            'expenses' => $paginatedExpenses,
+            'expenses' => $expenses,
             'branches' => $branches,
             'categories' => $categories,
             'suppliers' => $suppliers,

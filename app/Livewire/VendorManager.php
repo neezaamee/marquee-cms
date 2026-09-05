@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Vendor;
 use App\Models\Branch;
+use App\Models\Marquee;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -59,9 +60,26 @@ class VendorManager extends Component
         $this->showVendorModal = true;
     }
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        $id = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        if (!$id && $user?->isSuperAdmin()) {
+            return \App\Models\Marquee::first()?->id;
+        }
+        return $id;
+    }
+
     public function editVendor($id)
     {
-        $vendor = Vendor::where('marquee_id', auth()->user()->marquee_id)->findOrFail($id);
+        $marqueeId = $this->getMarqueeId();
+        $query = Vendor::withoutGlobalScope('tenant');
+        if ($marqueeId) {
+            $query->where('marquee_id', $marqueeId);
+        } elseif (!auth()->user()?->isSuperAdmin()) {
+            $query->whereRaw('1 = 0');
+        }
+        $vendor = $query->findOrFail($id);
         $this->vendorId = $vendor->id;
         $this->name = $vendor->name;
         $this->vendor_type = $vendor->vendor_type;
@@ -95,10 +113,16 @@ class VendorManager extends Component
             'status' => 'required|string|in:active,inactive,suspended',
         ]);
 
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
         if ($this->vendorId) {
-            Vendor::where('marquee_id', $marqueeId)->findOrFail($this->vendorId);
+            $query = Vendor::withoutGlobalScope('tenant');
+            if ($marqueeId) {
+                $query->where('marquee_id', $marqueeId);
+            } elseif (!auth()->user()?->isSuperAdmin()) {
+                $query->whereRaw('1 = 0');
+            }
+            $query->findOrFail($this->vendorId);
         }
 
         Vendor::updateOrCreate(
@@ -154,7 +178,13 @@ class VendorManager extends Component
 
     public function render()
     {
-        $query = Vendor::query();
+        $marqueeId = $this->getMarqueeId();
+        $query = Vendor::withoutGlobalScope('tenant');
+        if ($marqueeId) {
+            $query->where('marquee_id', $marqueeId);
+        } elseif (!auth()->user()?->isSuperAdmin()) {
+            $query->whereRaw('1 = 0');
+        }
 
         if (!empty($this->search)) {
             $term = '%' . $this->search . '%';
@@ -176,7 +206,14 @@ class VendorManager extends Component
         }
 
         $vendors = $query->orderBy('name')->paginate(12);
-        $branches = Branch::where('status', 'active')->get();
+
+        $branchQuery = Branch::withoutGlobalScope('tenant')->where('status', 'active');
+        if ($marqueeId) {
+            $branchQuery->where('marquee_id', $marqueeId);
+        } elseif (!auth()->user()?->isSuperAdmin()) {
+            $branchQuery->whereRaw('1 = 0');
+        }
+        $branches = $branchQuery->get();
 
         $vendorTypes = [
             'Florist', 'Sound System', 'Photography', 'Videography', 'Decoration',

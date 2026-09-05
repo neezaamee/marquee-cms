@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Account;
 use App\Models\AccountOpeningBalance;
+use App\Models\AccountType;
+use App\Models\CashBankAccount;
 use App\Models\FinancialYear;
 use App\Models\JournalVoucher;
 use App\Models\JournalVoucherItem;
@@ -757,5 +759,325 @@ class AccountingService
         ];
 
         $this->createJournalVoucher($header, $items);
+    }
+
+    /**
+     * Seed default Chart of Accounts hierarchy, Account Types, Cash/Bank mapping,
+     * and active Financial Year for a specific tenant.
+     */
+    public function seedTenantDefaultAccounts(int $marqueeId): void
+    {
+        DB::transaction(function () use ($marqueeId) {
+            // 1. Ensure Global Account Types exist
+            $accountTypes = [
+                ['name' => 'Current Assets', 'code' => 'CURRENT_ASSETS', 'nature' => 'Asset'],
+                ['name' => 'Fixed Assets', 'code' => 'FIXED_ASSETS', 'nature' => 'Asset'],
+                ['name' => 'Current Liabilities', 'code' => 'CURRENT_LIABILITIES', 'nature' => 'Liability'],
+                ['name' => 'Long-Term Liabilities', 'code' => 'LONG_TERM_LIABILITIES', 'nature' => 'Liability'],
+                ['name' => 'Owner Equity', 'code' => 'OWNER_EQUITY', 'nature' => 'Equity'],
+                ['name' => 'Retained Earnings', 'code' => 'RETAINED_EARNINGS', 'nature' => 'Equity'],
+                ['name' => 'Operating Revenue', 'code' => 'OPERATING_REVENUE', 'nature' => 'Income'],
+                ['name' => 'Other Income', 'code' => 'OTHER_INCOME', 'nature' => 'Income'],
+                ['name' => 'Direct Expenses', 'code' => 'DIRECT_EXPENSES', 'nature' => 'Expense'],
+                ['name' => 'Operating Expenses', 'code' => 'OPERATING_EXPENSES', 'nature' => 'Expense'],
+            ];
+
+            $seededTypes = [];
+            foreach ($accountTypes as $type) {
+                $seededTypes[$type['code']] = AccountType::firstOrCreate(
+                    ['code' => $type['code'], 'marquee_id' => null],
+                    [
+                        'name' => $type['name'],
+                        'nature' => $type['nature'],
+                    ]
+                );
+            }
+
+            // 2. Ensure Root Accounts exist for this tenant
+            $topLevelAccounts = [
+                '1000' => ['name' => 'Assets', 'nature' => 'Asset', 'code_type' => 'CURRENT_ASSETS'],
+                '2000' => ['name' => 'Liabilities', 'nature' => 'Liability', 'code_type' => 'CURRENT_LIABILITIES'],
+                '3000' => ['name' => 'Equity', 'nature' => 'Equity', 'code_type' => 'OWNER_EQUITY'],
+                '4000' => ['name' => 'Income', 'nature' => 'Income', 'code_type' => 'OPERATING_REVENUE'],
+                '5000' => ['name' => 'Expenses', 'nature' => 'Expense', 'code_type' => 'DIRECT_EXPENSES'],
+            ];
+
+            $topLevelInstances = [];
+            foreach ($topLevelAccounts as $code => $data) {
+                $topLevelInstances[$code] = Account::withoutGlobalScope('tenant')->updateOrCreate(
+                    [
+                        'marquee_id' => $marqueeId,
+                        'account_code' => $code,
+                    ],
+                    [
+                        'name' => $data['name'],
+                        'parent_id' => null,
+                        'account_type_id' => $seededTypes[$data['code_type']]->id,
+                        'nature' => $data['nature'],
+                        'is_active' => true,
+                        'system_generated' => true,
+                        'description' => "Root account for {$data['name']}",
+                    ]
+                );
+            }
+
+            // 3. Ensure Standard Sub-Accounts exist for this tenant
+            $subAccounts = [
+                // Assets
+                [
+                    'parent_code' => '1000',
+                    'account_code' => '1001',
+                    'name' => 'Cash',
+                    'type_code' => 'CURRENT_ASSETS',
+                    'nature' => 'Asset',
+                    'system' => true,
+                    'desc' => 'General Cash Account',
+                ],
+                [
+                    'parent_code' => '1000',
+                    'account_code' => '1002',
+                    'name' => 'Bank',
+                    'type_code' => 'CURRENT_ASSETS',
+                    'nature' => 'Asset',
+                    'system' => true,
+                    'desc' => 'Default Bank Account',
+                ],
+                [
+                    'parent_code' => '1000',
+                    'account_code' => '1003',
+                    'name' => 'Accounts Receivable',
+                    'type_code' => 'CURRENT_ASSETS',
+                    'nature' => 'Asset',
+                    'system' => true,
+                    'desc' => 'Outstanding Customer Payments',
+                ],
+                [
+                    'parent_code' => '1000',
+                    'account_code' => '1004',
+                    'name' => 'Inventory',
+                    'type_code' => 'CURRENT_ASSETS',
+                    'nature' => 'Asset',
+                    'system' => true,
+                    'desc' => 'Inventory Assets',
+                ],
+                [
+                    'parent_code' => '1000',
+                    'account_code' => '1201',
+                    'name' => 'Furniture & Fixtures',
+                    'type_code' => 'FIXED_ASSETS',
+                    'nature' => 'Asset',
+                    'system' => false,
+                    'desc' => 'Furniture Fixed Assets',
+                ],
+
+                // Liabilities
+                [
+                    'parent_code' => '2000',
+                    'account_code' => '2001',
+                    'name' => 'Accounts Payable',
+                    'type_code' => 'CURRENT_LIABILITIES',
+                    'nature' => 'Liability',
+                    'system' => true,
+                    'desc' => 'Outstanding Vendor Payments',
+                ],
+                [
+                    'parent_code' => '2000',
+                    'account_code' => '2002',
+                    'name' => 'Security Deposits',
+                    'type_code' => 'CURRENT_LIABILITIES',
+                    'nature' => 'Liability',
+                    'system' => true,
+                    'desc' => 'Refundable Booking Security Deposits',
+                ],
+                [
+                    'parent_code' => '2000',
+                    'account_code' => '2003',
+                    'name' => 'Customer Advances / Contract Liabilities',
+                    'type_code' => 'CURRENT_LIABILITIES',
+                    'nature' => 'Liability',
+                    'system' => true,
+                    'desc' => 'Unearned Customer Booking Advances & Contract Liabilities',
+                ],
+                [
+                    'parent_code' => '2000',
+                    'account_code' => '2004',
+                    'name' => 'Sales Tax Payable',
+                    'type_code' => 'CURRENT_LIABILITIES',
+                    'nature' => 'Liability',
+                    'system' => true,
+                    'desc' => 'Sales Tax & Government Levies Payable',
+                ],
+                [
+                    'parent_code' => '2000',
+                    'account_code' => '2150-VEN',
+                    'name' => 'Vendor Payable Clearing',
+                    'type_code' => 'CURRENT_LIABILITIES',
+                    'nature' => 'Liability',
+                    'system' => true,
+                    'desc' => 'Net liabilities payable to contracted event vendors',
+                ],
+
+                // Equity
+                [
+                    'parent_code' => '3000',
+                    'account_code' => '3001',
+                    'name' => 'Owner\'s Capital',
+                    'type_code' => 'OWNER_EQUITY',
+                    'nature' => 'Equity',
+                    'system' => true,
+                    'desc' => 'Capital Invested by Owner',
+                ],
+                [
+                    'parent_code' => '3000',
+                    'account_code' => '3501',
+                    'name' => 'Retained Earnings',
+                    'type_code' => 'RETAINED_EARNINGS',
+                    'nature' => 'Equity',
+                    'system' => true,
+                    'desc' => 'Accumulated Earnings',
+                ],
+
+                // Income
+                [
+                    'parent_code' => '4000',
+                    'account_code' => '4001',
+                    'name' => 'Hall Booking Revenue',
+                    'type_code' => 'OPERATING_REVENUE',
+                    'nature' => 'Income',
+                    'system' => true,
+                    'desc' => 'Revenue from Hall Bookings',
+                ],
+                [
+                    'parent_code' => '4000',
+                    'account_code' => '4002',
+                    'name' => 'Catering Revenue',
+                    'type_code' => 'OPERATING_REVENUE',
+                    'nature' => 'Income',
+                    'system' => true,
+                    'desc' => 'Revenue from Catering Services',
+                ],
+                [
+                    'parent_code' => '4000',
+                    'account_code' => '4003',
+                    'name' => 'Decoration Revenue',
+                    'type_code' => 'OPERATING_REVENUE',
+                    'nature' => 'Income',
+                    'system' => true,
+                    'desc' => 'Revenue from Hall Decoration Services',
+                ],
+                [
+                    'parent_code' => '4000',
+                    'account_code' => '4004',
+                    'name' => 'Cancellation Charges Income',
+                    'type_code' => 'OPERATING_REVENUE',
+                    'nature' => 'Income',
+                    'system' => true,
+                    'desc' => 'Earned Cancellation Penalties & Retained Forfeitures',
+                ],
+                [
+                    'parent_code' => '4000',
+                    'account_code' => '4005',
+                    'name' => 'Vendor Commission Income',
+                    'type_code' => 'OPERATING_REVENUE',
+                    'nature' => 'Income',
+                    'system' => true,
+                    'desc' => 'Commission Earned on Third-Party Vendor Services',
+                ],
+
+                // Expenses
+                [
+                    'parent_code' => '5000',
+                    'account_code' => '5501',
+                    'name' => 'Salaries',
+                    'type_code' => 'OPERATING_EXPENSES',
+                    'nature' => 'Expense',
+                    'system' => true,
+                    'desc' => 'Employee Salaries',
+                ],
+                [
+                    'parent_code' => '5000',
+                    'account_code' => '5502',
+                    'name' => 'Utilities',
+                    'type_code' => 'OPERATING_EXPENSES',
+                    'nature' => 'Expense',
+                    'system' => true,
+                    'desc' => 'Electricity, Gas, and Water Bills',
+                ],
+                [
+                    'parent_code' => '5000',
+                    'account_code' => '5503',
+                    'name' => 'Maintenance',
+                    'type_code' => 'OPERATING_EXPENSES',
+                    'nature' => 'Expense',
+                    'system' => true,
+                    'desc' => 'Repairs and Maintenance',
+                ],
+                [
+                    'parent_code' => '5000',
+                    'account_code' => '5504',
+                    'name' => 'Office Supplies',
+                    'type_code' => 'OPERATING_EXPENSES',
+                    'nature' => 'Expense',
+                    'system' => true,
+                    'desc' => 'Office Stationery and Supplies',
+                ],
+            ];
+
+            foreach ($subAccounts as $sub) {
+                $parent = $topLevelInstances[$sub['parent_code']] ?? Account::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('account_code', $sub['parent_code'])->first();
+                Account::withoutGlobalScope('tenant')->updateOrCreate(
+                    [
+                        'marquee_id' => $marqueeId,
+                        'account_code' => $sub['account_code'],
+                    ],
+                    [
+                        'name' => $sub['name'],
+                        'parent_id' => $parent?->id,
+                        'account_type_id' => $seededTypes[$sub['type_code']]->id,
+                        'nature' => $sub['nature'],
+                        'is_active' => true,
+                        'system_generated' => $sub['system'],
+                        'description' => $sub['desc'],
+                    ]
+                );
+            }
+
+            // 4. Ensure an active default Financial Year exists for this tenant
+            $currentYear = date('Y');
+            $activeFy = FinancialYear::withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$activeFy) {
+                FinancialYear::withoutGlobalScope('tenant')->create([
+                    'marquee_id' => $marqueeId,
+                    'name' => 'FY ' . $currentYear,
+                    'start_date' => $currentYear . '-01-01',
+                    'end_date' => $currentYear . '-12-31',
+                    'status' => 'active',
+                    'is_default' => true,
+                ]);
+            }
+
+            // 5. Ensure default Cash Bank Account mapping exists for Cash (1001)
+            $cashAccount = Account::withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
+                ->where('account_code', '1001')
+                ->first();
+
+            if ($cashAccount) {
+                CashBankAccount::withoutGlobalScope('tenant')->firstOrCreate(
+                    [
+                        'marquee_id' => $marqueeId,
+                        'account_id' => $cashAccount->id,
+                    ],
+                    [
+                        'type' => 'cash',
+                        'status' => 'active',
+                    ]
+                );
+            }
+        });
     }
 }

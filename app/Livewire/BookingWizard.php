@@ -22,6 +22,7 @@ class BookingWizard extends Component
     // Wizard State
     public $currentStep = 1;
     public $marquee_id = null;
+    public $lead_id = null;
 
     // Branch state
     public $selectedBranchId = '';
@@ -140,9 +141,25 @@ class BookingWizard extends Component
 
     public $missingDependencies = [];
 
+    public function getNormalizedDate(): string
+    {
+        if (empty($this->selectedDate)) {
+            return '';
+        }
+        try {
+            if (preg_match('/^\d{2}[-\/]\d{2}[-\/]\d{4}$/', trim($this->selectedDate))) {
+                $parts = preg_split('/[-\/]/', trim($this->selectedDate));
+                return sprintf('%04d-%02d-%02d', $parts[2], $parts[1], $parts[0]);
+            }
+            return Carbon::parse($this->selectedDate)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return $this->selectedDate;
+        }
+    }
+
     public function mount()
     {
-        $this->selectedDate = Carbon::today()->addDay()->format('Y-m-d');
+        $this->selectedDate = Carbon::today()->addDay()->format('d-m-Y');
         
         $user = auth()->user();
         $marqueeId = $user ? $user->getActiveMarqueeId() : null;
@@ -173,6 +190,41 @@ class BookingWizard extends Component
         }
 
         $this->loadDropdowns();
+
+        // Pre-fill from Lead/Inquiry if converted from CRM
+        if (request()->has('lead_id')) {
+            $this->lead_id = (int) request()->query('lead_id');
+            $lead = \App\Models\Lead::withoutGlobalScope('tenant')->find($this->lead_id);
+            if ($lead) {
+                if ($lead->customer_id) {
+                    $this->selectedCustomerId = (string) $lead->customer_id;
+                }
+                if ($lead->branch_id) {
+                    $this->selectedBranchId = (string) $lead->branch_id;
+                    $this->updatedSelectedBranchId($this->selectedBranchId);
+                }
+                if ($lead->event_type_id) {
+                    $this->selectedEventTypeId = (string) $lead->event_type_id;
+                }
+                if ($lead->preferred_date) {
+                    $this->selectedDate = $lead->preferred_date->format('d-m-Y');
+                }
+                if ($lead->hall_id) {
+                    $this->selectedHallId = (string) $lead->hall_id;
+                    $this->selectedHallIds = [(string) $lead->hall_id];
+                }
+                if ($lead->slot_id) {
+                    $this->selectedSlotId = (string) $lead->slot_id;
+                }
+                if ($lead->guest_count) {
+                    $this->guestCount = (int) $lead->guest_count;
+                }
+                if ($lead->notes) {
+                    $this->specialInstructions = "Converted from Lead #" . $lead->id . " (" . $lead->name . "):\n" . $lead->notes;
+                }
+            }
+        }
+
         $this->checkBookingReadiness();
     }
 
@@ -571,11 +623,12 @@ class BookingWizard extends Component
         }
 
         $this->availableSlotsList = [];
+        $date = $this->getNormalizedDate();
 
         foreach ($slots as $slot) {
             $isSlotAvailable = true;
             foreach ($this->selectedHallIds as $hallId) {
-                if (!$service->checkAvailability($hallId, $this->selectedDate, $slot->start_time, $slot->end_time)) {
+                if (!$service->checkAvailability($hallId, $date, $slot->start_time, $slot->end_time)) {
                     $isSlotAvailable = false;
                     break;
                 }
@@ -624,8 +677,9 @@ class BookingWizard extends Component
             return;
         }
 
-        $startStr = $this->selectedDate . ' ' . $this->customStart . ':00';
-        $endStr = $this->selectedDate . ' ' . $this->customEnd . ':00';
+        $date = $this->getNormalizedDate();
+        $startStr = $date . ' ' . $this->customStart . ':00';
+        $endStr = $date . ' ' . $this->customEnd . ':00';
 
         $start = Carbon::parse($startStr);
         $end = Carbon::parse($endStr);
@@ -649,11 +703,12 @@ class BookingWizard extends Component
         $service = new AvailabilityService();
         $this->isAvailable = true;
         $this->conflictDetails = null;
+        $date = $this->getNormalizedDate();
 
         foreach ($this->selectedHallIds as $hallId) {
             $conflicting = $service->getConflictingBooking(
                 $hallId,
-                $this->selectedDate,
+                $date,
                 Carbon::parse($this->startTime)->format('H:i:s'),
                 Carbon::parse($this->endTime)->format('H:i:s')
             );
@@ -1102,7 +1157,9 @@ class BookingWizard extends Component
 
         // Perform transactional creation and final double-booking check
         try {
-            $booking = DB::transaction(function () use ($marqueeId, $userId, $branchId, $primaryHallId) {
+            $normalizedDate = $this->getNormalizedDate();
+
+            $booking = DB::transaction(function () use ($marqueeId, $userId, $branchId, $primaryHallId, $normalizedDate) {
                 $service = new AvailabilityService();
                 
                 // 1. Lock existing bookings to prevent race conditions & 2. Final check inside transaction
@@ -1110,13 +1167,13 @@ class BookingWizard extends Component
                     DB::table('bookings')
                         ->where('marquee_id', $marqueeId)
                         ->where('hall_id', $hId)
-                        ->where('booking_date', $this->selectedDate)
+                        ->where('booking_date', $normalizedDate)
                         ->lockForUpdate()
                         ->get();
 
                     $isStillAvailable = $service->checkAvailability(
                         $hId,
-                        $this->selectedDate,
+                        $normalizedDate,
                         Carbon::parse($this->startTime)->format('H:i:s'),
                         Carbon::parse($this->endTime)->format('H:i:s')
                     );
@@ -1137,7 +1194,7 @@ class BookingWizard extends Component
                     'hall_id' => $primaryHallId, // primary hall
                     'slot_id' => $this->selectedSlotId ?: null,
                     'package_id' => $this->noFood ? null : $this->selectedPackageId,
-                    'booking_date' => $this->selectedDate,
+                    'booking_date' => $normalizedDate,
                     'start_time' => $this->startTime,
                     'end_time' => $this->endTime,
                     'guest_count' => $this->guestCount,
@@ -1204,6 +1261,23 @@ class BookingWizard extends Component
                     'payment_status_to' => 'Unpaid',
                     'notes' => 'Booking created via Booking Wizard.',
                 ]);
+
+                // 7. Mark linked Lead as Converted if originating from CRM
+                if ($this->lead_id) {
+                    $lead = \App\Models\Lead::withoutGlobalScope('tenant')->find($this->lead_id);
+                    if ($lead) {
+                        $lead->update([
+                            'status' => 'converted',
+                            'converted_booking_id' => $newBooking->id,
+                        ]);
+                        \App\Models\LeadActivity::create([
+                            'lead_id' => $lead->id,
+                            'user_id' => $userId,
+                            'activity_type' => 'status_change',
+                            'notes' => 'Inquiry converted to official Booking #' . $newBooking->booking_number,
+                        ]);
+                    }
+                }
 
                 return $newBooking;
             });

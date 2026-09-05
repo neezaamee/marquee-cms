@@ -28,9 +28,15 @@ class JournalVoucherList extends Component
     public function updatingStartDate() { $this->resetPage(); }
     public function updatingEndDate() { $this->resetPage(); }
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        return $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+    }
+
     public function mount()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $user = auth()->user();
 
         // Enforce branch filter for branch managers
@@ -98,7 +104,7 @@ class JournalVoucherList extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $user = auth()->user();
 
         $query = JournalVoucher::where('marquee_id', $marqueeId)

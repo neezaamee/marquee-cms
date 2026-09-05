@@ -270,6 +270,7 @@ class BookingPaymentPostingIntegrationTest extends TestCase
     public function test_booking_list_can_post_cash_advance_payment(): void
     {
         $booking = $this->createBooking(500000.00);
+        $financialService = app(\App\Services\BookingFinancialService::class);
 
         Livewire::test(\App\Livewire\BookingList::class)
             ->call('openPaymentModal', $booking->id)
@@ -285,19 +286,28 @@ class BookingPaymentPostingIntegrationTest extends TestCase
 
         $booking->refresh();
 
-        // 1. Booking State
-        $this->assertEquals(150000.00, $booking->advance_received);
-        $this->assertEquals(0.00, $booking->revenue_recognized);
-        $this->assertEquals('Partially Paid', $booking->payment_status);
-
-        // 2. Payment Record
+        // 1. Payment Record created with status pending_posting
         $payment = BookingPayment::where('booking_id', $booking->id)->first();
         $this->assertNotNull($payment);
         $this->assertEquals(150000.00, $payment->amount);
         $this->assertEquals('advance', $payment->payment_type);
-        $this->assertEquals($this->cashAccount->id, $payment->account_id);
+        $this->assertEquals('pending_posting', $payment->status);
 
-        // 3. Double-entry Journal Voucher
+        // 2. Accountant posts the payment
+        $financialService->postPayment($payment, [
+            'account_id' => $this->cashAccount->id,
+            'posted_by' => $this->user->id,
+        ]);
+
+        $booking->refresh();
+
+        // 3. Booking State
+        $this->assertEquals(150000.00, $booking->advance_received);
+        $this->assertEquals(0.00, $booking->revenue_recognized);
+        $this->assertEquals('Partially Paid', $booking->payment_status);
+
+        // 4. Double-entry Journal Voucher
+        $payment->refresh();
         $jv = $payment->journalVoucher;
         $this->assertNotNull($jv);
         $this->assertEquals('posted', $jv->status);
@@ -309,7 +319,7 @@ class BookingPaymentPostingIntegrationTest extends TestCase
         $this->assertEquals(150000.00, $crAdvance->credit);
         $this->assertEquals($jv->total_debit, $jv->total_credit);
 
-        // 4. Customer Sub-Ledger
+        // 5. Customer Sub-Ledger
         $ledger = CustomerLedger::where('booking_payment_id', $payment->id)->first();
         $this->assertNotNull($ledger);
         $this->assertEquals(150000.00, $ledger->credit);
@@ -322,6 +332,7 @@ class BookingPaymentPostingIntegrationTest extends TestCase
     public function test_booking_list_can_post_bank_advance_payment(): void
     {
         $booking = $this->createBooking(500000.00);
+        $financialService = app(\App\Services\BookingFinancialService::class);
 
         Livewire::test(\App\Livewire\BookingList::class)
             ->call('openPaymentModal', $booking->id)
@@ -332,10 +343,16 @@ class BookingPaymentPostingIntegrationTest extends TestCase
             ->call('postPayment')
             ->assertHasNoErrors();
 
+        $payment = BookingPayment::where('booking_id', $booking->id)->latest('id')->first();
+        $financialService->postPayment($payment, [
+            'account_id' => $this->bankAccount->id,
+            'posted_by' => $this->user->id,
+        ]);
+
         $booking->refresh();
         $this->assertEquals(200000.00, $booking->advance_received);
 
-        $payment = BookingPayment::where('booking_id', $booking->id)->latest('id')->first();
+        $payment->refresh();
         $jv = $payment->journalVoucher;
 
         $drBank = $jv->items()->where('account_id', $this->bankAccount->id)->first();
@@ -351,13 +368,15 @@ class BookingPaymentPostingIntegrationTest extends TestCase
     public function test_booking_list_refund_cannot_exceed_total_payments_received(): void
     {
         $booking = $this->createBooking(500000.00);
+        $financialService = app(\App\Services\BookingFinancialService::class);
 
         // Receive 100k advance
-        app(\App\Services\BookingFinancialService::class)->recordPayment($booking, [
+        $p = $financialService->recordPayment($booking, [
             'amount' => 100000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
         ]);
+        $financialService->postPayment($p, ['account_id' => $this->cashAccount->id]);
 
         $booking->refresh();
 
@@ -384,11 +403,12 @@ class BookingPaymentPostingIntegrationTest extends TestCase
         $recService = app(RevenueRecognitionService::class);
 
         // 300k advance
-        $financialService->recordPayment($booking, [
+        $p = $financialService->recordPayment($booking, [
             'amount' => 300000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
         ]);
+        $financialService->postPayment($p, ['account_id' => $this->cashAccount->id]);
 
         // Recognize Revenue upon event completion
         $recService->recognizeRevenue($booking);
@@ -407,6 +427,12 @@ class BookingPaymentPostingIntegrationTest extends TestCase
             ->call('postPayment')
             ->assertHasNoErrors();
 
+        $settlePayment = BookingPayment::where('booking_id', $booking->id)->latest('id')->first();
+        $financialService->postPayment($settlePayment, [
+            'account_id' => $this->cashAccount->id,
+            'posted_by' => $this->user->id,
+        ]);
+
         $booking->refresh();
 
         // 1. Receivables Cleared
@@ -416,7 +442,7 @@ class BookingPaymentPostingIntegrationTest extends TestCase
         $this->assertTrue($booking->is_financially_settled);
 
         // 2. Journal Voucher: DR Cash (200k), CR Accounts Receivable (200k)
-        $settlePayment = BookingPayment::where('booking_id', $booking->id)->latest('id')->first();
+        $settlePayment->refresh();
         $jv = $settlePayment->journalVoucher;
 
         $drCash = $jv->items()->where('account_id', $this->cashAccount->id)->first();

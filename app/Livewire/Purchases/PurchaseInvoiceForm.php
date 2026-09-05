@@ -77,7 +77,7 @@ class PurchaseInvoiceForm extends Component
         $marqueeId = auth()->user()->marquee_id;
         $user = auth()->user();
 
-        $this->suppliers = Supplier::where('marquee_id', $marqueeId)->where('status', 'Active')->orderBy('name')->get();
+        $this->suppliers = Supplier::where('marquee_id', $marqueeId)->where('status', 'Active')->with('categories')->orderBy('name')->get();
         $this->branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
         $this->catalogItems = InventoryItem::where('marquee_id', $marqueeId)->where('status', 'Active')->orderBy('name')->get();
 

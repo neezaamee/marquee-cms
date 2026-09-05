@@ -51,7 +51,9 @@
                     <select wire:model="supplier_id" class="form-select form-select-select form-select-sm" id="supplier" {{ $status !== 'Draft' ? 'disabled' : '' }}>
                         <option value="">Select Supplier</option>
                         @foreach($suppliers as $supp)
-                            <option value="{{ $supp->id }}">{{ $supp->name }}</option>
+                            <option value="{{ $supp->id }}">
+                                {{ $supp->name }}{{ $supp->categories->isNotEmpty() ? ' [' . $supp->categories->pluck('name')->join(', ') . ']' : '' }}
+                            </option>
                         @endforeach
                     </select>
                     @error('supplier_id') <div class="text-danger fs-12 mt-1">{{ $message }}</div> @enderror

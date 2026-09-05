@@ -46,9 +46,15 @@ class CashBankManager extends Component
         'account_number.required_if' => 'Account Number is required for bank accounts.',
     ];
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        return $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+    }
+
     public function mount()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
         // Fetch leaf accounts under Current Assets to map
         $this->accounts = Account::where('marquee_id', $marqueeId)
@@ -90,7 +96,7 @@ class CashBankManager extends Component
     {
         $this->validate();
 
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
         $data = [
             'marquee_id' => $marqueeId,
@@ -139,7 +145,7 @@ class CashBankManager extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
         $cashBankAccounts = CashBankAccount::where('marquee_id', $marqueeId)
             ->with(['account'])

@@ -22,10 +22,23 @@ class VendorSettlementManager extends Component
     public $account_id = null;
     public $remarks = '';
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        $id = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        if (!$id && $user?->isSuperAdmin()) {
+            return \App\Models\Marquee::first()?->id;
+        }
+        return $id;
+    }
+
     public function mount(?Vendor $vendor = null)
     {
-        if ($vendor && !auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this Service Provider.');
+        $user = auth()->user();
+        if ($vendor && $user && !$user->isSuperAdmin()) {
+            if ($vendor->marquee_id && !$user->hasAccessToMarquee($vendor->marquee_id)) {
+                abort(403, 'Unauthorized access to this Service Provider.');
+            }
         }
         $this->vendor = $vendor;
         if ($vendor) {
@@ -38,8 +51,8 @@ class VendorSettlementManager extends Component
     public function updatedVendorId($val)
     {
         if ($val) {
-            $marqueeId = auth()->user()->marquee_id;
-            $v = Vendor::where('marquee_id', $marqueeId)->find($val);
+            $marqueeId = $this->getMarqueeId();
+            $v = Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->find($val);
             if ($v) {
                 $this->paid_amount = $v->current_balance;
             }
@@ -66,8 +79,8 @@ class VendorSettlementManager extends Component
             'payment_method' => 'required|string',
         ]);
 
-        $marqueeId = auth()->user()->marquee_id;
-        $vendorObj = Vendor::where('marquee_id', $marqueeId)->findOrFail($this->vendor_id);
+        $marqueeId = $this->getMarqueeId();
+        $vendorObj = Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->findOrFail($this->vendor_id);
         if (floatval($this->paid_amount) > $vendorObj->current_balance) {
             $this->addError('paid_amount', 'Payout amount cannot exceed current service provider outstanding balance (Rs. ' . number_format($vendorObj->current_balance) . ').');
             return;
@@ -94,20 +107,26 @@ class VendorSettlementManager extends Component
         $this->reference_number = '';
         $this->account_id = null;
         $this->remarks = '';
+        if ($this->vendor) {
+            $this->vendor_id = $this->vendor->id;
+            $this->paid_amount = $this->vendor->current_balance;
+        } else {
+            $this->vendor_id = '';
+        }
     }
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
-        $query = VendorSettlement::where('marquee_id', $marqueeId)->with(['vendor', 'account', 'journalVoucher']);
+        $query = VendorSettlement::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->with(['vendor', 'account', 'journalVoucher']);
         if ($this->vendor) {
             $query->where('vendor_id', $this->vendor->id);
         }
 
         $settlements = $query->orderBy('settlement_date', 'desc')->get();
-        $vendors = Vendor::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
-        $accounts = Account::where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
+        $vendors = Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
+        $accounts = Account::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
 
         return view('livewire.vendor-settlement-manager', [
             'settlements' => $settlements,

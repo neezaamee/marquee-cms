@@ -7,6 +7,8 @@ use App\Models\Expense;
 interface ExpenseRepositoryInterface
 {
     public function all(array $filters = []);
+
+    public function paginate(int $perPage = 10, array $filters = []);
     
     public function find(int $id): ?Expense;
     

@@ -39,6 +39,10 @@ class RolesAndPermissionsSeeder extends Seeder
             // Finance/Payments
             ['name' => 'view_payments', 'label' => 'View Payments'],
             ['name' => 'create_payments', 'label' => 'Record Payments'],
+            ['name' => 'post_payments', 'label' => 'Verify & Post Payments to Accounts'],
+            ['name' => 'reject_payments', 'label' => 'Reject Pending Payments'],
+            ['name' => 'reverse_payments', 'label' => 'Reverse Posted Payments'],
+            ['name' => 'view_payment_ledger', 'label' => 'View Central Payment Ledger'],
             ['name' => 'refund_payments', 'label' => 'Refund Payments'],
 
             // Reports & Settings
@@ -49,6 +53,13 @@ class RolesAndPermissionsSeeder extends Seeder
             // Inventory
             ['name' => 'view_inventory', 'label' => 'View Inventory'],
             ['name' => 'manage_inventory', 'label' => 'Manage Inventory Items'],
+
+            // Supplier Categories
+            ['name' => 'view_supplier_categories', 'label' => 'View Supplier Categories'],
+            ['name' => 'create_supplier_categories', 'label' => 'Create Supplier Categories'],
+            ['name' => 'edit_supplier_categories', 'label' => 'Edit Supplier Categories'],
+            ['name' => 'delete_supplier_categories', 'label' => 'Delete Supplier Categories'],
+            ['name' => 'manage_supplier_categories', 'label' => 'Manage Supplier Categories'],
 
             // Event Types
             ['name' => 'event-types.view', 'label' => 'View Event Types'],
@@ -96,9 +107,10 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_bookings', 'create_bookings', 'edit_bookings', 'cancel_bookings',
                     'view_halls', 'create_halls', 'edit_halls', 'delete_halls',
                     'view_menus', 'create_menus', 'edit_menus', 'delete_menus',
-                    'view_payments', 'create_payments', 'refund_payments',
+                    'view_payments', 'create_payments', 'post_payments', 'reject_payments', 'reverse_payments', 'view_payment_ledger', 'refund_payments',
                     'view_reports', 'manage_staff', 'manage_settings',
                     'view_inventory', 'manage_inventory',
+                    'view_supplier_categories', 'create_supplier_categories', 'edit_supplier_categories', 'delete_supplier_categories', 'manage_supplier_categories',
                     'event-types.view', 'event-types.create', 'event-types.edit', 'event-types.delete',
                     'view_packages', 'create_packages', 'edit_packages', 'delete_packages',
                     'manage_accounting',
@@ -113,9 +125,10 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_bookings', 'create_bookings', 'edit_bookings', 'cancel_bookings',
                     'view_halls', 'create_halls', 'edit_halls', 'delete_halls',
                     'view_menus', 'create_menus', 'edit_menus', 'delete_menus',
-                    'view_payments', 'create_payments', 'refund_payments',
+                    'view_payments', 'create_payments', 'post_payments', 'reject_payments', 'reverse_payments', 'view_payment_ledger', 'refund_payments',
                     'view_reports', 'manage_staff', 'manage_settings',
                     'view_inventory', 'manage_inventory',
+                    'view_supplier_categories', 'create_supplier_categories', 'edit_supplier_categories', 'delete_supplier_categories', 'manage_supplier_categories',
                     'event-types.view', 'event-types.create', 'event-types.edit', 'event-types.delete',
                     'view_packages', 'create_packages', 'edit_packages', 'delete_packages',
                     'manage_accounting',
@@ -130,9 +143,10 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_bookings',
                     'view_halls',
                     'view_menus',
-                    'view_payments',
+                    'view_payments', 'view_payment_ledger',
                     'view_reports',
                     'view_inventory',
+                    'view_supplier_categories',
                     'event-types.view',
                     'view_packages',
                     'inventory.view-costs'
@@ -145,9 +159,10 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_bookings', 'create_bookings', 'edit_bookings', 'cancel_bookings',
                     'view_halls', 'create_halls', 'edit_halls', 'delete_halls',
                     'view_menus',
-                    'view_payments', 'create_payments',
+                    'view_payments', 'create_payments', 'view_payment_ledger',
                     'view_reports', 'manage_staff', 'manage_settings',
                     'view_inventory',
+                    'view_supplier_categories',
                     'event-types.view', 'event-types.create', 'event-types.edit',
                     'view_packages', 'create_packages', 'edit_packages',
                     'inventory.adjust', 'inventory.stock-take', 'inventory.view-costs', 'purchase.approve-po'
@@ -158,7 +173,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'description' => 'Handles financial records, payments, and invoices.',
                 'permissions' => [
                     'view_bookings',
-                    'view_payments', 'create_payments', 'refund_payments',
+                    'view_payments', 'create_payments', 'post_payments', 'reject_payments', 'reverse_payments', 'view_payment_ledger', 'refund_payments',
                     'view_reports',
                     'manage_accounting',
                     'inventory.view-costs', 'purchase.invoice-post'
@@ -178,7 +193,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'label' => 'Store Keeper / Inventory Manager',
                 'description' => 'Manages physical warehouse inventory, tables, chairs, and cutlery counts.',
                 'permissions' => [
-                    'view_inventory', 'manage_inventory', 'inventory.stock-take'
+                    'view_inventory', 'manage_inventory', 'view_supplier_categories', 'manage_supplier_categories', 'inventory.stock-take'
                 ],
             ],
             'staff' => [

@@ -46,9 +46,15 @@ class JournalVoucherForm extends Component
         'items.*.credit.numeric' => 'Credit must be a number.',
     ];
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        return $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+    }
+
     public function mount($id = null)
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $user = auth()->user();
 
         $this->branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
@@ -116,7 +122,7 @@ class JournalVoucherForm extends Component
     {
         $this->validate();
 
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
         // Clean items array structure
         $cleanItems = [];

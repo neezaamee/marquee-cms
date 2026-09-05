@@ -15,6 +15,10 @@
 * **Multi-Tenant SaaS Architecture**: Dynamic onboarding setup wizard, isolated databases (tenant and branch level query scoping with `BelongsToTenant` and `BelongsToBranch`), and Stripe multi-currency subscriptions.
 * **Double-Entry Financial Accounting**: Automated Chart of Accounts (COA) provisioning, automated Journal Voucher generation on booking creation and payment posting, Trial Balance, Profit & Loss, and Balance Sheet generation.
 * **Customer Ledger & Advance Liabilities**: Real-time customer balance tracking, advance payment reconciliation against actual events, and automated liability reporting (`CustomerAdvanceLiabilityReport`).
+* **Two-Stage Payment & Ledger Posting**: Separation of front-desk customer payment collection (`pending_posting`) and accountant verification/posting to financial accounts.
+* **Leads & Inquiries CRM**: Full sales lead lifecycle tracking (New, Contacted, Qualified, Proposal Sent, Won, Lost), lead interaction logs, and instant conversion into active bookings.
+* **All Users Activity Log & Audit Trail**: Centralized enterprise audit trail tracking user authentication, record mutations, client IP addresses, user agents, and tenant scoping.
+* **Sales Tax Invoice V2 (Falcon Print Studio)**: Enterprise multi-paper printable invoices (A4, Letter, Legal) with FBR digital invoice numbers, QR code generation, branch branding, and space-optimized event specifications.
 * **Vendor & Service Provider Partnerships**: Vendor profiles, service catalogs, commission agreements, sale registrations, advance payouts, and automatic deduction workflows.
 * **Synthetic Demo Data Generator**: Built-in `SyntheticDataGeneratorService` and `app:generate-synthetic-data` Artisan command to provision realistic multi-branch demo data in seconds.
 * **Automated Phone Normalization**: Integrated `PhoneNumberService` standardizing local Pakistani formats (`03XX-XXXXXXX`) and E.164 international numbers across all forms.

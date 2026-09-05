@@ -22,8 +22,9 @@ class DepartmentProduction extends Model
         'production_date',
         'booking_id',
         'recipe_id',
+        'recipe_version_id',
         'produced_qty',
-        'wastage_qty',
+        'legacy_finished_good_wastage_qty',
         'prepared_by',
         'approved_by',
         'production_time',
@@ -35,7 +36,7 @@ class DepartmentProduction extends Model
     protected $casts = [
         'production_date' => 'date',
         'produced_qty' => 'float',
-        'wastage_qty' => 'float',
+        'legacy_finished_good_wastage_qty' => 'float',
     ];
 
     /**

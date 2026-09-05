@@ -76,6 +76,31 @@ class BookingController extends Controller
     }
 
     /**
+     * Renders the Falcon eCommerce Final Bill Invoice (V2) layout for a booking.
+     */
+    public function finalBillV2(Booking $booking)
+    {
+        abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this final bill invoice.');
+
+        $booking->load([
+            'customer', 'hall', 'halls', 'slot', 'package', 'eventType',
+            'extraServices', 'branch', 'marquee', 'hall.branch',
+            'payments' => function ($q) {
+                $q->whereIn('status', ['posted', 'received']);
+            },
+            'finalBill.extraServices',
+            'finalBill.creator',
+            'vendorSales' => function ($q) {
+                $q->where('include_in_invoice', true)->whereIn('status', ['confirmed', 'settled']);
+            },
+            'vendorSales.service',
+            'vendorSales.vendor'
+        ]);
+
+        return view('bookings.final_bill_v2', compact('booking'));
+    }
+
+    /**
      * Generates and downloads a PDF of the booking slip/invoice using DomPDF.
      */
     public function downloadPdf(Booking $booking)

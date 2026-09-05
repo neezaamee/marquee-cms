@@ -571,41 +571,86 @@ class VendorCommissionService
      */
     protected function postVendorSaleToAccounting(VendorSale $sale): ?JournalVoucher
     {
-        $revenueType = AccountType::where('name', 'Revenue')->orWhere('code', 'REV')->first();
-        if (!$revenueType) {
-            $revenueType = AccountType::create(['name' => 'Revenue', 'code' => 'REV', 'nature' => 'Income']);
+        $assetType = AccountType::where('name', 'Current Assets')->orWhere('code', 'CURRENT_ASSETS')->orWhere('code', 'CASSET')->first();
+        if (!$assetType) {
+            $assetType = AccountType::create(['name' => 'Current Assets', 'code' => 'CURRENT_ASSETS', 'nature' => 'Asset']);
         }
 
-        $liabilityType = AccountType::where('name', 'Current Liabilities')->orWhere('code', 'CLIAB')->first();
+        $revenueType = AccountType::where('name', 'Revenue')->orWhere('code', 'REV')->orWhere('code', 'OPERATING_REVENUE')->first();
+        if (!$revenueType) {
+            $revenueType = AccountType::create(['name' => 'Operating Revenue', 'code' => 'OPERATING_REVENUE', 'nature' => 'Income']);
+        }
+
+        $liabilityType = AccountType::where('name', 'Current Liabilities')->orWhere('code', 'CLIAB')->orWhere('code', 'CURRENT_LIABILITIES')->first();
         if (!$liabilityType) {
-            $liabilityType = AccountType::create(['name' => 'Current Liabilities', 'code' => 'CLIAB', 'nature' => 'Liability']);
+            $liabilityType = AccountType::create(['name' => 'Current Liabilities', 'code' => 'CURRENT_LIABILITIES', 'nature' => 'Liability']);
+        }
+
+        // Find/Create Accounts Receivable Account
+        $arAccount = Account::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $sale->marquee_id)
+            ->where(function($q) {
+                $q->where('account_code', '1003')
+                  ->orWhere('name', 'Accounts Receivable');
+            })
+            ->first();
+
+        if (!$arAccount) {
+            $arAccount = Account::withoutGlobalScope('tenant')->withTrashed()->firstOrCreate(
+                ['marquee_id' => $sale->marquee_id, 'name' => 'Accounts Receivable'],
+                [
+                    'account_code' => '1003',
+                    'account_type_id' => $assetType->id,
+                    'nature' => 'Asset',
+                    'description' => 'Outstanding customer receivables for event services',
+                    'is_active' => true,
+                ]
+            );
         }
 
         // Find/Create Vendor Commission Income Account
-        $incomeAccount = Account::withoutGlobalScope('tenant')->withTrashed()->firstOrCreate(
-            ['marquee_id' => $sale->marquee_id, 'name' => 'Vendor Commission Income'],
-            [
-                'account_code' => '4200-VEN',
-                'account_type_id' => $revenueType->id,
-                'nature' => 'Income',
-                'description' => 'Income generated from event vendor sales commissions',
-                'is_active' => true,
-            ]
-        );
+        $incomeAccount = Account::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $sale->marquee_id)
+            ->where(function($q) {
+                $q->where('account_code', '4005')
+                  ->orWhere('account_code', '4200-VEN')
+                  ->orWhere('name', 'Vendor Commission Income');
+            })
+            ->first();
+
+        if (!$incomeAccount) {
+            $incomeAccount = Account::withoutGlobalScope('tenant')->withTrashed()->firstOrCreate(
+                ['marquee_id' => $sale->marquee_id, 'name' => 'Vendor Commission Income'],
+                [
+                    'account_code' => '4005',
+                    'account_type_id' => $revenueType->id,
+                    'nature' => 'Income',
+                    'description' => 'Income generated from event vendor sales commissions',
+                    'is_active' => true,
+                ]
+            );
+        }
 
         // Find/Create Vendor Payable Clearing Account
-        $payableAccount = Account::withoutGlobalScope('tenant')->withTrashed()->firstOrCreate(
-            ['marquee_id' => $sale->marquee_id, 'name' => 'Vendor Payable Clearing'],
-            [
-                'account_code' => '2150-VEN',
-                'account_type_id' => $liabilityType->id,
-                'nature' => 'Liability',
-                'description' => 'Net liabilities payable to contracted event vendors',
-                'is_active' => true,
-            ]
-        );
+        $payableAccount = Account::withoutGlobalScope('tenant')->withTrashed()->where('marquee_id', $sale->marquee_id)
+            ->where(function($q) {
+                $q->where('account_code', '2150-VEN')
+                  ->orWhere('name', 'Vendor Payable Clearing');
+            })
+            ->first();
 
-        if ($sale->commission_amount <= 0 && $sale->vendor_net_amount <= 0) {
+        if (!$payableAccount) {
+            $payableAccount = Account::withoutGlobalScope('tenant')->withTrashed()->firstOrCreate(
+                ['marquee_id' => $sale->marquee_id, 'name' => 'Vendor Payable Clearing'],
+                [
+                    'account_code' => '2150-VEN',
+                    'account_type_id' => $liabilityType->id,
+                    'nature' => 'Liability',
+                    'description' => 'Net liabilities payable to contracted event vendors',
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        if ($sale->sale_amount <= 0 && $sale->commission_amount <= 0 && $sale->vendor_net_amount <= 0) {
             return null;
         }
 
@@ -629,9 +674,20 @@ class VendorCommissionService
             'voucher_no' => $jvNumber,
             'voucher_date' => $sale->sale_date->format('Y-m-d'),
             'reference' => $sale->vendor_sale_number,
-            'notes' => "Vendor Sale #" . $sale->vendor_sale_number . " (" . $sale->vendor->name . ") Commission Income",
+            'notes' => "Vendor Sale #" . $sale->vendor_sale_number . " (" . $sale->vendor->name . ") Billed & Commission Income",
             'status' => 'posted',
         ]);
+
+        // Debit Accounts Receivable (Total Sale Amount)
+        if ($sale->sale_amount > 0) {
+            JournalVoucherItem::create([
+                'journal_voucher_id' => $jv->id,
+                'account_id' => $arAccount->id,
+                'debit' => $sale->sale_amount,
+                'credit' => 0.00,
+                'narration' => 'Total vendor service billed for sale #' . $sale->vendor_sale_number,
+            ]);
+        }
 
         // Credit Vendor Commission Income
         if ($sale->commission_amount > 0) {

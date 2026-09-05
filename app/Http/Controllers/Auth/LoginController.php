@@ -53,6 +53,20 @@ class LoginController extends Controller
         if (Auth::attempt(array_merge($credentials, ['status' => 'active']), $remember)) {
             $request->session()->regenerate();
 
+            $authUser = Auth::user();
+            try {
+                \App\Models\ActivityLog::create([
+                    'marquee_id' => $authUser->marquee_id,
+                    'user_id' => $authUser->id,
+                    'action' => 'login',
+                    'model_type' => get_class($authUser),
+                    'model_id' => $authUser->id,
+                    'description' => "User '{$authUser->name}' logged into system",
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+            } catch (\Throwable $e) {}
+
             return redirect()->intended(route('dashboard'));
         }
 
@@ -66,6 +80,22 @@ class LoginController extends Controller
      */
     public function logout(Request $request)
     {
+        $authUser = Auth::user();
+        if ($authUser) {
+            try {
+                \App\Models\ActivityLog::create([
+                    'marquee_id' => $authUser->marquee_id,
+                    'user_id' => $authUser->id,
+                    'action' => 'logout',
+                    'model_type' => get_class($authUser),
+                    'model_id' => $authUser->id,
+                    'description' => "User '{$authUser->name}' logged out of system",
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+            } catch (\Throwable $e) {}
+        }
+
         Auth::logout();
 
         $request->session()->invalidate();

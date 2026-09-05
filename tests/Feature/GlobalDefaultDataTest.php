@@ -100,6 +100,7 @@ class GlobalDefaultDataTest extends TestCase
         $this->assertGreaterThan(0, GlobalDefaultMaster::category('vendor_type')->count());
         $this->assertGreaterThan(0, GlobalDefaultMaster::category('customer_type')->count());
         $this->assertGreaterThan(0, GlobalDefaultMaster::category('payment_method')->count());
+        $this->assertGreaterThan(0, GlobalDefaultMaster::category('supplier_category')->count());
     }
 
     public function test_super_admin_can_manage_global_default_masters()

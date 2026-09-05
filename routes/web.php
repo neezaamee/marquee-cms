@@ -92,12 +92,17 @@ Route::middleware('auth')->group(function () {
             Route::resource('event-types', EventTypeController::class);
             Route::resource('extra-services', ExtraServiceController::class);
             
+            // Leads & Inquiries CRM
+            Route::get('leads', \App\Livewire\LeadManager::class)->name('leads.index');
+
             // Booking Management
             Route::get('bookings/report', [BookingController::class, 'report'])->name('bookings.report');
             Route::get('bookings/calendar', [BookingController::class, 'calendar'])->name('bookings.calendar');
             Route::get('bookings/{booking}/slip', [BookingController::class, 'slip'])->name('bookings.slip')->withTrashed();
             Route::get('bookings/{booking}/slip-v2', [BookingController::class, 'slipV2'])->name('bookings.slip-v2')->withTrashed();
             Route::get('bookings/{booking}/slip-v3', [BookingController::class, 'slipV3'])->name('bookings.slip-v3')->withTrashed();
+            Route::get('bookings/{booking}/final-bill-v2', [BookingController::class, 'finalBillV2'])->name('bookings.final-bill-v2')->withTrashed();
+            Route::get('bookings/{booking}/final-bill', [BookingController::class, 'finalBillV2'])->name('bookings.final-bill')->withTrashed();
             Route::get('bookings/{booking}/kitchen-slip', [BookingController::class, 'kitchenSlip'])->name('bookings.kitchen-slip')->withTrashed();
             Route::get('bookings/{booking}/pdf', [BookingController::class, 'downloadPdf'])->name('bookings.pdf')->withTrashed();
             Route::get('bookings/payments/{payment}/receipt', [BookingController::class, 'paymentReceipt'])->name('bookings.payment-receipt');
@@ -154,8 +159,9 @@ Route::middleware('auth')->group(function () {
             Route::get('inventory/stock-ledger', \App\Livewire\Inventory\StockLedgerView::class)->name('inventory.stock-ledger');
             Route::view('inventory/settings', 'inventory.settings')->name('inventory.settings');
 
-            // Supplier Directory Module
+            // Supplier Directory & Categories Module
             Route::view('inventory/suppliers', 'inventory.suppliers')->name('suppliers.index');
+            Route::view('inventory/supplier-categories', 'inventory.supplier-categories')->name('supplier-categories.index');
             Route::get('inventory/suppliers/{supplier}/ledger', function (\App\Models\Supplier $supplier) {
                 return view('inventory.supplier-ledger', compact('supplier'));
             })->name('suppliers.ledger');
@@ -231,6 +237,9 @@ Route::middleware('auth')->group(function () {
             Route::get('departments/reports', \App\Livewire\DepartmentReports::class)->name('departments.reports');
         });
     });
+
+    // System & Staff Activity Logs (Accessible to Super Admin & Business Owners)
+    Route::get('activity-logs', \App\Livewire\ActivityLogManager::class)->name('activity-logs.index');
 
     // SaaS Subscription Management, Backup Management & Global Defaults (Super Admin only)
     Route::resource('subscription-plans', \App\Http\Controllers\SubscriptionPlanController::class);

@@ -20,10 +20,23 @@ class VendorServiceManager extends Component
     public $default_sale_price = 0.00;
     public $status = 'active';
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        $id = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        if (!$id && $user?->isSuperAdmin()) {
+            return \App\Models\Marquee::first()?->id;
+        }
+        return $id;
+    }
+
     public function mount(?Vendor $vendor = null)
     {
-        if ($vendor && !auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this Service Provider.');
+        $user = auth()->user();
+        if ($vendor && $user && !$user->isSuperAdmin()) {
+            if ($vendor->marquee_id && !$user->hasAccessToMarquee($vendor->marquee_id)) {
+                abort(403, 'Unauthorized access to this Service Provider.');
+            }
         }
         $this->vendor = $vendor;
         if ($vendor) {
@@ -42,7 +55,8 @@ class VendorServiceManager extends Component
 
     public function editService($id)
     {
-        $service = VendorService::where('marquee_id', auth()->user()->marquee_id)->findOrFail($id);
+        $marqueeId = $this->getMarqueeId();
+        $service = VendorService::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->findOrFail($id);
         $this->serviceId = $service->id;
         $this->selectedVendorId = $service->vendor_id;
         $this->service_name = $service->service_name;
@@ -56,6 +70,8 @@ class VendorServiceManager extends Component
 
     public function saveService()
     {
+        $marqueeId = $this->getMarqueeId();
+
         $this->validate([
             'selectedVendorId' => 'required|exists:vendors,id',
             'service_name' => 'required|string|max:255',
@@ -64,11 +80,10 @@ class VendorServiceManager extends Component
             'status' => 'required|string|in:active,inactive',
         ]);
 
-        $marqueeId = auth()->user()->marquee_id;
-        Vendor::where('marquee_id', $marqueeId)->findOrFail($this->selectedVendorId);
+        Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->findOrFail($this->selectedVendorId);
 
         if ($this->serviceId) {
-            VendorService::where('marquee_id', $marqueeId)->findOrFail($this->serviceId);
+            VendorService::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->findOrFail($this->serviceId);
         }
 
         VendorService::updateOrCreate(
@@ -96,19 +111,24 @@ class VendorServiceManager extends Component
         $this->unit = 'Event';
         $this->default_sale_price = 0.00;
         $this->status = 'active';
+        if ($this->vendor) {
+            $this->selectedVendorId = $this->vendor->id;
+        } else {
+            $this->selectedVendorId = null;
+        }
     }
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
-        $query = VendorService::where('marquee_id', $marqueeId)->with('vendor');
+        $query = VendorService::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->with('vendor');
         if ($this->vendor) {
             $query->where('vendor_id', $this->vendor->id);
         }
 
         $services = $query->orderBy('service_name')->get();
-        $vendors = Vendor::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
+        $vendors = Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
 
         return view('livewire.vendor-service-manager', [
             'services' => $services,

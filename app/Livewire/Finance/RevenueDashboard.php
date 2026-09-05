@@ -52,14 +52,16 @@ class RevenueDashboard extends Component
         // Total Billings (Commercial contract sum)
         $totalBillings = (float) $bookings->sum('grand_total');
 
-        // 3. Payments Tracking
+        // 3. Payments Tracking (Posted Financial Transactions)
         $bookingIds = $bookings->pluck('id')->toArray();
         
         $totalPaymentsCollected = (float) BookingPayment::whereIn('booking_id', $bookingIds)
+            ->where('status', 'posted')
             ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])
             ->sum('amount');
 
         $totalRefundsDisbursed = (float) BookingPayment::whereIn('booking_id', $bookingIds)
+            ->where('status', 'posted')
             ->where('payment_type', 'refund')
             ->sum('amount');
 

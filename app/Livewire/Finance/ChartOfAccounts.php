@@ -4,6 +4,7 @@ namespace App\Livewire\Finance;
 
 use App\Models\Account;
 use App\Models\AccountType;
+use App\Services\AccountingService;
 use Livewire\Component;
 
 class ChartOfAccounts extends Component
@@ -20,11 +21,25 @@ class ChartOfAccounts extends Component
     public $editId = null;
     public $isFormOpen = false;
 
+    public function getMarqueeId(): ?int
+    {
+        if ($this->isSaas) {
+            return null;
+        }
+
+        $user = auth()->user();
+        if (!$user) {
+            return null;
+        }
+
+        return $user->getActiveMarqueeId() ?: $user->marquee_id;
+    }
+
     public function getRules()
     {
-        $marqueeId = $this->isSaas ? null : auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $ignoreId = $this->editId ?: 'NULL';
-        $marqueeCondition = $this->isSaas ? 'NULL' : $marqueeId;
+        $marqueeCondition = $this->isSaas || is_null($marqueeId) ? 'NULL' : $marqueeId;
         
         return [
             'account_code' => "required|string|max:50|unique:accounts,account_code,{$ignoreId},id,marquee_id,{$marqueeCondition}",
@@ -65,7 +80,7 @@ class ChartOfAccounts extends Component
         $this->validate();
 
         $type = AccountType::findOrFail($this->account_type_id);
-        $marqueeId = $this->isSaas ? null : auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
         // Parent validation: cannot make itself its own parent
         if ($this->editId && $this->parent_id == $this->editId) {
@@ -85,7 +100,7 @@ class ChartOfAccounts extends Component
         ];
 
         if ($this->editId) {
-            $account = Account::findOrFail($this->editId);
+            $account = Account::withoutGlobalScope('tenant')->findOrFail($this->editId);
             
             // If system generated, protect critical fields
             if ($account->system_generated) {
@@ -109,7 +124,7 @@ class ChartOfAccounts extends Component
     public function edit($id)
     {
         $this->resetInputFields();
-        $account = Account::findOrFail($id);
+        $account = Account::withoutGlobalScope('tenant')->findOrFail($id);
         $this->editId = $account->id;
         $this->account_code = $account->account_code;
         $this->name = $account->name;
@@ -122,7 +137,7 @@ class ChartOfAccounts extends Component
 
     public function delete($id)
     {
-        $account = Account::findOrFail($id);
+        $account = Account::withoutGlobalScope('tenant')->findOrFail($id);
 
         if ($account->system_generated) {
             session()->flash('error', 'System-generated accounts cannot be deleted.');
@@ -153,40 +168,80 @@ class ChartOfAccounts extends Component
 
     private function getAccountsTree()
     {
-        $query = Account::with(['accountType', 'parent'])->orderBy('account_code');
+        $marqueeId = $this->getMarqueeId();
+
+        $query = Account::withoutGlobalScope('tenant')->with(['accountType', 'parent'])->orderBy('account_code');
         if ($this->isSaas) {
             $query->whereNull('marquee_id');
         } else {
-            $query->where('marquee_id', auth()->user()->marquee_id);
+            if ($marqueeId) {
+                $query->where('marquee_id', $marqueeId);
+            }
         }
         $accounts = $query->get();
+
+        // If for a tenant there are no accounts yet, auto-seed defaults on-the-fly!
+        if (!$this->isSaas && $marqueeId && $accounts->isEmpty()) {
+            app(AccountingService::class)->seedTenantDefaultAccounts($marqueeId);
+            $accounts = Account::withoutGlobalScope('tenant')
+                ->with(['accountType', 'parent'])
+                ->where('marquee_id', $marqueeId)
+                ->orderBy('account_code')
+                ->get();
+        }
             
         $tree = [];
-        $this->buildTree($accounts, null, 0, $tree);
+        $visited = [];
+        $this->buildTree($accounts, null, 0, $tree, $visited);
         return $tree;
     }
 
-    private function buildTree($accounts, $parentId, $depth, &$tree)
+    private function buildTree($accounts, $parentId, $depth, &$tree, &$visited = [])
     {
-        foreach ($accounts->where('parent_id', $parentId) as $account) {
+        $matched = $accounts->filter(function ($account) use ($parentId) {
+            if (is_null($parentId)) {
+                return is_null($account->parent_id) || $account->parent_id === 0 || $account->parent_id === '';
+            }
+            return (int) $account->parent_id === (int) $parentId;
+        });
+
+        foreach ($matched as $account) {
+            if (in_array($account->id, $visited)) {
+                continue;
+            }
+            $visited[] = $account->id;
             $account->depth = $depth;
             $tree[] = $account;
-            $this->buildTree($accounts, $account->id, $depth + 1, $tree);
+            $this->buildTree($accounts, $account->id, $depth + 1, $tree, $visited);
+        }
+
+        // Top level catch for any orphaned accounts
+        if (is_null($parentId)) {
+            foreach ($accounts as $account) {
+                if (!in_array($account->id, $visited)) {
+                    $visited[] = $account->id;
+                    $account->depth = 0;
+                    $tree[] = $account;
+                    $this->buildTree($accounts, $account->id, 1, $tree, $visited);
+                }
+            }
         }
     }
 
     public function render()
     {
-        $marqueeId = $this->isSaas ? null : auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $accountsTree = $this->getAccountsTree();
         $accountTypes = AccountType::forTenant($marqueeId)->orderBy('nature')->orderBy('name')->get();
         
         // Potential parents should not include the current editing account or its children to prevent cycles
-        $potentialParents = Account::where('is_active', true);
+        $potentialParents = Account::withoutGlobalScope('tenant')->where('is_active', true);
         if ($this->isSaas) {
             $potentialParents->whereNull('marquee_id');
         } else {
-            $potentialParents->where('marquee_id', $marqueeId);
+            if ($marqueeId) {
+                $potentialParents->where('marquee_id', $marqueeId);
+            }
         }
         if ($this->editId) {
             $potentialParents->where('id', '!=', $this->editId);

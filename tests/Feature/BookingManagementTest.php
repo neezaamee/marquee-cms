@@ -611,12 +611,26 @@ class BookingManagementTest extends TestCase
             ->call('recordPayment')
             ->assertHasNoErrors();
 
+        // Recorded payment is pending posting
+        $payment1 = $booking->payments()->first();
+        $this->assertEquals('pending_posting', $payment1->status);
+
+        $cashType = \App\Models\AccountType::firstOrCreate(['code' => 'CURRENT_ASSETS'], ['name' => 'Current Assets', 'nature' => 'Asset']);
+        $cashAccount = \App\Models\Account::firstOrCreate(
+            ['marquee_id' => $this->marqueeA->id, 'account_code' => '1001'],
+            ['name' => 'Cash in Hand', 'account_type_id' => $cashType->id, 'nature' => 'Asset', 'is_active' => true]
+        );
+
+        // Accountant posts payment 1
+        $viewComponent->call('openAccountantPostModal', $payment1->id)
+            ->set('bvTargetAccountId', $cashAccount->id)
+            ->call('confirmAccountantPostPayment')
+            ->assertHasNoErrors();
+
         // Payment status should now be 'Partially Paid'
         $booking->refresh();
         $this->assertEquals('Partially Paid', $booking->payment_status);
-
-        // Sum of payments should be 50,000
-        $this->assertEquals(50000.00, $booking->payments()->sum('amount'));
+        $this->assertEquals(50000.00, $booking->total_paid);
 
         // Let's pay the rest
         $viewComponent->set('amountPaid', 100000.00)
@@ -624,10 +638,16 @@ class BookingManagementTest extends TestCase
             ->call('recordPayment')
             ->assertHasNoErrors();
 
+        $payment2 = $booking->payments()->where('id', '!=', $payment1->id)->first();
+        $viewComponent->call('openAccountantPostModal', $payment2->id)
+            ->set('bvTargetAccountId', $cashAccount->id)
+            ->call('confirmAccountantPostPayment')
+            ->assertHasNoErrors();
+
         // Payment status should now be 'Paid'
         $booking->refresh();
         $this->assertEquals('Paid', $booking->payment_status);
-        $this->assertEquals(150000.00, $booking->payments()->sum('amount'));
+        $this->assertEquals(150000.00, $booking->total_paid);
     }
 
     public function test_deposit_release_handles_damages_refund_amounts_and_notes()
@@ -939,6 +959,7 @@ class BookingManagementTest extends TestCase
             'amount' => 100000.00,
             'payment_date' => Carbon::yesterday()->format('Y-m-d'),
             'payment_method' => 'Cash',
+            'status' => 'posted',
             'recorded_by' => $this->userOwnerA->id,
         ]);
 

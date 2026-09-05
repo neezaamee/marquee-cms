@@ -54,14 +54,20 @@
                 <tbody>
                     @forelse($ledgers as $entry)
                         <tr>
-                            <td>{{ $entry->transaction_date->format('d-M-Y') }}</td>
+                            <td>{{ $entry->transaction_date ? $entry->transaction_date->format('d-M-Y') : '—' }}</td>
                             <td class="fw-bold font-monospace text-primary">{{ $entry->reference_number }}</td>
                             @if(!$vendor)
-                                <td class="fw-semibold">{{ $entry->vendor->name ?? '—' }}</td>
+                                <td class="fw-semibold">
+                                    @if($entry->vendor)
+                                        <a href="{{ route('vendors.show', $entry->vendor_id) }}" class="text-dark">{{ $entry->vendor->name }}</a>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                             @endif
                             <td>
                                 @if($entry->booking)
-                                    <span class="badge badge-subtle-info"><i class="fas fa-calendar-check me-1"></i>{{ $entry->booking->booking_number }}</span>
+                                    <a href="{{ route('bookings.show', $entry->booking_id) }}" class="badge badge-subtle-info text-decoration-none"><i class="fas fa-calendar-check me-1"></i>{{ $entry->booking->booking_number }}</a>
                                 @else
                                     <span class="text-muted">—</span>
                                 @endif

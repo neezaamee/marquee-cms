@@ -144,16 +144,17 @@ class DepartmentProductionManager extends Component
     {
         $this->validate();
 
+        $this->batch_number = $this->batch_number ?: $this->generateBatchNumber();
         $marqueeId = auth()->user()->marquee_id;
-        $branchId = auth()->user()->branch_id;
+        $department = Department::findOrFail($this->department_id);
+        $branchId = auth()->user()->branch_id ?? $department->branch_id;
 
         if (!$branchId) {
-            $this->addError('branch_id', 'Please make sure you are logged in to a branch.');
+            $this->addError('department_id', 'The selected department is not associated with a valid branch.');
             return;
         }
 
         $stockService = app(DepartmentStockService::class);
-        $department = Department::findOrFail($this->department_id);
 
         // Validate department stock for raw materials + wastage
         // TASK 4 FIX: wastage_qty is deducted from the first item's stock,
@@ -181,29 +182,32 @@ class DepartmentProductionManager extends Component
         DB::transaction(function () use ($marqueeId, $branchId, $stockService, $department) {
             // Create production record
             $production = DepartmentProduction::create([
-                'marquee_id'      => $marqueeId,
-                'branch_id'       => $branchId,
-                'department_id'   => $this->department_id,
-                'batch_number'    => $this->batch_number,
-                'production_date' => $this->production_date,
-                'booking_id'      => $this->booking_id ?: null,
-                'recipe_id'       => $this->recipe_id ?: null,
-                'produced_qty'    => $this->produced_qty,
-                'wastage_qty'     => $this->wastage_qty,
-                'prepared_by'     => $this->prepared_by ?: null,
-                'approved_by'     => auth()->id(),
-                'production_time' => $this->production_time,
-                'notes'           => $this->notes,
-                'created_by'      => auth()->id(),
+                'marquee_id'                       => $marqueeId,
+                'branch_id'                        => $branchId,
+                'department_id'                    => $this->department_id,
+                'batch_number'                     => $this->batch_number,
+                'production_date'                  => $this->production_date,
+                'booking_id'                       => $this->booking_id ?: null,
+                'recipe_id'                        => $this->recipe_id ?: null,
+                'produced_qty'                     => $this->produced_qty,
+                'legacy_finished_good_wastage_qty' => $this->wastage_qty,
+                'prepared_by'                      => $this->prepared_by ?: null,
+                'approved_by'                      => auth()->id(),
+                'production_time'                  => $this->production_time,
+                'notes'                            => $this->notes,
+                'created_by'                       => auth()->id(),
             ]);
 
             // Record production items
             $consumeItems = [];
-            foreach ($this->formItems as $formItem) {
+            foreach ($this->formItems as $idx => $formItem) {
+                $itemWastage = ($idx === 0) ? (float)$this->wastage_qty : 0.00;
                 DepartmentProductionItem::create([
                     'department_production_id' => $production->id,
                     'item_id'                  => $formItem['item_id'],
                     'quantity'                 => $formItem['quantity'],
+                    'consumed_qty'             => $formItem['quantity'],
+                    'wastage_qty'              => $itemWastage,
                 ]);
                 $consumeItems[$formItem['item_id']] = $formItem['quantity'];
             }
@@ -277,7 +281,7 @@ class DepartmentProductionManager extends Component
         $inventoryItems = InventoryItem::where('marquee_id', $marqueeId)->where('status', 'Active')->get();
 
         $bookings = Booking::where('marquee_id', $marqueeId)
-            ->whereIn('status', ['Confirmed', 'Completed'])
+            ->whereIn('booking_status', ['Confirmed', 'Completed'])
             ->with('customer')
             ->get();
 

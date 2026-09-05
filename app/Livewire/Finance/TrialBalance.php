@@ -15,9 +15,15 @@ class TrialBalance extends Component
 
     public $reportData = null;
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        return $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+    }
+
     public function mount()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $user = auth()->user();
 
         // Enforce user branch scope
@@ -60,7 +66,7 @@ class TrialBalance extends Component
             'branch_id' => 'nullable|exists:branches,id',
         ]);
 
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
         try {
             $this->reportData = $accountingService->getTrialBalance(
@@ -77,7 +83,7 @@ class TrialBalance extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $user = auth()->user();
 
         $financialYears = FinancialYear::where('marquee_id', $marqueeId)->orderBy('start_date', 'desc')->get();

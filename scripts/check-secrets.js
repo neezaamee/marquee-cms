@@ -14,6 +14,7 @@ try {
     // Get list of staged files
     const stagedFiles = execSync('git diff --cached --name-only --diff-filter=d')
         .toString()
+        .replace(/\r/g, '')
         .trim()
         .split('\n')
         .filter(Boolean);
@@ -32,7 +33,7 @@ try {
 
         // Get diff of staged additions for this file
         const diff = execSync(`git diff --cached -- "${file}"`).toString();
-        const lines = diff.split('\n');
+        const lines = diff.replace(/\r/g, '').split('\n');
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];

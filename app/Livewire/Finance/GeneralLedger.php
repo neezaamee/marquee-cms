@@ -20,9 +20,18 @@ class GeneralLedger extends Component
 
     public $ledgerData = null;
 
+    public function getMarqueeId(): ?int
+    {
+        if ($this->isSaas) {
+            return null;
+        }
+        $user = auth()->user();
+        return $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+    }
+
     public function mount()
     {
-        $marqueeId = $this->isSaas ? null : auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $user = auth()->user();
 
         // Enforce user branch scope
@@ -90,7 +99,7 @@ class GeneralLedger extends Component
 
     public function render()
     {
-        $marqueeId = $this->isSaas ? null : auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $user = auth()->user();
 
         // Get leaf accounts

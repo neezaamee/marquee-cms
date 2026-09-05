@@ -18,7 +18,16 @@ class BookingView extends Component
     public $paymentAccountId = null;
     public $paymentType = 'advance';
     public $transactionReference = '';
+    public $chequeNumber = '';
+    public $bankReference = '';
     public $paymentNote = '';
+
+    // Accountant Post Modal State
+    public $showAccountantPostModal = false;
+    public $bvPostingPaymentId = null;
+    public $bvTargetAccountId = '';
+    public $bvPostingDate = '';
+    public $bvAccountantNotes = '';
 
     // Booking Cancellation Modal State
     public $showBookingCancelModal = false;
@@ -133,6 +142,13 @@ class BookingView extends Component
         $this->cpPaymentDate = date('Y-m-d');
     }
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        return $this->booking->marquee_id
+            ?: ($user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null);
+    }
+
     public function openVendorSaleModal()
     {
         $this->vsVendorId = '';
@@ -161,7 +177,7 @@ class BookingView extends Component
     public function updatedVsServiceId($val)
     {
         if ($val) {
-            $service = \App\Models\VendorService::find($val);
+            $service = \App\Models\VendorService::withoutGlobalScope('tenant')->find($val);
             if ($service && floatval($service->default_sale_price) > 0) {
                 $this->vsCustomerCharge = (float) $service->default_sale_price;
             }
@@ -185,12 +201,17 @@ class BookingView extends Component
             return;
         }
 
-        $vendor = \App\Models\Vendor::find($this->vsVendorId);
+        $vendor = \App\Models\Vendor::withoutGlobalScope('tenant')->find($this->vsVendorId);
         if (!$vendor) return;
 
-        $service = $this->vsServiceId ? \App\Models\VendorService::find($this->vsServiceId) : null;
+        $service = $this->vsServiceId ? \App\Models\VendorService::withoutGlobalScope('tenant')->find($this->vsServiceId) : null;
         $serviceEngine = app(\App\Services\VendorCommissionService::class);
-        $agreement = $serviceEngine->resolveAgreement($vendor, $service, $this->booking->booking_date->format('Y-m-d'));
+        $bookingDate = $this->booking->booking_date
+            ? ($this->booking->booking_date instanceof \DateTimeInterface
+                ? $this->booking->booking_date->format('Y-m-d')
+                : \Carbon\Carbon::parse($this->booking->booking_date)->format('Y-m-d'))
+            : date('Y-m-d');
+        $agreement = $serviceEngine->resolveAgreement($vendor, $service, $bookingDate);
         
         $customerCharge = floatval($this->vsCustomerCharge);
         $calc = $serviceEngine->calculateCommission(
@@ -225,6 +246,12 @@ class BookingView extends Component
             return;
         }
 
+        $eventDate = $this->booking->booking_date
+            ? ($this->booking->booking_date instanceof \DateTimeInterface
+                ? $this->booking->booking_date->format('Y-m-d')
+                : \Carbon\Carbon::parse($this->booking->booking_date)->format('Y-m-d'))
+            : date('Y-m-d');
+
         $serviceEngine = app(\App\Services\VendorCommissionService::class);
         $sale = $serviceEngine->createVendorSale([
             'vendor_id' => $this->vsVendorId,
@@ -232,7 +259,7 @@ class BookingView extends Component
             'booking_id' => $this->booking->id,
             'customer_id' => $this->booking->customer_id,
             'branch_id' => $this->booking->branch_id,
-            'event_date' => $this->booking->booking_date->format('Y-m-d'),
+            'event_date' => $eventDate,
             'sale_date' => date('Y-m-d'),
             'quantity' => 1,
             'unit' => 'Event',
@@ -439,6 +466,8 @@ class BookingView extends Component
         $this->paymentMethod = 'Cash';
         $this->paymentAccountId = null;
         $this->transactionReference = '';
+        $this->chequeNumber = '';
+        $this->bankReference = '';
         $this->paymentNote = '';
 
         if ($this->booking->is_revenue_recognized) {
@@ -454,7 +483,8 @@ class BookingView extends Component
     }
 
     /**
-     * Record a payment transaction via BookingFinancialService with double-entry journal voucher & customer ledger.
+     * Record a payment transaction (Stage 1: Manager Entry).
+     * Saved as Pending Posting without direct Cash/Bank or Journal Voucher impact.
      */
     public function recordPayment()
     {
@@ -464,6 +494,8 @@ class BookingView extends Component
             'paymentMethod' => 'required|string',
             'paymentAccountId' => 'nullable|exists:accounts,id',
             'transactionReference' => 'nullable|string|max:255',
+            'chequeNumber' => 'nullable|string|max:100',
+            'bankReference' => 'nullable|string|max:100',
             'paymentNote' => 'nullable|string|max:255',
         ]);
 
@@ -476,6 +508,8 @@ class BookingView extends Component
             'account_id' => $this->paymentAccountId ?: null,
             'payment_type' => $this->booking->is_revenue_recognized ? 'receivable_payment' : 'advance',
             'transaction_reference' => $this->transactionReference ?: null,
+            'cheque_number' => $this->chequeNumber ?: null,
+            'bank_reference' => $this->bankReference ?: null,
             'notes' => $this->paymentNote ?: null,
             'recorded_by' => auth()->id(),
         ]);
@@ -484,11 +518,82 @@ class BookingView extends Component
         $this->amountPaid = 0.00;
         $this->paymentNote = '';
         $this->transactionReference = '';
+        $this->chequeNumber = '';
+        $this->bankReference = '';
         $this->paymentDate = date('Y-m-d');
         $this->paymentAccountId = null;
         $this->showPaymentModal = false;
 
-        session()->flash('success', 'Payment of Rs. ' . number_format($payment->amount, 2) . ' recorded successfully with Journal Voucher and Customer Ledger entry.');
+        session()->flash('success', "Payment #{$payment->payment_number} of Rs. " . number_format($payment->amount, 2) . " received and submitted for accountant posting.");
+    }
+
+    /**
+     * Open Accountant Post Modal for a specific payment.
+     */
+    public function openAccountantPostModal($paymentId)
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->isBusinessOwner() && !$user->hasPermission('post_payments')) {
+            session()->flash('error', 'You are not authorized to post payments to financial accounts.');
+            return;
+        }
+
+        $payment = \App\Models\BookingPayment::findOrFail($paymentId);
+        if (!$payment->isPendingPosting()) {
+            session()->flash('error', 'This payment is not awaiting posting.');
+            return;
+        }
+
+        $this->bvPostingPaymentId = $payment->id;
+        $this->bvPostingDate = date('Y-m-d');
+        $this->bvAccountantNotes = '';
+
+        $marqueeId = $this->getMarqueeId();
+        $targetCode = (strtolower($payment->payment_method) === 'cash') ? '1001' : '1002';
+        $defaultAcc = \App\Models\Account::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where('account_code', $targetCode)
+            ->first();
+
+        $this->bvTargetAccountId = $payment->account_id ?: ($defaultAcc?->id ?? '');
+        $this->showAccountantPostModal = true;
+    }
+
+    /**
+     * Confirm Accountant Post Payment.
+     */
+    public function confirmAccountantPostPayment()
+    {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->isBusinessOwner() && !$user->hasPermission('post_payments')) {
+            session()->flash('error', 'Unauthorized.');
+            return;
+        }
+
+        $this->validate([
+            'bvPostingPaymentId' => 'required|exists:booking_payments,id',
+            'bvTargetAccountId' => 'required|exists:accounts,id',
+            'bvPostingDate' => 'required|date',
+            'bvAccountantNotes' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $financialService = app(\App\Services\BookingFinancialService::class);
+            $payment = \App\Models\BookingPayment::findOrFail($this->bvPostingPaymentId);
+            $financialService->postPayment($payment, [
+                'account_id' => (int) $this->bvTargetAccountId,
+                'posting_date' => $this->bvPostingDate,
+                'accountant_notes' => $this->bvAccountantNotes,
+                'posted_by' => $user->id,
+            ]);
+
+            $this->booking->refresh();
+            $this->showAccountantPostModal = false;
+            $this->bvPostingPaymentId = null;
+            session()->flash('success', "Payment #{$payment->payment_number} posted successfully into financial accounts.");
+        } catch (\Exception $e) {
+            session()->flash('error', 'Posting failed: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -980,29 +1085,35 @@ class BookingView extends Component
     public function render()
     {
         $histories = $this->booking->histories()->with('user')->get();
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
-        $vendorSales = \App\Models\VendorSale::where('booking_id', $this->booking->id)
+        $vendorSales = \App\Models\VendorSale::withoutGlobalScope('tenant')
+            ->where('booking_id', $this->booking->id)
             ->with(['vendor', 'service'])
             ->get();
 
-        $allVendors = \App\Models\Vendor::where('marquee_id', $marqueeId)
-            ->where('status', 'active')
+        $allVendors = \App\Models\Vendor::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->whereIn('status', ['active', 'Active'])
             ->orderBy('name')
             ->get();
 
         $vsVendorServices = $this->vsVendorId
-            ? \App\Models\VendorService::where('marquee_id', $marqueeId)->where('vendor_id', $this->vsVendorId)->get()
+            ? \App\Models\VendorService::withoutGlobalScope('tenant')
+                ->where('vendor_id', $this->vsVendorId)
+                ->whereIn('status', ['active', 'Active'])
+                ->orderBy('service_name')
+                ->get()
             : collect();
 
         $accounts = \App\Models\Account::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
 
         $viewingVendorSale = $this->viewingVendorSaleId
-            ? \App\Models\VendorSale::with(['vendor', 'service', 'booking', 'ledgers.creator', 'customerPayments.recorder'])->find($this->viewingVendorSaleId)
+            ? \App\Models\VendorSale::withoutGlobalScope('tenant')->with(['vendor', 'service', 'booking', 'ledgers.creator', 'customerPayments.recorder'])->find($this->viewingVendorSaleId)
             : null;
 
         $deletingVendorSale = $this->deletingVendorSaleId
-            ? \App\Models\VendorSale::with(['vendor', 'service'])->find($this->deletingVendorSaleId)
+            ? \App\Models\VendorSale::withoutGlobalScope('tenant')->with(['vendor', 'service'])->find($this->deletingVendorSaleId)
             : null;
 
         $cashBankAccounts = \App\Models\CashBankAccount::withoutGlobalScope('tenant')

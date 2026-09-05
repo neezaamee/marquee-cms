@@ -248,11 +248,10 @@
 
         <!-- Leads / Inquiries -->
         <li class="nav-item">
-          <a class="nav-link text-muted" href="#!" role="button">
+          <a class="nav-link {{ Route::is('leads.*') ? 'active' : '' }}" href="{{ route('leads.index') }}" role="button">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-filter text-400"></span></span>
+              <span class="nav-link-icon"><span class="fas fa-funnel-dollar text-primary"></span></span>
               <span class="nav-link-text ps-1">Leads / Inquiries</span>
-              <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
             </div>
           </a>
         </li>
@@ -628,7 +627,7 @@
 
         <!-- Purchases / Procurement dropdown -->
         @php
-          $purchasesActive = Route::is('purchase-orders.*') || Route::is('goods-receipts.*') || Route::is('purchase-invoices.*') || Route::is('purchase-returns.*') || Route::is('suppliers.*');
+          $purchasesActive = Route::is('purchase-orders.*') || Route::is('goods-receipts.*') || Route::is('purchase-invoices.*') || Route::is('purchase-returns.*') || Route::is('suppliers.*') || Route::is('supplier-categories.*');
         @endphp
         <li class="nav-item">
           <a class="nav-link dropdown-indicator {{ $purchasesActive ? '' : 'collapsed' }}" href="#purchasesCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $purchasesActive ? 'true' : 'false' }}" aria-controls="purchasesCollapse">
@@ -642,6 +641,13 @@
               <a class="nav-link {{ Route::is('suppliers.index') || Route::is('suppliers.ledger') ? 'active' : '' }}" href="{{ route('suppliers.index') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Suppliers Directory</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('supplier-categories.*') ? 'active' : '' }}" href="{{ route('supplier-categories.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Supplier Categories</span>
                 </div>
               </a>
             </li>
@@ -1368,7 +1374,7 @@
         <!-- ========================================== -->
         <!-- ADMINISTRATION SECTION -->
         <!-- ========================================== -->
-        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'))
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->isBusinessOwner() || auth()->user()->hasPermission('manage_staff'))
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
           <div class="col-auto navbar-vertical-label">Administration</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
@@ -1406,7 +1412,7 @@
 
         <!-- User Accounts & Roles -->
         @php
-          $usersActive = Route::is('users.*');
+          $usersActive = Route::is('users.*') || Route::is('activity-logs.*');
         @endphp
         <li class="nav-item">
           <a class="nav-link dropdown-indicator {{ $usersActive ? '' : 'collapsed' }}" href="#usersCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $usersActive ? 'true' : 'false' }}" aria-controls="usersCollapse">
@@ -1432,10 +1438,9 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('activity-logs.*') ? 'active' : '' }}" href="{{ route('activity-logs.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">User Activity</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                  <span class="nav-link-text ps-1">Activity Logs</span>
                 </div>
               </a>
             </li>
@@ -1646,6 +1651,13 @@
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Error Logs</span>
                   <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('activity-logs.*') ? 'active' : '' }}" href="{{ route('activity-logs.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Audit & Activity Logs</span>
                 </div>
               </a>
             </li>

@@ -143,8 +143,8 @@ class ExpenseForm extends Component
 
     public function mount($id = null)
     {
-        $marqueeId = auth()->user()->marquee_id;
         $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         // Load Default Currency
         $baseCurrency = Currency::where('marquee_id', $marqueeId)->where('is_base', true)->first()
@@ -486,14 +486,18 @@ class ExpenseForm extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         $branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
         $categories = ExpenseCategory::where('marquee_id', $marqueeId)->where('is_active', true)->get();
         $expenseTypes = ExpenseType::where('marquee_id', $marqueeId)->where('is_active', true)->get();
         $suppliers = Supplier::where('marquee_id', $marqueeId)->get();
         $employees = Employee::where('marquee_id', $marqueeId)->where('status', 'active')->get();
-        $bookings = Booking::where('marquee_id', $marqueeId)->orderBy('event_date', 'desc')->get();
+        $bookings = Booking::with('customer')
+            ->when($marqueeId, fn($q) => $q->where('marquee_id', $marqueeId))
+            ->orderBy('booking_date', 'desc')
+            ->get();
         $purchaseOrders = PurchaseOrder::where('marquee_id', $marqueeId)->get();
         $purchaseInvoices = PurchaseInvoice::where('marquee_id', $marqueeId)->get();
         $currencies = Currency::where('marquee_id', $marqueeId)->where('is_active', true)->get();

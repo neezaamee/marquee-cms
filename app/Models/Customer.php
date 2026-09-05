@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\BelongsToTenant;
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Customer extends Model
 {
-    use HasFactory, SoftDeletes, BelongsToTenant;
+    use HasFactory, SoftDeletes, BelongsToTenant, LogsActivity;
 
     protected $fillable = [
         'marquee_id',
@@ -165,14 +166,12 @@ class Customer extends Model
             ->pluck('id');
             
         $received = (float) \App\Models\BookingPayment::whereIn('booking_id', $bookingIds)
+            ->where('status', 'posted')
             ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])
             ->sum('amount');
 
-        if ($received <= 0) {
-            $received = (float) \App\Models\BookingPayment::whereIn('booking_id', $bookingIds)->sum('amount');
-        }
-
         $refunded = (float) \App\Models\BookingPayment::whereIn('booking_id', $bookingIds)
+            ->where('status', 'posted')
             ->where('payment_type', 'refund')
             ->sum('amount');
 

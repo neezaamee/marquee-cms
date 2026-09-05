@@ -23,9 +23,15 @@ class OpeningBalances extends Component
         'balances.*.credit' => 'nullable|numeric|min:0',
     ];
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        return $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+    }
+
     public function mount()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $userBranchId = auth()->user()->branch_id;
 
         // Default to active default financial year
@@ -64,7 +70,7 @@ class OpeningBalances extends Component
             return;
         }
 
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
         // Get only leaf accounts (accounts without child accounts)
         $leafAccounts = Account::where('marquee_id', $marqueeId)
@@ -73,7 +79,7 @@ class OpeningBalances extends Component
             ->get();
 
         // Get existing opening balances for selected year and branch
-        $existingBalances = AccountOpeningBalance::where('financial_year_id', $this->financial_year_id)
+        $existing = AccountOpeningBalance::where('financial_year_id', $this->financial_year_id)
             ->where(function($q) {
                 if ($this->branch_id) {
                     $q->where('branch_id', $this->branch_id);
@@ -84,11 +90,11 @@ class OpeningBalances extends Component
             ->get()
             ->keyBy('account_id');
 
-        foreach ($leafAccounts as $account) {
-            $existing = $existingBalances->get($account->id);
-            $this->balances[$account->id] = [
-                'debit' => $existing ? (float)$existing->debit : '',
-                'credit' => $existing ? (float)$existing->credit : '',
+        foreach ($leafAccounts as $acc) {
+            $record = $existing->get($acc->id);
+            $this->balances[$acc->id] = [
+                'debit' => $record ? ($record->debit > 0 ? $record->debit : '') : '',
+                'credit' => $record ? ($record->credit > 0 ? $record->credit : '') : '',
             ];
         }
     }
@@ -109,7 +115,7 @@ class OpeningBalances extends Component
             return;
         }
 
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($marqueeId) {
             foreach ($this->balances as $accountId => $bal) {
@@ -151,7 +157,7 @@ class OpeningBalances extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $user = auth()->user();
 
         $financialYears = FinancialYear::where('marquee_id', $marqueeId)->orderBy('start_date', 'desc')->get();

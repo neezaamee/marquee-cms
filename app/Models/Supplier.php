@@ -60,6 +60,19 @@ class Supplier extends Model
     }
 
     /**
+     * Get categories assigned to this supplier.
+     */
+    public function categories()
+    {
+        return $this->belongsToMany(
+            SupplierCategory::class,
+            'supplier_supplier_category',
+            'supplier_id',
+            'supplier_category_id'
+        )->withTimestamps();
+    }
+
+    /**
      * Get supplier purchase invoices.
      */
     public function purchaseInvoices()

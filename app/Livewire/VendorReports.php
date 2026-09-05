@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Marquee;
 use App\Models\Vendor;
 use App\Models\VendorCommissionAgreement;
 use App\Models\VendorLedger;
@@ -18,6 +19,16 @@ class VendorReports extends Component
     public $year = '';
     public $month = '';
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        $id = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        if (!$id && $user?->isSuperAdmin()) {
+            return Marquee::first()?->id;
+        }
+        return $id;
+    }
+
     public function mount()
     {
         $this->dateFrom = date('Y-m-01');
@@ -28,16 +39,16 @@ class VendorReports extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         if (!empty($this->vendor_id)) {
-            Vendor::where('marquee_id', $marqueeId)->findOrFail($this->vendor_id);
+            Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->findOrFail($this->vendor_id);
         }
-        $vendors = Vendor::where('marquee_id', $marqueeId)->orderBy('name')->get();
+        $vendors = Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->orderBy('name')->get();
 
         $data = [];
 
         if ($this->reportType === 'sales') {
-            $query = VendorSale::where('marquee_id', $marqueeId)->with(['vendor', 'service', 'booking.customer']);
+            $query = VendorSale::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->with(['vendor', 'service', 'booking.customer']);
             if (!empty($this->vendor_id)) {
                 $query->where('vendor_id', $this->vendor_id);
             }
@@ -50,7 +61,7 @@ class VendorReports extends Component
             $data = $query->orderBy('sale_date', 'desc')->get();
 
         } elseif ($this->reportType === 'commission') {
-            $query = VendorSale::where('marquee_id', $marqueeId)->whereIn('status', ['confirmed', 'settled'])->with(['vendor', 'service', 'booking']);
+            $query = VendorSale::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->whereIn('status', ['confirmed', 'settled'])->with(['vendor', 'service', 'booking']);
             if (!empty($this->vendor_id)) {
                 $query->where('vendor_id', $this->vendor_id);
             }
@@ -63,7 +74,7 @@ class VendorReports extends Component
             $data = $query->orderBy('sale_date', 'desc')->get();
 
         } elseif ($this->reportType === 'ledger') {
-            $query = VendorLedger::where('marquee_id', $marqueeId)->with(['vendor', 'sale', 'booking']);
+            $query = VendorLedger::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->with(['vendor', 'sale', 'booking']);
             if (!empty($this->vendor_id)) {
                 $query->where('vendor_id', $this->vendor_id);
             }
@@ -76,7 +87,7 @@ class VendorReports extends Component
             $data = $query->orderBy('transaction_date', 'desc')->orderBy('id', 'desc')->get();
 
         } elseif ($this->reportType === 'settlement') {
-            $query = VendorSettlement::where('marquee_id', $marqueeId)->with(['vendor', 'account']);
+            $query = VendorSettlement::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->with(['vendor', 'account']);
             if (!empty($this->vendor_id)) {
                 $query->where('vendor_id', $this->vendor_id);
             }
@@ -92,7 +103,7 @@ class VendorReports extends Component
             $startDate = $this->year . '-' . str_pad($this->month, 2, '0', STR_PAD_LEFT) . '-01';
             $endDate = date('Y-m-t', strtotime($startDate));
 
-            $query = VendorSale::where('marquee_id', $marqueeId)
+            $query = VendorSale::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)
                 ->whereIn('status', ['confirmed', 'settled'])
                 ->whereBetween('sale_date', [$startDate, $endDate])
                 ->with(['vendor']);

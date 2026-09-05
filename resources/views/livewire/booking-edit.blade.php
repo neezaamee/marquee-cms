@@ -97,9 +97,20 @@
 
                     <!-- Booking Date -->
                     <div class="col-md-4">
-                        <label class="form-label font-sans-serif fw-bold text-700" for="selectedDate">Event Date *</label>
-                        <input wire:model.live="selectedDate" class="form-control font-monospace @error('selectedDate') is-invalid @enderror" type="date" id="selectedDate" />
-                        @error('selectedDate') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <label class="form-label font-sans-serif fw-bold text-700" for="selectedDate">Event Date (DD-MM-YYYY) <span class="text-danger">*</span></label>
+                        <div wire:ignore x-data x-init="
+                            flatpickr($refs.datePicker, {
+                                dateFormat: 'd-m-Y',
+                                allowInput: true,
+                                defaultDate: '{{ $selectedDate }}',
+                                onChange: function(selectedDates, dateStr) {
+                                    $wire.set('selectedDate', dateStr);
+                                }
+                            });
+                        ">
+                            <input x-ref="datePicker" wire:model.live="selectedDate" class="form-control font-monospace @error('selectedDate') is-invalid @enderror" type="text" id="selectedDate" placeholder="DD-MM-YYYY" />
+                        </div>
+                        @error('selectedDate') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                     </div>
 
                     <!-- Venue / Hall (Searchable Multi-select) -->

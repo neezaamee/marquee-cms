@@ -569,7 +569,7 @@ class BookingList extends Component
                     'notes' => $this->paymentNotes ?: 'Payment recorded from Booking List',
                     'recorded_by' => auth()->id(),
                 ]);
-                $msg = 'Payment of Rs. ' . number_format($amount, 2) . ' recorded successfully (Voucher: ' . ($payment->journalVoucher?->voucher_no ?? 'Posted') . ').';
+                $msg = "Payment #{$payment->payment_number} of Rs. " . number_format($amount, 2) . " received and submitted for accountant posting.";
             }
 
             $this->closePaymentModal();

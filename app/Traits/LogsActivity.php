@@ -50,15 +50,39 @@ trait LogsActivity
         $marqueeId = null;
 
         // Determine tenant / marquee_id
-        if ($user && $user->marquee_id) {
+        if ($user && method_exists($user, 'getActiveMarqueeId') && $user->getActiveMarqueeId()) {
+            $marqueeId = $user->getActiveMarqueeId();
+        } elseif ($user && $user->marquee_id) {
             $marqueeId = $user->marquee_id;
-        } elseif (isset($model->marquee_id)) {
+        } elseif (isset($model->marquee_id) && $model->marquee_id) {
             $marqueeId = $model->marquee_id;
+        } elseif (isset($model->booking) && isset($model->booking->marquee_id)) {
+            $marqueeId = $model->booking->marquee_id;
         }
 
-        // Build descriptive message
+        // Build human-friendly descriptive message
         $modelName = class_basename($model);
-        $description = "{$modelName} (ID: {$model->id}) was {$action}";
+        if ($modelName === 'Booking' && !empty($model->booking_number)) {
+            $description = "Booking #{$model->booking_number} was {$action}";
+        } elseif ($modelName === 'BookingPayment' && !empty($model->payment_number)) {
+            $amountStr = isset($model->amount) ? ' (Rs. ' . number_format($model->amount, 2) . ')' : '';
+            $description = "Payment #{$model->payment_number}{$amountStr} was {$action}";
+        } elseif ($modelName === 'Customer' && !empty($model->full_name)) {
+            $description = "Customer '{$model->full_name}' was {$action}";
+        } elseif ($modelName === 'Lead' && !empty($model->client_name)) {
+            $description = "Inquiry Lead for '{$model->client_name}' was {$action}";
+        } elseif ($modelName === 'BookingFinalBill') {
+            $bNum = $model->booking ? " for Booking #{$model->booking->booking_number}" : '';
+            $description = "Final Bill{$bNum} was {$action}";
+        } elseif ($modelName === 'Expense' && !empty($model->expense_number)) {
+            $description = "Expense voucher #{$model->expense_number} was {$action}";
+        } elseif ($modelName === 'JournalVoucher' && !empty($model->voucher_number)) {
+            $description = "Journal Voucher #{$model->voucher_number} was {$action}";
+        } elseif ($modelName === 'User' && !empty($model->name)) {
+            $description = "User account '{$model->name}' was {$action}";
+        } else {
+            $description = "{$modelName} (ID: {$model->id}) was {$action}";
+        }
 
         // Safely check if database is running and table exists before logging
         // (Prevents failures during database seeding/migrations if table isn't created yet)

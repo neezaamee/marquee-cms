@@ -5,6 +5,45 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-05
+
+### Added
+- **CRM & Lead Inquiries Pipeline**:
+  - Implemented `Lead` and `LeadActivity` models with full database migrations (`2026_09_05_000001_create_leads_and_lead_activities_tables.php`).
+  - Added `LeadManager` Livewire component adhering to the Falcon UI design system with real-time status filtering (New, Contacted, Qualified, Proposal Sent, Won, Lost), activity logging, and fast conversion into bookings.
+  - Added full test coverage in `tests/Feature/ModuleOperationalAuditFixesTest.php`.
+
+- **All Users Activity Log & Audit Trail**:
+  - Created centralized enterprise audit log viewer (`ActivityLogManager.php` and `activity-log-manager.blade.php`) styled with Falcon Admin components.
+  - Added role-based access control: Super Admin can monitor system-wide activity, while Business Owners and Managers can audit staff actions across their tenant/branches.
+  - Captured event types, actor IDs, IP addresses, user agents, affected models, and detailed metadata changes.
+  - Added automated feature tests in `tests/Feature/ActivityLogTest.php`.
+
+- **Final Bill Sales Tax Invoice V2**:
+  - Implemented `FinalBillInvoiceV2` Livewire component and Blade views (`final-bill-invoice-v2.blade.php`, `final_bill_v2.blade.php`).
+  - Styled with Falcon Admin design studio layout: dynamic branch logo and address headers, space-optimized 2-column event and customer specifications, dynamic FBR invoice numbering, and real-time QR code generation.
+  - Integrated multi-paper print dialogue allowing seamless zero-scale printing across A4, Letter, and Legal paper sizes.
+  - Added comprehensive test coverage in `tests/Feature/FinalBillInvoiceV2Test.php`.
+
+- **Two-Stage Payment & Ledger Posting Workflow**:
+  - Added `pending_posting`, `posted`, and `rejected` payment statuses with tracking fields (`posting_journal_voucher_id`, `posted_by`, `posted_at`, `posting_notes`) via migration `2026_09_03_000001_add_two_stage_posting_columns_to_booking_payments_table.php`.
+  - Implemented two-stage payment collection: Front Desk staff record customer deposits, while Accountants review and post payments directly into general ledger accounts.
+  - Added test coverage in `tests/Feature/TwoStagePaymentWorkflowTest.php`.
+
+- **Supplier Category Hierarchy & Procurement Management**:
+  - Added `SupplierCategory` model, migration `2026_09_03_000002_create_supplier_categories_tables.php`, and `SupplierCategoryList` Livewire component.
+  - Grouped procurement vendors into customizable expense and inventory categories.
+  - Added test coverage in `tests/Feature/SupplierCategoryManagementTest.php`.
+
+- **Global Asynchronous Livewire Progress Loader**:
+  - Added a responsive animated top progress bar and floating Livewire indicator to `resources/views/layouts/admin.blade.php` providing visual feedback during asynchronous network operations.
+
+### Changed
+- Standardized booking view dates formatting and vendor sales calculations.
+- Hardened multi-tenant global Chart of Accounts and Financial Year provisioning via migration `2026_09_03_000003_ensure_all_tenants_have_default_coa_and_fy.php`.
+
+---
+
 ## [1.3.0] - 2026-09-02
 
 ### Added

@@ -66,6 +66,65 @@ class InventoryService
     }
 
     /**
+     * Generate the next unique supplier category code for a tenant.
+     */
+    public function generateNextSupplierCategoryCode(?int $marqueeId): string
+    {
+        $existingCodes = \App\Models\SupplierCategory::withTrashed()
+            ->where('marquee_id', $marqueeId)
+            ->pluck('code');
+
+        $maxNum = 0;
+        foreach ($existingCodes as $c) {
+            if (preg_match('/SC-(\d+)/', (string) $c, $m)) {
+                $num = (int) $m[1];
+                if ($num > $maxNum) {
+                    $maxNum = $num;
+                }
+            }
+        }
+
+        do {
+            $maxNum++;
+            $code = 'SC-' . str_pad($maxNum, 3, '0', STR_PAD_LEFT);
+        } while ($existingCodes->contains($code));
+
+        return $code;
+    }
+
+    /**
+     * Seed default supplier categories into a tenant if not already existing.
+     */
+    public function seedDefaultSupplierCategories(int $marqueeId): void
+    {
+        $defaults = [
+            ['name' => 'Meat & Poultry', 'code' => 'SC-MEAT', 'description' => 'Fresh and frozen poultry, beef, mutton, and meats', 'sort_order' => 1],
+            ['name' => 'Grocery', 'code' => 'SC-GROC', 'description' => 'Grains, pulses, rice, flour, and dry pantry essentials', 'sort_order' => 2],
+            ['name' => 'Dairy', 'code' => 'SC-DAIRY', 'description' => 'Fresh milk, yogurt, butter, cream, cheese, and dairy staples', 'sort_order' => 3],
+            ['name' => 'Fruits & Vegetables', 'code' => 'SC-VEG', 'description' => 'Fresh seasonal vegetables, fruits, herbs, and salad produce', 'sort_order' => 4],
+            ['name' => 'Beverages', 'code' => 'SC-BEV', 'description' => 'Soft drinks, mineral water, juices, tea, and bottling', 'sort_order' => 5],
+            ['name' => 'Bakery', 'code' => 'SC-BAKERY', 'description' => 'Fresh breads, naans, buns, cakes, and confectionery', 'sort_order' => 6],
+            ['name' => 'Spices', 'code' => 'SC-SPICE', 'description' => 'Whole and ground spices, seasonings, cooking oils, and condiments', 'sort_order' => 7],
+            ['name' => 'Disposable / Packaging', 'code' => 'SC-PKG', 'description' => 'Disposable containers, tableware, and packaging materials', 'sort_order' => 8],
+            ['name' => 'Cleaning & Chemicals', 'code' => 'SC-CHEM', 'description' => 'Detergents, dishwashing liquids, sanitizers, and cleaning supplies', 'sort_order' => 9],
+            ['name' => 'Equipment', 'code' => 'SC-EQUIP', 'description' => 'Catering equipment, utensils, chafing dishes, and kitchenware', 'sort_order' => 10],
+            ['name' => 'Other', 'code' => 'SC-OTHER', 'description' => 'Miscellaneous general suppliers and third-party provisioners', 'sort_order' => 11],
+        ];
+
+        foreach ($defaults as $cat) {
+            \App\Models\SupplierCategory::firstOrCreate(
+                ['marquee_id' => $marqueeId, 'code' => $cat['code']],
+                [
+                    'name' => $cat['name'],
+                    'description' => $cat['description'],
+                    'sort_order' => $cat['sort_order'],
+                    'status' => 'Active',
+                ]
+            );
+        }
+    }
+
+    /**
      * Get or create default inventory settings for a tenant.
      */
     public function getOrCreateSettings(?int $marqueeId): InventorySetting

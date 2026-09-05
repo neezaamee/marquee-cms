@@ -41,10 +41,23 @@ class VendorSaleManager extends Component
     public $include_in_invoice = true;
     public $notes = '';
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        $id = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        if (!$id && $user?->isSuperAdmin()) {
+            return \App\Models\Marquee::first()?->id;
+        }
+        return $id;
+    }
+
     public function mount(?Vendor $vendor = null)
     {
-        if ($vendor && !auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this Service Provider.');
+        $user = auth()->user();
+        if ($vendor && $user && !$user->isSuperAdmin()) {
+            if ($vendor->marquee_id && !$user->hasAccessToMarquee($vendor->marquee_id)) {
+                abort(403, 'Unauthorized access to this Service Provider.');
+            }
         }
         $this->vendor = $vendor;
         if ($vendor) {
@@ -75,8 +88,8 @@ class VendorSaleManager extends Component
     public function updatedBookingId($val)
     {
         if ($val) {
-            $marqueeId = auth()->user()->marquee_id;
-            $booking = Booking::where('marquee_id', $marqueeId)->find($val);
+            $marqueeId = $this->getMarqueeId();
+            $booking = Booking::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->find($val);
             if ($booking) {
                 $this->customer_id = $booking->customer_id;
                 $this->event_date = $booking->booking_date->format('Y-m-d');
@@ -94,8 +107,8 @@ class VendorSaleManager extends Component
             'sale_date' => 'required|date',
         ]);
 
-        $marqueeId = auth()->user()->marquee_id;
-        Vendor::where('marquee_id', $marqueeId)->findOrFail($this->vendor_id);
+        $marqueeId = $this->getMarqueeId();
+        Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->findOrFail($this->vendor_id);
 
         $serviceEngine = app(VendorCommissionService::class);
 
@@ -139,13 +152,18 @@ class VendorSaleManager extends Component
         $this->account_id = null;
         $this->reference_number = '';
         $this->notes = '';
+        if ($this->vendor) {
+            $this->vendor_id = $this->vendor->id;
+        } else {
+            $this->vendor_id = '';
+        }
     }
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
-        $query = VendorSale::where('marquee_id', $marqueeId)->with(['vendor', 'service', 'booking.customer']);
+        $query = VendorSale::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->with(['vendor', 'service', 'booking.customer']);
 
         if ($this->vendor) {
             $query->where('vendor_id', $this->vendor->id);
@@ -170,9 +188,9 @@ class VendorSaleManager extends Component
         }
 
         $sales = $query->orderBy('sale_date', 'desc')->orderBy('id', 'desc')->paginate(10);
-        $vendors = Vendor::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
-        $vendorServices = $this->vendor_id ? VendorService::where('vendor_id', $this->vendor_id)->where('status', 'active')->get() : collect();
-        $bookings = Booking::where('marquee_id', $marqueeId)->whereNotIn('booking_status', ['Cancelled'])->orderBy('booking_date', 'desc')->limit(30)->get();
+        $vendors = Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
+        $vendorServices = $this->vendor_id ? VendorService::withoutGlobalScope('tenant')->where('vendor_id', $this->vendor_id)->where('status', 'active')->get() : collect();
+        $bookings = Booking::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->whereNotIn('booking_status', ['Cancelled'])->orderBy('booking_date', 'desc')->limit(30)->get();
         $accounts = \App\Models\Account::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
 
         return view('livewire.vendor-sale-manager', [

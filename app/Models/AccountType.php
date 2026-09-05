@@ -24,7 +24,7 @@ class AccountType extends Model
      */
     public function scopeForTenant(Builder $query, ?int $marqueeId = null)
     {
-        $marqueeId = $marqueeId ?: (Auth::check() ? Auth::user()->marquee_id : null);
+        $marqueeId = $marqueeId ?: (Auth::check() ? (Auth::user()->getActiveMarqueeId() ?: Auth::user()->marquee_id) : null);
         return $query->where(function ($q) use ($marqueeId) {
             $q->whereNull('marquee_id');
             if ($marqueeId) {

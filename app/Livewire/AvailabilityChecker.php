@@ -34,6 +34,22 @@ class AvailabilityChecker extends Component
     // Dropdown options
     public $slotOptions = [];
 
+    public function getNormalizedDate(): string
+    {
+        if (empty($this->selectedDate)) {
+            return '';
+        }
+        try {
+            if (preg_match('/^\d{2}[-\/]\d{2}[-\/]\d{4}$/', trim($this->selectedDate))) {
+                $parts = preg_split('/[-\/]/', trim($this->selectedDate));
+                return sprintf('%04d-%02d-%02d', $parts[2], $parts[1], $parts[0]);
+            }
+            return Carbon::parse($this->selectedDate)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return $this->selectedDate;
+        }
+    }
+
     public function mount()
     {
         $user = auth()->user();
@@ -51,7 +67,7 @@ class AvailabilityChecker extends Component
         }
 
         $this->loadHalls();
-        $this->selectedDate = Carbon::today()->format('Y-m-d');
+        $this->selectedDate = Carbon::today()->format('d-m-Y');
 
         if ($this->halls->isNotEmpty()) {
             $this->selectedHallId = (string) $this->halls->first()->id;
@@ -140,11 +156,12 @@ class AvailabilityChecker extends Component
 
         $service = new AvailabilityService();
         $this->slotStatusList = [];
+        $date = $this->getNormalizedDate();
 
         foreach ($this->slotOptions as $slot) {
             $conflicting = $service->getConflictingBooking(
                 $this->selectedHallId,
-                $this->selectedDate,
+                $date,
                 $slot->start_time,
                 $slot->end_time
             );
@@ -185,6 +202,7 @@ class AvailabilityChecker extends Component
         }
 
         $service = new AvailabilityService();
+        $date = $this->getNormalizedDate();
 
         if ($this->checkType === 'slot') {
             if (empty($this->selectedSlotId)) {
@@ -196,7 +214,7 @@ class AvailabilityChecker extends Component
             
             $conflicting = $service->getConflictingBooking(
                 $this->selectedHallId,
-                $this->selectedDate,
+                $date,
                 $slot->start_time,
                 $slot->end_time
             );
@@ -224,7 +242,7 @@ class AvailabilityChecker extends Component
 
             $conflicting = $service->getConflictingBooking(
                 $this->selectedHallId,
-                $this->selectedDate,
+                $date,
                 $this->customStart,
                 $this->customEnd
             );

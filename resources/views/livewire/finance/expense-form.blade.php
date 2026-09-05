@@ -112,7 +112,7 @@
                         <select wire:model="booking_id" class="form-select form-select-sm @error('booking_id') is-invalid @enderror" id="booking">
                             <option value="">Select booking reference</option>
                             @foreach($bookings as $bk)
-                                <option value="{{ $bk->id }}">{{ $bk->booking_number }} - {{ $bk->customer->name ?? '' }} ({{ $bk->event_date->format('Y-m-d') }})</option>
+                                <option value="{{ $bk->id }}">{{ $bk->booking_number }} - {{ $bk->customer->name ?? '' }} ({{ $bk->booking_date ? $bk->booking_date->format('Y-m-d') : '' }})</option>
                             @endforeach
                         </select>
                         @error('booking_id') <div class="invalid-feedback">{{ $message }}</div> @enderror

@@ -13,8 +13,11 @@ class VendorDetail extends Component
     public function mount(Vendor $vendor)
     {
         // Tenant security check
-        if (!auth()->user()->isSuperAdmin() && $vendor->marquee_id !== auth()->user()->marquee_id) {
-            abort(403, 'Unauthorized access to this Service Provider.');
+        $user = auth()->user();
+        if ($user && !$user->isSuperAdmin()) {
+            if ($vendor->marquee_id && !$user->hasAccessToMarquee($vendor->marquee_id)) {
+                abort(403, 'Unauthorized access to this Service Provider.');
+            }
         }
 
         $this->vendor = $vendor;

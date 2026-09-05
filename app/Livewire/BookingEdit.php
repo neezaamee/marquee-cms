@@ -109,6 +109,22 @@ class BookingEdit extends Component
     public $availabilityChecked = false;
     public $conflictDetails = null;
 
+    public function getNormalizedDate(): string
+    {
+        if (empty($this->selectedDate)) {
+            return '';
+        }
+        try {
+            if (preg_match('/^\d{2}[-\/]\d{2}[-\/]\d{4}$/', trim($this->selectedDate))) {
+                $parts = preg_split('/[-\/]/', trim($this->selectedDate));
+                return sprintf('%04d-%02d-%02d', $parts[2], $parts[1], $parts[0]);
+            }
+            return Carbon::parse($this->selectedDate)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return $this->selectedDate;
+        }
+    }
+
     public function mount(Booking $booking)
     {
         $this->booking = $booking;
@@ -144,7 +160,7 @@ class BookingEdit extends Component
         }
         $this->selectedHallId = reset($this->selectedHallIds) ?: '';
         
-        $this->selectedDate = $booking->booking_date->format('Y-m-d');
+        $this->selectedDate = $booking->booking_date->format('d-m-Y');
         
         $this->selectedSlotId = $booking->slot_id ?: '';
         $this->checkType = $booking->slot_id ? 'slot' : 'custom';
@@ -457,13 +473,14 @@ class BookingEdit extends Component
         }
 
         $this->availableSlotsList = [];
+        $date = $this->getNormalizedDate();
 
         foreach ($slots as $slot) {
             $isSlotAvailable = true;
             foreach ($this->selectedHallIds as $hallId) {
                 if (!$service->checkAvailability(
                     $hallId,
-                    $this->selectedDate,
+                    $date,
                     $slot->start_time,
                     $slot->end_time,
                     $this->booking->id
@@ -516,8 +533,9 @@ class BookingEdit extends Component
             return;
         }
 
-        $startStr = $this->selectedDate . ' ' . $this->customStart . ':00';
-        $endStr = $this->selectedDate . ' ' . $this->customEnd . ':00';
+        $date = $this->getNormalizedDate();
+        $startStr = $date . ' ' . $this->customStart . ':00';
+        $endStr = $date . ' ' . $this->customEnd . ':00';
 
         $start = Carbon::parse($startStr);
         $end = Carbon::parse($endStr);
@@ -540,11 +558,12 @@ class BookingEdit extends Component
         $service = new AvailabilityService();
         $this->isAvailable = true;
         $this->conflictDetails = null;
+        $date = $this->getNormalizedDate();
 
         foreach ($this->selectedHallIds as $hallId) {
             $conflicting = $service->getConflictingBooking(
                 $hallId,
-                $this->selectedDate,
+                $date,
                 Carbon::parse($this->startTime)->format('H:i:s'),
                 Carbon::parse($this->endTime)->format('H:i:s'),
                 $this->booking->id
@@ -870,7 +889,9 @@ class BookingEdit extends Component
         $branchId = (int) $this->selectedBranchId;
 
         try {
-            DB::transaction(function () use ($marqueeId, $userId, $branchId, $primaryHallId) {
+            $normalizedDate = $this->getNormalizedDate();
+
+            DB::transaction(function () use ($marqueeId, $userId, $branchId, $primaryHallId, $normalizedDate) {
                 $service = new AvailabilityService();
 
                 // Shared lock checking & availability verification
@@ -878,14 +899,14 @@ class BookingEdit extends Component
                     DB::table('bookings')
                         ->where('marquee_id', $marqueeId)
                         ->where('hall_id', $hId)
-                        ->where('booking_date', $this->selectedDate)
+                        ->where('booking_date', $normalizedDate)
                         ->where('id', '!=', $this->booking->id)
                         ->lockForUpdate()
                         ->get();
 
                     $isStillAvailable = $service->checkAvailability(
                         $hId,
-                        $this->selectedDate,
+                        $normalizedDate,
                         Carbon::parse($this->startTime)->format('H:i:s'),
                         Carbon::parse($this->endTime)->format('H:i:s'),
                         $this->booking->id
@@ -910,7 +931,7 @@ class BookingEdit extends Component
                     'hall_id' => $primaryHallId, // primary hall fallback
                     'slot_id' => $this->selectedSlotId ?: null,
                     'package_id' => $this->noFood ? null : $this->selectedPackageId,
-                    'booking_date' => $this->selectedDate,
+                    'booking_date' => $normalizedDate,
                     'start_time' => $this->startTime,
                     'end_time' => $this->endTime,
                     'guest_count' => $this->guestCount,

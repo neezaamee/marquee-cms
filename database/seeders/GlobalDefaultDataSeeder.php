@@ -195,5 +195,27 @@ class GlobalDefaultDataSeeder extends Seeder
                 ['code' => $pm['code'], 'description' => $pm['desc'], 'extra_attributes' => $pm['extra'], 'is_active' => true]
             );
         }
+
+        // 10. Supplier Categories Defaults
+        $supplierCategories = [
+            ['name' => 'Meat & Poultry', 'code' => 'SC-MEAT', 'desc' => 'Fresh and frozen poultry, beef, mutton, and meats', 'extra' => ['sort_order' => 1]],
+            ['name' => 'Grocery', 'code' => 'SC-GROC', 'desc' => 'Grains, pulses, rice, flour, and dry pantry essentials', 'extra' => ['sort_order' => 2]],
+            ['name' => 'Dairy', 'code' => 'SC-DAIRY', 'desc' => 'Fresh milk, yogurt, butter, cream, cheese, and dairy staples', 'extra' => ['sort_order' => 3]],
+            ['name' => 'Fruits & Vegetables', 'code' => 'SC-VEG', 'desc' => 'Fresh seasonal vegetables, fruits, herbs, and salad produce', 'extra' => ['sort_order' => 4]],
+            ['name' => 'Beverages', 'code' => 'SC-BEV', 'desc' => 'Soft drinks, mineral water, juices, tea, and bottling', 'extra' => ['sort_order' => 5]],
+            ['name' => 'Bakery', 'code' => 'SC-BAKERY', 'desc' => 'Fresh breads, naans, buns, cakes, and confectionery', 'extra' => ['sort_order' => 6]],
+            ['name' => 'Spices', 'code' => 'SC-SPICE', 'desc' => 'Whole and ground spices, seasonings, cooking oils, and condiments', 'extra' => ['sort_order' => 7]],
+            ['name' => 'Disposable / Packaging', 'code' => 'SC-PKG', 'desc' => 'Disposable containers, tableware, and packaging materials', 'extra' => ['sort_order' => 8]],
+            ['name' => 'Cleaning & Chemicals', 'code' => 'SC-CHEM', 'desc' => 'Detergents, dishwashing liquids, sanitizers, and cleaning supplies', 'extra' => ['sort_order' => 9]],
+            ['name' => 'Equipment', 'code' => 'SC-EQUIP', 'desc' => 'Catering equipment, utensils, chafing dishes, and kitchenware', 'extra' => ['sort_order' => 10]],
+            ['name' => 'Other', 'code' => 'SC-OTHER', 'desc' => 'Miscellaneous general suppliers and third-party provisioners', 'extra' => ['sort_order' => 11]],
+        ];
+
+        foreach ($supplierCategories as $sc) {
+            GlobalDefaultMaster::updateOrCreate(
+                ['category_type' => 'supplier_category', 'name' => $sc['name']],
+                ['code' => $sc['code'], 'description' => $sc['desc'], 'extra_attributes' => $sc['extra'], 'is_active' => true]
+            );
+        }
     }
 }

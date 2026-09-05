@@ -3,6 +3,7 @@
 namespace App\Livewire\Inventory;
 
 use App\Models\Supplier;
+use App\Models\SupplierCategory;
 use App\Services\InventoryService;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -12,6 +13,7 @@ class SupplierList extends Component
     use WithPagination;
 
     public $search = '';
+    public $categoryFilter = 'all';
     public $confirmingDeletionId = null;
 
     // Form fields
@@ -26,6 +28,7 @@ class SupplierList extends Component
     public $notes = '';
     public $opening_balance = 0.00;
     public $status = 'Active';
+    public $selectedCategories = [];
 
     public $showForm = false;
 
@@ -33,6 +36,7 @@ class SupplierList extends Component
 
     protected $queryString = [
         'search' => ['except' => ''],
+        'categoryFilter' => ['except' => 'all'],
     ];
 
     protected $rules = [
@@ -46,9 +50,16 @@ class SupplierList extends Component
         'notes' => 'nullable|string',
         'opening_balance' => 'required|numeric|min:0',
         'status' => 'required|in:Active,Inactive',
+        'selectedCategories' => 'nullable|array',
+        'selectedCategories.*' => 'exists:supplier_categories,id',
     ];
 
     public function updatingSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingCategoryFilter()
     {
         $this->resetPage();
     }
@@ -61,7 +72,7 @@ class SupplierList extends Component
 
     public function edit(int $id)
     {
-        $supplier = Supplier::findOrFail($id);
+        $supplier = Supplier::with('categories')->findOrFail($id);
         $this->editId = $supplier->id;
         $this->name = $supplier->name;
         $this->contact_person = $supplier->contact_person ?? '';
@@ -73,6 +84,7 @@ class SupplierList extends Component
         $this->notes = $supplier->notes ?? '';
         $this->opening_balance = $supplier->opening_balance;
         $this->status = $supplier->status;
+        $this->selectedCategories = $supplier->categories->pluck('id')->toArray();
         $this->showForm = true;
     }
 
@@ -89,6 +101,7 @@ class SupplierList extends Component
         $this->notes = '';
         $this->opening_balance = 0.00;
         $this->status = 'Active';
+        $this->selectedCategories = [];
         $this->showForm = false;
         $this->resetErrorBag();
     }
@@ -96,7 +109,7 @@ class SupplierList extends Component
     public function save(InventoryService $inventoryService)
     {
         $this->validate();
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = auth()->user()->getActiveMarqueeId();
 
         $data = [
             'marquee_id' => $marqueeId,
@@ -116,10 +129,17 @@ class SupplierList extends Component
             if ($this->editId) {
                 $supplier = Supplier::findOrFail($this->editId);
                 $supplier->update($data);
+
+                // Synchronize categories
+                $supplier->categories()->sync($this->selectedCategories);
+
                 session()->flash('success', 'Supplier profile updated successfully.');
             } else {
                 $data['supplier_code'] = $inventoryService->generateNextSupplierCode($marqueeId);
                 $supplier = Supplier::create($data);
+
+                // Synchronize categories
+                $supplier->categories()->sync($this->selectedCategories);
 
                 // Add ledger entry for opening balance if greater than zero
                 if ($this->opening_balance > 0) {
@@ -160,8 +180,8 @@ class SupplierList extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
-        $query = Supplier::where('marquee_id', $marqueeId);
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $query = Supplier::where('marquee_id', $marqueeId)->with(['categories']);
 
         if (!empty($this->search)) {
             $cleanDigits = preg_replace('/[^0-9]/', '', $this->search);
@@ -176,9 +196,21 @@ class SupplierList extends Component
             });
         }
 
+        if ($this->categoryFilter !== 'all' && !empty($this->categoryFilter)) {
+            $query->whereHas('categories', function ($q) {
+                $q->where('supplier_categories.id', $this->categoryFilter);
+            });
+        }
+
         $suppliers = $query->latest()->paginate(10);
 
-        return view('livewire.inventory.supplier-list', compact('suppliers'))
+        $availableCategories = SupplierCategory::where('marquee_id', $marqueeId)
+            ->where('status', 'Active')
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        return view('livewire.inventory.supplier-list', compact('suppliers', 'availableCategories'))
             ->layout('layouts.admin');
     }
 }

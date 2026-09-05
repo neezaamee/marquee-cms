@@ -4,12 +4,20 @@
         <div class="card-body py-3 px-4 bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h4 class="mb-1 text-primary fw-bold">{{ $supplier->name }}</h4>
-                <p class="mb-0 text-600 fs-12">
+                <p class="mb-1 text-600 fs-12">
                     <span class="badge badge-subtle-secondary font-monospace me-2">{{ $supplier->supplier_code }}</span>
                     @if($supplier->contact_person) <span class="fas fa-user-alt me-1"></span>{{ $supplier->contact_person }} | @endif
                     <span class="fas fa-phone-alt me-1"></span>{{ $supplier->mobile_number }} |
                     <span class="fas fa-map-marker-alt me-1"></span>{{ $supplier->city ?: 'No City' }}
                 </p>
+                @if($supplier->categories->isNotEmpty())
+                    <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                        <span class="text-500 fs-11 me-1"><span class="fas fa-tags me-1"></span>Categories:</span>
+                        @foreach($supplier->categories as $cat)
+                            <span class="badge badge-subtle-primary rounded-pill fs-11">{{ $cat->name }}</span>
+                        @endforeach
+                    </div>
+                @endif
             </div>
             <div class="text-end">
                 <span class="fs-12 text-600 fw-bold d-block">Outstanding Balance:</span>

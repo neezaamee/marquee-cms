@@ -10,16 +10,22 @@ yarn-error.log
 
 # Application Specific Caches
 /bootstrap/cache/*
+!/bootstrap/cache/.gitignore
 !/bootstrap/cache/.gitkeep
 /storage/logs/*
+!/storage/logs/.gitignore
 !/storage/logs/.gitkeep
 /storage/framework/cache/*
+!/storage/framework/cache/.gitignore
 !/storage/framework/cache/.gitkeep
 /storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
 !/storage/framework/sessions/.gitkeep
 /storage/framework/views/*
+!/storage/framework/views/.gitignore
 !/storage/framework/views/.gitkeep
 /storage/framework/testing/*
+!/storage/framework/testing/.gitignore
 !/storage/framework/testing/.gitkeep
 /storage/*.key
 /storage/pail

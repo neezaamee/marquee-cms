@@ -523,23 +523,43 @@
                         <div class="tab-pane fade show active" id="payments-pane" role="tabpanel">
                             @if($booking->payments->isNotEmpty())
                                 <div class="table-responsive">
-                                    <table class="table table-sm table-striped border fs-11 mb-0">
+                                    <table class="table table-sm table-striped border fs-11 mb-0 align-middle">
                                         <thead>
                                             <tr class="bg-light text-700">
+                                                <th>Payment #</th>
                                                 <th>Date</th>
                                                 <th>Type</th>
                                                 <th>Method</th>
-                                                <th>Account</th>
-                                                <th>Voucher / Ref</th>
+                                                <th>Status</th>
+                                                <th>Account / Voucher</th>
                                                 <th>Recorded By</th>
                                                 <th class="text-end" style="width: 120px;">Amount</th>
-                                                <th class="text-center" style="width: 80px;">Receipt</th>
+                                                <th class="text-center" style="width: 100px;">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @foreach($booking->payments as $payment)
-                                                <tr>
-                                                    <td class="align-middle fw-bold">{{ $payment->payment_date->format('M d, Y') }}</td>
+                                                @php
+                                                    $stBadge = match($payment->status) {
+                                                        'pending_posting', 'received' => 'warning',
+                                                        'posted' => 'success',
+                                                        'rejected' => 'danger',
+                                                        'reversed' => 'dark',
+                                                        default => 'secondary'
+                                                    };
+                                                    $stLabel = match($payment->status) {
+                                                        'pending_posting', 'received' => 'Pending Posting',
+                                                        'posted' => 'Posted',
+                                                        'rejected' => 'Rejected',
+                                                        'reversed' => 'Reversed',
+                                                        default => ucfirst($payment->status)
+                                                    };
+                                                @endphp
+                                                <tr class="{{ $payment->status === 'pending_posting' ? 'table-warning-subtle' : '' }}">
+                                                    <td class="align-middle font-monospace fw-bold text-primary">
+                                                        {{ $payment->payment_number ?: ('PAY-'.$payment->id) }}
+                                                    </td>
+                                                    <td class="align-middle fw-bold">{{ $payment->payment_date ? $payment->payment_date->format('M d, Y') : '—' }}</td>
                                                     <td class="align-middle">
                                                         @if($payment->payment_type === 'refund')
                                                             <span class="badge badge-subtle-danger">Refund</span>
@@ -549,27 +569,62 @@
                                                             <span class="badge badge-subtle-info">Advance</span>
                                                         @endif
                                                     </td>
-                                                    <td class="align-middle"><span class="badge badge-subtle-primary">{{ $payment->payment_method }}</span></td>
-                                                    <td class="align-middle text-muted">{{ $payment->account->name ?? 'Default Cash/Bank' }}</td>
-                                                    <td class="align-middle font-monospace">
-                                                        {{ $payment->journalVoucher?->voucher_no ?? ($payment->transaction_reference ?? '—') }}
+                                                    <td class="align-middle">
+                                                        <span class="badge badge-subtle-primary">{{ $payment->payment_method }}</span>
+                                                        @if($payment->transaction_reference || $payment->cheque_number)
+                                                            <div class="font-monospace text-700 fs-10 mt-1">
+                                                                {{ $payment->transaction_reference ?: ('Chq: '.$payment->cheque_number) }}
+                                                            </div>
+                                                        @endif
+                                                    </td>
+                                                    <td class="align-middle">
+                                                        <span class="badge badge-subtle-{{ $stBadge }} fs-11">
+                                                            @if($payment->status === 'pending_posting')
+                                                                <span class="fas fa-clock me-1"></span>
+                                                            @elseif($payment->status === 'posted')
+                                                                <span class="fas fa-check-double me-1"></span>
+                                                            @endif
+                                                            {{ $stLabel }}
+                                                        </span>
+                                                    </td>
+                                                    <td class="align-middle font-monospace fs-10">
+                                                        @if($payment->status === 'posted')
+                                                            <div class="text-success fw-bold">{{ $payment->account->name ?? 'Cash in Hand' }}</div>
+                                                            <div class="text-muted">{{ $payment->journalVoucher?->voucher_no }}</div>
+                                                        @else
+                                                            <span class="text-muted">Awaiting Post</span>
+                                                        @endif
                                                     </td>
                                                     <td class="align-middle fw-semi-bold text-700">{{ $payment->recorder->name ?? 'System' }}</td>
-                                                    <td class="align-middle text-end font-monospace fw-bold {{ $payment->payment_type === 'refund' ? 'text-danger' : 'text-800' }}">
+                                                    <td class="align-middle text-end font-monospace fw-bold {{ $payment->payment_type === 'refund' ? 'text-danger' : ($payment->status === 'posted' ? 'text-success' : 'text-800') }}">
                                                         {{ $payment->payment_type === 'refund' ? '- ' : '' }}Rs. {{ number_format($payment->amount, 2) }}
                                                     </td>
                                                     <td class="align-middle text-center">
-                                                        <a href="{{ route('bookings.payment-receipt', $payment->id) }}" target="_blank" class="btn btn-falcon-default btn-xs" title="Print Receipt">
-                                                            <span class="fas fa-print"></span>
-                                                        </a>
+                                                        <div class="d-inline-flex gap-1 align-items-center">
+                                                            @if($payment->isPendingPosting() && (auth()->user()->isSuperAdmin() || auth()->user()->isBusinessOwner() || auth()->user()->hasPermission('post_payments')))
+                                                                <button wire:click="openAccountantPostModal({{ $payment->id }})" class="btn btn-falcon-success btn-xs" type="button" title="Post to Cash/Bank Account">
+                                                                    <span class="fas fa-check-double me-1"></span>Post
+                                                                </button>
+                                                            @endif
+                                                            <a href="{{ route('bookings.payment-receipt', $payment->id) }}" target="_blank" class="btn btn-falcon-default btn-xs" title="Print Receipt">
+                                                                <span class="fas fa-print"></span>
+                                                            </a>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             @endforeach
                                             <tr class="table-info fw-bold fs-11">
-                                                <td colspan="6" class="text-end text-800">Net Payments Collected:</td>
-                                                <td class="text-end text-800 font-monospace">Rs. {{ number_format($booking->total_paid, 2) }}</td>
+                                                <td colspan="7" class="text-end text-800">Net Posted Payments (Verified in Accounts):</td>
+                                                <td class="text-end text-success font-monospace">Rs. {{ number_format($booking->total_paid, 2) }}</td>
                                                 <td></td>
                                             </tr>
+                                            @if($booking->advance_pending_posting > 0)
+                                                <tr class="table-warning fw-bold fs-11">
+                                                    <td colspan="7" class="text-end text-warning-emphasis">Pending Accountant Posting:</td>
+                                                    <td class="text-end text-warning-emphasis font-monospace">Rs. {{ number_format($booking->advance_pending_posting, 2) }}</td>
+                                                    <td></td>
+                                                </tr>
+                                            @endif
                                         </tbody>
                                     </table>
                                 </div>
@@ -709,8 +764,11 @@
             <!-- If Final Bill exists, show Final Bill card first, then Original Bill below it! -->
             @if($booking->finalBill)
             <div class="card border border-success mb-3 shadow-sm">
-                <div class="card-header bg-success text-white py-2">
+                <div class="card-header bg-success text-white py-2 d-flex justify-content-between align-items-center">
                     <h6 class="mb-0 text-white"><span class="fas fa-file-invoice-dollar me-2"></span>Event-Day Final Bill (Actual)</h6>
+                    <a href="{{ route('bookings.final-bill-v2', $booking->id) }}" target="_blank" class="btn btn-xs btn-light text-success fw-bold">
+                        <span class="fas fa-print me-1"></span> View / Print Invoice V2
+                    </a>
                 </div>
                 <div class="card-body fs-11">
                     <table class="table table-sm table-borderless mb-0">
@@ -832,9 +890,33 @@
                             <td class="px-0 text-end fw-bold py-2">Rs. {{ number_format($booking->security_deposit, 2) }}</td>
                         </tr>
 
-                        <tr class="fs-9 fw-black text-primary">
-                            <td class="px-0 pt-3">Grand Total:</td>
-                            <td class="px-0 text-end pt-3">Rs. {{ number_format($booking->grand_total, 2) }}</td>
+                        <tr class="fs-9 fw-black text-primary border-bottom">
+                            <td class="px-0 pt-3 pb-2">Grand Total:</td>
+                            <td class="px-0 text-end pt-3 pb-2">Rs. {{ number_format($booking->grand_total, 2) }}</td>
+                        </tr>
+
+                        <!-- Two-Stage Payment Financial Status Breakdown -->
+                        <tr>
+                            <td class="px-0 pt-2 text-500">Total Received (Staff):</td>
+                            <td class="px-0 text-end pt-2 font-monospace fw-bold">Rs. {{ number_format($booking->total_received_payments, 2) }}</td>
+                        </tr>
+                        @if($booking->advance_pending_posting > 0)
+                            <tr class="text-warning-emphasis">
+                                <td class="px-0 py-1">
+                                    <span class="fas fa-clock me-1"></span>Pending Accountant Post:
+                                </td>
+                                <td class="px-0 text-end py-1 font-monospace fw-bold">Rs. {{ number_format($booking->advance_pending_posting, 2) }}</td>
+                            </tr>
+                        @endif
+                        <tr class="text-success">
+                            <td class="px-0 py-1">
+                                <span class="fas fa-check-double me-1"></span>Posted in Accounts:
+                            </td>
+                            <td class="px-0 text-end py-1 font-monospace fw-bold">Rs. {{ number_format($booking->total_paid, 2) }}</td>
+                        </tr>
+                        <tr class="border-top text-{{ $booking->remaining_customer_balance > 0 ? 'danger' : 'success' }} fw-bold">
+                            <td class="px-0 pt-2">Remaining Balance:</td>
+                            <td class="px-0 text-end pt-2 font-monospace">Rs. {{ number_format($booking->remaining_customer_balance, 2) }}</td>
                         </tr>
                     </table>
                 </div>
@@ -859,6 +941,9 @@
                         </a>
                         <a class="btn btn-falcon-danger btn-sm w-100 mt-2" href="{{ route('bookings.pdf', $booking->id) }}" target="_blank">
                             <span class="fas fa-file-pdf me-1"></span> Download Invoice PDF
+                        </a>
+                        <a class="btn btn-falcon-warning btn-sm w-100 mt-2" href="{{ route('bookings.final-bill-v2', $booking->id) }}" target="_blank">
+                            <span class="fas fa-file-invoice me-1"></span> Print Final Bill Invoice (V2)
                         </a>
                         <button wire:click="openKitchenSlipModal" class="btn btn-warning btn-sm w-100 mt-2 text-dark fw-bold shadow-xs" type="button">
                             <span class="fas fa-utensils me-1"></span> Print Kitchen Menu
@@ -948,13 +1033,13 @@
                         @if($showPaymentModal)
                             <div class="border border-warning rounded p-2 bg-warning-subtle">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="fs-12 text-warning-900 fw-bold mb-0">Record Payment Transaction</h6>
+                                    <h6 class="fs-12 text-warning-900 fw-bold mb-0">Record Payment Receipt</h6>
                                     <span class="badge {{ $booking->is_revenue_recognized ? 'badge-subtle-success' : 'badge-subtle-info' }} fs-10">
-                                        {{ $booking->is_revenue_recognized ? 'Receivable Settlement' : 'Advance Liability' }}
+                                        {{ $booking->is_revenue_recognized ? 'Receivable Settle' : 'Advance' }}
                                     </span>
                                 </div>
                                 <div class="mb-2">
-                                    <label class="form-label fs-11 mb-1">Amount to Receive (Rs.) *</label>
+                                    <label class="form-label fs-11 mb-1">Amount Received (Rs.) *</label>
                                     <input wire:model="amountPaid" type="number" step="0.01" class="form-control form-control-sm fs-12 font-monospace fw-bold" placeholder="e.g. 50000" />
                                     @error('amountPaid') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                 </div>
@@ -975,16 +1060,7 @@
                                     @error('paymentMethod') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                 </div>
                                 <div class="mb-2">
-                                    <label class="form-label fs-11 mb-1">Receiving Cash / Bank Account</label>
-                                    <select wire:model="paymentAccountId" class="form-select form-select-sm fs-12">
-                                        <option value="">Auto Resolve by Method</option>
-                                        @foreach($cashBankAccounts as $cb)
-                                            <option value="{{ $cb->account_id }}">{{ $cb->account->name ?? $cb->bank_name }} ({{ strtoupper($cb->type) }})</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label fs-11 mb-1">Transaction Ref / Slip #</label>
+                                    <label class="form-label fs-11 mb-1">Transaction Ref / Cheque #</label>
                                     <input wire:model="transactionReference" type="text" class="form-control form-control-sm fs-12" placeholder="e.g. TXN-123456 / Cheque #" />
                                 </div>
                                 <div class="mb-2">
@@ -993,7 +1069,9 @@
                                 </div>
                                 <div class="d-flex justify-content-end gap-1">
                                     <button wire:click="$set('showPaymentModal', false)" class="btn btn-falcon-default btn-xs" type="button">Cancel</button>
-                                    <button wire:click="recordPayment" class="btn btn-warning btn-xs" type="button">Post Payment Voucher</button>
+                                    <button wire:click="recordPayment" class="btn btn-warning btn-xs" type="button">
+                                        <span class="fas fa-paper-plane me-1"></span>Submit for Accountant Post
+                                    </button>
                                 </div>
                             </div>
                         @else
@@ -1291,19 +1369,26 @@
                                     <select wire:model.live="vsVendorId" class="form-select form-select-sm @error('vsVendorId') is-invalid @enderror">
                                         <option value="">-- Choose Service Provider --</option>
                                         @foreach($allVendors as $v)
-                                            <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->vendor_type }}) - {{ $v->vendor_code }}</option>
+                                            <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->vendor_type }}){{ !empty($v->vendor_code) ? ' - ' . $v->vendor_code : '' }}</option>
                                         @endforeach
                                     </select>
                                     @error('vsVendorId') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Service Package / Offering</label>
-                                    <select wire:model.live="vsServiceId" class="form-select form-select-sm">
+                                    <select wire:model.live="vsServiceId" class="form-select form-select-sm" {{ empty($vsVendorId) ? 'disabled' : '' }}>
                                         <option value="">-- Custom / Direct Service --</option>
                                         @foreach($vsVendorServices as $vs)
                                             <option value="{{ $vs->id }}">{{ $vs->service_name }} (Standard Price: Rs. {{ number_format($vs->default_sale_price) }})</option>
                                         @endforeach
                                     </select>
+                                    @if(empty($vsVendorId))
+                                        <div class="text-muted fs-11 mt-1">Please select a service provider first</div>
+                                    @elseif($vsVendorServices->isEmpty())
+                                        <div class="text-muted fs-11 mt-1"><i class="fas fa-info-circle me-1"></i>No preset packages found for this provider. Custom / Direct Service will be used.</div>
+                                    @else
+                                        <div class="text-success fs-11 mt-1"><i class="fas fa-check-circle me-1"></i>{{ $vsVendorServices->count() }} package(s) available</div>
+                                    @endif
                                 </div>
                             </div>
 
@@ -1972,6 +2057,75 @@
                 </div>
             </div>
         </div>
+    @endif
+
+    <!-- Accountant Post Modal for Individual Payments -->
+    @if($showAccountantPostModal && $bvPostingPaymentId)
+        @php
+            $bvPostPayment = \App\Models\BookingPayment::find($bvPostingPaymentId);
+        @endphp
+        @if($bvPostPayment)
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.55); z-index:1060;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-success text-white py-2">
+                        <h6 class="modal-title text-white fw-bold">
+                            <span class="fas fa-check-double me-2"></span>Post Payment: {{ $bvPostPayment->payment_number ?: ('PAY-'.$bvPostPayment->id) }}
+                        </h6>
+                        <button wire:click="$set('showAccountantPostModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-3 fs-11">
+                        <div class="alert alert-warning py-1 px-2 fs-11 mb-3">
+                            <span class="fas fa-exclamation-triangle me-1"></span>
+                            Posting this payment will create a double-entry Journal Voucher and credit Customer Advance Liability.
+                        </div>
+
+                        <div class="bg-light p-2 rounded mb-3">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <span class="text-500">Amount to Post:</span>
+                                    <div class="fw-bold text-success fs-13 font-monospace">Rs. {{ number_format($bvPostPayment->amount, 2) }}</div>
+                                </div>
+                                <div class="col-6">
+                                    <span class="text-500">Method:</span>
+                                    <div class="fw-bold">{{ $bvPostPayment->payment_method }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-800">Target Cash / Bank Account <span class="text-danger">*</span></label>
+                            <select wire:model="bvTargetAccountId" class="form-select form-select-sm">
+                                <option value="">-- Select Cash in Hand / Bank Account --</option>
+                                @foreach($accounts as $acc)
+                                    <option value="{{ $acc->id }}">{{ $acc->account_code }} - {{ $acc->name }} ({{ $acc->nature }})</option>
+                                @endforeach
+                            </select>
+                            @error('bvTargetAccountId') <span class="text-danger fs-11">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-800">Posting Date <span class="text-danger">*</span></label>
+                            <input wire:model="bvPostingDate" type="date" class="form-control form-control-sm" />
+                            @error('bvPostingDate') <span class="text-danger fs-11">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label fw-bold text-800">Accountant Verification Notes</label>
+                            <textarea wire:model="bvAccountantNotes" class="form-control form-control-sm" rows="2" placeholder="e.g. Cash verified and deposited..."></textarea>
+                            @error('bvAccountantNotes') <span class="text-danger fs-11">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                    <div class="modal-footer py-2 bg-light">
+                        <button wire:click="$set('showAccountantPostModal', false)" type="button" class="btn btn-secondary btn-sm">Cancel</button>
+                        <button wire:click="confirmAccountantPostPayment" type="button" class="btn btn-success btn-sm">
+                            <span class="fas fa-check-circle me-1"></span>Confirm & Post to Accounts
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
     @endif
 
     <script>

@@ -269,6 +269,17 @@ class BookingFinancialAccountingTest extends TestCase
         $this->assertEquals(0, JournalVoucher::count());
     }
 
+    protected function recordAndPostPayment(BookingFinancialService $service, Booking $booking, array $params): BookingPayment
+    {
+        $payment = $service->recordPayment($booking, $params);
+        $accountId = $params['account_id'] ?? ((($params['payment_method'] ?? 'Cash') === 'Cash') ? $this->cashAccount->id : $this->bankAccount->id);
+        return $service->postPayment($payment, [
+            'account_id' => $accountId,
+            'posting_date' => $params['payment_date'] ?? date('Y-m-d'),
+            'posted_by' => $this->user->id,
+        ]);
+    }
+
     /**
      * Test 2: Cash Advance payment creates advance liability and debits Cash account.
      */
@@ -277,7 +288,7 @@ class BookingFinancialAccountingTest extends TestCase
         $booking = $this->createBooking(500000.00);
         $service = app(BookingFinancialService::class);
 
-        $payment = $service->recordPayment($booking, [
+        $payment = $this->recordAndPostPayment($service, $booking, [
             'amount' => 100000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -330,7 +341,7 @@ class BookingFinancialAccountingTest extends TestCase
         $booking = $this->createBooking(500000.00);
         $service = app(BookingFinancialService::class);
 
-        $payment = $service->recordPayment($booking, [
+        $payment = $this->recordAndPostPayment($service, $booking, [
             'amount' => 150000.00,
             'payment_method' => 'Bank Transfer',
             'account_id' => $this->bankAccount->id,
@@ -360,7 +371,7 @@ class BookingFinancialAccountingTest extends TestCase
         $recService = app(RevenueRecognitionService::class);
 
         // Pay Rs. 300,000 advance
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 300000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -409,7 +420,7 @@ class BookingFinancialAccountingTest extends TestCase
         $financialService = app(BookingFinancialService::class);
         $recService = app(RevenueRecognitionService::class);
 
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 200000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -441,7 +452,7 @@ class BookingFinancialAccountingTest extends TestCase
         $recService = app(RevenueRecognitionService::class);
 
         // 300k advance
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 300000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -454,8 +465,8 @@ class BookingFinancialAccountingTest extends TestCase
         $this->assertEquals(200000.00, $booking->receivable_amount);
         $this->assertEquals(500000.00, $booking->revenue_recognized);
 
-        // Record Final Settlement Payment of Rs. 200,000
-        $settlePayment = $financialService->recordPayment($booking, [
+        // Record & Post Final Settlement Payment of Rs. 200,000
+        $settlePayment = $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 200000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -497,7 +508,7 @@ class BookingFinancialAccountingTest extends TestCase
         $this->assertEquals(0.00, $booking->revenue_recognized);
 
         // Step 2: Receive 1st Advance: Rs. 100,000 Cash
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 100000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -507,7 +518,7 @@ class BookingFinancialAccountingTest extends TestCase
         $this->assertEquals(0.00, $booking->revenue_recognized);
 
         // Step 3: Receive 2nd Advance: Rs. 150,000 Bank
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 150000.00,
             'payment_method' => 'Bank Transfer',
             'account_id' => $this->bankAccount->id,
@@ -517,7 +528,7 @@ class BookingFinancialAccountingTest extends TestCase
         $this->assertEquals(0.00, $booking->revenue_recognized);
 
         // Step 4: Receive 3rd Advance: Rs. 50,000 Cash
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 50000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -536,7 +547,7 @@ class BookingFinancialAccountingTest extends TestCase
         $this->assertEquals(200000.00, $booking->receivable_amount);
 
         // Step 6: Final Customer Payment: Rs. 200,000 Cash
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 200000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -558,7 +569,7 @@ class BookingFinancialAccountingTest extends TestCase
         $financialService = app(BookingFinancialService::class);
 
         // Receive 100k advance
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 100000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -599,7 +610,7 @@ class BookingFinancialAccountingTest extends TestCase
         $financialService = app(BookingFinancialService::class);
 
         // Receive 100k advance
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 100000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -652,7 +663,7 @@ class BookingFinancialAccountingTest extends TestCase
         $recService = app(RevenueRecognitionService::class);
 
         // 1. Advance 200,000 -> Customer Ledger running balance = -200,000 (credit)
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 200000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -670,7 +681,7 @@ class BookingFinancialAccountingTest extends TestCase
         $this->assertEquals(300000.00, $latestLedger->running_balance);
 
         // 3. Receivable payment of 300,000 -> balance becomes 0.00 (settled)
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 300000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -701,7 +712,7 @@ class BookingFinancialAccountingTest extends TestCase
         $recService = app(RevenueRecognitionService::class);
 
         // 200k advance
-        $financialService->recordPayment($booking, [
+        $this->recordAndPostPayment($financialService, $booking, [
             'amount' => 200000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,
@@ -819,7 +830,7 @@ class BookingFinancialAccountingTest extends TestCase
         $booking1 = $this->createBooking(500000.00);
         $financialService = app(BookingFinancialService::class);
 
-        $financialService->recordPayment($booking1, [
+        $this->recordAndPostPayment($financialService, $booking1, [
             'amount' => 150000.00,
             'payment_method' => 'Cash',
             'account_id' => $this->cashAccount->id,

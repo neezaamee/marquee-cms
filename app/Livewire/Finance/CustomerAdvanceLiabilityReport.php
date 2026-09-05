@@ -50,8 +50,9 @@ class CustomerAdvanceLiabilityReport extends Component
             $query->where(function($q) use ($s) {
                 $q->where('bookings.booking_number', 'like', $s)
                   ->orWhereHas('customer', function($cq) use ($s) {
-                      $cq->where('full_name', 'like', $s)
-                         ->orWhere('phone', 'like', $s)
+                      $cq->where('first_name', 'like', $s)
+                         ->orWhere('last_name', 'like', $s)
+                         ->orWhere('phone_number', 'like', $s)
                          ->orWhere('customer_code', 'like', $s);
                   });
             });

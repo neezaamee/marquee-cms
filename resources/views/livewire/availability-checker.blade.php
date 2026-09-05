@@ -33,8 +33,19 @@
 
                         <!-- Select Date -->
                         <div class="col-12">
-                            <label class="form-label font-sans-serif fw-bold text-700" for="selectedDate">Booking Date *</label>
-                            <input wire:model.live="selectedDate" class="form-control font-monospace" type="date" id="selectedDate" />
+                            <label class="form-label font-sans-serif fw-bold text-700" for="selectedDate">Booking Date (DD-MM-YYYY) <span class="text-danger">*</span></label>
+                            <div wire:ignore x-data x-init="
+                                flatpickr($refs.datePicker, {
+                                    dateFormat: 'd-m-Y',
+                                    allowInput: true,
+                                    defaultDate: '{{ $selectedDate }}',
+                                    onChange: function(selectedDates, dateStr) {
+                                        $wire.set('selectedDate', dateStr);
+                                    }
+                                });
+                            ">
+                                <input x-ref="datePicker" wire:model.live="selectedDate" class="form-control font-monospace" type="text" id="selectedDate" placeholder="DD-MM-YYYY" />
+                            </div>
                         </div>
 
                         <!-- Check Type Toggle -->

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\BelongsToBranch;
 use App\Traits\BelongsToTenant;
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +16,7 @@ use Carbon\Carbon;
 
 class Booking extends Model
 {
-    use HasFactory, SoftDeletes, BelongsToTenant, BelongsToBranch;
+    use HasFactory, SoftDeletes, BelongsToTenant, BelongsToBranch, LogsActivity;
 
     protected $fillable = [
         'marquee_id',
@@ -135,6 +136,14 @@ class Booking extends Model
     public function getEffectiveMarqueeAttribute(): ?Marquee
     {
         return $this->marquee ?? ($this->branch?->marquee ?? ($this->hall?->branch?->marquee ?? auth()->user()?->marquee));
+    }
+
+    /**
+     * Alias for booking_date to safely support event_date references.
+     */
+    public function getEventDateAttribute(): ?Carbon
+    {
+        return $this->booking_date;
     }
 
     /**
@@ -323,13 +332,66 @@ class Booking extends Model
     }
 
     /**
-     * Get total valid payments received from customer (excluding refunds).
+     * Get total POSTED payments received from customer (excluding refunds).
      */
     public function getTotalPaidAttribute(): float
     {
-        $received = (float) $this->payments()->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])->sum('amount');
-        $refunded = (float) $this->payments()->where('payment_type', 'refund')->sum('amount');
+        $received = (float) $this->payments()
+            ->where('status', 'posted')
+            ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])
+            ->sum('amount');
+
+        $refunded = (float) $this->payments()
+            ->where('status', 'posted')
+            ->where('payment_type', 'refund')
+            ->sum('amount');
+
         return max(0.00, $received - $refunded);
+    }
+
+    /**
+     * Get total payments recorded by booking staff (pending + posted).
+     */
+    public function getTotalReceivedPaymentsAttribute(): float
+    {
+        $received = (float) $this->payments()
+            ->whereIn('status', ['pending_posting', 'received', 'posted'])
+            ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])
+            ->sum('amount');
+
+        $refunded = (float) $this->payments()
+            ->whereIn('status', ['pending_posting', 'received', 'posted'])
+            ->where('payment_type', 'refund')
+            ->sum('amount');
+
+        return max(0.00, $received - $refunded);
+    }
+
+    /**
+     * Get advance payments awaiting accountant posting.
+     */
+    public function getAdvancePendingPostingAttribute(): float
+    {
+        return (float) $this->payments()
+            ->whereIn('status', ['pending_posting', 'received'])
+            ->where('payment_type', 'advance')
+            ->sum('amount');
+    }
+
+    /**
+     * Get advance payments successfully posted by accountant.
+     */
+    public function getAdvancePostedAttribute(): float
+    {
+        return (float) $this->advance_received;
+    }
+
+    /**
+     * Get remaining customer balance (Effective Invoice Amount - Posted Payments).
+     */
+    public function getRemainingCustomerBalanceAttribute(): float
+    {
+        return max(0.00, (float) $this->effective_invoice_amount - (float) $this->total_paid);
     }
 
     /**

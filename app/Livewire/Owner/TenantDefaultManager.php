@@ -187,7 +187,10 @@ class TenantDefaultManager extends Component
             }
         }
 
-        session()->flash('success', "Imported {$importedCount} missing global default records into your tenant setup.");
+        // 7. Seed Default Chart of Accounts & Active Financial Year
+        app(\App\Services\AccountingService::class)->seedTenantDefaultAccounts($marqueeId);
+
+        session()->flash('success', "Imported {$importedCount} missing global default records and verified Chart of Accounts for your tenant setup.");
         $this->resetPage();
     }
 

@@ -14,10 +14,25 @@ class DepartmentProductionItem extends Model
         'department_production_id',
         'item_id',
         'quantity',
+        'planned_recipe_qty',
+        'recipe_unit_id',
+        'planned_stock_qty',
+        'stock_unit_id',
+        'consumed_qty',
+        'wastage_qty',
+        'unit_cost',
+        'cost_unit_id',
+        'total_cost',
     ];
 
     protected $casts = [
         'quantity' => 'float',
+        'planned_recipe_qty' => 'float',
+        'planned_stock_qty' => 'float',
+        'consumed_qty' => 'float',
+        'wastage_qty' => 'float',
+        'unit_cost' => 'float',
+        'total_cost' => 'float',
     ];
 
     /**

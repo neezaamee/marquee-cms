@@ -52,11 +52,17 @@ class FinancialYearManager extends Component
         $this->resetErrorBag();
     }
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        return $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+    }
+
     public function save()
     {
         $this->validate();
 
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
 
         // Business rules validation
         \Illuminate\Support\Facades\DB::transaction(function () use ($marqueeId) {
@@ -106,7 +112,7 @@ class FinancialYearManager extends Component
 
     public function makeDefault($id)
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         
         \Illuminate\Support\Facades\DB::transaction(function () use ($id, $marqueeId) {
             FinancialYear::where('marquee_id', $marqueeId)->update(['is_default' => false]);
