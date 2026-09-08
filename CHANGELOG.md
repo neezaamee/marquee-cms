@@ -5,6 +5,40 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-08
+
+### Added
+- **Punjab Revenue Authority (PRA) e-IMS Integration**:
+  - Implemented dual-mode POS synchronization supporting both **Cloud Web API** (`https://ims.pral.com.pk/ims/`) and **Local Fiscal Agent** (`http://localhost:8524`) connection types per the official PRAL January 2026 Manual.
+  - Added `pos_connection_type` column (`'cloud'` | `'local'`) to `branches` table via migration `2026_09_07_220000_add_pos_connection_type_to_branches_table.php`.
+  - Extended `FbrPosService` with regional authority routing: dispatches to `syncPraInvoice()` when the marquee province is **Punjab** / authority is **PRA**; falls back to existing FBR flow for all other regions.
+  - Added PRA-specific line-item PCT Code `99010000` (marriage hall / banquet) and success verification parsing (`Code: 100`) extracting `InvoiceNumber` and building the official PRA QR verification URL: `https://e.pra.punjab.gov.pk/VerifyInvoice?InvoiceNo=...`.
+  - Sandbox mode auto-uses the official PRAL testing token when only the 8-character desktop access code is present.
+
+- **Branch POS Connection Type UI**:
+  - Added `pos_connection_type` dropdown to `BranchForm` Livewire component and `branch-form.blade.php` with live `wire:model` binding, validation, and dynamic tax-authority headings and field placeholders.
+  - `BranchList` updated to display the active connection type badge.
+
+- **Customer Final Bill Invoice — PRA Support**:
+  - `FinalBillInvoiceV2` dynamically labels the invoice header as **PRA Invoice #** or **FBR Invoice #** based on the active regional authority.
+  - Generates QR code targeting the official PRA verification portal.
+  - Displays **PRA POS Registered** badge and **Verified Synced** confirmation mark.
+  - Added vector SVG logo for Punjab Revenue Authority (`public/assets/img/logos/pra-logo.svg`).
+
+- **Tax Configuration UI**:
+  - `TaxConfiguration` Livewire component now renders dynamic authority labels (`PRA POS ID`, `PRA Access Code / Token`) and an **Integration Method** dropdown (`Cloud Web API` / `Local Agent 8524`).
+
+- **Automated Test Coverage**:
+  - `PraPosSyncTest.php` (4 tests): Cloud Web API sync, Local Agent mode, error response capturing, and network failure/timeout handling.
+  - `BusinessOwnerBranchAndTaxAccessTest.php`: Full Business Owner branch and tax configuration access suite.
+  - All 32 tests in the full branch & access suite pass (129 assertions).
+
+### Changed
+- `MarqueeList` component updated to surface PRA-related metadata on the tenant listing screen.
+- `CrudAccessTest` extended with POS connection type assertions.
+
+---
+
 ## [1.4.0] - 2026-09-05
 
 ### Added

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 140" width="160" height="140">
+  <rect width="160" height="140" rx="8" fill="#ffffff"/>
+  <rect x="3" y="3" width="154" height="134" rx="6" fill="#f8fafc" stroke="#198754" stroke-width="2"/>
+  <!-- Shield Emblem -->
+  <circle cx="80" cy="42" r="26" fill="#0d6832"/>
+  <circle cx="80" cy="42" r="23" fill="#ffffff"/>
+  <circle cx="80" cy="42" r="20" fill="#0d6832"/>
+  <!-- Star and Crescent -->
+  <path d="M84 30 A12 12 0 1 1 74 52 A10 10 0 1 0 84 30 Z" fill="#ffffff"/>
+  <polygon points="86,34 87.5,38 91.5,38 88.5,40.5 89.5,44.5 86,42 82.5,44.5 83.5,40.5 80.5,38 84.5,38" fill="#ffffff"/>
+  <!-- Text -->
+  <text x="80" y="82" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="900" fill="#0d6832" text-anchor="middle" letter-spacing="1.5">PRA</text>
+  <text x="80" y="96" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="7.5" font-weight="700" fill="#334155" text-anchor="middle" letter-spacing="0.5">PUNJAB REVENUE</text>
+  <text x="80" y="106" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="7.5" font-weight="700" fill="#334155" text-anchor="middle" letter-spacing="0.5">AUTHORITY</text>
+  <!-- Ribbon / Tag -->
+  <rect x="25" y="114" width="110" height="18" rx="4" fill="#0d6832"/>
+  <text x="80" y="127" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="8.5" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1">e-IMS INVOICE</text>
+</svg>

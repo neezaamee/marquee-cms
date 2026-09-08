@@ -7,10 +7,10 @@
         </div>
     @endif
 
-    @if($isSuperAdmin && count($marquees) > 0)
+    @if(($isSuperAdmin || $canSwitchMarquee) && count($marquees) > 0)
         <div class="card border border-200 mb-3">
             <div class="card-header bg-light">
-                <h6 class="mb-0"><span class="fas fa-building me-2 text-primary"></span>Select Business (Super Admin)</h6>
+                <h6 class="mb-0"><span class="fas fa-building me-2 text-primary"></span>Select Business</h6>
             </div>
             <div class="card-body">
                 <select wire:model.live="selectedMarqueeId" class="form-select form-select-sm" style="max-width: 400px;">
@@ -54,37 +54,50 @@
                         @enderror
                     </div>
 
-                    <!-- FBR POS ID -->
-                    <div class="col-md-3">
+                    <!-- POS ID -->
+                    <div class="col-md-2">
                         <label class="form-label" for="fbr-pos-id-{{ $branchId }}">
-                            <span class="fas fa-cash-register me-1 text-info"></span>FBR POS ID
+                            <span class="fas fa-cash-register me-1 text-info"></span>{{ $taxAuthority }} POS ID
                         </label>
                         <input wire:model="branchData.{{ $branchId }}.fbr_pos_id"
                                type="text"
                                class="form-control form-control-sm @error("branchData.{$branchId}.fbr_pos_id") is-invalid @enderror"
                                id="fbr-pos-id-{{ $branchId }}"
-                               placeholder="e.g. POS-12345" />
+                               placeholder="e.g. 822269" />
                         @error("branchData.{$branchId}.fbr_pos_id")
                             <div class="text-danger fs-11 mt-1">{{ $message }}</div>
                         @enderror
                     </div>
 
-                    <!-- FBR POS Key -->
-                    <div class="col-md-4">
+                    <!-- POS Key / Access Code -->
+                    <div class="col-md-3">
                         <label class="form-label" for="fbr-pos-key-{{ $branchId }}">
-                            <span class="fas fa-key me-1 text-warning"></span>FBR POS Secret Key
+                            <span class="fas fa-key me-1 text-warning"></span>{{ $taxAuthority }} Access Code / Token
                         </label>
                         <input wire:model="branchData.{{ $branchId }}.fbr_pos_key"
                                type="password"
                                class="form-control form-control-sm @error("branchData.{$branchId}.fbr_pos_key") is-invalid @enderror"
                                id="fbr-pos-key-{{ $branchId }}"
-                               placeholder="FBR POS secret key" />
+                               placeholder="Access code or API token" />
                         @error("branchData.{$branchId}.fbr_pos_key")
                             <div class="text-danger fs-11 mt-1">{{ $message }}</div>
                         @enderror
                     </div>
 
-                    <!-- FBR Sandbox Mode -->
+                    <!-- Integration Method (Cloud vs Local) -->
+                    <div class="col-md-2">
+                        <label class="form-label" for="pos-conn-{{ $branchId }}">
+                            <span class="fas fa-network-wired me-1 text-primary"></span>Method
+                        </label>
+                        <select wire:model="branchData.{{ $branchId }}.pos_connection_type"
+                                class="form-select form-select-sm"
+                                id="pos-conn-{{ $branchId }}">
+                            <option value="cloud">Cloud Web API</option>
+                            <option value="local">Local Agent (8524)</option>
+                        </select>
+                    </div>
+
+                    <!-- Sandbox Mode -->
                     <div class="col-md-2 d-flex align-items-end pb-1">
                         <div class="form-check form-switch">
                             <input wire:model="branchData.{{ $branchId }}.fbr_sandbox_mode"
@@ -93,7 +106,7 @@
                                    role="switch"
                                    id="fbr-sandbox-{{ $branchId }}" />
                             <label class="form-check-label" for="fbr-sandbox-{{ $branchId }}">
-                                Sandbox Mode
+                                Sandbox
                             </label>
                         </div>
                     </div>

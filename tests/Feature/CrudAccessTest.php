@@ -73,18 +73,18 @@ class CrudAccessTest extends TestCase
             'subscription_plan_id' => $this->plan->id,
         ]);
 
-        $owner = User::create([
-            'name' => 'Owner',
-            'email' => 'owner@test.com',
+        $staff = User::create([
+            'name' => 'Staff User',
+            'email' => 'staff@test.com',
             'password' => bcrypt('password'),
-            'role_id' => $this->ownerRole->id,
+            'role_id' => $this->staffRole->id,
             'marquee_id' => $marquee->id,
         ]);
 
-        $response = $this->actingAs($owner)->get(route('marquees.index'));
+        $response = $this->actingAs($staff)->get(route('marquees.index'));
         $response->assertStatus(403);
 
-        $response = $this->actingAs($owner)->get(route('marquees.create'));
+        $response = $this->actingAs($staff)->get(route('marquees.create'));
         $response->assertStatus(403);
     }
 

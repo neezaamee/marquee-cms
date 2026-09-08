@@ -27,7 +27,7 @@
 * **Department Management Module**: Complete department hierarchy (Kitchen, Housekeeping, Accounts, IT, Procurement), employee assignments, daily attendance, stock requests, stock issues, stock returns, and production logs.
 * **Kitchen & Catering Recipes**: Linked dish menus to raw inventory items, with automated per-head material requirement calculations (`RecipeService`).
 * **HR & Staff Attendance**: Employees directory, monthly payroll overview, and branch-isolated daily check-in/out attendance logging.
-* **Regional Integrations**: FBR (Federal Board of Revenue) sandbox POS synchronization client with QR codes verification.
+* **Regional Tax Integrations**: FBR (Federal Board of Revenue) and PRA (Punjab Revenue Authority e-IMS) dual-mode POS synchronization — Cloud Web API or Local Fiscal Agent (`localhost:8524`) — with PCT coding, QR verification, and sandbox/production routing.
 
 ---
 

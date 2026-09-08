@@ -44,10 +44,12 @@ class MarqueeList extends Component
      */
     public function deleteRecord()
     {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->isBusinessOwner(), 403);
 
         if ($this->confirmingDeletionId) {
             $marquee = Marquee::findOrFail($this->confirmingDeletionId);
+            abort_unless($user->can('delete', $marquee), 403);
             $marquee->delete();
             $this->confirmingDeletionId = null;
             session()->flash('success', 'Marquee tenant deleted successfully.');
@@ -56,9 +58,15 @@ class MarqueeList extends Component
 
     public function render()
     {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->isBusinessOwner(), 403);
 
-        $query = Marquee::with(['owners.subscriptionPlan']);
+        if ($user->isSuperAdmin()) {
+            $query = Marquee::with(['owners.subscriptionPlan']);
+        } else {
+            $accessibleIds = $user->getAccessibleMarquees()->pluck('id')->toArray();
+            $query = Marquee::whereIn('id', $accessibleIds)->with(['owners.subscriptionPlan']);
+        }
 
         // Apply filters
         if ($this->filter === 'active') {

@@ -12,7 +12,7 @@
                     <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search marquees..." />
                     <span class="input-group-text"><span class="fas fa-search"></span></span>
                 </div>
-                @if(auth()->user()->isSuperAdmin())
+                @if(auth()->user()->isSuperAdmin() || (auth()->user()->isBusinessOwner() && auth()->user()->canCreateMarquee()))
                     <a class="btn btn-falcon-primary btn-sm" href="{{ route('marquees.create') }}">
                         <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add New
                     </a>
@@ -83,7 +83,7 @@
                                         <a class="btn btn-link p-0" href="{{ route('marquees.edit', $marquee->id) }}" data-bs-toggle="tooltip" title="Edit">
                                             <span class="text-primary fas fa-edit"></span>
                                         </a>
-                                        @if(auth()->user()->isSuperAdmin())
+                                        @if(auth()->user()->isSuperAdmin() || auth()->user()->can('delete', $marquee))
                                             <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $marquee->id }})" title="Delete Marquee">
                                                 <span class="text-danger fas fa-trash-alt"></span>
                                             </button>

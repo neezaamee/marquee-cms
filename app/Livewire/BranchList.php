@@ -43,7 +43,7 @@ class BranchList extends Component
             $branch = Branch::findOrFail($this->confirmingDeletionId);
 
             // Tenant security check
-            if (!auth()->user()->isSuperAdmin() && $branch->marquee_id !== auth()->user()->marquee_id) {
+            if (!auth()->user()->can('delete', $branch)) {
                 session()->flash('error', 'Unauthorized operation.');
                 $this->confirmingDeletionId = null;
                 return;

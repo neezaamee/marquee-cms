@@ -133,7 +133,7 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th class="text-sm-end px-1 py-0.5 text-600">FBR Invoice #:</th>
+                                    <th class="text-sm-end px-1 py-0.5 text-600">{{ $taxAuthority }} Invoice #:</th>
                                     <td class="text-end px-1 py-0.5 fw-bold font-monospace text-primary">
                                         {{ $fbrInvoiceNumber }}
                                     </td>
@@ -310,44 +310,41 @@
                 <div class="col-7 col-md-7 col-print-fbr">
                     <div class="border rounded p-2 p-md-3 bg-light-subtle shadow-2xs">
                         <div class="d-flex align-items-center gap-3">
-                            <!-- FBR Official Logo (Uploaded Asset) -->
+                            <!-- Tax Authority Official Logo -->
                             <div class="text-center flex-shrink-0">
-                                <img src="{{ asset('assets/img/logos/fbr-digital-invoice.png') }}" 
-                                     alt="FBR Digital Invoicing System" 
-                                     style="max-height: 80px; max-width: 95px; object-fit: contain;" 
-                                     class="rounded border bg-white p-1" />
+                                @if($taxAuthority === 'PRA')
+                                    <img src="{{ asset('assets/img/logos/pra-logo.svg') }}" 
+                                         alt="PRA Digital Invoicing System" 
+                                         style="max-height: 80px; max-width: 95px; object-fit: contain;" 
+                                         class="rounded border bg-white p-1" />
+                                @else
+                                    <img src="{{ asset('assets/img/logos/fbr-digital-invoice.png') }}" 
+                                         alt="FBR Digital Invoicing System" 
+                                         style="max-height: 80px; max-width: 95px; object-fit: contain;" 
+                                         class="rounded border bg-white p-1" />
+                                @endif
                             </div>
 
-                            <!-- Dynamic QR Code containing FBR Invoice # ONLY -->
+                            <!-- Dynamic QR Code containing Tax Authority Invoice Data / Verification URL -->
                             <div class="text-center flex-shrink-0">
-                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=95x95&margin=3&data={{ urlencode($fbrInvoiceNumber) }}" 
-                                     alt="FBR POS QR Code" 
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=95x95&margin=3&data={{ urlencode($qrData) }}" 
+                                     alt="{{ $taxAuthority }} POS QR Code" 
                                      width="78" 
                                      height="78" 
                                      class="border rounded bg-white p-1" />
-                                {{--<div class="fs-10 text-muted font-monospace mt-1">Scan to Verify</div>--}}
                             </div>
 
-                            <!-- FBR Digital Invoicing Details -->
+                            <!-- Digital Invoicing Details -->
                             <div class="flex-grow-1 fs-11">
                                 <div class="d-flex align-items-center mb-1 flex-wrap gap-1">
                                     <span class="badge bg-primary-subtle text-primary fw-bold text-uppercase fs-11">
-                                        <span class="fas fa-shield-alt me-1"></span>FBR POS Registered
+                                        <span class="fas fa-shield-alt me-1"></span>{{ $taxAuthority }} POS Registered
                                     </span>
                                     @if($isFinal && ($billing->fbr_sync_status ?? null) === 'synced')
                                         <span class="badge bg-success-subtle text-success fs-11">Verified Synced</span>
                                     @endif
                                 </div>
-                                <div class="text-dark fw-bold mb-0 fs-11">FBR Digital Invoicing System</div>
-                                {{--<div class="text-600 font-monospace fs-11">
-                                    FBR Invoice #: <strong class="text-primary">{{ $fbrInvoiceNumber }}</strong>
-                                </div>
-                                @if(!empty($billing->usin))
-                                    <div class="text-muted fs-10 font-monospace">USIN: {{ $billing->usin }}</div>
-                                @endif
-                                <div class="text-500 fs-10 mt-1">
-                                    Official sales tax invoice verified under FBR POS integration. QR contains FBR Invoice number for real-time verification.
-                                </div>--}}
+                                <div class="text-dark fw-bold mb-0 fs-11">{{ $taxAuthority }} Digital Invoicing System</div>
                             </div>
                         </div>
                     </div>

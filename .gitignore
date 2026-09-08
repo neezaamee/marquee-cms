@@ -47,6 +47,14 @@ scratch*.txt
 *.tmp
 *.bak
 
+# AI-generated walkthrough / PR summary files (local only — do not commit)
+McmsPR
+McmsPR.*
+WalkthroughPR
+WalkthroughPR.*
+*_walkthrough.md
+*_PR.md
+
 # IDE, Editor and OS System Configurations
 .idea/
 .vscode/

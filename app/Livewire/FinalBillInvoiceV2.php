@@ -73,7 +73,19 @@ class FinalBillInvoiceV2 extends Component
         $invoicePrefix = ($branch && ! empty($branch->invoice_prefix)) ? $branch->invoice_prefix : 'INV-';
         $projectInvoiceNumber = $invoicePrefix.str_pad($isFinal ? $billing->id : $this->booking->id, 6, '0', STR_PAD_LEFT);
 
-        // 2. Dynamic FBR Invoice Number: uses final bill fbr_invoice_number if available, or branch POS format
+        // Determine tax authority based on branch province
+        $taxAuthority = 'FBR';
+        if ($branch && in_array(strtolower($branch->province ?? ''), ['punjab'])) {
+            $taxAuthority = 'PRA';
+        } elseif ($branch && in_array(strtolower($branch->province ?? ''), ['sindh'])) {
+            $taxAuthority = 'SRB';
+        } elseif ($branch && in_array(strtolower($branch->province ?? ''), ['khyber pakhtunkhwa', 'kp'])) {
+            $taxAuthority = 'KPRA';
+        } elseif ($branch && in_array(strtolower($branch->province ?? ''), ['balochistan'])) {
+            $taxAuthority = 'BRA';
+        }
+
+        // 2. Dynamic Tax Invoice Number: uses final bill fbr_invoice_number if available, or branch POS format
         $fbrInvoiceNumber = null;
         if ($isFinal && ! empty($this->booking->finalBill->fbr_invoice_number)) {
             $fbrInvoiceNumber = $this->booking->finalBill->fbr_invoice_number;
@@ -83,8 +95,11 @@ class FinalBillInvoiceV2 extends Component
 
         if (empty($fbrInvoiceNumber)) {
             $posId = ($branch && ! empty($branch->fbr_pos_id)) ? $branch->fbr_pos_id : 'POS';
-            $fbrInvoiceNumber = 'FBR-'.$posId.'-'.str_pad($isFinal ? $billing->id : $this->booking->id, 6, '0', STR_PAD_LEFT);
+            $fbrInvoiceNumber = $taxAuthority.'-'.$posId.'-'.str_pad($isFinal ? $billing->id : $this->booking->id, 6, '0', STR_PAD_LEFT);
         }
+
+        // QR Code data: if bill has stored qr_code, use it. Otherwise, format based on tax authority.
+        $qrData = $billing->qr_code ?? ($taxAuthority === 'PRA' && $fbrInvoiceNumber ? "https://e.pra.punjab.gov.pk/VerifyInvoice?InvoiceNo={$fbrInvoiceNumber}" : $fbrInvoiceNumber);
 
         return view('livewire.final-bill-invoice-v2', [
             'booking' => $this->booking,
@@ -99,6 +114,8 @@ class FinalBillInvoiceV2 extends Component
             'bankAccounts' => $bankAccounts,
             'projectInvoiceNumber' => $projectInvoiceNumber,
             'fbrInvoiceNumber' => $fbrInvoiceNumber,
+            'taxAuthority' => $taxAuthority,
+            'qrData' => $qrData,
         ]);
     }
 }

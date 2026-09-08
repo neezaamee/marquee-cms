@@ -26,6 +26,7 @@ class TaxConfiguration extends Component
             $rules["branchData.{$id}.fbr_pos_id"] = 'nullable|string|max:100';
             $rules["branchData.{$id}.fbr_pos_key"] = 'nullable|string|max:255';
             $rules["branchData.{$id}.fbr_sandbox_mode"] = 'nullable|boolean';
+            $rules["branchData.{$id}.pos_connection_type"] = 'nullable|string|in:cloud,local';
         }
         return $rules;
     }
@@ -34,16 +35,16 @@ class TaxConfiguration extends Component
     {
         $user = auth()->user();
         abort_unless(
-            $user->isSuperAdmin() || $user->hasPermission('manage_settings'),
+            $user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasPermission('manage_settings'),
             403,
             'You do not have permission to manage tax configuration.'
         );
 
-        if ($user->isSuperAdmin()) {
-            $this->marquees = Marquee::orderBy('name')->get();
-            $this->selectedMarqueeId = $this->marquees->first()?->id;
+        if ($user->isSuperAdmin() || $user->isBusinessOwner()) {
+            $this->marquees = $user->getAccessibleMarquees();
+            $this->selectedMarqueeId = $user->getActiveMarqueeId() ?: $this->marquees->first()?->id;
         } else {
-            $this->selectedMarqueeId = $user->marquee_id;
+            $this->selectedMarqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
         }
 
         $this->loadBranches();
@@ -70,6 +71,7 @@ class TaxConfiguration extends Component
                 'fbr_pos_id' => $branch->fbr_pos_id ?? '',
                 'fbr_pos_key' => $branch->fbr_pos_key ?? '',
                 'fbr_sandbox_mode' => (bool) ($branch->fbr_sandbox_mode ?? false),
+                'pos_connection_type' => $branch->pos_connection_type ?? 'cloud',
             ];
         }
     }
@@ -78,7 +80,7 @@ class TaxConfiguration extends Component
     {
         $user = auth()->user();
         abort_unless(
-            $user->isSuperAdmin() || $user->hasPermission('manage_settings'),
+            $user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasPermission('manage_settings'),
             403
         );
 
@@ -89,10 +91,11 @@ class TaxConfiguration extends Component
 
         $branch = Branch::findOrFail($branchId);
 
-        // Security: ensure branch belongs to allowed marquee
+        // Security: ensure branch can be updated by user
         abort_unless(
-            $user->isSuperAdmin() || $branch->marquee_id === $user->marquee_id,
-            403
+            $user->can('update', $branch),
+            403,
+            'Unauthorized operation.'
         );
 
         $branch->update([
@@ -100,6 +103,7 @@ class TaxConfiguration extends Component
             'fbr_pos_id' => $data['fbr_pos_id'] ?: null,
             'fbr_pos_key' => $data['fbr_pos_key'] ?: null,
             'fbr_sandbox_mode' => (bool) ($data['fbr_sandbox_mode'] ?? false),
+            'pos_connection_type' => $data['pos_connection_type'] ?? 'cloud',
         ]);
 
         $this->savedBranchId = $branchId;
@@ -108,8 +112,13 @@ class TaxConfiguration extends Component
 
     public function render()
     {
-        $isSuperAdmin = auth()->user()->isSuperAdmin();
-        return view('livewire.finance.tax-configuration', compact('isSuperAdmin'))
+        $user = auth()->user();
+        $isSuperAdmin = $user->isSuperAdmin();
+        $canSwitchMarquee = $isSuperAdmin || ($user->isBusinessOwner() && count($this->marquees) > 1);
+        $selectedMarquee = Marquee::find($this->selectedMarqueeId);
+        $taxAuthority = strtoupper($selectedMarquee?->tax_authority ?? 'FBR');
+
+        return view('livewire.finance.tax-configuration', compact('isSuperAdmin', 'canSwitchMarquee', 'taxAuthority'))
             ->layout('layouts.admin');
     }
 }

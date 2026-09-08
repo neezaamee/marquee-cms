@@ -22,6 +22,7 @@ class Branch extends Model
         'fbr_pos_id',
         'fbr_pos_key',
         'fbr_sandbox_mode',
+        'pos_connection_type',
         'is_head_office',
         'tax_rate',
         'invoice_prefix',

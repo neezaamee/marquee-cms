@@ -10,12 +10,12 @@
         <div class="card-body">
             <form wire:submit.prevent="save">
                 <div class="row g-3">
-                    <!-- Marquee selector for Super Admins -->
-                    @if(auth()->user()->isSuperAdmin())
+                    <!-- Marquee selector for Super Admins / Multi-Business Owners -->
+                    @if(auth()->user()->isSuperAdmin() || (auth()->user()->isBusinessOwner() && count($marquees) > 1 && !$isEditMode))
                         <div class="col-12">
-                            <label class="form-label" for="marquee_id">Select Marquee Tenant *</label>
+                            <label class="form-label" for="marquee_id">Select Business / Marquee *</label>
                             <select wire:model.live="marquee_id" class="form-select @error('marquee_id') is-invalid @enderror" id="marquee_id" required>
-                                <option value="">Select a marquee tenant...</option>
+                                <option value="">Select a business...</option>
                                 @foreach($marquees as $marquee)
                                     <option value="{{ $marquee->id }}">{{ $marquee->name }} ({{ $marquee->city }})</option>
                                 @endforeach
@@ -110,25 +110,35 @@
                     </div>
 
                     <div class="row navbar-vertical-label-wrapper mt-4 mb-2">
-                        <div class="col-auto navbar-vertical-label text-primary">FBR POS Integration Settings (Optional)</div>
+                        <div class="col-auto navbar-vertical-label text-primary">{{ $taxAuthority }} POS Integration Settings (Optional)</div>
                         <div class="col ps-0"><hr class="mb-0 navbar-vertical-divider" /></div>
                     </div>
 
-                    <!-- FBR POS ID -->
-                    <div class="col-md-5">
-                        <label class="form-label" for="fbr_pos_id">FBR POS Device ID</label>
-                        <input wire:model="fbr_pos_id" class="form-control @error('fbr_pos_id') is-invalid @enderror" id="fbr_pos_id" type="text" placeholder="e.g. PRA-LHR-GUL-01" />
+                    <!-- POS ID -->
+                    <div class="col-md-3">
+                        <label class="form-label" for="fbr_pos_id">{{ $taxAuthority }} POS ID</label>
+                        <input wire:model="fbr_pos_id" class="form-control @error('fbr_pos_id') is-invalid @enderror" id="fbr_pos_id" type="text" placeholder="e.g. 822269" />
                         @error('fbr_pos_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
-                    <!-- FBR POS Key -->
-                    <div class="col-md-5">
-                        <label class="form-label" for="fbr_pos_key">POS Authorization Key</label>
-                        <input wire:model="fbr_pos_key" class="form-control @error('fbr_pos_key') is-invalid @enderror" id="fbr_pos_key" type="password" placeholder="Key / Token secret" />
+                    <!-- POS Key / Access Code -->
+                    <div class="col-md-4">
+                        <label class="form-label" for="fbr_pos_key">{{ $taxAuthority }} Access Code / Token</label>
+                        <input wire:model="fbr_pos_key" class="form-control @error('fbr_pos_key') is-invalid @enderror" id="fbr_pos_key" type="password" placeholder="Access code or API token" />
                         @error('fbr_pos_key') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
-                    <!-- FBR Sandbox Mode -->
+                    <!-- Integration Method -->
+                    <div class="col-md-3">
+                        <label class="form-label" for="pos_connection_type">Integration Method</label>
+                        <select wire:model="pos_connection_type" class="form-select @error('pos_connection_type') is-invalid @enderror" id="pos_connection_type">
+                            <option value="cloud">Cloud Web API</option>
+                            <option value="local">Local Agent (8524)</option>
+                        </select>
+                        @error('pos_connection_type') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <!-- Sandbox Mode -->
                     <div class="col-md-2 d-flex align-items-center mt-md-4">
                         <div class="form-check mb-0">
                             <input wire:model="fbr_sandbox_mode" class="form-check-input" type="checkbox" id="fbr_sandbox_mode" />

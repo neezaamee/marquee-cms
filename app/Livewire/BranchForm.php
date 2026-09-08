@@ -22,6 +22,7 @@ class BranchForm extends Component
     public $fbr_pos_id = '';
     public $fbr_pos_key = '';
     public $fbr_sandbox_mode = true;
+    public $pos_connection_type = 'cloud';
     public $tax_rate = 13.00;
     public $invoice_prefix = 'INV-';
     public $booking_prefix = 'BK-';
@@ -71,14 +72,14 @@ class BranchForm extends Component
 
     public function mount($branch = null)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'), 403);
-
         $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->hasPermission('manage_settings'), 403);
 
-        if ($user->isSuperAdmin()) {
-            $this->marquees = Marquee::orderBy('name')->get();
+        if ($user->isSuperAdmin() || $user->isBusinessOwner()) {
+            $this->marquees = $user->getAccessibleMarquees();
+            $this->marquee_id = $user->getActiveMarqueeId() ?: $this->marquees->first()?->id;
         } else {
-            $this->marquee_id = $user->marquee_id;
+            $this->marquee_id = $user->getActiveMarqueeId() ?: $user->marquee_id;
         }
 
         if ($branch) {
@@ -95,6 +96,7 @@ class BranchForm extends Component
             $this->fbr_pos_id = $branch->fbr_pos_id;
             $this->fbr_pos_key = $branch->fbr_pos_key;
             $this->fbr_sandbox_mode = (bool)$branch->fbr_sandbox_mode;
+            $this->pos_connection_type = $branch->pos_connection_type ?? 'cloud';
             $this->tax_rate = $branch->tax_rate !== null ? (float)$branch->tax_rate : 13.00;
             $this->invoice_prefix = $branch->invoice_prefix ?: 'INV-';
             $this->booking_prefix = $branch->booking_prefix ?: 'BK-';
@@ -114,12 +116,13 @@ class BranchForm extends Component
             'fbr_pos_id' => 'nullable|string|max:100',
             'fbr_pos_key' => 'nullable|string|max:255',
             'fbr_sandbox_mode' => 'boolean',
+            'pos_connection_type' => 'nullable|string|in:cloud,local',
             'tax_rate' => 'required|numeric|min:0|max:100',
             'invoice_prefix' => 'nullable|string|max:20',
             'booking_prefix' => 'nullable|string|max:20',
         ];
 
-        if (auth()->user()->isSuperAdmin()) {
+        if (auth()->user()->isSuperAdmin() || (auth()->user()->isBusinessOwner() && !$this->isEditMode)) {
             $rules['marquee_id'] = 'required|exists:marquees,id';
         }
 
@@ -136,10 +139,17 @@ class BranchForm extends Component
 
     public function save()
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_settings'), 403);
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->hasPermission('manage_settings'), 403);
 
-        if (!auth()->user()->isSuperAdmin()) {
-            $this->marquee_id = auth()->user()->marquee_id;
+        if ($this->isEditMode) {
+            $branch = Branch::findOrFail($this->branchId);
+            abort_unless($user->can('update', $branch), 403, 'Unauthorized operation.');
+            $this->marquee_id = $branch->marquee_id;
+        } else {
+            if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($this->marquee_id)) {
+                $this->marquee_id = $user->getActiveMarqueeId() ?: $user->marquee_id;
+            }
         }
 
         $validatedData = $this->validate();
@@ -147,24 +157,21 @@ class BranchForm extends Component
         $validatedData['phone'] = $this->formatPhoneNumber($this->phone);
 
         if ($this->isEditMode) {
-            $branch = Branch::findOrFail($this->branchId);
-
-            // Tenant security check
-            if (!auth()->user()->isSuperAdmin() && $branch->marquee_id !== auth()->user()->marquee_id) {
-                abort(403, 'Unauthorized operation.');
+            // Keep the branch's marquee_id intact on edit unless super admin
+            if (!$user->isSuperAdmin()) {
+                unset($validatedData['marquee_id']);
             }
 
             $branch->update($validatedData);
             session()->flash('success', 'Branch updated successfully.');
         } else {
+            abort_unless($user->can('create', Branch::class), 403);
+
             // Check plan limits
-            $owner = null;
-            if (auth()->user()->isSuperAdmin()) {
-                $marquee = Marquee::find($this->marquee_id);
-                $owner = $marquee ? $marquee->owners()->first() : null;
-            } else {
-                $marquee = auth()->user()->marquee;
-                $owner = $marquee ? $marquee->owners()->first() : null;
+            $marquee = Marquee::find($this->marquee_id);
+            $owner = $marquee ? $marquee->owners()->first() : null;
+            if (!$owner && $user->isBusinessOwner()) {
+                $owner = $user;
             }
 
             if ($owner && !$owner->canCreateBranch()) {
@@ -200,11 +207,23 @@ class BranchForm extends Component
         return redirect()->route('branches.index');
     }
 
+    public function getTaxAuthorityProperty()
+    {
+        return match ($this->province) {
+            'Punjab' => 'PRA',
+            'Sindh' => 'SRB',
+            'Khyber Pakhtunkhwa' => 'KPRA',
+            'Balochistan' => 'BRA',
+            default => 'FBR',
+        };
+    }
+
     public function render()
     {
         $managerRoles = \App\Models\Role::whereIn('name', ['super_admin', 'owner', 'business_owner'])->pluck('id');
         $possibleManagers = \App\Models\User::whereIn('role_id', $managerRoles)->orderBy('name')->get();
+        $taxAuthority = $this->taxAuthority;
 
-        return view('livewire.branch-form', compact('possibleManagers'));
+        return view('livewire.branch-form', compact('possibleManagers', 'taxAuthority'));
     }
 }
