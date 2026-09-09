@@ -77,7 +77,7 @@
                                                 <span class="fas fa-edit"></span>
                                             </button>
                                             
-                                            <button wire:click="confirmDeletion({{ $perm->id }})" class="btn btn-link p-0 text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" title="Delete Permission">
+                                            <button wire:click="confirmDeletion({{ $perm->id }})" class="btn btn-link p-0 text-danger" type="button" title="Delete Permission">
                                                 <span class="fas fa-trash-alt"></span>
                                             </button>
                                         </div>
@@ -104,71 +104,89 @@
         @endif
     </div>
 
-    <!-- Edit/Create Permission Modal -->
-    <div wire:ignore.self class="modal fade @if($isModalOpen) show @endif" id="permFormModal" tabindex="-1" style="@if($isModalOpen) display: block; background: rgba(0, 0, 0, 0.5); @else display: none; @endif" aria-modal="true" role="dialog">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-primary text-white border-0 py-3">
-                    <h5 class="modal-title text-white" id="permFormModalLabel">
-                        <span class="fas @if($isEditMode) fa-edit @else fa-plus @endif me-2"></span>
-                        {{ $isEditMode ? 'Modify Permission' : 'Create New Permission' }}
-                    </h5>
-                    <button wire:click="closeModal" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+    {{-- ======================================================
+         Create / Edit Permission Modal
+         IMPORTANT: No wire:ignore.self — Livewire must be able
+         to add/remove this element when $isModalOpen changes.
+    ====================================================== --}}
+    @if($isModalOpen)
+        <div class="modal-backdrop fade show"></div>
+
+        <div class="modal fade show d-block" id="permFormModal" tabindex="-1" aria-modal="true" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-primary text-white border-0 py-3">
+                        <h5 class="modal-title text-white" id="permFormModalLabel">
+                            <span class="fas {{ $isEditMode ? 'fa-edit' : 'fa-plus' }} me-2"></span>
+                            {{ $isEditMode ? 'Modify Permission' : 'Create New Permission' }}
+                        </h5>
+                        <button wire:click="closeModal" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <form wire:submit.prevent="savePermission">
+                        <div class="modal-body text-start py-4">
+
+                            <!-- Name field -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-700 fs-10" for="permName">Permission Identifier / Key</label>
+                                <input wire:model="name" type="text" id="permName"
+                                    class="form-control py-2 @error('name') is-invalid @enderror"
+                                    placeholder="e.g. view_reports" />
+                                <div class="form-text text-muted fs-11">Lowercase characters, numbers, dashes, dots, and underscores only. Examples: `view_bookings`, `event-types.view`.</div>
+                                @error('name')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <!-- Label field -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-700 fs-10" for="permLabel">Display Name / Label</label>
+                                <input wire:model="label" type="text" id="permLabel"
+                                    class="form-control py-2 @error('label') is-invalid @enderror"
+                                    placeholder="e.g. View Financial Reports" />
+                                @error('label')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                        </div>
+                        <div class="modal-footer bg-light border-0 py-3">
+                            <button wire:click="closeModal" type="button" class="btn btn-falcon-default btn-sm px-3">Cancel</button>
+                            <button type="submit" class="btn btn-primary btn-sm px-4">
+                                <span class="fas fa-save me-1"></span>Save Changes
+                            </button>
+                        </div>
+                    </form>
                 </div>
-                <form wire:submit.prevent="savePermission">
-                    <div class="modal-body text-start py-4">
-                        
-                        <!-- Name field -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-700 fs-10" for="permName">Permission Identifier / Key</label>
-                            <input wire:model="name" type="text" id="permName" class="form-control py-2 @error('name') is-invalid @enderror" placeholder="e.g. view_reports" />
-                            <div class="form-text text-muted fs-11">Lowercase characters, numbers, dashes, dots, and underscores only. Examples: `view_bookings`, `event-types.view`.</div>
-                            @error('name')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
+            </div>
+        </div>
+    @endif
 
-                        <!-- Label field -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-700 fs-10" for="permLabel">Display Name / Label</label>
-                            <input wire:model="label" type="text" id="permLabel" class="form-control py-2 @error('label') is-invalid @enderror" placeholder="e.g. View Financial Reports" />
-                            @error('label')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
+    {{-- ======================================================
+         Delete Confirmation Modal
+    ====================================================== --}}
+    @if($confirmingDeletionId)
+        <div class="modal-backdrop fade show"></div>
 
+        <div class="modal fade show d-block" id="deleteConfirmModal" tabindex="-1" aria-modal="true" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-danger text-white border-0 py-3">
+                        <h5 class="modal-title text-white" id="deleteConfirmModalLabel">
+                            <span class="fas fa-exclamation-triangle me-2"></span>Confirm Deletion
+                        </h5>
+                        <button wire:click="$set('confirmingDeletionId', null)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-start py-4 text-900">
+                        <p class="mb-0">Are you sure you want to permanently delete this system permission? This action will immediately remove it from all roles, which might cause unexpected behaviors in the access control logic.</p>
                     </div>
                     <div class="modal-footer bg-light border-0 py-3">
-                        <button wire:click="closeModal" type="button" class="btn btn-falcon-default btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary btn-sm px-4">
-                            <span class="fas fa-save me-1"></span>Save Changes
+                        <button wire:click="$set('confirmingDeletionId', null)" type="button" class="btn btn-falcon-default btn-sm px-3">Cancel</button>
+                        <button wire:click="deletePermission" type="button" class="btn btn-danger btn-sm px-4">
+                            <span class="fas fa-trash-alt me-1"></span>Delete Permission
                         </button>
                     </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div wire:ignore.self class="modal fade @if($confirmingDeletionId) show @endif" id="deleteConfirmModal" tabindex="-1" style="@if($confirmingDeletionId) display: block; background: rgba(0, 0, 0, 0.5); @else display: none; @endif" aria-modal="true" role="dialog">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-danger text-white border-0 py-3">
-                    <h5 class="modal-title text-white" id="deleteConfirmModalLabel">
-                        <span class="fas fa-exclamation-triangle me-2"></span>Confirm Deletion
-                    </h5>
-                    <button wire:click="$set('confirmingDeletionId', null)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
-                </div>
-                <div class="modal-body text-start py-4 text-900">
-                    <p class="mb-0">Are you sure you want to permanently delete this system permission? This action will immediately remove it from all roles, which might cause unexpected behaviors in the access control logic.</p>
-                </div>
-                <div class="modal-footer bg-light border-0 py-3">
-                    <button wire:click="$set('confirmingDeletionId', null)" type="button" class="btn btn-falcon-default btn-sm px-3">Cancel</button>
-                    <button wire:click="deletePermission" type="button" class="btn btn-danger btn-sm px-4">
-                        <span class="fas fa-trash-alt me-1"></span>Delete Permission
-                    </button>
                 </div>
             </div>
         </div>
-    </div>
+    @endif
 </div>

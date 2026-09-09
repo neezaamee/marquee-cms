@@ -172,7 +172,7 @@ class UserForm extends Component
                 'accountant' => 'Accountant',
                 'store_keeper' => 'Store Keeper',
                 'kitchen_manager' => 'Kitchen Manager',
-                default => 'Helper / Labor',
+                default => (!empty($role?->label) ? $role->label : 'Helper / Labor'),
             };
 
             $employee = \App\Models\Employee::create([

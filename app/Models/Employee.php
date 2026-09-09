@@ -46,8 +46,45 @@ class Employee extends Model
         'Electrician',
         'Decorator',
         'Driver',
-        'Helper / Labor',
     ];
+
+    /**
+     * Get all available designations combining standard designations and dynamic roles.
+     *
+     * @return array
+     */
+    public static function getDesignations(): array
+    {
+        $designations = self::DESIGNATIONS;
+
+        try {
+            // Fetch roles excluding system super_admin, business_owner, and owner
+            $roles = Role::whereNotIn('name', ['super_admin', 'business_owner', 'owner'])->get();
+            foreach ($roles as $role) {
+                $rawLabel = !empty($role->label) ? trim($role->label) : str_replace(['_', '-'], ' ', $role->name);
+                $label = (ctype_lower(str_replace(' ', '', $rawLabel))) ? ucwords($rawLabel) : $rawLabel;
+
+                if ($label !== '') {
+                    $exists = false;
+                    foreach ($designations as $existing) {
+                        if (strcasecmp($existing, $label) === 0) {
+                            $exists = true;
+                            break;
+                        }
+                    }
+                    if (!$exists) {
+                        $designations[] = $label;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fallback to static list if database or roles table is not available
+        }
+
+        natcasesort($designations);
+
+        return array_values($designations);
+    }
 
     /**
      * Employment types.
@@ -76,6 +113,8 @@ class Employee extends Model
         'owner',
         'admin',
         'branch_manager',
+        'booking_manager',
+        'booking_manager_pra',
         'booking_officer',
         'accountant',
         'store_keeper',

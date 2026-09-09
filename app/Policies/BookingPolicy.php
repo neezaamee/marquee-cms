@@ -125,8 +125,12 @@ class BookingPolicy
                 || ($booking->marquee && (int) $booking->marquee->owner_user_id === (int) $user->id);
         }
 
-        if ($user->hasRole('branch_manager') && $user->branch_id) {
+        if ($user->hasRole(['branch_manager', 'booking_manager', 'booking_manager_pra']) && $user->branch_id) {
             return (int) $user->branch_id === (int) $booking->branch_id;
+        }
+
+        if ($user->hasRole(['booking_manager', 'booking_manager_pra']) && !$user->branch_id) {
+            return (int) $booking->marquee_id === (int) $user->getActiveMarqueeId();
         }
 
         return false;

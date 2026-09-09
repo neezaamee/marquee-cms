@@ -91,7 +91,7 @@ class StaffList extends Component
         }
 
         $employees = $query->latest()->paginate(15);
-        $designations = Employee::DESIGNATIONS;
+        $designations = Employee::getDesignations();
         $statuses = Employee::STATUSES;
 
         return view('livewire.staff-list', compact('employees', 'designations', 'statuses'));

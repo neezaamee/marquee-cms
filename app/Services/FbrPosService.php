@@ -195,14 +195,13 @@ class FbrPosService
 
             if ($isSuccess) {
                 $invoiceNumber = $data['InvoiceNumber'] ?? $data['FBRInvoiceNumber'] ?? ('PRA-' . rand(1000000, 9999999));
-                $qrUrl = "https://e.pra.punjab.gov.pk/VerifyInvoice?InvoiceNo={$invoiceNumber}";
 
                 $finalBill->update([
                     'fbr_invoice_number' => $invoiceNumber,
                     'fbr_sync_status' => 'synced',
                     'fbr_sync_time' => now(),
                     'usin' => $usin,
-                    'qr_code' => $qrUrl,
+                    'qr_code' => $invoiceNumber,
                     'fbr_response_message' => 'Invoice uploaded successfully to PRA e-IMS.',
                 ]);
 

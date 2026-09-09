@@ -777,10 +777,18 @@ class BookingView extends Component
             return $finalBill;
         });
 
-        // Trigger FBR Sync if POS configuration exists
+        // Trigger FBR / PRA Sync if POS configuration exists
+        $syncMessage = '';
         if ($finalBill) {
             $fbrService = app(\App\Services\FbrPosService::class);
-            $fbrService->syncFinalBill($finalBill);
+            $syncResult = $fbrService->syncFinalBill($finalBill);
+            $taxAuth = strtoupper($this->booking->marquee->tax_authority ?? 'PRA / FBR');
+            if (!empty($syncResult['success'])) {
+                $invNum = $syncResult['fbr_invoice_number'] ?? '';
+                $syncMessage = " Invoice posted to {$taxAuth}" . ($invNum ? " (#{$invNum})" : '') . '.';
+            } elseif (!empty($syncResult['message'])) {
+                $syncMessage = " (Notice: {$syncResult['message']})";
+            }
         }
 
         // Recalculate and update the booking's payment status based on the new final bill amount
@@ -789,7 +797,43 @@ class BookingView extends Component
         $this->booking->refresh();
         $this->showFinalBillModal = false;
         
-        session()->flash('success', 'Event-day final bill has been generated and validated with FBR successfully.');
+        session()->flash('success', 'Event-day final bill has been generated successfully.' . $syncMessage);
+    }
+
+    /**
+     * Explicitly post / re-sync final bill invoice with PRA / FBR.
+     */
+    public function postInvoiceToPraFbr()
+    {
+        $user = auth()->user();
+        abort_unless(
+            $user->isSuperAdmin() || 
+            $user->isBusinessOwner() || 
+            $user->hasRole(['branch_manager', 'booking_manager', 'booking_manager_pra', 'booking_officer', 'accountant']) || 
+            $user->hasPermission('post_final_bill_pra') || 
+            $user->hasPermission('edit_bookings'), 
+            403,
+            'Unauthorized to post final invoices to PRA / FBR.'
+        );
+
+        if (!$this->booking->finalBill) {
+            session()->flash('error', 'Please prepare and save the final bill before posting to PRA / FBR.');
+            return;
+        }
+
+        $taxAuth = strtoupper($this->booking->marquee->tax_authority ?? 'PRA / FBR');
+        $fbrService = app(\App\Services\FbrPosService::class);
+        $result = $fbrService->syncFinalBill($this->booking->finalBill);
+
+        $this->booking->refresh();
+
+        if (!empty($result['success'])) {
+            $invNum = $this->booking->finalBill->fbr_invoice_number ?? ($result['fbr_invoice_number'] ?? '');
+            session()->flash('success', "Final invoice successfully posted to {$taxAuth}!" . ($invNum ? " Invoice #: {$invNum}" : ''));
+        } else {
+            $errorMsg = $result['message'] ?? "Failed to post invoice to {$taxAuth}.";
+            session()->flash('warning', "{$taxAuth} Notice: {$errorMsg}");
+        }
     }
 
     /**

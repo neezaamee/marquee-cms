@@ -961,6 +961,43 @@
                             </button>
                         @endif
 
+                        <!-- PRA / FBR Invoice Posting Panel -->
+                        @if($booking->finalBill)
+                            <div class="card bg-light border mt-2 p-2 shadow-none">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold fs-11 text-700">
+                                        <span class="fas fa-landmark me-1 text-primary"></span> {{ strtoupper($booking->marquee->tax_authority ?? 'PRA/FBR') }} POS Sync
+                                    </span>
+                                    @if($booking->finalBill->fbr_sync_status === 'synced')
+                                        <span class="badge badge-subtle-success fs-11"><span class="fas fa-check-circle me-1"></span>Posted</span>
+                                    @elseif($booking->finalBill->fbr_sync_status === 'failed')
+                                        <span class="badge badge-subtle-danger fs-11"><span class="fas fa-exclamation-triangle me-1"></span>Failed</span>
+                                    @else
+                                        <span class="badge badge-subtle-warning fs-11"><span class="fas fa-clock me-1"></span>Pending</span>
+                                    @endif
+                                </div>
+                                @if($booking->finalBill->fbr_invoice_number)
+                                    <div class="fs-11 text-dark mb-1">
+                                        <strong>Invoice #:</strong> <span class="badge bg-200 text-dark font-monospace">{{ $booking->finalBill->fbr_invoice_number }}</span>
+                                    </div>
+                                @endif
+                                @if($booking->finalBill->fbr_response_message)
+                                    <div class="fs-11 text-muted text-truncate mb-1" title="{{ $booking->finalBill->fbr_response_message }}">
+                                        <strong>Status:</strong> {{ $booking->finalBill->fbr_response_message }}
+                                    </div>
+                                @endif
+                                <button wire:click="postInvoiceToPraFbr" wire:loading.attr="disabled" class="btn {{ $booking->finalBill->fbr_sync_status === 'synced' ? 'btn-falcon-default' : 'btn-primary' }} btn-xs w-100 mt-1" type="button">
+                                    <span wire:loading.remove wire:target="postInvoiceToPraFbr">
+                                        <span class="fas {{ $booking->finalBill->fbr_sync_status === 'synced' ? 'fa-sync-alt' : 'fa-cloud-upload-alt' }} me-1"></span>
+                                        {{ $booking->finalBill->fbr_sync_status === 'synced' ? 'Re-sync with ' . strtoupper($booking->marquee->tax_authority ?? 'PRA/FBR') : 'Post Final Invoice to ' . strtoupper($booking->marquee->tax_authority ?? 'PRA/FBR') }}
+                                    </span>
+                                    <span wire:loading wire:target="postInvoiceToPraFbr">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status"></span> Posting to {{ strtoupper($booking->marquee->tax_authority ?? 'PRA/FBR') }}...
+                                    </span>
+                                </button>
+                            </div>
+                        @endif
+
 
                         <!-- Refundable Security Deposit Status & Process -->
                         <hr class="my-2" />
@@ -1259,7 +1296,14 @@
                     </div>
                     <div class="modal-footer bg-light py-2">
                         <button wire:click="$set('showFinalBillModal', false)" type="button" class="btn btn-falcon-default btn-xs px-3">Cancel</button>
-                        <button wire:click="saveFinalBill" type="button" class="btn btn-warning btn-xs px-4">Lock Final Bill</button>
+                        <button wire:click="saveFinalBill" wire:loading.attr="disabled" type="button" class="btn btn-warning btn-xs px-4">
+                            <span wire:loading.remove wire:target="saveFinalBill">
+                                <span class="fas fa-lock me-1"></span> Lock & Post to {{ strtoupper($booking->marquee->tax_authority ?? 'PRA/FBR') }}
+                            </span>
+                            <span wire:loading wire:target="saveFinalBill">
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span> Locking & Posting...
+                            </span>
+                        </button>
                     </div>
                 </div>
             </div>

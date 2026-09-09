@@ -98,8 +98,15 @@ class FinalBillInvoiceV2 extends Component
             $fbrInvoiceNumber = $taxAuthority.'-'.$posId.'-'.str_pad($isFinal ? $billing->id : $this->booking->id, 6, '0', STR_PAD_LEFT);
         }
 
-        // QR Code data: if bill has stored qr_code, use it. Otherwise, format based on tax authority.
-        $qrData = $billing->qr_code ?? ($taxAuthority === 'PRA' && $fbrInvoiceNumber ? "https://e.pra.punjab.gov.pk/VerifyInvoice?InvoiceNo={$fbrInvoiceNumber}" : $fbrInvoiceNumber);
+        // QR Code data: on scanning QR code only invoice number should be displayed, not url.
+        if ($taxAuthority === 'PRA') {
+            $qrData = $fbrInvoiceNumber;
+        } else {
+            $qrData = $billing->qr_code ?? $fbrInvoiceNumber;
+            if (is_string($qrData) && str_contains($qrData, 'VerifyInvoice?InvoiceNo=')) {
+                $qrData = $fbrInvoiceNumber;
+            }
+        }
 
         return view('livewire.final-bill-invoice-v2', [
             'booking' => $this->booking,

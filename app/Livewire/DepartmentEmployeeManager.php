@@ -144,7 +144,7 @@ class DepartmentEmployeeManager extends Component
             'totalStaff' => $totalStaff,
             'assignedStaff' => $assignedStaff,
             'unassignedStaff' => $unassignedStaff,
-            'designations' => Employee::DESIGNATIONS,
+            'designations' => Employee::getDesignations(),
         ])->layout('layouts.admin');
     }
 }

@@ -165,7 +165,7 @@ class PraPosSyncTest extends TestCase
         $this->assertEquals('822269FIAU28346319*test*', $this->finalBill->fbr_invoice_number);
         $this->assertNotNull($this->finalBill->fbr_sync_time);
         $this->assertEquals(
-            'https://e.pra.punjab.gov.pk/VerifyInvoice?InvoiceNo=822269FIAU28346319*test*',
+            '822269FIAU28346319*test*',
             $this->finalBill->qr_code
         );
 

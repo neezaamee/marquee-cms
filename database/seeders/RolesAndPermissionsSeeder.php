@@ -23,6 +23,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ['name' => 'create_bookings', 'label' => 'Create Bookings'],
             ['name' => 'edit_bookings', 'label' => 'Edit Bookings'],
             ['name' => 'cancel_bookings', 'label' => 'Cancel Bookings'],
+            ['name' => 'post_final_bill_pra', 'label' => 'Post Final Bill to PRA / FBR'],
 
             // Halls/Venues
             ['name' => 'view_halls', 'label' => 'View Halls'],
@@ -115,7 +116,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_packages', 'create_packages', 'edit_packages', 'delete_packages',
                     'manage_accounting',
                     'inventory.adjust', 'inventory.stock-take', 'inventory.view-costs', 'inventory.override-negative',
-                    'purchase.approve-po', 'purchase.invoice-post'
+                    'purchase.approve-po', 'purchase.invoice-post',
+                    'post_final_bill_pra'
                 ],
             ],
             'owner' => [
@@ -133,7 +135,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_packages', 'create_packages', 'edit_packages', 'delete_packages',
                     'manage_accounting',
                     'inventory.adjust', 'inventory.stock-take', 'inventory.view-costs', 'inventory.override-negative',
-                    'purchase.approve-po', 'purchase.invoice-post'
+                    'purchase.approve-po', 'purchase.invoice-post',
+                    'post_final_bill_pra'
                 ],
             ],
             'area_manager' => [
@@ -165,7 +168,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_supplier_categories',
                     'event-types.view', 'event-types.create', 'event-types.edit',
                     'view_packages', 'create_packages', 'edit_packages',
-                    'inventory.adjust', 'inventory.stock-take', 'inventory.view-costs', 'purchase.approve-po'
+                    'inventory.adjust', 'inventory.stock-take', 'inventory.view-costs', 'purchase.approve-po',
+                    'post_final_bill_pra'
                 ],
             ],
             'accountant' => [
@@ -177,6 +181,16 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_reports',
                     'manage_accounting',
                     'inventory.view-costs', 'purchase.invoice-post'
+                ],
+            ],
+            'booking_manager' => [
+                'label' => 'Booking Manager',
+                'description' => 'Manages event bookings, customer contracts, and posts final invoices to PRA/FBR.',
+                'permissions' => [
+                    'view_bookings', 'create_bookings', 'edit_bookings', 'cancel_bookings',
+                    'view_halls', 'view_menus', 'view_packages', 'event-types.view',
+                    'view_payments', 'create_payments', 'view_reports',
+                    'post_final_bill_pra'
                 ],
             ],
             'booking_officer' => [

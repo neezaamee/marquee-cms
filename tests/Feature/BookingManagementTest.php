@@ -1249,5 +1249,97 @@ class BookingManagementTest extends TestCase
         $this->assertNull($oldBooking->privacy_ladies_percentage);
         $this->assertNull($oldBooking->privacy_gents_percentage);
     }
+
+    public function test_booking_manager_role_can_manage_bookings_and_post_final_invoice_to_pra(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://ims.pral.com.pk/*' => \Illuminate\Support\Facades\Http::response([
+                'Code' => '100',
+                'Response' => 'Data Stored Successfully',
+                'InvoiceNumber' => 'PRA-BM-889977-INV',
+            ], 200),
+            'http://127.0.0.1:8524/*' => \Illuminate\Support\Facades\Http::response([
+                'InvoiceNumber' => 'FBR-BM-123456',
+                'Code' => '100',
+                'Response' => 'SUCCESS',
+            ], 200),
+        ]);
+
+        // Configure branch with POS ID and PRA tax authority
+        $this->branchA->update([
+            'fbr_pos_id' => '822269',
+            'fbr_sandbox_mode' => true,
+        ]);
+        $this->marqueeA->update([
+            'tax_authority' => 'PRA',
+        ]);
+
+        $managerRole = Role::where('name', 'booking_manager')->first();
+        $this->assertNotNull($managerRole);
+        $this->assertTrue($managerRole->permissions()->where('name', 'view_bookings')->exists());
+        $this->assertTrue($managerRole->permissions()->where('name', 'create_bookings')->exists());
+        $this->assertTrue($managerRole->permissions()->where('name', 'edit_bookings')->exists());
+        $this->assertTrue($managerRole->permissions()->where('name', 'post_final_bill_pra')->exists());
+
+        $bookingManagerUser = User::create([
+            'name' => 'Booking Manager Test',
+            'email' => 'bm@marquee.com',
+            'username' => 'bm_test',
+            'password' => bcrypt('password'),
+            'role_id' => $managerRole->id,
+            'marquee_id' => $this->marqueeA->id,
+            'branch_id' => $this->branchA->id,
+            'status' => 'active',
+        ]);
+
+        // 1. Booking Module: Access list & create wizard
+        $this->actingAs($bookingManagerUser)->get(route('bookings.index'))->assertStatus(200);
+        $this->actingAs($bookingManagerUser)->get(route('bookings.create'))->assertStatus(200);
+
+        // 2. Booking Module: Access and view booking details
+        $booking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'branch_id' => $this->branchA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-06-25',
+            'start_time' => '2026-06-25 18:00:00',
+            'end_time' => '2026-06-25 23:30:00',
+            'guest_count' => 100,
+            'per_plate_price' => 2000.00,
+            'subtotal' => 200000.00,
+            'tax_amount' => 32000.00,
+            'grand_total' => 232000.00,
+            'booking_status' => 'Confirmed',
+        ]);
+
+        $this->actingAs($bookingManagerUser)->get(route('bookings.show', $booking->id))->assertStatus(200);
+
+        // 3. Post final invoice to PRA/FBR via BookingView
+        Livewire::actingAs($bookingManagerUser)
+            ->test(\App\Livewire\BookingView::class, ['booking' => $booking])
+            ->set('fbGuestCount', 100)
+            ->set('fbPerPlatePrice', 2000.00)
+            ->set('fbHallCharges', 0)
+            ->set('fbDiscountAmount', 0)
+            ->call('saveFinalBill')
+            ->assertHasNoErrors();
+
+        $booking->refresh();
+        $this->assertNotNull($booking->finalBill);
+
+        // Explicitly trigger postInvoiceToPraFbr
+        Livewire::actingAs($bookingManagerUser)
+            ->test(\App\Livewire\BookingView::class, ['booking' => $booking])
+            ->call('postInvoiceToPraFbr')
+            ->assertHasNoErrors();
+
+        $booking->refresh();
+        $this->assertEquals('synced', $booking->finalBill->fbr_sync_status);
+        $this->assertEquals('PRA-BM-889977-INV', $booking->finalBill->fbr_invoice_number);
+    }
 }
 

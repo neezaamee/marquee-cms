@@ -41,7 +41,7 @@ class StaffForm extends Component
     public function mount($staff = null)
     {
         $user = auth()->user();
-        abort_unless($user->isSuperAdmin() || $user->hasRole(['owner', 'branch_manager']) || $user->hasPermission('manage_staff'), 403);
+        abort_unless($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasRole(['owner', 'branch_manager']) || $user->hasPermission('manage_staff'), 403);
 
         // Fetch lists based on authorization
         if ($user->hasRole('branch_manager')) {
@@ -51,10 +51,10 @@ class StaffForm extends Component
             $this->branches = Branch::all();
         }
 
-        // Branch Managers can't assign other Branch Managers
-        $allDesignations = Employee::DESIGNATIONS;
+        // Branch Managers can't assign management roles above themselves
+        $allDesignations = Employee::getDesignations();
         if ($user->hasRole('branch_manager')) {
-            $this->designations = array_filter($allDesignations, fn($d) => $d !== 'Branch Manager');
+            $this->designations = array_values(array_filter($allDesignations, fn($d) => !in_array($d, ['Branch Manager', 'Admin / Area Manager / Branches Head'])));
         } else {
             $this->designations = $allDesignations;
         }
@@ -75,6 +75,14 @@ class StaffForm extends Component
             $this->cnic = $staff->cnic;
             $this->mobile_number = $staff->mobile_number;
             $this->designation = $staff->designation;
+
+            // Ensure employee's current designation exists in options
+            if (!empty($staff->designation) && !in_array($staff->designation, $this->designations)) {
+                $this->designations[] = $staff->designation;
+                natcasesort($this->designations);
+                $this->designations = array_values($this->designations);
+            }
+
             $this->joining_date = date('Y-m-d', strtotime($staff->joining_date));
             $this->salary = $staff->salary;
             $this->employment_type = $staff->employment_type;
@@ -103,7 +111,7 @@ class StaffForm extends Component
     public function save()
     {
         $user = auth()->user();
-        abort_unless($user->isSuperAdmin() || $user->hasRole(['owner', 'branch_manager']) || $user->hasPermission('manage_staff'), 403);
+        abort_unless($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasRole(['owner', 'branch_manager']) || $user->hasPermission('manage_staff'), 403);
 
         $validatedData = $this->validate();
 

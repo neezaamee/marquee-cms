@@ -5,6 +5,33 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-09-09
+
+### Added
+- **Booking Manager Role & Dedicated PRA / FBR Invoice Posting**:
+  - Registered `post_final_bill_pra` permission in `permissions` table and assigned to `business_owner`, `owner`, `branch_manager`, and `booking_manager` roles via migration `2026_09_09_200000_add_booking_manager_role_and_pra_permissions.php`.
+  - Configured `booking_manager` / `booking_manager_pra` with complete booking operational privileges (`view_bookings`, `create_bookings`, `edit_bookings`, `cancel_bookings`, `view_halls`, `view_menus`, `view_packages`, `event-types.view`, `view_payments`, `create_payments`, `view_reports`, `post_final_bill_pra`).
+  - Updated `BookingPolicy` to allow booking managers to manage and cancel bookings within their marquee/branch scope.
+  - Added dedicated **PRA / FBR POS Sync Card** in `BookingView` with real-time sync status badges (`Posted`, `Pending`, `Failed`), registered Invoice # display, and interactive **"Post Final Invoice to PRA/FBR"** / **"Re-sync"** button with loading indicators.
+  - Added `postInvoiceToPraFbr()` method in `BookingView` component with real-time session feedback.
+  - Updated Final Bill modal action to **"Lock & Post to PRA/FBR"**.
+
+- **Dynamic Custom Roles in Employee Designations**:
+  - Added `Employee::getDesignations()` method that dynamically merges static staff designations with custom roles created by SuperAdmin from the `roles` table.
+  - Implemented case-insensitive deduplication and natural sorting while maintaining security isolation by excluding platform superadmin and owner roles (`super_admin`, `business_owner`, `owner`).
+  - Preserves employee's current designation when editing profiles even if customized.
+  - Synchronized designation listings across `StaffForm`, `StaffController`, `StaffList`, `DepartmentEmployeeManager`, and `UserForm`.
+
+### Changed
+- **PRA Invoice QR Code Scan Optimization**:
+  - Updated PRA invoice QR code generation in `FbrPosService` and `FinalBillInvoiceV2` so scanning the QR code displays strictly the **PRA invoice number** directly rather than a web URL.
+  - Sanitized existing stored invoices in database.
+
+- **Roles & Permissions Manager Modal Fix**:
+  - Fixed modal opening and closing behavior for "Add New Role" and "Add New Permission" buttons in `roles-manager.blade.php` and `permissions-manager.blade.php` adhering to Falcon Admin theme and Livewire 3 modal state management.
+
+---
+
 ## [1.5.0] - 2026-09-08
 
 ### Added

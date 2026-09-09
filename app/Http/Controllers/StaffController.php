@@ -36,9 +36,9 @@ class StaffController extends Controller
         }
 
         // Branch Manager should not be able to add another Branch Manager
-        $designations = \App\Models\Employee::DESIGNATIONS;
+        $designations = \App\Models\Employee::getDesignations();
         if ($user->hasRole('branch_manager')) {
-            $designations = array_filter($designations, fn($d) => $d !== 'Branch Manager');
+            $designations = array_values(array_filter($designations, fn($d) => !in_array($d, ['Branch Manager', 'Admin / Area Manager / Branches Head'])));
         }
 
         $roles = Role::whereNotIn('name', ['super_admin'])->get();
@@ -112,9 +112,14 @@ class StaffController extends Controller
         }
 
         // Branch Manager cannot change designation to Branch Manager, except when editing a Branch Manager (e.g. themselves)
-        $designations = \App\Models\Employee::DESIGNATIONS;
+        $designations = \App\Models\Employee::getDesignations();
+        if (!empty($staff->designation) && !in_array($staff->designation, $designations)) {
+            $designations[] = $staff->designation;
+            natcasesort($designations);
+            $designations = array_values($designations);
+        }
         if ($user->hasRole('branch_manager')) {
-            $designations = array_filter($designations, fn($d) => $d !== 'Branch Manager' || $staff->designation === 'Branch Manager');
+            $designations = array_values(array_filter($designations, fn($d) => $d !== 'Branch Manager' || $staff->designation === 'Branch Manager'));
         }
 
         $roles = Role::whereNotIn('name', ['super_admin'])->get();

@@ -363,4 +363,45 @@ class StaffManagementTest extends TestCase
         $response = $this->actingAs($this->owner)->get(route('staff.edit', $employeeB->id));
         $response->assertNotFound();
     }
+
+    public function test_custom_role_added_by_superadmin_appears_in_designation_list_for_business_owner()
+    {
+        // 1. Ensure custom role exists (e.g. Booking Manager)
+        $customRole = Role::firstOrCreate(
+            ['name' => 'booking_manager'],
+            ['label' => 'Booking Manager', 'description' => 'Oversees reservations and event schedules']
+        );
+
+        // 2. Verify Employee::getDesignations() includes the new custom role
+        $designations = Employee::getDesignations();
+        $this->assertContains('Booking Manager', $designations);
+
+        // Verify super_admin and owner are excluded
+        $this->assertNotContains('Super Administrator', $designations);
+        $this->assertNotContains('Business Owner', $designations);
+
+        // 3. Verify Business Owner can render staff form and sees "Booking Manager" option
+        \Livewire\Livewire::actingAs($this->owner)
+            ->test(\App\Livewire\StaffForm::class)
+            ->assertSee('Booking Manager')
+            ->set('name', 'Hamza Booking')
+            ->set('cnic', '35202-7777777-7')
+            ->set('mobile_number', '+923007777777')
+            ->set('designation', 'Booking Manager')
+            ->set('joining_date', '2026-03-01')
+            ->set('salary', 75000)
+            ->set('employment_type', 'Permanent')
+            ->set('status', 'active')
+            ->set('branch_id', $this->branch->id)
+            ->call('save')
+            ->assertRedirect(route('staff.index'));
+
+        // 4. Verify employee is saved with the custom designation
+        $this->assertDatabaseHas('employees', [
+            'name' => 'Hamza Booking',
+            'designation' => 'Booking Manager',
+            'salary' => 75000,
+            'marquee_id' => $this->marquee->id,
+        ]);
+    }
 }

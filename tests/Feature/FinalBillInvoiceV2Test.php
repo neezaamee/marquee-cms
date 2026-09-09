@@ -283,4 +283,35 @@ class FinalBillInvoiceV2Test extends TestCase
         $response->assertSee(route('bookings.final-bill-v2', $this->booking->id));
         $response->assertSee('Print Final Bill Invoice (V2)');
     }
+
+    public function test_pra_final_bill_invoice_v2_qr_code_encodes_only_invoice_number_not_url()
+    {
+        $this->marquee->update(['tax_authority' => 'PRA']);
+
+        BookingFinalBill::create([
+            'booking_id' => $this->booking->id,
+            'guest_count' => 300,
+            'per_plate_price' => 1500,
+            'package_amount' => 450000,
+            'hall_charges' => 50000,
+            'extra_charges' => 0,
+            'discount_amount' => 0,
+            'tax_amount' => 80000,
+            'subtotal' => 500000,
+            'grand_total' => 580000,
+            'fbr_invoice_number' => '822269FICT999*test*',
+            'fbr_sync_status' => 'synced',
+            'qr_code' => 'https://e.pra.punjab.gov.pk/VerifyInvoice?InvoiceNo=822269FICT999*test*', // Stored legacy URL
+            'created_by' => $this->owner->id,
+        ]);
+
+        $response = $this->actingAs($this->owner)
+            ->get(route('bookings.final-bill-v2', $this->booking->id));
+
+        $response->assertStatus(200);
+        // Verify QR code image encodes ONLY the invoice number
+        $response->assertSee('data=' . urlencode('822269FICT999*test*'), false);
+        // Verify QR code image does NOT encode the verification URL
+        $response->assertDontSee('VerifyInvoice');
+    }
 }
