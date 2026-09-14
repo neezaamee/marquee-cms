@@ -165,6 +165,26 @@ Route::middleware('auth')->group(function () {
             Route::get('inventory/suppliers/{supplier}/ledger', function (\App\Models\Supplier $supplier) {
                 return view('inventory.supplier-ledger', compact('supplier'));
             })->name('suppliers.ledger');
+            Route::get('inventory/suppliers/{supplier}/ledger/pdf', function (\App\Models\Supplier $supplier) {
+                $marquee = auth()->user()->marquee;
+                $ledgers = \App\Models\SupplierLedger::where('supplier_id', $supplier->id)
+                    ->orderBy('transaction_date', 'asc')
+                    ->orderBy('id', 'asc')
+                    ->get();
+                $isPdf = true;
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.supplier-ledger-pdf', compact('supplier', 'ledgers', 'marquee', 'isPdf'))
+                    ->setPaper('a4', 'portrait');
+                return $pdf->stream('Supplier_Ledger_' . $supplier->supplier_code . '.pdf');
+            })->name('suppliers.ledger.pdf');
+            Route::get('inventory/suppliers/{supplier}/ledger/print', function (\App\Models\Supplier $supplier) {
+                $marquee = auth()->user()->marquee;
+                $ledgers = \App\Models\SupplierLedger::where('supplier_id', $supplier->id)
+                    ->orderBy('transaction_date', 'asc')
+                    ->orderBy('id', 'asc')
+                    ->get();
+                $isPdf = false;
+                return view('inventory.supplier-ledger-pdf', compact('supplier', 'ledgers', 'marquee', 'isPdf'));
+            })->name('suppliers.ledger.print');
 
             // Purchase Management Module
             Route::view('purchases/orders', 'purchases.orders')->name('purchase-orders.index');
@@ -190,6 +210,18 @@ Route::middleware('auth')->group(function () {
             Route::get('purchases/invoices/{id}/edit', function ($id) {
                 return view('purchases.invoice-form', compact('id'));
             })->name('purchase-invoices.edit');
+            Route::get('purchases/invoices/{id}/pdf', function ($id) {
+                $invoice = \App\Models\PurchaseInvoice::with(['details.item.unit', 'supplier', 'branch', 'marquee', 'journalVoucher', 'purchaseOrder', 'goodsReceivingNote'])->findOrFail($id);
+                $isPdf = true;
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('purchases.invoice-pdf', compact('invoice', 'isPdf'))
+                    ->setPaper('a4', 'portrait');
+                return $pdf->stream('Purchase_Invoice_' . $invoice->invoice_number . '.pdf');
+            })->name('purchase-invoices.pdf');
+            Route::get('purchases/invoices/{id}/print', function ($id) {
+                $invoice = \App\Models\PurchaseInvoice::with(['details.item.unit', 'supplier', 'branch', 'marquee', 'journalVoucher', 'purchaseOrder', 'goodsReceivingNote'])->findOrFail($id);
+                $isPdf = false;
+                return view('purchases.invoice-pdf', compact('invoice', 'isPdf'));
+            })->name('purchase-invoices.print');
 
             Route::view('purchases/returns', 'purchases.returns')->name('purchase-returns.index');
             Route::get('purchases/returns/create', function () {
@@ -198,6 +230,18 @@ Route::middleware('auth')->group(function () {
             Route::get('purchases/returns/{id}/edit', function ($id) {
                 return view('purchases.return-form', compact('id'));
             })->name('purchase-returns.edit');
+            Route::get('purchases/returns/{id}/pdf', function ($id) {
+                $return = \App\Models\PurchaseReturn::with(['details.item.unit', 'supplier', 'branch', 'marquee', 'journalVoucher', 'purchaseInvoice'])->findOrFail($id);
+                $isPdf = true;
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('purchases.return-pdf', compact('return', 'isPdf'))
+                    ->setPaper('a4', 'portrait');
+                return $pdf->stream('Purchase_Return_' . $return->return_number . '.pdf');
+            })->name('purchase-returns.pdf');
+            Route::get('purchases/returns/{id}/print', function ($id) {
+                $return = \App\Models\PurchaseReturn::with(['details.item.unit', 'supplier', 'branch', 'marquee', 'journalVoucher', 'purchaseInvoice'])->findOrFail($id);
+                $isPdf = false;
+                return view('purchases.return-pdf', compact('return', 'isPdf'));
+            })->name('purchase-returns.print');
 
             // Expense Management Module
             Route::get('expenses/dashboard', [\App\Http\Controllers\ExpenseController::class, 'dashboard'])->name('expenses.dashboard');

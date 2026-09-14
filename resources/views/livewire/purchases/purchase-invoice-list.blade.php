@@ -91,13 +91,53 @@
                                     <span class="badge badge-subtle-{{ $sc }} rounded-pill">{{ $inv->status }}</span>
                                 </td>
                                 <td class="text-end px-3">
-                                    <div class="d-flex justify-content-end gap-2">
-                                        <a href="{{ route('purchase-invoices.edit', $inv->id) }}" class="btn btn-link p-0" title="{{ $inv->status === 'Draft' ? 'Edit Invoice' : 'View Details' }}">
-                                            <span class="text-primary fas fa-{{ $inv->status === 'Draft' ? 'edit' : 'eye' }}"></span>
+                                    <div class="d-flex justify-content-end align-items-center gap-2">
+                                        <!-- View / Edit -->
+                                        <a href="{{ route('purchase-invoices.edit', $inv->id) }}" class="btn btn-link p-0 text-primary" title="{{ $inv->status === 'Draft' ? 'Edit Invoice' : 'View Details' }}">
+                                            <span class="fas fa-{{ $inv->status === 'Draft' ? 'edit' : 'eye' }}"></span>
                                         </a>
+
+                                        <!-- Print -->
+                                        <a href="{{ route('purchase-invoices.print', $inv->id) }}" target="_blank" class="btn btn-link p-0 text-secondary" title="Print Invoice">
+                                            <span class="fas fa-print"></span>
+                                        </a>
+
+                                        <!-- Download PDF -->
+                                        <a href="{{ route('purchase-invoices.pdf', $inv->id) }}" target="_blank" class="btn btn-link p-0 text-danger" title="Download PDF">
+                                            <span class="fas fa-file-pdf"></span>
+                                        </a>
+
+                                        <!-- Share Dropdown -->
+                                        <div class="dropdown font-sans-serif d-inline-block">
+                                            <button class="btn btn-link p-0 text-info dropdown-toggle dropdown-caret-none" type="button" id="shareInv{{ $inv->id }}" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Share Invoice">
+                                                <span class="fas fa-share-alt"></span>
+                                            </button>
+                                            <div class="dropdown-menu dropdown-menu-end py-2" aria-labelledby="shareInv{{ $inv->id }}">
+                                                @php
+                                                    $invShareText = urlencode("Purchase Invoice #{$inv->invoice_number}\nVendor: " . ($inv->supplier->name ?? '') . "\nDate: " . $inv->purchase_date->format('Y-m-d') . "\nAmount: Rs. " . number_format($inv->net_amount, 2));
+                                                    $supPhone = preg_replace('/[^0-9]/', '', $inv->supplier->mobile_number ?? '');
+                                                    $waInvUrl = $supPhone ? "https://wa.me/{$supPhone}?text={$invShareText}" : "https://api.whatsapp.com/send?text={$invShareText}";
+                                                @endphp
+                                                <a class="dropdown-item d-flex align-items-center" href="{{ $waInvUrl }}" target="_blank">
+                                                    <span class="fab fa-whatsapp me-2 text-success"></span>Share via WhatsApp
+                                                </a>
+                                                <button class="dropdown-item d-flex align-items-center" type="button" onclick="navigator.clipboard.writeText('{{ route('purchase-invoices.print', $inv->id) }}'); alert('Invoice link copied to clipboard!');">
+                                                    <span class="fas fa-link me-2 text-primary"></span>Copy Link
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Return Items (for Posted Invoices) -->
+                                        @if($inv->status === 'Posted')
+                                            <a href="{{ route('purchase-returns.create') }}?invoice_id={{ $inv->id }}" class="btn btn-link p-0 text-warning" title="Return Items from this Invoice">
+                                                <span class="fas fa-undo-alt"></span>
+                                            </a>
+                                        @endif
+
+                                        <!-- Delete (Drafts only) -->
                                         @if($inv->status === 'Draft' && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_inventory')))
-                                            <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $inv->id }})" title="Delete">
-                                                <span class="text-danger fas fa-trash-alt"></span>
+                                            <button class="btn btn-link p-0 text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $inv->id }})" title="Delete">
+                                                <span class="fas fa-trash-alt"></span>
                                             </button>
                                         @endif
                                     </div>

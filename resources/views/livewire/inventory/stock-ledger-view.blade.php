@@ -127,7 +127,7 @@
                         @forelse($ledger as $row)
                             @php
                                 $typeColor = match($row->transaction_type) {
-                                    'GRN','Return','Opening' => 'success',
+                                    'GRN','PurchaseInvoice','Return','Opening' => 'success',
                                     'Issue','PurchaseReturn' => 'danger',
                                     'Adjustment'             => 'info',
                                     'Wastage','Damage','Expiry' => 'warning',

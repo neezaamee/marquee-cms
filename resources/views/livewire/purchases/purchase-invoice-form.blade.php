@@ -25,10 +25,49 @@
                     {{ $editId ? "Purchase Invoice Bill #{$invoice_number}" : 'Record Purchase Invoice Bill' }}
                 </h5>
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
                 <a href="{{ route('purchase-invoices.index') }}" class="btn btn-falcon-default btn-sm">
                     <span class="fas fa-chevron-left me-1"></span>Back to List
                 </a>
+
+                @if($editId)
+                    <!-- Print -->
+                    <a href="{{ route('purchase-invoices.print', $editId) }}" target="_blank" class="btn btn-falcon-default btn-sm">
+                        <span class="fas fa-print me-1 text-primary"></span>Print
+                    </a>
+
+                    <!-- Download PDF -->
+                    <a href="{{ route('purchase-invoices.pdf', $editId) }}" target="_blank" class="btn btn-falcon-default btn-sm">
+                        <span class="fas fa-file-pdf me-1 text-danger"></span>Download PDF
+                    </a>
+
+                    <!-- Share Dropdown -->
+                    <div class="dropdown font-sans-serif d-inline-block">
+                        <button class="btn btn-falcon-default btn-sm dropdown-toggle" type="button" id="shareFormInv" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <span class="fas fa-share-alt me-1 text-info"></span>Share
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end py-2" aria-labelledby="shareFormInv">
+                            @php
+                                $invSupplier = $invoice->supplier ?? null;
+                                $invShareText = urlencode("Purchase Invoice #{$invoice_number}\nDate: {$purchase_date}\nAmount: Rs. " . number_format($net_amount, 2));
+                                $supPhone = preg_replace('/[^0-9]/', '', $invSupplier->mobile_number ?? '');
+                                $waInvUrl = $supPhone ? "https://wa.me/{$supPhone}?text={$invShareText}" : "https://api.whatsapp.com/send?text={$invShareText}";
+                            @endphp
+                            <a class="dropdown-item d-flex align-items-center" href="{{ $waInvUrl }}" target="_blank">
+                                <span class="fab fa-whatsapp me-2 text-success"></span>Share via WhatsApp
+                            </a>
+                            <button class="dropdown-item d-flex align-items-center" type="button" onclick="navigator.clipboard.writeText('{{ route('purchase-invoices.print', $editId) }}'); alert('Invoice link copied to clipboard!');">
+                                <span class="fas fa-link me-2 text-primary"></span>Copy Link
+                            </button>
+                        </div>
+                    </div>
+
+                    @if($status === 'Posted')
+                        <a href="{{ route('purchase-returns.create') }}?invoice_id={{ $editId }}" class="btn btn-falcon-warning btn-sm">
+                            <span class="fas fa-undo-alt me-1"></span>Return Items
+                        </a>
+                    @endif
+                @endif
 
                 @if($status === 'Draft' && $editId && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting')))
                     <button wire:click="postToAccounts" class="btn btn-success btn-sm">
@@ -129,7 +168,7 @@
                 <div class="bg-light p-3 border rounded mb-4">
                     <h6 class="fw-bold mb-3"><span class="fas fa-plus me-1 text-primary"></span>Add Billed Item Row</h6>
                     <div class="row g-2 align-items-end">
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <label class="form-label fs-11" for="item-select">Item Catalog *</label>
                             <select wire:model.live="selectedItemId" class="form-select form-select-sm" id="item-select">
                                 <option value="">Select Item</option>
@@ -142,14 +181,19 @@
 
                         <div class="col-md-2">
                             <label class="form-label fs-11" for="item-qty">Billed Qty *</label>
-                            <input wire:model="selectedQty" type="number" step="0.01" class="form-control form-control-sm" id="item-qty" />
+                            <input wire:model.live="selectedQty" type="number" step="0.01" class="form-control form-control-sm text-end" id="item-qty" />
                             @error('selectedQty') <div class="text-danger fs-12 mt-1">{{ $message }}</div> @enderror
                         </div>
 
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label fs-11" for="item-rate">Unit Cost (Rs.) *</label>
-                            <input wire:model="selectedRate" type="number" step="0.01" class="form-control form-control-sm" id="item-rate" />
+                            <input wire:model.live="selectedRate" type="number" step="0.01" class="form-control form-control-sm text-end" id="item-rate" />
                             @error('selectedRate') <div class="text-danger fs-12 mt-1">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label fs-11 fw-bold text-primary" for="item-amount">Item Amount (Rs.)</label>
+                            <input wire:model.live="selectedAmount" type="number" step="0.01" class="form-control form-control-sm text-end font-monospace fw-bold bg-white text-primary" id="item-amount" title="Billed Qty × Unit Cost = Item Amount" placeholder="0.00" />
                         </div>
 
                         <div class="col-md-2">

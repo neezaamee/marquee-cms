@@ -44,6 +44,7 @@ class PurchaseReturnForm extends Component
     public $selectedItemId = '';
     public $selectedQty = 1;
     public $selectedRate = 0.00;
+    public $selectedAmount = 0.00;
 
     protected $rules = [
         'supplier_id' => 'required|exists:suppliers,id',
@@ -95,14 +96,33 @@ class PurchaseReturnForm extends Component
 
             $this->items = [];
             foreach ($this->return->details as $det) {
+                $invoicedQty = (float)$det->quantity;
+                $remQty = (float)$det->quantity;
+                $alreadyReturned = 0;
+
+                if ($this->purchase_invoice_id) {
+                    $invDet = \App\Models\PurchaseInvoiceDetail::where('purchase_invoice_id', $this->purchase_invoice_id)
+                        ->where('item_id', $det->item_id)->first();
+                    $invoicedQty = $invDet ? (float)$invDet->quantity : (float)$det->quantity;
+                    $alreadyReturned = (float) PurchaseReturnDetail::whereHas('purchaseReturn', function ($q) {
+                        $q->where('purchase_invoice_id', $this->purchase_invoice_id)
+                          ->where('id', '!=', $this->editId)
+                          ->where('status', '!=', 'Cancelled');
+                    })->where('item_id', $det->item_id)->sum('quantity');
+                    $remQty = max(0, $invoicedQty - $alreadyReturned);
+                }
+
                 $this->items[] = [
                     'item_id' => $det->item_id,
                     'item_code' => $det->item->item_code,
                     'item_name' => $det->item->name,
                     'unit' => $det->item->unit->short_code ?? 'Pcs',
-                    'quantity' => $det->quantity,
-                    'unit_cost' => $det->unit_cost,
-                    'amount' => $det->amount,
+                    'invoiced_qty' => $invoicedQty,
+                    'already_returned' => $alreadyReturned,
+                    'remaining_qty' => $remQty,
+                    'quantity' => (float)$det->quantity,
+                    'unit_cost' => (float)$det->unit_cost,
+                    'amount' => (float)$det->amount,
                 ];
             }
         } else {
@@ -115,6 +135,11 @@ class PurchaseReturnForm extends Component
             // Auto generate draft return code
             $count = PurchaseReturn::withTrashed()->where('marquee_id', $marqueeId)->count();
             $this->return_number = 'RET-' . date('Y') . '-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
+
+            if (request()->has('invoice_id')) {
+                $this->purchase_invoice_id = request()->query('invoice_id');
+                $this->updatedPurchaseInvoiceId();
+            }
         }
     }
 
@@ -123,9 +148,36 @@ class PurchaseReturnForm extends Component
         if ($this->selectedItemId) {
             $catItem = InventoryItem::find($this->selectedItemId);
             if ($catItem) {
-                $this->selectedRate = $catItem->default_purchase_rate;
+                $this->selectedRate = (float) $catItem->default_purchase_rate;
+                $this->recalculateSelectedAmount();
             }
         }
+    }
+
+    public function updatedSelectedQty()
+    {
+        $this->recalculateSelectedAmount();
+    }
+
+    public function updatedSelectedRate()
+    {
+        $this->recalculateSelectedAmount();
+    }
+
+    public function updatedSelectedAmount()
+    {
+        $qty = (float) $this->selectedQty;
+        $amt = (float) $this->selectedAmount;
+        if ($qty > 0) {
+            $this->selectedRate = round($amt / $qty, 4);
+        }
+    }
+
+    public function recalculateSelectedAmount()
+    {
+        $qty = (float) $this->selectedQty;
+        $rate = (float) $this->selectedRate;
+        $this->selectedAmount = round($qty * $rate, 2);
     }
 
     public function updatedPurchaseInvoiceId()
@@ -138,15 +190,31 @@ class PurchaseReturnForm extends Component
 
                 $this->items = [];
                 foreach ($inv->details as $det) {
-                    $this->items[] = [
-                        'item_id' => $det->item_id,
-                        'item_code' => $det->item->item_code,
-                        'item_name' => $det->item->name,
-                        'unit' => $det->item->unit->short_code ?? 'Pcs',
-                        'quantity' => $det->quantity,
-                        'unit_cost' => $det->unit_cost,
-                        'amount' => $det->amount,
-                    ];
+                    $alreadyReturned = (float) PurchaseReturnDetail::whereHas('purchaseReturn', function ($q) use ($inv) {
+                        $q->where('purchase_invoice_id', $inv->id)
+                          ->where('status', '!=', 'Cancelled');
+                        if ($this->editId) {
+                            $q->where('id', '!=', $this->editId);
+                        }
+                    })->where('item_id', $det->item_id)->sum('quantity');
+
+                    $invoicedQty = (float) $det->quantity;
+                    $remainingQty = max(0, $invoicedQty - $alreadyReturned);
+
+                    if ($remainingQty > 0) {
+                        $this->items[] = [
+                            'item_id' => $det->item_id,
+                            'item_code' => $det->item->item_code,
+                            'item_name' => $det->item->name,
+                            'unit' => $det->item->unit->short_code ?? 'Pcs',
+                            'invoiced_qty' => $invoicedQty,
+                            'already_returned' => $alreadyReturned,
+                            'remaining_qty' => $remainingQty,
+                            'quantity' => $remainingQty,
+                            'unit_cost' => (float) $det->unit_cost,
+                            'amount' => $remainingQty * (float) $det->unit_cost,
+                        ];
+                    }
                 }
                 $this->recalculateAmounts();
             }
@@ -161,9 +229,13 @@ class PurchaseReturnForm extends Component
             'selectedRate' => 'required|numeric|min:0.01',
         ]);
 
+        $qty = floatval($this->selectedQty);
+        $rate = floatval($this->selectedRate);
+        $amount = (float)$this->selectedAmount > 0 ? (float)$this->selectedAmount : round($qty * $rate, 2);
+
         foreach ($this->items as $idx => $item) {
             if ($item['item_id'] == $this->selectedItemId) {
-                $this->items[$idx]['quantity'] += floatval($this->selectedQty);
+                $this->items[$idx]['quantity'] += $qty;
                 $this->items[$idx]['amount'] = $this->items[$idx]['quantity'] * $this->items[$idx]['unit_cost'];
                 $this->recalculateAmounts();
                 $this->resetLineForm();
@@ -178,9 +250,9 @@ class PurchaseReturnForm extends Component
             'item_code' => $catItem->item_code,
             'item_name' => $catItem->name,
             'unit' => $catItem->unit->short_code ?? 'Pcs',
-            'quantity' => floatval($this->selectedQty),
-            'unit_cost' => floatval($this->selectedRate),
-            'amount' => floatval($this->selectedQty) * floatval($this->selectedRate),
+            'quantity' => $qty,
+            'unit_cost' => $rate,
+            'amount' => $amount,
         ];
 
         $this->recalculateAmounts();
@@ -192,6 +264,7 @@ class PurchaseReturnForm extends Component
         $this->selectedItemId = '';
         $this->selectedQty = 1;
         $this->selectedRate = 0.00;
+        $this->selectedAmount = 0.00;
     }
 
     public function removeLine($index)
@@ -239,6 +312,33 @@ class PurchaseReturnForm extends Component
         }
 
         $this->validate();
+
+        // Validate that return quantity does not exceed remaining available invoice quantity
+        if ($this->purchase_invoice_id) {
+            $inv = PurchaseInvoice::with('details')->find($this->purchase_invoice_id);
+            if ($inv) {
+                foreach ($this->items as $item) {
+                    $invDet = $inv->details->firstWhere('item_id', $item['item_id']);
+                    $invoicedQty = $invDet ? (float) $invDet->quantity : 0.0;
+
+                    $alreadyReturned = (float) PurchaseReturnDetail::whereHas('purchaseReturn', function ($q) use ($inv) {
+                        $q->where('purchase_invoice_id', $inv->id)
+                          ->where('status', '!=', 'Cancelled');
+                        if ($this->editId) {
+                            $q->where('id', '!=', $this->editId);
+                        }
+                    })->where('item_id', $item['item_id'])->sum('quantity');
+
+                    $maxReturnable = max(0, $invoicedQty - $alreadyReturned);
+
+                    if ((float) $item['quantity'] > $maxReturnable) {
+                        $this->addError('items', "Return quantity for '{$item['item_name']}' (" . $item['quantity'] . ") exceeds remaining available return quantity (max: {$maxReturnable}).");
+                        return;
+                    }
+                }
+            }
+        }
+
         $marqueeId = auth()->user()->marquee_id;
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($marqueeId) {

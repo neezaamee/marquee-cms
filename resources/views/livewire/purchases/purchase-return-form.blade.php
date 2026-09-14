@@ -25,10 +25,43 @@
                     {{ $editId ? "Purchase Return #{$return_number}" : 'Record Purchase Return' }}
                 </h5>
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
                 <a href="{{ route('purchase-returns.index') }}" class="btn btn-falcon-default btn-sm">
                     <span class="fas fa-chevron-left me-1"></span>Back to List
                 </a>
+
+                @if($editId)
+                    <!-- Print -->
+                    <a href="{{ route('purchase-returns.print', $editId) }}" target="_blank" class="btn btn-falcon-default btn-sm">
+                        <span class="fas fa-print me-1 text-primary"></span>Print
+                    </a>
+
+                    <!-- Download PDF -->
+                    <a href="{{ route('purchase-returns.pdf', $editId) }}" target="_blank" class="btn btn-falcon-default btn-sm">
+                        <span class="fas fa-file-pdf me-1 text-danger"></span>Download PDF
+                    </a>
+
+                    <!-- Share Dropdown -->
+                    <div class="dropdown font-sans-serif d-inline-block">
+                        <button class="btn btn-falcon-default btn-sm dropdown-toggle" type="button" id="shareFormRet" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <span class="fas fa-share-alt me-1 text-info"></span>Share
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end py-2" aria-labelledby="shareFormRet">
+                            @php
+                                $retSupplier = $return->supplier ?? null;
+                                $retShareText = urlencode("Purchase Return Debit Note #{$return_number}\nDate: {$return_date}\nAmount: Rs. " . number_format($net_amount, 2));
+                                $retPhone = preg_replace('/[^0-9]/', '', $retSupplier->mobile_number ?? '');
+                                $waRetUrl = $retPhone ? "https://wa.me/{$retPhone}?text={$retShareText}" : "https://api.whatsapp.com/send?text={$retShareText}";
+                            @endphp
+                            <a class="dropdown-item d-flex align-items-center" href="{{ $waRetUrl }}" target="_blank">
+                                <span class="fab fa-whatsapp me-2 text-success"></span>Share via WhatsApp
+                            </a>
+                            <button class="dropdown-item d-flex align-items-center" type="button" onclick="navigator.clipboard.writeText('{{ route('purchase-returns.print', $editId) }}'); alert('Return Note link copied to clipboard!');">
+                                <span class="fas fa-link me-2 text-primary"></span>Copy Link
+                            </button>
+                        </div>
+                    </div>
+                @endif
 
                 @if($status === 'Draft' && $editId && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting')))
                     <button wire:click="postToAccounts" class="btn btn-success btn-sm">
@@ -119,7 +152,7 @@
                     </h6>
                     @if(!$purchase_invoice_id)
                         <div class="row g-2 align-items-end">
-                            <div class="col-md-5">
+                            <div class="col-md-4">
                                 <label class="form-label fs-11" for="item-select">Item Catalog *</label>
                                 <select wire:model.live="selectedItemId" class="form-select form-select-sm" id="item-select">
                                     <option value="">Select Item</option>
@@ -132,14 +165,19 @@
 
                             <div class="col-md-2">
                                 <label class="form-label fs-11" for="item-qty">Return Qty *</label>
-                                <input wire:model="selectedQty" type="number" step="0.01" class="form-control form-control-sm" id="item-qty" />
+                                <input wire:model.live="selectedQty" type="number" step="0.01" class="form-control form-control-sm text-end" id="item-qty" />
                                 @error('selectedQty') <div class="text-danger fs-12 mt-1">{{ $message }}</div> @enderror
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label fs-11" for="item-rate">Unit Cost (Rs.) *</label>
-                                <input wire:model="selectedRate" type="number" step="0.01" class="form-control form-control-sm" id="item-rate" />
+                                <input wire:model.live="selectedRate" type="number" step="0.01" class="form-control form-control-sm text-end" id="item-rate" />
                                 @error('selectedRate') <div class="text-danger fs-12 mt-1">{{ $message }}</div> @enderror
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label fs-11 fw-bold text-danger" for="item-amount">Item Amount (Rs.)</label>
+                                <input wire:model.live="selectedAmount" type="number" step="0.01" class="form-control form-control-sm text-end font-monospace fw-bold bg-white text-danger" id="item-amount" title="Return Qty × Unit Cost = Item Amount" placeholder="0.00" />
                             </div>
 
                             <div class="col-md-2">
@@ -149,7 +187,10 @@
                             </div>
                         </div>
                     @else
-                        <span class="fs-12 text-muted">Items are linked to the selected Invoice. You can adjust individual row quantities or remove lines if only returning a subset.</span>
+                        <div class="alert alert-subtle-info d-flex align-items-center mb-0 py-2" role="alert">
+                            <span class="fas fa-info-circle me-2 fs-9"></span>
+                            <span class="fs-12">Items loaded from selected Invoice. <strong>Return only what remains:</strong> you can adjust quantities for partially used items or click <span class="fas fa-trash-alt text-danger"></span> to exclude items that were completely used up.</span>
+                        </div>
                     @endif
                 </div>
             @endif
@@ -159,42 +200,51 @@
                 <table class="table table-sm table-striped fs-10 mb-0 align-middle">
                     <thead class="bg-200 text-900">
                         <tr>
-                            <th class="ps-3" style="width: 50px;">#</th>
-                            <th style="width: 150px;">Item Code</th>
+                            <th class="ps-3" style="width: 40px;">#</th>
+                            <th style="width: 130px;">Item Code</th>
                             <th>Item Name</th>
-                            <th>Unit</th>
-                            <th class="text-end" style="width: 120px;">Return Qty</th>
-                            <th class="text-end" style="width: 150px;">Unit Cost</th>
-                            <th class="text-end px-3" style="width: 150px;">Total Amount</th>
+                            <th style="width: 60px;">Unit</th>
+                            @if($purchase_invoice_id)
+                                <th class="text-end" style="width: 90px;" title="Original Invoiced Qty">Invoiced</th>
+                                <th class="text-end" style="width: 90px;" title="Previously Returned Qty">Prev. Ret.</th>
+                                <th class="text-end" style="width: 100px;" title="Remaining Available to Return">Available</th>
+                            @endif
+                            <th class="text-end" style="width: 110px;">Return Qty</th>
+                            <th class="text-end" style="width: 130px;">Unit Cost</th>
+                            <th class="text-end px-3" style="width: 140px;">Total Amount</th>
                             @if($status === 'Draft')
-                                <th class="text-center" style="width: 80px;">Action</th>
+                                <th class="text-center" style="width: 70px;">Action</th>
                             @endif
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($items as $idx => $line)
                             <tr>
-                                <td class="ps-3">{{ $idx + 1 }}</td>
+                                <td class="ps-3 font-mono">{{ $idx + 1 }}</td>
                                 <td class="font-monospace fw-semi-bold">{{ $line['item_code'] }}</td>
                                 <td class="fw-bold">{{ $line['item_name'] }}</td>
                                 <td><span class="badge bg-light text-dark">{{ $line['unit'] }}</span></td>
+                                @if($purchase_invoice_id)
+                                    <td class="text-end font-monospace text-muted">{{ number_format($line['invoiced_qty'] ?? 0, 2) }}</td>
+                                    <td class="text-end font-monospace text-muted">{{ number_format($line['already_returned'] ?? 0, 2) }}</td>
+                                    <td class="text-end font-monospace fw-bold text-success">{{ number_format($line['remaining_qty'] ?? $line['quantity'], 2) }}</td>
+                                @endif
                                 <td class="text-end font-monospace">
                                     @if($status === 'Draft')
-                                        <input type="number" step="0.01" wire:model.live.blur="items.{{ $idx }}.quantity" wire:change="recalculateAmounts" class="form-control form-control-sm text-end font-monospace d-inline-block" style="max-width: 100px;" />
+                                        <input type="number" step="0.01" min="0.01" @if(isset($line['remaining_qty'])) max="{{ $line['remaining_qty'] }}" @endif wire:model.live.blur="items.{{ $idx }}.quantity" wire:change="recalculateAmounts" class="form-control form-control-sm text-end font-monospace d-inline-block" style="max-width: 100px;" />
                                     @else
                                         {{ number_format($line['quantity'], 2) }}
                                     @endif
                                 </td>
                                 <td class="text-end font-monospace">
                                     @if($status === 'Draft')
-                                        <input type="number" step="0.01" wire:model.live.blur="items.{{ $idx }}.unit_cost" wire:change="recalculateAmounts" class="form-control form-control-sm text-end font-monospace d-inline-block" style="max-width: 120px;" />
+                                        <input type="number" step="0.01" wire:model.live.blur="items.{{ $idx }}.unit_cost" wire:change="recalculateAmounts" class="form-control form-control-sm text-end font-monospace d-inline-block" style="max-width: 110px;" />
                                     @else
                                         Rs. {{ number_format($line['unit_cost'], 2) }}
                                     @endif
                                 </td>
                                 <td class="text-end px-3 font-monospace fw-bold text-dark">
                                     @php
-                                        // Ensure amount updates when quantity or unit_cost is updated inline
                                         $amt = floatval($line['quantity']) * floatval($line['unit_cost']);
                                         $items[$idx]['amount'] = $amt;
                                     @endphp
@@ -202,7 +252,7 @@
                                 </td>
                                 @if($status === 'Draft')
                                     <td class="text-center">
-                                        <button type="button" wire:click="removeLine({{ $idx }})" class="btn btn-link text-danger p-0" title="Delete Row">
+                                        <button type="button" wire:click="removeLine({{ $idx }})" class="btn btn-link text-danger p-0" title="Exclude this item (do not return)">
                                             <span class="fas fa-trash-alt"></span>
                                         </button>
                                     </td>
@@ -210,7 +260,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center py-4 text-muted">No items returned.</td>
+                                <td colspan="{{ $purchase_invoice_id ? 11 : 8 }}" class="text-center py-4 text-muted">No items selected for return.</td>
                             </tr>
                         @endforelse
                     </tbody>

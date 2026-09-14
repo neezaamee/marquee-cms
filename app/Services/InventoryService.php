@@ -129,23 +129,31 @@ class InventoryService
      */
     public function getOrCreateSettings(?int $marqueeId): InventorySetting
     {
-        $settings = InventorySetting::where('marquee_id', $marqueeId)->first();
+        $marqueeId = $marqueeId ?: auth()->user()?->getActiveMarqueeId();
+
+        $settings = InventorySetting::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->first();
 
         if (!$settings) {
             // Find default pre-seeded accounts
-            $inventoryAccount = Account::where('marquee_id', $marqueeId)
+            $inventoryAccount = Account::withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
                 ->where('account_code', '1004') // Pre-seeded Inventory Asset
                 ->first();
 
-            $payableAccount = Account::where('marquee_id', $marqueeId)
+            $payableAccount = Account::withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
                 ->where('account_code', '2001') // Pre-seeded Accounts Payable
                 ->first();
 
-            $settings = InventorySetting::create([
-                'marquee_id' => $marqueeId,
-                'inventory_asset_account_id' => $inventoryAccount?->id,
-                'accounts_payable_account_id' => $payableAccount?->id,
-            ]);
+            $settings = InventorySetting::withoutGlobalScope('tenant')->firstOrCreate(
+                ['marquee_id' => $marqueeId],
+                [
+                    'inventory_asset_account_id' => $inventoryAccount?->id,
+                    'accounts_payable_account_id' => $payableAccount?->id,
+                ]
+            );
         }
 
         return $settings;

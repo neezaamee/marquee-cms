@@ -52,7 +52,7 @@ class MultiBusinessStructureSeeder extends Seeder
         $sheratonMarquee = Marquee::updateOrCreate(
             ['email' => 'contact@sheratonmarquee.com'],
             [
-                'name' => 'The Sheraton Marquee',
+                'name' => 'The ABC Marquee',
                 'business_type' => 'Banquet Group',
                 'address' => 'Canal Bank Road',
                 'city' => 'Lahore',

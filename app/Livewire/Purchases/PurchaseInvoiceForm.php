@@ -48,6 +48,7 @@ class PurchaseInvoiceForm extends Component
     public $selectedItemId = '';
     public $selectedQty = 1;
     public $selectedRate = 0.00;
+    public $selectedAmount = 0.00;
 
     protected $rules = [
         'invoice_number' => 'required|string|max:100',
@@ -205,9 +206,36 @@ class PurchaseInvoiceForm extends Component
         if ($this->selectedItemId) {
             $catItem = InventoryItem::find($this->selectedItemId);
             if ($catItem) {
-                $this->selectedRate = $catItem->default_purchase_rate;
+                $this->selectedRate = (float) $catItem->default_purchase_rate;
+                $this->recalculateSelectedAmount();
             }
         }
+    }
+
+    public function updatedSelectedQty()
+    {
+        $this->recalculateSelectedAmount();
+    }
+
+    public function updatedSelectedRate()
+    {
+        $this->recalculateSelectedAmount();
+    }
+
+    public function updatedSelectedAmount()
+    {
+        $qty = (float) $this->selectedQty;
+        $amt = (float) $this->selectedAmount;
+        if ($qty > 0) {
+            $this->selectedRate = round($amt / $qty, 4);
+        }
+    }
+
+    public function recalculateSelectedAmount()
+    {
+        $qty = (float) $this->selectedQty;
+        $rate = (float) $this->selectedRate;
+        $this->selectedAmount = round($qty * $rate, 2);
     }
 
     public function addLine()
@@ -222,9 +250,13 @@ class PurchaseInvoiceForm extends Component
             'selectedRate.min' => 'Rate must be positive.',
         ]);
 
+        $qty = floatval($this->selectedQty);
+        $rate = floatval($this->selectedRate);
+        $amount = (float)$this->selectedAmount > 0 ? (float)$this->selectedAmount : round($qty * $rate, 2);
+
         foreach ($this->items as $idx => $item) {
             if ($item['item_id'] == $this->selectedItemId) {
-                $this->items[$idx]['quantity'] += floatval($this->selectedQty);
+                $this->items[$idx]['quantity'] += $qty;
                 $this->items[$idx]['amount'] = $this->items[$idx]['quantity'] * $this->items[$idx]['unit_cost'];
                 $this->recalculateAmounts();
                 $this->resetLineForm();
@@ -239,9 +271,9 @@ class PurchaseInvoiceForm extends Component
             'item_code' => $catItem->item_code,
             'item_name' => $catItem->name,
             'unit' => $catItem->unit->short_code ?? 'Pcs',
-            'quantity' => floatval($this->selectedQty),
-            'unit_cost' => floatval($this->selectedRate),
-            'amount' => floatval($this->selectedQty) * floatval($this->selectedRate),
+            'quantity' => $qty,
+            'unit_cost' => $rate,
+            'amount' => $amount,
         ];
 
         $this->recalculateAmounts();
@@ -253,6 +285,7 @@ class PurchaseInvoiceForm extends Component
         $this->selectedItemId = '';
         $this->selectedQty = 1;
         $this->selectedRate = 0.00;
+        $this->selectedAmount = 0.00;
     }
 
     public function removeLine($index)

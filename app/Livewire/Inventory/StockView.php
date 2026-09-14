@@ -55,20 +55,45 @@ class StockView extends Component
         $this->resetPage();
     }
 
+    protected function getInwardSubquery($branchId)
+    {
+        return DB::table(function ($q) use ($branchId) {
+            $grn = DB::table('goods_receiving_note_details')
+                ->join('goods_receiving_notes', 'goods_receiving_notes.id', '=', 'goods_receiving_note_details.goods_receiving_note_id')
+                ->whereNull('goods_receiving_notes.deleted_at')
+                ->select('goods_receiving_note_details.item_id', 'goods_receiving_note_details.received_qty as qty');
+            if ($branchId) {
+                $grn->where('goods_receiving_notes.branch_id', $branchId);
+            }
+
+            $inv = DB::table('purchase_invoice_details')
+                ->join('purchase_invoices', 'purchase_invoices.id', '=', 'purchase_invoice_details.purchase_invoice_id')
+                ->where('purchase_invoices.status', 'Posted')
+                ->whereNull('purchase_invoices.goods_receiving_note_id')
+                ->whereNull('purchase_invoices.deleted_at')
+                ->select('purchase_invoice_details.item_id', 'purchase_invoice_details.quantity as qty');
+            if ($branchId) {
+                $inv->where('purchase_invoices.branch_id', $branchId);
+            }
+
+            $q->fromSub($grn->unionAll($inv), 'all_inward');
+        }, 'all_inward')
+        ->whereColumn('all_inward.item_id', 'inventory_items.id');
+    }
+
     public function render()
     {
         $marqueeId = auth()->user()->marquee_id;
         $user = auth()->user();
 
+        $branchId = $user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : $this->filterBranch;
+
         // 1. Base query for active/all items
         $query = InventoryItem::where('marquee_id', $marqueeId)
             ->with(['category', 'unit', 'brand']);
 
-        // 2. Subquery for Received Qty from GRNs
-        $receivedSubquery = DB::table('goods_receiving_note_details')
-            ->join('goods_receiving_notes', 'goods_receiving_notes.id', '=', 'goods_receiving_note_details.goods_receiving_note_id')
-            ->whereNull('goods_receiving_notes.deleted_at')
-            ->whereColumn('goods_receiving_note_details.item_id', 'inventory_items.id');
+        // 2. Subquery for Received Qty (from GRNs + Direct Purchase Invoices without GRN)
+        $receivedSubquery = $this->getInwardSubquery($branchId);
 
         // 3. Subquery for Returned Qty from Purchase Returns
         $returnedSubquery = DB::table('purchase_return_details')
@@ -92,10 +117,7 @@ class StockView extends Component
             ->whereColumn('department_stock_return_items.item_id', 'inventory_items.id');
 
         // Apply branch filter to subqueries if set
-        $branchId = $user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : $this->filterBranch;
-
         if ($branchId) {
-            $receivedSubquery->where('goods_receiving_notes.branch_id', $branchId);
             $returnedSubquery->where('purchase_returns.branch_id', $branchId);
             $issuedSubquery->where('department_stock_issues.branch_id', $branchId);
             $deptReturnedSubquery->where('department_stock_returns.branch_id', $branchId);
@@ -103,7 +125,7 @@ class StockView extends Component
 
         // Select attributes
         $query->select('inventory_items.*')
-            ->selectSub($receivedSubquery->selectRaw('COALESCE(SUM(goods_receiving_note_details.received_qty), 0)'), 'total_received')
+            ->selectSub($receivedSubquery->selectRaw('COALESCE(SUM(all_inward.qty), 0)'), 'total_received')
             ->selectSub($returnedSubquery->selectRaw('COALESCE(SUM(purchase_return_details.quantity), 0)'), 'total_returned')
             ->selectSub($issuedSubquery->selectRaw('COALESCE(SUM(department_stock_issue_items.quantity), 0)'), 'total_issued')
             ->selectSub($deptReturnedSubquery->selectRaw('COALESCE(SUM(department_stock_return_items.quantity), 0)'), 'total_dept_returned');
@@ -153,10 +175,7 @@ class StockView extends Component
         }
 
         // Rebuild subqueries for summary calculations
-        $recSubSummary = DB::table('goods_receiving_note_details')
-            ->join('goods_receiving_notes', 'goods_receiving_notes.id', '=', 'goods_receiving_note_details.goods_receiving_note_id')
-            ->whereNull('goods_receiving_notes.deleted_at')
-            ->whereColumn('goods_receiving_note_details.item_id', 'inventory_items.id');
+        $recSubSummary = $this->getInwardSubquery($branchId);
 
         $retSubSummary = DB::table('purchase_return_details')
             ->join('purchase_returns', 'purchase_returns.id', '=', 'purchase_return_details.purchase_return_id')
@@ -177,14 +196,13 @@ class StockView extends Component
             ->whereColumn('department_stock_return_items.item_id', 'inventory_items.id');
 
         if ($branchId) {
-            $recSubSummary->where('goods_receiving_notes.branch_id', $branchId);
             $retSubSummary->where('purchase_returns.branch_id', $branchId);
             $issSubSummary->where('department_stock_issues.branch_id', $branchId);
             $deptRetSubSummary->where('department_stock_returns.branch_id', $branchId);
         }
 
         $summaryQuery->select('inventory_items.id', 'inventory_items.reorder_level', 'inventory_items.minimum_stock_level')
-            ->selectSub($recSubSummary->selectRaw('COALESCE(SUM(goods_receiving_note_details.received_qty), 0)'), 'total_received')
+            ->selectSub($recSubSummary->selectRaw('COALESCE(SUM(all_inward.qty), 0)'), 'total_received')
             ->selectSub($retSubSummary->selectRaw('COALESCE(SUM(purchase_return_details.quantity), 0)'), 'total_returned')
             ->selectSub($issSubSummary->selectRaw('COALESCE(SUM(department_stock_issue_items.quantity), 0)'), 'total_issued')
             ->selectSub($deptRetSubSummary->selectRaw('COALESCE(SUM(department_stock_return_items.quantity), 0)'), 'total_dept_returned');

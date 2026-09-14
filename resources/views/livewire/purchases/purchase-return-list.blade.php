@@ -91,13 +91,46 @@
                                     <span class="badge badge-subtle-{{ $sc }} rounded-pill">{{ $ret->status }}</span>
                                 </td>
                                 <td class="text-end px-3">
-                                    <div class="d-flex justify-content-end gap-2">
-                                        <a href="{{ route('purchase-returns.edit', $ret->id) }}" class="btn btn-link p-0" title="{{ $ret->status === 'Draft' ? 'Edit Return' : 'View Details' }}">
-                                            <span class="text-primary fas fa-{{ $ret->status === 'Draft' ? 'edit' : 'eye' }}"></span>
+                                    <div class="d-flex justify-content-end align-items-center gap-2">
+                                        <!-- View / Edit -->
+                                        <a href="{{ route('purchase-returns.edit', $ret->id) }}" class="btn btn-link p-0 text-primary" title="{{ $ret->status === 'Draft' ? 'Edit Return' : 'View Details' }}">
+                                            <span class="fas fa-{{ $ret->status === 'Draft' ? 'edit' : 'eye' }}"></span>
                                         </a>
+
+                                        <!-- Print -->
+                                        <a href="{{ route('purchase-returns.print', $ret->id) }}" target="_blank" class="btn btn-link p-0 text-secondary" title="Print Return Note">
+                                            <span class="fas fa-print"></span>
+                                        </a>
+
+                                        <!-- Download PDF -->
+                                        <a href="{{ route('purchase-returns.pdf', $ret->id) }}" target="_blank" class="btn btn-link p-0 text-danger" title="Download PDF">
+                                            <span class="fas fa-file-pdf"></span>
+                                        </a>
+
+                                        <!-- Share Dropdown -->
+                                        <div class="dropdown font-sans-serif d-inline-block">
+                                            <button class="btn btn-link p-0 text-info dropdown-toggle dropdown-caret-none" type="button" id="shareRet{{ $ret->id }}" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Share Return Note">
+                                                <span class="fas fa-share-alt"></span>
+                                            </button>
+                                            <div class="dropdown-menu dropdown-menu-end py-2" aria-labelledby="shareRet{{ $ret->id }}">
+                                                @php
+                                                    $retShareText = urlencode("Purchase Return Debit Note #{$ret->return_number}\nVendor: " . ($ret->supplier->name ?? '') . "\nDate: " . $ret->return_date->format('Y-m-d') . "\nAmount: Rs. " . number_format($ret->net_amount, 2));
+                                                    $retSupPhone = preg_replace('/[^0-9]/', '', $ret->supplier->mobile_number ?? '');
+                                                    $waRetUrl = $retSupPhone ? "https://wa.me/{$retSupPhone}?text={$retShareText}" : "https://api.whatsapp.com/send?text={$retShareText}";
+                                                @endphp
+                                                <a class="dropdown-item d-flex align-items-center" href="{{ $waRetUrl }}" target="_blank">
+                                                    <span class="fab fa-whatsapp me-2 text-success"></span>Share via WhatsApp
+                                                </a>
+                                                <button class="dropdown-item d-flex align-items-center" type="button" onclick="navigator.clipboard.writeText('{{ route('purchase-returns.print', $ret->id) }}'); alert('Return Note link copied to clipboard!');">
+                                                    <span class="fas fa-link me-2 text-primary"></span>Copy Link
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Delete (Drafts only) -->
                                         @if($ret->status === 'Draft' && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_inventory')))
-                                            <button class="btn btn-link p-0" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $ret->id }})" title="Delete">
-                                                <span class="text-danger fas fa-trash-alt"></span>
+                                            <button class="btn btn-link p-0 text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" wire:click="confirmDeletion({{ $ret->id }})" title="Delete">
+                                                <span class="fas fa-trash-alt"></span>
                                             </button>
                                         @endif
                                     </div>

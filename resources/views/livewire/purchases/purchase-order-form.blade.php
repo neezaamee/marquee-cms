@@ -94,7 +94,7 @@
                 <div class="bg-light p-3 border rounded mb-4">
                     <h6 class="fw-bold mb-3"><span class="fas fa-plus me-1 text-primary"></span>Add Item Row</h6>
                     <div class="row g-2 align-items-end">
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <label class="form-label fs-11" for="item-select">Item Catalog *</label>
                             <select wire:model.live="selectedItemId" class="form-select form-select-sm" id="item-select">
                                 <option value="">Select Item</option>
@@ -107,14 +107,19 @@
 
                         <div class="col-md-2">
                             <label class="form-label fs-11" for="item-qty">Quantity *</label>
-                            <input wire:model="selectedQty" type="number" step="0.01" class="form-control form-control-sm" id="item-qty" />
+                            <input wire:model.live="selectedQty" type="number" step="0.01" class="form-control form-control-sm text-end" id="item-qty" />
                             @error('selectedQty') <div class="text-danger fs-12 mt-1">{{ $message }}</div> @enderror
                         </div>
 
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label fs-11" for="item-rate">Unit Purchase Rate (Rs.) *</label>
-                            <input wire:model="selectedRate" type="number" step="0.01" class="form-control form-control-sm" id="item-rate" />
+                            <input wire:model.live="selectedRate" type="number" step="0.01" class="form-control form-control-sm text-end" id="item-rate" />
                             @error('selectedRate') <div class="text-danger fs-12 mt-1">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label fs-11 fw-bold text-primary" for="item-amount">Item Amount (Rs.)</label>
+                            <input wire:model.live="selectedAmount" type="number" step="0.01" class="form-control form-control-sm text-end font-monospace fw-bold bg-white text-primary" id="item-amount" title="Quantity × Unit Rate = Item Amount" placeholder="0.00" />
                         </div>
 
                         <div class="col-md-2">

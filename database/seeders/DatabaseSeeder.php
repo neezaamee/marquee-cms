@@ -48,7 +48,7 @@ class DatabaseSeeder extends Seeder
         $marquee = Marquee::updateOrCreate(
             ['email' => 'contact@thesheraton.com'],
             [
-                'name' => 'The Sheraton Marquee',
+                'name' => 'The ABC Marquee',
                 'business_type' => 'Single Marquee',
                 'logo' => null,
                 'address' => 'Canal Road near Toyota Motors',

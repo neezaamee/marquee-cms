@@ -32,11 +32,48 @@
             <a href="{{ route('suppliers.index') }}" class="btn btn-falcon-default btn-sm">
                 <span class="fas fa-arrow-left me-1"></span>Back to Directory
             </a>
-            @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'))
-                <button wire:click="$set('showPaymentModal', true)" class="btn btn-falcon-success btn-sm">
-                    <span class="fas fa-wallet me-1"></span>Record Vendor Payment
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <!-- Export to Excel -->
+                <button wire:click="exportExcel" type="button" class="btn btn-falcon-default btn-sm">
+                    <span class="fas fa-file-excel me-1 text-success"></span>Export to Excel
                 </button>
-            @endif
+
+                <!-- Download PDF -->
+                <a href="{{ route('suppliers.ledger.pdf', $supplier->id) }}" target="_blank" class="btn btn-falcon-default btn-sm">
+                    <span class="fas fa-file-pdf me-1 text-danger"></span>Download PDF
+                </a>
+
+                <!-- Print -->
+                <a href="{{ route('suppliers.ledger.print', $supplier->id) }}" target="_blank" class="btn btn-falcon-default btn-sm">
+                    <span class="fas fa-print me-1 text-primary"></span>Print
+                </a>
+
+                <!-- Share -->
+                <div class="dropdown font-sans-serif d-inline-block">
+                    <button class="btn btn-falcon-default btn-sm dropdown-toggle" type="button" id="shareLedgerDropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <span class="fas fa-share-alt me-1 text-info"></span>Share
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end py-2" aria-labelledby="shareLedgerDropdown" style="min-width: 220px;">
+                        @php
+                            $shareText = urlencode("Supplier Ledger Statement: {$supplier->name} (" . ($supplier->supplier_code ?? '') . ")\nOutstanding Balance: Rs. " . number_format($supplier->current_balance, 2) . "\nView Ledger: " . route('suppliers.ledger', $supplier->id));
+                            $cleanPhone = preg_replace('/[^0-9]/', '', $supplier->mobile_number);
+                            $whatsappUrl = $cleanPhone ? "https://wa.me/{$cleanPhone}?text={$shareText}" : "https://api.whatsapp.com/send?text={$shareText}";
+                        @endphp
+                        <a class="dropdown-item d-flex align-items-center" href="{{ $whatsappUrl }}" target="_blank">
+                            <span class="fab fa-whatsapp me-2 text-success fs-9"></span>Share via WhatsApp
+                        </a>
+                        <button class="dropdown-item d-flex align-items-center" type="button" onclick="navigator.clipboard.writeText('{{ route('suppliers.ledger', $supplier->id) }}'); alert('Ledger link copied to clipboard!');">
+                            <span class="fas fa-link me-2 text-primary fs-10"></span>Copy Ledger Link
+                        </button>
+                    </div>
+                </div>
+
+                @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'))
+                    <button wire:click="$set('showPaymentModal', true)" class="btn btn-falcon-primary btn-sm">
+                        <span class="fas fa-wallet me-1"></span>Record Vendor Payment
+                    </button>
+                @endif
+            </div>
         </div>
     </div>
 

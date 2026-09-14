@@ -54,8 +54,8 @@ class StockLedgerView extends Component
     {
         $this->filterItem     = '';
         $this->filterType     = '';
-        $this->filterDateFrom = now()->startOfMonth()->format('Y-m-d');
-        $this->filterDateTo   = now()->format('Y-m-d');
+        $this->filterDateFrom = '';
+        $this->filterDateTo   = '';
         $this->search         = '';
         $this->resetPage();
     }
@@ -69,7 +69,7 @@ class StockLedgerView extends Component
         $query = InventoryStockLedger::where('inventory_stock_ledgers.marquee_id', $marqueeId)
             ->with(['item.unit', 'creator'])
             ->join('inventory_items', 'inventory_stock_ledgers.item_id', '=', 'inventory_items.id')
-            ->join('branches', 'inventory_stock_ledgers.branch_id', '=', 'branches.id')
+            ->leftJoin('branches', 'inventory_stock_ledgers.branch_id', '=', 'branches.id')
             ->select(
                 'inventory_stock_ledgers.*',
                 'inventory_items.name as item_name',
@@ -142,7 +142,7 @@ class StockLedgerView extends Component
             ->get();
 
         $transactionTypes = [
-            'Opening', 'GRN', 'Issue', 'Return', 'PurchaseReturn',
+            'Opening', 'GRN', 'PurchaseInvoice', 'Issue', 'Return', 'PurchaseReturn',
             'Adjustment', 'Wastage', 'Damage', 'Expiry',
         ];
 

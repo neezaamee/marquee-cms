@@ -216,24 +216,59 @@ class PurchaseService
                 "Billed under Purchase Invoice: #{$invoice->invoice_number}"
             );
 
-            // 4. Calculate and update Weighted Average Cost (WAC) for each item in the invoice
+            // 4. Calculate and update Weighted Average Cost (WAC) and Stock Ledger for each item in the invoice
             $invoice->load('details');
             $stockService = app(\App\Services\DepartmentStockService::class);
+            $hasGrn = !empty($invoice->goods_receiving_note_id);
+
             foreach ($invoice->details as $detail) {
                 $item = \App\Models\InventoryItem::findOrFail($detail->item_id);
-                
-                $currentStock = $stockService->getCentralWarehouseStock($marqueeId, $invoice->branch_id, $detail->item_id);
                 $currentWac = (float) $item->average_cost ?: ((float) $item->default_purchase_rate ?: 0.0);
                 $invoicedQty = (float) $detail->quantity;
                 $invoicedUnitCost = (float) $detail->unit_cost;
 
-                $totalQty = $currentStock;
-                $prevStock = $currentStock - $invoicedQty;
-                if ($totalQty > 0) {
-                    $newWac = (($prevStock * $currentWac) + ($invoicedQty * $invoicedUnitCost)) / $totalQty;
+                $prevCentralBalance = $stockService->getCentralWarehouseStock($marqueeId, $invoice->branch_id, $detail->item_id);
+
+                if ($hasGrn) {
+                    // GRN already increased physical stock before invoice was posted
+                    $totalQty = $prevCentralBalance;
+                    $prevStock = max(0, $prevCentralBalance - $invoicedQty);
                 } else {
-                    $newWac = $invoicedUnitCost;
+                    // Direct purchase: physical stock was not yet logged via GRN
+                    $prevStock = $prevCentralBalance;
+                    $totalQty = $prevCentralBalance + $invoicedQty;
+
+                    // Log to InventoryStockLedger (idempotency guard)
+                    $alreadyLogged = \App\Models\InventoryStockLedger::where('marquee_id', $marqueeId)
+                        ->where('branch_id', $invoice->branch_id)
+                        ->where('item_id', $detail->item_id)
+                        ->where('transaction_type', 'PurchaseInvoice')
+                        ->where('reference_type', 'App\\Models\\PurchaseInvoice')
+                        ->where('reference_id', $invoice->id)
+                        ->exists();
+
+                    if (!$alreadyLogged) {
+                        $newCentralBalance = $prevCentralBalance + $invoicedQty;
+
+                        \App\Models\InventoryStockLedger::create([
+                            'marquee_id'       => $marqueeId,
+                            'branch_id'        => $invoice->branch_id,
+                            'item_id'          => $detail->item_id,
+                            'transaction_date' => $invoice->purchase_date->format('Y-m-d'),
+                            'transaction_type' => 'PurchaseInvoice',
+                            'reference_type'   => 'App\\Models\\PurchaseInvoice',
+                            'reference_id'     => $invoice->id,
+                            'qty_in'           => $invoicedQty,
+                            'qty_out'          => 0.00,
+                            'running_balance'  => $newCentralBalance,
+                            'unit_price'       => $invoicedUnitCost,
+                            'total_cost'       => (float) $detail->amount,
+                            'created_by'       => auth()->id() ?: 1,
+                        ]);
+                    }
                 }
+
+                $newWac = $totalQty > 0 ? (($prevStock * $currentWac) + ($invoicedQty * $invoicedUnitCost)) / $totalQty : $invoicedUnitCost;
 
                 $item->update([
                     'average_cost' => $newWac,

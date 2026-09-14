@@ -121,6 +121,54 @@ class SupplierLedgerView extends Component
         $this->resetErrorBag();
     }
 
+    public function exportExcel()
+    {
+        $supplier = $this->supplier;
+        $ledgers = SupplierLedger::where('supplier_id', $supplier->id)
+            ->orderBy('transaction_date', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $filename = "Supplier_Ledger_" . ($supplier->supplier_code ?: $supplier->id) . "_" . date('Ymd_His') . ".csv";
+
+        $headers = [
+            "Content-type"        => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=\"{$filename}\"",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        return response()->stream(function () use ($supplier, $ledgers) {
+            $handle = fopen('php://output', 'w');
+            fputs($handle, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel
+
+            fputcsv($handle, ['SUPPLIER LEDGER STATEMENT']);
+            fputcsv($handle, ['Supplier Name', $supplier->name]);
+            fputcsv($handle, ['Supplier Code', $supplier->supplier_code]);
+            fputcsv($handle, ['Contact', $supplier->mobile_number]);
+            fputcsv($handle, ['Outstanding Balance', $supplier->current_balance]);
+            fputcsv($handle, ['Generated At', date('Y-m-d H:i:s')]);
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['Date', 'Voucher No', 'Transaction Type', 'Description', 'Debit (Paid/Ret)', 'Credit (Billed)', 'Balance (Payable)']);
+
+            foreach ($ledgers as $l) {
+                fputcsv($handle, [
+                    $l->transaction_date->format('Y-m-d'),
+                    $l->voucher_no ?: '—',
+                    $l->reference_type,
+                    $l->description,
+                    $l->debit > 0 ? $l->debit : '0.00',
+                    $l->credit > 0 ? $l->credit : '0.00',
+                    $l->running_balance,
+                ]);
+            }
+
+            fclose($handle);
+        }, 200, $headers);
+    }
+
     public function render()
     {
         $ledgers = SupplierLedger::where('supplier_id', $this->supplier->id)
