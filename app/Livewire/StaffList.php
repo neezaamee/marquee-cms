@@ -47,7 +47,8 @@ class StaffList extends Component
             $staff = Employee::findOrFail($this->confirmingDeletionId);
 
             // Tenant security check
-            if (!auth()->user()->isSuperAdmin() && $staff->marquee_id !== auth()->user()->marquee_id) {
+            $activeMarqueeId = auth()->user()->getActiveMarqueeId();
+            if (!auth()->user()->isSuperAdmin() && $staff->marquee_id !== $activeMarqueeId && $staff->marquee_id !== auth()->user()->marquee_id) {
                 session()->flash('error', 'Unauthorized operation.');
                 $this->confirmingDeletionId = null;
                 return;

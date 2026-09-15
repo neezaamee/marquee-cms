@@ -5,6 +5,41 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-09-15
+
+### Added
+- **Purchase & Procurement Dashboard**:
+  - Implemented real-time analytical and operational dashboard (`PurchaseDashboard.php` and `purchase-dashboard.blade.php`) under `/purchases/dashboard`.
+  - Added KPI summary cards: Total Purchases (MTD/YTD), Active Vendors, Pending POs, and Low Stock Alerts.
+  - Implemented 6-month historical spending trend visualization using Chart.js.
+  - Implemented Category-wise Spend breakdown donut chart with dynamic color palette.
+  - Added PO pipeline status tracker (`Draft`, `Ordered`, `Partial`, `Received`, `Cancelled`) with direct status filtering.
+  - Added critical inventory stock-level alerts with one-click "Create PO" direct action.
+  - Added recent purchase orders and vendor performance quick-access tables.
+  - Registered route and navigation item in Falcon sidebar under the Purchase & Inventory menu.
+
+### Fixed
+- **Department Requisition Item Relationship (`inventoryItem`)**:
+  - Resolved `RelationNotFoundException: Call to undefined relationship [inventoryItem] on model [App\Models\DepartmentStockRequestItem]`.
+  - Added backwards-compatible `inventoryItem()` Eloquent relationship alias across all department inventory item models:
+    - `DepartmentStockRequestItem`
+    - `DepartmentStockIssueItem`
+    - `DepartmentStockReturnItem`
+    - `DepartmentProductionItem`
+  - Fixed view/details modal rendering in Department Requisitions.
+
+- **Multi-Tenant Business Owner Single Branch Assignment**:
+  - Fixed branch selection dropdown showing empty when a newly created Business Owner with a single main branch assigns an employee to a branch.
+  - Updated `StaffForm`, `StaffController`, `UserForm`, `StaffList`, and `DepartmentEmployeeManager` to automatically resolve and pre-select the tenant's primary branch when only one branch exists.
+  - Added branch creation prompt and validation guidance if no branches exist for a marquee.
+
+- **Production Logo Asset Resolution**:
+  - Resolved missing logo issue on live deployment environments lacking symlink or direct public storage access.
+  - Implemented `/storage/{path}` fallback route in `routes/web.php` with proper MIME type headers and cache control.
+  - Enhanced `Marquee::getLogoUrlAttribute()` to reliably resolve logo paths across local and cloud environments.
+
+---
+
 ## [1.6.0] - 2026-09-09
 
 ### Added

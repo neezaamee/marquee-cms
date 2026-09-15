@@ -24,6 +24,7 @@
 * **Automated Phone Normalization**: Integrated `PhoneNumberService` standardizing local Pakistani formats (`03XX-XXXXXXX`) and E.164 international numbers across all forms.
 * **Multi-Branch & Hall Scoping**: Branch-isolated operational capacities, hall slot allocations (Morning/Evening/Full Day), customizable tax rates (FBR/PRA/SRB), and booking reference prefixes.
 * **Operational Booking Dashboard**: Real-time DB summary cards (Total Bookings, Confirmed, Tentative, Today's Events, Upcoming, Pending Approvals, Payment Outstanding) with `wire:click` automatic filtering.
+* **Purchase & Procurement Analytics Dashboard**: Real-time PO tracking, vendor spending breakdowns, 6-month spend trend charts, pipeline lifecycle tracking, and critical inventory low-stock replenishment alerts.
 * **Department Management Module**: Complete department hierarchy (Kitchen, Housekeeping, Accounts, IT, Procurement), employee assignments, daily attendance, stock requests, stock issues, stock returns, and production logs.
 * **Kitchen & Catering Recipes**: Linked dish menus to raw inventory items, with automated per-head material requirement calculations (`RecipeService`).
 * **HR & Staff Attendance**: Employees directory, monthly payroll overview, and branch-isolated daily check-in/out attendance logging.

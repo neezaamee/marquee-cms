@@ -67,12 +67,17 @@
 
                     <div class="col-md-6">
                         <label class="form-label" for="branch_id">Assign to Branch *</label>
-                        <select wire:model="branch_id" class="form-select @error('branch_id') is-invalid @enderror" id="branch_id" required {{ count($branches) === 1 ? 'disabled' : '' }}>
-                            <option value="">Select Branch...</option>
+                        <select wire:model="branch_id" class="form-select @error('branch_id') is-invalid @enderror" id="branch_id" required>
+                            @if(count($branches) !== 1)
+                                <option value="">Select Branch...</option>
+                            @endif
                             @foreach($branches as $b)
-                                <option value="{{ $b->id }}">{{ $b->name }}</option>
+                                <option value="{{ $b->id }}">{{ $b->name }}{{ $b->is_head_office ? ' (Main Branch / Head Office)' : '' }}</option>
                             @endforeach
                         </select>
+                        @if(count($branches) === 1)
+                            <div class="form-text fs-11 text-muted"><span class="fas fa-check-circle text-success me-1"></span>Assigned to your business main branch.</div>
+                        @endif
                         @error('branch_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 

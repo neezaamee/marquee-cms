@@ -627,7 +627,7 @@
 
         <!-- Purchases / Procurement dropdown -->
         @php
-          $purchasesActive = Route::is('purchase-orders.*') || Route::is('goods-receipts.*') || Route::is('purchase-invoices.*') || Route::is('purchase-returns.*') || Route::is('suppliers.*') || Route::is('supplier-categories.*');
+          $purchasesActive = Route::is('purchases.dashboard') || Route::is('purchase-orders.*') || Route::is('goods-receipts.*') || Route::is('purchase-invoices.*') || Route::is('purchase-returns.*') || Route::is('suppliers.*') || Route::is('supplier-categories.*');
         @endphp
         <li class="nav-item">
           <a class="nav-link dropdown-indicator {{ $purchasesActive ? '' : 'collapsed' }}" href="#purchasesCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $purchasesActive ? 'true' : 'false' }}" aria-controls="purchasesCollapse">
@@ -637,6 +637,14 @@
             </div>
           </a>
           <ul class="nav collapse {{ $purchasesActive ? 'show' : '' }}" id="purchasesCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('purchases.dashboard') ? 'active' : '' }}" href="{{ route('purchases.dashboard') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Purchase Dashboard</span>
+                  <span class="badge badge-subtle-primary rounded-pill ms-2" style="font-size: 9px;">New</span>
+                </div>
+              </a>
+            </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('suppliers.index') || Route::is('suppliers.ledger') ? 'active' : '' }}" href="{{ route('suppliers.index') }}">
                 <div class="d-flex align-items-center">

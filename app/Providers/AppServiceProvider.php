@@ -35,6 +35,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Enforce HTTPS URLs when running in production or configured with HTTPS (prevents Mixed-Content image blocking)
+        if ($this->app->environment('production') || str_starts_with(config('app.url'), 'https://')) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         // Fix MySQL utf8mb4 key length limit for older MySQL/MariaDB servers
         Schema::defaultStringLength(191);
 

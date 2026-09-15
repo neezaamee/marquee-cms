@@ -38,4 +38,12 @@ class DepartmentStockReturnItem extends Model
     {
         return $this->belongsTo(InventoryItem::class, 'item_id');
     }
+
+    /**
+     * Get the inventory item details (alias for item).
+     */
+    public function inventoryItem(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItem::class, 'item_id');
+    }
 }

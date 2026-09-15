@@ -84,7 +84,7 @@ class DepartmentEmployeeManager extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = auth()->user()->getActiveMarqueeId() ?: auth()->user()->marquee_id;
         $branchId = auth()->user()->branch_id;
 
         $query = Employee::where('marquee_id', $marqueeId)

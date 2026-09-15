@@ -27,10 +27,13 @@ class StaffController extends Controller
     public function create()
     {
         $user = Auth::user();
+        $activeMarqueeId = $user->getActiveMarqueeId();
 
         // Branch Managers can only assign staff to their own branch
         if ($user->hasRole('branch_manager')) {
             $branches = Branch::where('id', $user->branch_id)->get();
+        } elseif ($activeMarqueeId) {
+            $branches = Branch::withoutGlobalScope('tenant')->where('marquee_id', $activeMarqueeId)->get();
         } else {
             $branches = Branch::where('marquee_id', $user->marquee_id)->get();
         }
@@ -70,8 +73,10 @@ class StaffController extends Controller
             $photoPath = $request->file('photo')->store('staff/photos', 'public');
         }
 
+        $activeMarqueeId = Auth::user()->getActiveMarqueeId();
+
         Employee::create([
-            'marquee_id'      => Auth::user()->marquee_id,
+            'marquee_id'      => $activeMarqueeId ?: Auth::user()->marquee_id,
             'branch_id'       => $validated['branch_id'],
             'name'            => $validated['name'],
             'cnic'            => $validated['cnic'],
@@ -103,10 +108,13 @@ class StaffController extends Controller
     public function edit(Employee $staff)
     {
         $user = Auth::user();
+        $activeMarqueeId = $user->getActiveMarqueeId();
 
         // Branch Managers can only see their own branch
         if ($user->hasRole('branch_manager')) {
             $branches = Branch::where('id', $user->branch_id)->get();
+        } elseif ($activeMarqueeId) {
+            $branches = Branch::withoutGlobalScope('tenant')->where('marquee_id', $activeMarqueeId)->get();
         } else {
             $branches = Branch::where('marquee_id', $user->marquee_id)->get();
         }

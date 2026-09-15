@@ -129,4 +129,24 @@ class Marquee extends Model
     {
         return \App\Services\PhoneNumberService::formatForDisplay($value);
     }
+
+    /**
+     * Get the resolved logo URL.
+     */
+    public function getLogoUrlAttribute(): ?string
+    {
+        if (empty($this->logo)) {
+            return null;
+        }
+
+        if (\Illuminate\Support\Str::startsWith($this->logo, ['http://', 'https://'])) {
+            return $this->logo;
+        }
+
+        $path = \Illuminate\Support\Str::startsWith($this->logo, 'storage/') 
+            ? $this->logo 
+            : 'storage/' . $this->logo;
+
+        return asset($path);
+    }
 }

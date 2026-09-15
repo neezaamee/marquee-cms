@@ -51,8 +51,11 @@ class UserForm extends Component
         if ($currentUser->isSuperAdmin()) {
             $this->marquees = Marquee::orderBy('name')->get();
         } else {
-            $this->marquee_id = $currentUser->marquee_id;
-            $this->branches = Branch::where('marquee_id', $this->marquee_id)->orderBy('name')->get();
+            $this->marquee_id = $currentUser->getActiveMarqueeId() ?: $currentUser->marquee_id;
+            $this->branches = Branch::withoutGlobalScope('tenant')->where('marquee_id', $this->marquee_id)->orderBy('name')->get();
+            if (count($this->branches) === 1 && empty($this->branch_id)) {
+                $this->branch_id = $this->branches->first()->id;
+            }
         }
 
         // Fetch roles

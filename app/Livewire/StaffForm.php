@@ -44,11 +44,19 @@ class StaffForm extends Component
         abort_unless($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasRole(['owner', 'branch_manager']) || $user->hasPermission('manage_staff'), 403);
 
         // Fetch lists based on authorization
+        $activeMarqueeId = $user->getActiveMarqueeId();
         if ($user->hasRole('branch_manager')) {
             $this->branches = Branch::where('id', $user->branch_id)->get();
             $this->branch_id = $user->branch_id;
+        } elseif ($activeMarqueeId) {
+            $this->branches = Branch::withoutGlobalScope('tenant')->where('marquee_id', $activeMarqueeId)->orderBy('name')->get();
         } else {
             $this->branches = Branch::all();
+        }
+
+        // Auto-select if there is only 1 branch
+        if (count($this->branches) === 1 && empty($this->branch_id)) {
+            $this->branch_id = $this->branches->first()->id;
         }
 
         // Branch Managers can't assign management roles above themselves
@@ -65,7 +73,7 @@ class StaffForm extends Component
 
         if ($staff) {
             // Tenant isolation check
-            if (!$user->isSuperAdmin() && $staff->marquee_id !== $user->marquee_id) {
+            if (!$user->isSuperAdmin() && $staff->marquee_id !== $activeMarqueeId && $staff->marquee_id !== $user->marquee_id) {
                 abort(403, 'Unauthorized operation.');
             }
 
@@ -124,9 +132,11 @@ class StaffForm extends Component
             $photoPath = $this->photo->store('staff/photos', 'public');
         }
 
+        $activeMarqueeId = $user->getActiveMarqueeId();
+
         // Create or Update Employee
         $staffData = [
-            'marquee_id' => auth()->user()->marquee_id,
+            'marquee_id' => $activeMarqueeId ?: $user->marquee_id,
             'branch_id' => $this->branch_id,
             'name' => $this->name,
             'cnic' => $this->cnic,
@@ -143,7 +153,7 @@ class StaffForm extends Component
             $staff = Employee::findOrFail($this->staffId);
             
             // Security scope check
-            if (!auth()->user()->isSuperAdmin() && $staff->marquee_id !== auth()->user()->marquee_id) {
+            if (!auth()->user()->isSuperAdmin() && $staff->marquee_id !== $activeMarqueeId && $staff->marquee_id !== auth()->user()->marquee_id) {
                 abort(403, 'Unauthorized.');
             }
 

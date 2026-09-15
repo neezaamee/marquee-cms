@@ -28,6 +28,15 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
+// Storage fallback route: serves public files/logos if the storage symlink is missing or unsupported on live hosting
+Route::get('storage/{path}', function ($path) {
+    $filePath = storage_path('app/public/' . $path);
+    if (!file_exists($filePath)) {
+        abort(404);
+    }
+    return response()->file($filePath);
+})->where('path', '.*');
+
 Route::get('/debug-cache', function () {
     try {
         $output = [];
@@ -187,6 +196,7 @@ Route::middleware('auth')->group(function () {
             })->name('suppliers.ledger.print');
 
             // Purchase Management Module
+            Route::get('purchases/dashboard', \App\Livewire\Purchases\PurchaseDashboard::class)->name('purchases.dashboard');
             Route::view('purchases/orders', 'purchases.orders')->name('purchase-orders.index');
             Route::get('purchases/orders/create', function () {
                 return view('purchases.order-form', ['id' => null]);
