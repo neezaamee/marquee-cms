@@ -27,10 +27,41 @@ class TenantDefaultManager extends Component
     public $code = '';
     public $description = '';
 
+    // Documentation Terms & Conditions
+    public $booking_slip_terms = '';
+    public $final_bill_conditions = '';
+
     protected $queryString = [
         'activeCategory' => ['except' => 'event_types'],
         'search' => ['except' => ''],
     ];
+
+    public function mount()
+    {
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        $marquee = $marqueeId ? \App\Models\Marquee::find($marqueeId) : null;
+        $mainBranch = $marqueeId ? \App\Models\Branch::where('marquee_id', $marqueeId)->where('is_head_office', true)->first() : null;
+
+        if ($marquee) {
+            $this->booking_slip_terms = ($mainBranch && $mainBranch->booking_slip_terms) 
+                ?: ($marquee->booking_slip_terms ?: '');
+            $this->final_bill_conditions = ($mainBranch && $mainBranch->final_bill_conditions) 
+                ?: ($marquee->final_bill_conditions ?: '');
+        }
+
+        if (empty($this->booking_slip_terms)) {
+            $this->booking_slip_terms = "1. The refundable security deposit remains strictly separate from event revenue and will be refunded within 3 working days post-event after evaluating any damage losses.\n"
+                . "2. Cancellations are subject to structural marquee policies. Minimum headcounts must be adhered to once finalized.\n"
+                . "3. Any extension of the time bounds stated above without written authorization may trigger extra hour charge policies.";
+        }
+        if (empty($this->final_bill_conditions)) {
+            $this->final_bill_conditions = "1. All payments must be settled in full on or prior to the conclusion of the event.\n"
+                . "2. Any guest count exceeding guaranteed headcount will be charged per plate according to the agreed rate.\n"
+                . "3. Refundable security deposit will be processed post-event after hall clearance and damage evaluation.\n"
+                . "4. Any damage to fixtures, equipment, or crockery will be deducted from the security deposit.";
+        }
+    }
 
     public function updatedSearch() { $this->resetPage(); }
 
@@ -39,6 +70,33 @@ class TenantDefaultManager extends Component
         $this->activeCategory = $cat;
         $this->search = '';
         $this->resetPage();
+    }
+
+    public function saveDocumentationTerms()
+    {
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        $marquee = $marqueeId ? \App\Models\Marquee::find($marqueeId) : null;
+
+        if ($marquee) {
+            $marquee->update([
+                'booking_slip_terms' => $this->booking_slip_terms,
+                'final_bill_conditions' => $this->final_bill_conditions,
+            ]);
+
+            // Also synchronize head office branch
+            $mainBranch = \App\Models\Branch::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('is_head_office', true)->first();
+            if ($mainBranch) {
+                $mainBranch->update([
+                    'booking_slip_terms' => $this->booking_slip_terms,
+                    'final_bill_conditions' => $this->final_bill_conditions,
+                ]);
+            }
+
+            session()->flash('success', 'Documentation terms and conditions updated successfully.');
+        } else {
+            session()->flash('error', 'No active marquee found to update.');
+        }
     }
 
     public function openCreateModal()
@@ -67,12 +125,11 @@ class TenantDefaultManager extends Component
     public function importGlobalDefaults()
     {
         $user = auth()->user();
-        if (!$user || !$user->marquee_id) {
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        if (!$marqueeId) {
             session()->flash('error', 'No active marquee tenant found.');
             return;
         }
-
-        $marqueeId = $user->marquee_id;
         $importedCount = 0;
 
         // 1. Event Types
@@ -202,7 +259,8 @@ class TenantDefaultManager extends Component
             'description' => 'nullable|string',
         ]);
 
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         if ($this->activeCategory === 'event_types') {
             EventType::create([
@@ -261,7 +319,8 @@ class TenantDefaultManager extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         $items = collect();
 

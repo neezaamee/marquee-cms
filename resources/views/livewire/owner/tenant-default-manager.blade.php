@@ -55,84 +55,148 @@
                         <span class="fas fa-sitemap me-1"></span>Departments
                     </button>
                 </li>
+                <li class="nav-item">
+                    <button wire:click="setCategory('documentation_terms')" class="nav-link {{ $activeCategory === 'documentation_terms' ? 'active fw-bold text-primary' : 'text-600' }}" type="button">
+                        <span class="fas fa-file-contract me-1"></span>Slip & Bill Terms
+                    </button>
+                </li>
             </ul>
         </div>
 
-        <div class="card-body bg-light border-bottom py-2">
-            <div class="row g-2">
-                <div class="col-md-4">
-                    <div class="input-group input-group-sm">
-                        <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search Master Records..." />
-                        <span class="input-group-text"><span class="fas fa-search"></span></span>
+        @if($activeCategory === 'documentation_terms')
+            <!-- Documentation Terms & Conditions Editor -->
+            <div class="card-body p-4 bg-body">
+                @if(session('success'))
+                    <div class="alert alert-success border-2 d-flex align-items-center mb-3" role="alert">
+                        <div class="bg-success me-3 icon-item"><span class="fas fa-check-circle text-white fs-8"></span></div>
+                        <p class="mb-0 flex-grow-1 text-success-800">{{ session('success') }}</p>
+                        <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
+                <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                    <div>
+                        <h6 class="text-primary fw-bold mb-0">
+                            <span class="fas fa-file-contract me-2"></span>Booking Slip Terms & Final Bill Conditions
+                        </h6>
+                        <span class="text-muted fs-11">Manage default contractual terms printed on customer booking slips and billing conditions on final invoices.</span>
+                    </div>
+                    <button wire:click="saveDocumentationTerms" class="btn btn-primary btn-sm shadow-sm" type="button">
+                        <span class="fas fa-save me-1"></span>Save Terms & Conditions
+                    </button>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card border border-translucent h-100 shadow-none">
+                            <div class="card-header bg-light py-2">
+                                <h6 class="mb-0 fs-11 fw-bold text-800">
+                                    <span class="fas fa-receipt me-1 text-info"></span>Booking Slip Terms & Conditions
+                                </h6>
+                            </div>
+                            <div class="card-body p-3">
+                                <textarea wire:model="booking_slip_terms" class="form-control font-monospace fs-11" rows="9" placeholder="Enter terms line by line for customer booking slips..."></textarea>
+                                <div class="fs-10 text-muted mt-2">
+                                    <span class="fas fa-info-circle me-1"></span>Each line is rendered as a numbered bullet above the customer and manager signature section on printed booking slips.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card border border-translucent h-100 shadow-none">
+                            <div class="card-header bg-light py-2">
+                                <h6 class="mb-0 fs-11 fw-bold text-800">
+                                    <span class="fas fa-file-invoice-dollar me-1 text-success"></span>Final Bill Conditions & Policies
+                                </h6>
+                            </div>
+                            <div class="card-body p-3">
+                                <textarea wire:model="final_bill_conditions" class="form-control font-monospace fs-11" rows="9" placeholder="Enter conditions line by line for finalized bills..."></textarea>
+                                <div class="fs-10 text-muted mt-2">
+                                    <span class="fas fa-info-circle me-1"></span>Rendered on final settlement invoices and sales tax billing statements.
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        @else
+            <div class="card-body bg-light border-bottom py-2">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <div class="input-group input-group-sm">
+                            <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search Master Records..." />
+                            <span class="input-group-text"><span class="fas fa-search"></span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        <div class="card-body p-0">
-            @if(session('success'))
-                <div class="alert alert-success border-2 d-flex align-items-center m-3" role="alert">
-                    <div class="bg-success me-3 icon-item"><span class="fas fa-check-circle text-white fs-8"></span></div>
-                    <p class="mb-0 flex-grow-1 text-success-800">{{ session('success') }}</p>
-                    <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div class="card-body p-0">
+                @if(session('success'))
+                    <div class="alert alert-success border-2 d-flex align-items-center m-3" role="alert">
+                        <div class="bg-success me-3 icon-item"><span class="fas fa-check-circle text-white fs-8"></span></div>
+                        <p class="mb-0 flex-grow-1 text-success-800">{{ session('success') }}</p>
+                        <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
+                @if(session('error'))
+                    <div class="alert alert-danger border-2 d-flex align-items-center m-3" role="alert">
+                        <div class="bg-danger me-3 icon-item"><span class="fas fa-times-circle text-white fs-8"></span></div>
+                        <p class="mb-0 flex-grow-1 text-danger-800">{{ session('error') }}</p>
+                        <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
+                <div class="table-responsive scrollbar">
+                    <table class="table table-sm table-striped fs-10 mb-0 align-middle table-hover">
+                        <thead class="bg-200 text-900">
+                            <tr>
+                                <th class="px-3">Master Name</th>
+                                <th>Code / Identifier</th>
+                                <th>Description</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($items as $item)
+                                @php
+                                    $name = $item->name ?? $item->event_type_name ?? $item->category_name ?? '—';
+                                    $code = $item->code ?? $item->event_type_code ?? $item->category_code ?? $item->short_code ?? '—';
+                                    $status = $item->status ?? 'active';
+                                @endphp
+                                <tr>
+                                    <td class="px-3 fw-bold text-900">{{ $name }}</td>
+                                    <td><span class="badge badge-subtle-secondary font-monospace">{{ $code }}</span></td>
+                                    <td class="text-600 fs-11">{{ $item->description ?? 'No description provided' }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success-subtle text-success rounded-pill px-2 py-1 fs-12">{{ ucfirst($status) }}</span>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">
+                                        <span class="fas fa-folder-open fa-3x mb-2 d-block text-400"></span>
+                                        No master records configured for <strong>{{ str_replace('_', ' ', strtoupper($activeCategory)) }}</strong>.
+                                        <div class="mt-2">
+                                            <button wire:click="importGlobalDefaults" class="btn btn-falcon-success btn-xs" type="button">
+                                                <span class="fas fa-file-import me-1"></span>Click here to import default templates
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if(method_exists($items, 'hasPages') && $items->hasPages())
+                <div class="card-footer d-flex align-items-center justify-content-center bg-light">
+                    {{ $items->links() }}
                 </div>
             @endif
-
-            @if(session('error'))
-                <div class="alert alert-danger border-2 d-flex align-items-center m-3" role="alert">
-                    <div class="bg-danger me-3 icon-item"><span class="fas fa-times-circle text-white fs-8"></span></div>
-                    <p class="mb-0 flex-grow-1 text-danger-800">{{ session('error') }}</p>
-                    <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            @endif
-
-            <div class="table-responsive scrollbar">
-                <table class="table table-sm table-striped fs-10 mb-0 align-middle table-hover">
-                    <thead class="bg-200 text-900">
-                        <tr>
-                            <th class="px-3">Master Name</th>
-                            <th>Code / Identifier</th>
-                            <th>Description</th>
-                            <th class="text-center">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($items as $item)
-                            @php
-                                $name = $item->name ?? $item->event_type_name ?? $item->category_name ?? '—';
-                                $code = $item->code ?? $item->event_type_code ?? $item->category_code ?? $item->short_code ?? '—';
-                                $status = $item->status ?? 'active';
-                            @endphp
-                            <tr>
-                                <td class="px-3 fw-bold text-900">{{ $name }}</td>
-                                <td><span class="badge badge-subtle-secondary font-monospace">{{ $code }}</span></td>
-                                <td class="text-600 fs-11">{{ $item->description ?? 'No description provided' }}</td>
-                                <td class="text-center">
-                                    <span class="badge bg-success-subtle text-success rounded-pill px-2 py-1 fs-12">{{ ucfirst($status) }}</span>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="4" class="text-center py-5 text-muted">
-                                    <span class="fas fa-folder-open fa-3x mb-2 d-block text-400"></span>
-                                    No master records configured for <strong>{{ str_replace('_', ' ', strtoupper($activeCategory)) }}</strong>.
-                                    <div class="mt-2">
-                                        <button wire:click="importGlobalDefaults" class="btn btn-falcon-success btn-xs" type="button">
-                                            <span class="fas fa-file-import me-1"></span>Click here to import default templates
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        @if(method_exists($items, 'hasPages') && $items->hasPages())
-            <div class="card-footer d-flex align-items-center justify-content-center bg-light">
-                {{ $items->links() }}
-            </div>
         @endif
     </div>
 

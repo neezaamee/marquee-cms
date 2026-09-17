@@ -225,4 +225,46 @@ class DynamicDashboardTest extends TestCase
             ->assertSee('Low Stock Inventory Items')
             ->assertSee('Chicken Breast Boneless: 10 kg');
     }
+
+    /** @test */
+    public function test_business_owner_sees_sales_purchases_guests_and_liquidity_cards()
+    {
+        Livewire::actingAs($this->businessOwner)
+            ->test(BusinessOwnerDashboard::class)
+            ->assertSee('Total Sales')
+            ->assertSee('Total Purchases')
+            ->assertSee('Total Guests')
+            ->assertSee('Bank Balance')
+            ->assertSee('Cash in Hand')
+            ->assertSee('Realized Revenue')
+            ->assertSee('Expenses Paid')
+            ->assertSee('Net Margin');
+    }
+
+    /** @test */
+    public function test_booking_officer_sees_guest_and_booking_details_with_minimized_financials()
+    {
+        $officerRole = Role::where('name', 'booking_officer')->first();
+        $bookingOfficer = User::factory()->create([
+            'role_id' => $officerRole->id,
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch1->id,
+            'email' => 'officer@imperial.com',
+        ]);
+
+        Livewire::actingAs($bookingOfficer)
+            ->test(BusinessOwnerDashboard::class)
+            ->assertSee('Total Guests')
+            ->assertSee('Confirmed Events')
+            ->assertSee('Pending Inquiries')
+            ->assertSee("Today's Functions", false)
+            ->assertSee('Next 7 Days')
+            ->assertSee('Kitchen Slips Due')
+            // Assert financial metrics are minimized / hidden
+            ->assertDontSee('Realized Revenue')
+            ->assertDontSee('Net Margin')
+            ->assertDontSee('Total Purchases')
+            ->assertDontSee('Bank Balance')
+            ->assertDontSee('Cash in Hand');
+    }
 }

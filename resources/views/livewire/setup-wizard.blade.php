@@ -328,6 +328,40 @@
                                     </div>
                                 </div>
                             @endif
+
+                            <!-- Documentation Terms & Policy Conditions -->
+                            <div class="col-12 mt-4 border-top pt-3">
+                                <h6 class="text-primary fw-bold mb-1">
+                                    <span class="fas fa-file-contract me-2"></span>Documentation Terms & Policy Conditions
+                                </h6>
+                                <p class="text-muted fs-11 mb-3">
+                                    Define the standard contractual terms printed on customer booking slips and the policy conditions displayed on finalized sales tax bills and invoices.
+                                </p>
+                            </div>
+
+                            <!-- Booking Slip Terms -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-semi-bold">
+                                    <span class="fas fa-receipt me-1 text-info"></span>Booking Slip Terms & Conditions
+                                </label>
+                                <textarea wire:model="booking_slip_terms" class="form-control fs-11 font-monospace @error('booking_slip_terms') is-invalid @enderror" rows="5" placeholder="Enter terms line by line for customer booking slip..."></textarea>
+                                <div class="fs-10 text-muted mt-1">
+                                    Each line will appear as a numbered condition on the printed Booking Slip above customer sign-off.
+                                </div>
+                                @error('booking_slip_terms') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+
+                            <!-- Final Bill Conditions -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-semi-bold">
+                                    <span class="fas fa-file-invoice-dollar me-1 text-success"></span>Final Bill Conditions & Policies
+                                </label>
+                                <textarea wire:model="final_bill_conditions" class="form-control fs-11 font-monospace @error('final_bill_conditions') is-invalid @enderror" rows="5" placeholder="Enter billing conditions line by line for final sales tax invoices..."></textarea>
+                                <div class="fs-10 text-muted mt-1">
+                                    Printed at the footer of finalized billing statements and tax invoices.
+                                </div>
+                                @error('final_bill_conditions') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
                         </div>
                     </div>
                 @endif

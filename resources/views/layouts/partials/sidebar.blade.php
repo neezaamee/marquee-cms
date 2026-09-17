@@ -1722,14 +1722,24 @@
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
         </div>
 
+        @php
+          $devToolsActive = Route::is('super-admin.synthetic-data') || Route::is('super-admin.migrations');
+        @endphp
         <li class="nav-item">
-          <a class="nav-link dropdown-indicator collapsed" href="#devToolsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="devToolsCollapse">
+          <a class="nav-link dropdown-indicator {{ $devToolsActive ? '' : 'collapsed' }}" href="#devToolsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $devToolsActive ? 'true' : 'false' }}" aria-controls="devToolsCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-terminal"></span></span>
               <span class="nav-link-text ps-1">Developer Tools</span>
             </div>
           </a>
-          <ul class="nav collapse" id="devToolsCollapse" data-bs-parent="#navbarVerticalNav">
+          <ul class="nav collapse {{ $devToolsActive ? 'show' : '' }}" id="devToolsCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('super-admin.migrations') ? 'active' : '' }}" href="{{ route('super-admin.migrations') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1 text-warning fw-bold"><span class="fas fa-database me-1"></span> Database Migrations</span>
+                </div>
+              </a>
+            </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('super-admin.synthetic-data') ? 'active' : '' }}" href="{{ route('super-admin.synthetic-data') }}">
                 <div class="d-flex align-items-center">

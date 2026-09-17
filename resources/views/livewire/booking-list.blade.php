@@ -501,7 +501,7 @@
                                                         <span class="text-info fas fa-eye me-2"></span>View Details
                                                     </a>
                                                     <a class="dropdown-item" href="{{ route('bookings.slip', $booking->id) }}" target="_blank">
-                                                        <span class="text-success fas fa-print me-2"></span>Print Slip
+                                                        <span class="text-success fas fa-print me-2"></span>Print Booking Slip
                                                     </a>
                                                     <a class="dropdown-item" href="{{ route('bookings.kitchen-slip', ['booking' => $booking->id, 'lang' => 'bilingual']) }}" target="_blank">
                                                         <span class="text-warning fas fa-utensils me-2"></span>Kitchen Slip

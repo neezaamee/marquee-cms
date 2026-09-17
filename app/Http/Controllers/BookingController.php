@@ -46,7 +46,7 @@ class BookingController extends Controller
     }
 
     /**
-     * Renders a printable slip layout for a booking.
+     * Renders the standard printable booking slip layout.
      */
     public function slip(Booking $booking)
     {
@@ -56,7 +56,7 @@ class BookingController extends Controller
     }
 
     /**
-     * Renders a printable slip layout (V2) for a booking.
+     * Alias for backwards compatibility with legacy V2 booking slip route.
      */
     public function slipV2(Booking $booking)
     {
@@ -66,7 +66,7 @@ class BookingController extends Controller
     }
 
     /**
-     * Renders a printable slip layout (V3) for a booking.
+     * Alias for backwards compatibility with legacy V3 booking slip route.
      */
     public function slipV3(Booking $booking)
     {

@@ -16,6 +16,6 @@ class BookingSlipV3 extends Component
 
     public function render()
     {
-        return view('livewire.booking-slip-v3');
+        return view('livewire.booking-slip');
     }
 }

@@ -282,6 +282,14 @@
                             </div>
                             <span class="fas fa-chevron-right text-400 fs-11"></span>
                         </a>
+                        <a href="{{ route('super-admin.migrations') }}" class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2">
+                            <span class="fas fa-terminal text-primary"></span>
+                            <div class="flex-1">
+                                <div class="fw-bold">Database Migrations & Maintenance</div>
+                                <span class="text-muted fs-11">Run live migrations, clear caches, & sync defaults</span>
+                            </div>
+                            <span class="fas fa-chevron-right text-400 fs-11"></span>
+                        </a>
                         <a href="{{ route('super-admin.backups') }}" class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2">
                             <span class="fas fa-database text-warning"></span>
                             <div class="flex-1">

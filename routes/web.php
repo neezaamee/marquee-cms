@@ -320,5 +320,6 @@ Route::middleware('auth')->group(function () {
     Route::get('admin/trials/expiring', \App\Livewire\SuperAdmin\Trials\ExpiringTrials::class)->name('super-admin.trials.expiring');
     Route::get('admin/trials/conversions', \App\Livewire\SuperAdmin\Trials\TrialConversions::class)->name('super-admin.trials.conversions');
     Route::get('admin/synthetic-data', \App\Livewire\SuperAdmin\DemoDataGenerator::class)->name('super-admin.synthetic-data');
+    Route::get('admin/migrations', \App\Livewire\SuperAdmin\MigrationManager::class)->name('super-admin.migrations');
     Route::get('settings/default-data', \App\Livewire\Owner\TenantDefaultManager::class)->name('owner.default-data');
 });

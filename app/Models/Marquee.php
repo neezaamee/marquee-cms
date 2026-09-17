@@ -27,6 +27,8 @@ class Marquee extends Model
         'tax_authority',
         'status',
         'is_setup_completed',
+        'booking_slip_terms',
+        'final_bill_conditions',
     ];
 
     /**

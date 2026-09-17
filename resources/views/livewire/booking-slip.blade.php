@@ -2,7 +2,7 @@
     <!-- Screen-Only Controls (Hidden on Print) -->
     <div class="d-print-none card mb-3 bg-light">
         <div class="card-body d-flex justify-content-between align-items-center py-2">
-            <span class="fs-11 text-700 fw-semi-bold">
+            <span class="fs-12 text-700 fw-semi-bold">
                 <span class="fas fa-info-circle me-1"></span>Use the button below or print page (Ctrl+P) to generate a PDF or paper copy.
             </span>
             <button onclick="window.print();" class="btn btn-success btn-sm px-4">
@@ -17,128 +17,67 @@
             $marquee = $booking->effective_marquee ?? $booking->marquee ?? (auth()->user()->marquee ?? null);
             $branch = $booking->effective_branch ?? $booking->branch ?? ($booking->hall?->branch ?? null);
         @endphp
-        <div class="row align-items-center mb-2" id="brand-header">
+        <div class="row align-items-start pb-2 mb-2" id="brand-header" style="border-bottom: 2px solid #0056b3 !important;">
             <!-- Brand Info -->
-            <div class="col-sm-6 text-start">
-                <h3 class="text-primary fw-black mb-0" id="brand-name">{{ $marquee->name ?? 'MARQUEE CMS' }}</h3>
+            <div class="col-7 text-start">
+                <div class="title-brand text-primary fw-bold text-uppercase fs-20" id="brand-name" style="font-size: 20px; color: #0056b3; font-weight: bold; text-transform: uppercase; margin: 0;">
+                    {{ $marquee->name ?? 'Royal Event Marquee' }}
+                </div>
                 @if($branch)
-                    <div class="text-800 fw-bold fs-11 text-uppercase text-secondary mt-1">
+                    <div class="text-800 fw-bold fs-12 text-uppercase text-secondary mt-1">
                         <span class="fas fa-building me-1 text-primary"></span>{{ $branch->name }}
                         @if($branch->is_head_office)
-                            <span class="badge badge-subtle-primary ms-1 fs-12">Head Office</span>
+                            <span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 10px;">Head Office</span>
                         @endif
                     </div>
-                    <div class="fs-12 text-600 mt-1">
+                    <div class="text-600 fs-11" style="font-size: 11px; color: #555;">
                         <span class="fas fa-map-marker-alt me-1"></span>{{ $branch->address ? $branch->address . ', ' : '' }}{{ $branch->city ?? ($marquee->city ?? '') }}{{ $branch->province ? ', ' . $branch->province : '' }}
+                        @if($branch->phone || ($marquee->phone ?? null))
+                            | <span class="fas fa-phone me-1"></span>Ph: {{ $branch->phone ?: $marquee->phone }}
+                        @endif
+                        @if($branch->branch_manager)
+                            | <strong>Mgr:</strong> {{ $branch->branch_manager }}
+                        @endif
                     </div>
-                    @if($branch->phone || ($marquee->phone ?? null))
-                        <div class="fs-12 text-600">
-                            <span class="fas fa-phone me-1"></span>{{ $branch->phone ?: $marquee->phone }}
-                            @if($branch->branch_manager)
-                                <span class="ms-2">| <strong>Manager:</strong> {{ $branch->branch_manager }}</span>
-                            @endif
-                        </div>
-                    @endif
                 @else
-                    <div class="fs-12 text-600 mt-1">
-                        <span class="fas fa-map-marker-alt me-1"></span>{{ $marquee->address ?? 'Main Boulevard, Gulberg' }}, {{ $marquee->city ?? 'Lahore' }}
+                    <div class="text-600 fs-11" style="font-size: 11px; color: #666;">
+                        <span class="fas fa-map-marker-alt me-1"></span>{{ $marquee->address ?? '' }}, {{ $marquee->city ?? '' }}
+                        @if($marquee->phone ?? null) | Ph: {{ $marquee->phone }} @endif
                     </div>
-                    @if($marquee->phone ?? null)
-                        <div class="fs-12 text-600">
-                            <span class="fas fa-phone me-1"></span>{{ $marquee->phone }}
-                        </div>
-                    @endif
                 @endif
             </div>
-            <!-- Invoice Title & QR Code Placeholder -->
-            <div class="col-sm-6 text-sm-end mt-2 mt-sm-0">
-                <h4 class="text-800 fw-bold mb-1">BOOKING CONFIRMATION</h4>
-                <div class="fs-11 font-monospace text-secondary">VOUCHER REFERENCE: #{{ $booking->booking_number }}</div>
-                @if($branch)
-                    <div class="fs-12 text-600 font-monospace">Branch: {{ $branch->name }}</div>
-                @endif
-                <div class="mt-2 d-inline-block p-1 border bg-light text-center" style="width: 50px; height: 50px; border-radius: 4px;">
-                    <span class="fas fa-qrcode fa-2x text-secondary"></span>
+            <!-- Title & References -->
+            <div class="col-5 text-end">
+                <div class="title-invoice text-success fw-bold text-uppercase fs-16" style="font-size: 16px; color: #28a745; font-weight: bold; text-align: right; margin: 0; text-transform: uppercase;">
+                    {{ !empty($booking->finalBill) ? 'Final Slip' : 'Booking Slip' }}
+                </div>
+                <div class="ref-text font-monospace fs-11 text-secondary mt-1" style="font-size: 11px; color: #666; text-align: right; font-family: monospace; line-height: 1.35;">
+                    <strong>Booking Reference:</strong> #{{ $booking->booking_number }}
+                    @if($branch)
+                        <br><strong>Branch:</strong> {{ $branch->name }}
+                    @endif
                 </div>
             </div>
         </div>
 
         <!-- Meta Grid -->
-        <div class="row g-3 my-1" id="meta-grid">
-            <div class="col-sm-6">
-                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
-                <table class="table table-sm table-borderless fs-11 mb-0">
-                    @if($branch)
-                        <tr>
-                            <td class="text-600 px-0 py-1" style="width: 110px;">Branch:</td>
-                            <td class="text-800 fw-bold px-0 py-1">{{ $branch->name }}</td>
-                        </tr>
-                    @endif
-                    <tr>
-                        <td class="text-600 px-0 py-1" style="width: 110px;">Booking Hall(s):</td>
-                        <td class="text-800 fw-bold px-0 py-1">
-                            @if($booking->halls->isNotEmpty())
-                                {{ $booking->halls->pluck('hall_name')->implode(', ') }}
-                            @else
-                                {{ $booking->hall->hall_name ?? '—' }}
-                            @endif
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Event Type:</td>
-                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->eventType->event_type_name ?? '—' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Booking Date:</td>
-                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Shift Slot:</td>
-                        <td class="text-800 px-0 py-1">{{ $booking->slot->slot_name ?? 'Custom Schedule' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Timings:</td>
-                        <td class="text-danger-800 font-monospace fw-bold px-0 py-1">
-                            {{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Privacy / Partition:</td>
-                        <td class="text-800 fw-bold px-0 py-1">
-                            @if($booking->privacy_required)
-                                Yes (Ladies: {{ $booking->privacy_ladies_percentage }}%, Gents: {{ $booking->privacy_gents_percentage }}%)
-                            @else
-                                No
-                            @endif
-                        </td>
-                    </tr>
-                </table>
-            </div>
-
-            <div class="col-sm-6">
-                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Customer / Host Details</span>
+        <div class="row g-3 my-2" id="meta-grid">
+            <div class="col-6">
+                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Customer Details</span>
                 @if($booking->customer)
-                    <table class="table table-sm table-borderless fs-11 mb-0">
+                    <table class="table table-sm table-borderless fs-12 mb-0">
                         <tr>
-                            <td class="text-600 px-0 py-1" style="width: 110px;">Full Name:</td>
+                            <td class="text-600 px-0 py-1" style="width: 120px;">Full Name:</td>
                             <td class="text-800 fw-bold px-0 py-1">{{ $booking->customer->full_name }}</td>
                         </tr>
                         <tr>
-                            <td class="text-600 px-0 py-1">Contact Phone:</td>
+                            <td class="text-600 px-0 py-1">Contact:</td>
                             <td class="text-800 fw-bold px-0 py-1">{{ $booking->customer->phone_number }}</td>
                         </tr>
                         <tr>
-                            <td class="text-600 px-0 py-1">Email:</td>
-                            <td class="text-800 px-0 py-1">{{ $booking->customer->email ?? '—' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-600 px-0 py-1">CNIC / ID:</td>
-                            <td class="text-800 px-0 py-1">{{ $booking->customer->cnic_national_id ?? '—' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-600 px-0 py-1">NTN Number:</td>
-                            <td class="text-800 px-0 py-1">{{ $booking->customer->ntn_number ?? '—' }}</td>
-                        </tr>
+                            <td class="text-600 px-0 py-1">CNIC / NTN:</td>
+                            <td class="text-800 fw-bold px-0 py-1">{{ $booking->customer->cnic_national_id ?? $booking->customer->ntn_number ?? 'N/A' }}</td>
+                        </tr>                
                         <tr>
                             <td class="text-600 px-0 py-1">Referred By:</td>
                             <td class="text-800 px-0 py-1">
@@ -150,182 +89,170 @@
                         </tr>
                     </table>
                 @else
-                    <p class="text-muted fs-11 mb-0">No customer detail attached.</p>
+                    <p class="text-muted fs-12 mb-0">No customer detail attached.</p>
                 @endif
             </div>
-        </div>
 
-        <!-- Financial Itemized Summary Table -->
-        <div class="table-responsive my-2" id="financial-summary-table">
-            <table class="table table-sm table-striped border fs-11 align-middle mb-0">
-                <thead class="bg-light text-900">
+            <div class="col-6">
+                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
+                <table class="table table-sm table-borderless fs-12 mb-0">
+                    @if($branch)
+                        <tr>
+                            <td class="text-600 px-0 py-1" style="width: 120px;">Branch:</td>
+                            <td class="text-800 fw-bold px-0 py-1">{{ $branch->name }}</td>
+                        </tr>
+                    @endif
                     <tr>
-                        <th class="ps-3" style="width: 40px;">#</th>
-                        <th>Charge Item Description</th>
-                        <th class="text-center" style="width: 100px;">Rate</th>
-                        <th class="text-center" style="width: 80px;">Qty/Guests</th>
-                        <th class="text-end pe-3" style="width: 140px;">Line Status</th>
+                        <td class="text-600 px-0 py-1" style="width: 120px;">Event Type:</td>
+                        <td class="text-800 fw-bold px-0 py-1">
+                            {{ $booking->eventType->event_type_name ?? '—' }}
+                            @if($booking->halls->isNotEmpty())
+                                / {{ $booking->halls->pluck('hall_name')->implode(', ') }}
+                            @else
+                                / {{ $booking->hall->hall_name ?? '—' }}
+                            @endif
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @if(!$booking->no_food)
-                        <tr>
-                            <td class="ps-3">1</td>
-                            <td>
-                                <div class="fw-bold fs-11">{{ $booking->package->package_name ?? 'Catering Package' }}</div>
-                                <div class="text-muted fs-10">Per Plate Menu Package Booking</div>
-                            </td>
-                            <td class="text-center font-monospace">Rs. {{ number_format($booking->per_plate_price, 2) }}</td>
-                            <td class="text-center">{{ $booking->guest_count }}</td>
-                            <td class="text-end pe-3 text-secondary italic fs-10">Confirmed Rate Only</td>
-                        </tr>
-                    @else
-                        <tr>
-                            <td class="ps-3">1</td>
-                            <td>
-                                <div class="fw-bold fs-11">Catering Plan</div>
-                                <div class="text-muted fs-10">Sitting Plan Only (No Food Catering)</div>
-                            </td>
-                            <td class="text-center font-monospace">—</td>
-                            <td class="text-center">—</td>
-                            <td class="text-end pe-3 text-secondary italic fs-10">Sitting Only</td>
-                        </tr>
-                    @endif
-                    @if($booking->hall_charges > 0)
-                        <tr>
-                            <td class="ps-3">2</td>
-                            <td>
-                                <div class="fw-bold fs-11">Hall rent & Setup</div>
-                                <div class="text-muted fs-10">Exclusive venue occupancy charge</div>
-                            </td>
-                            <td class="text-center font-monospace">Rs. {{ number_format($booking->hall_charges, 2) }}</td>
-                            <td class="text-center">1</td>
-                            <td class="text-end pe-3 text-secondary italic fs-10">Confirmed Rent Only</td>
-                        </tr>
-                    @endif
-                    @if($booking->extra_charges > 0)
-                        <tr>
-                            <td class="ps-3">3</td>
-                            <td>
-                                <div class="fw-bold fs-11">Extra Amenities / Decor Addons</div>
-                                <div class="text-muted fs-10">Custom decor setup or audiovisual additions</div>
-                            </td>
-                            <td class="text-center font-monospace">—</td>
-                            <td class="text-center">1</td>
-                            <td class="text-end pe-3 text-secondary italic fs-10">Included in Setup</td>
-                        </tr>
-                    @endif
-                    @if($booking->vendorSales && $booking->vendorSales->isNotEmpty())
-                        @foreach($booking->vendorSales as $vSale)
-                            @if($vSale->status !== 'cancelled')
-                                @php
-                                    $custCharge = (float) $vSale->sale_amount;
-                                    $custAdv = (float) $vSale->customer_paid;
-                                    $custRem = (float) $vSale->customer_remaining;
-                                @endphp
-                                <tr>
-                                    <td class="ps-3">{{ 3 + $loop->iteration }}</td>
-                                    <td>
-                                        <div class="fw-bold fs-11">{{ $vSale->service->service_name ?? 'Specialized Service' }}</div>
-                                        <div class="text-muted fs-10">
-                                            Provider: {{ $vSale->vendor->name ?? 'Partner Vendor' }} ({{ $vSale->vendor->vendor_type ?? 'Vendor' }})
-                                            @if(!$vSale->include_in_invoice)
-                                                <span class="badge badge-subtle-warning fs-9 ms-1">Direct Payment</span>
-                                            @elseif($custAdv > 0)
-                                                <span class="badge badge-subtle-success fs-9 ms-1">Adv: Rs. {{ number_format($custAdv) }} (Net Due: Rs. {{ number_format($custRem) }})</span>
-                                            @endif
-                                        </div>
-                                    </td>
-                                    <td class="text-center font-monospace">
-                                        @if($vSale->include_in_invoice)
-                                            Rs. {{ number_format($custCharge, 2) }}
-                                        @else
-                                            <span class="text-muted fs-10">(Direct Pay)</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-center">{{ (int)$vSale->quantity ?: 1 }}</td>
-                                    <td class="text-end pe-3 text-secondary italic fs-10">
-                                        {{ $vSale->include_in_invoice ? 'Invoiced' : 'Direct Pay' }}
-                                    </td>
-                                </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Event Date:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Event Time:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->slot->slot_name ?? 'Custom Schedule' }}<small class="text-danger-800 font-monospace fw-bold px-0 py-1">({{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }})<small> </td>
+                    </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Guests Count:</td>
+                        <td class="text-800 fw-bold px-0 py-1"> T: {{ $booking->tentative_guests ?? $booking->guest_count }}, C: {{ $booking->confirmed_guests ?? 'Pending' }}</td>
+                    </tr>
+                    {{--<tr>
+                        <td class="text-600 px-0 py-1">Privacy:</td>
+                        <td class="text-800 fw-bold px-0 py-1">
+                            @if($booking->privacy_required)
+                                Yes (Ladies: {{ $booking->privacy_ladies_percentage }}%, Gents: {{ $booking->privacy_gents_percentage }}%)
+                            @else
+                                No
                             @endif
-                        @endforeach
-                    @endif
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Event Menu Checklist (Template) -->
-        <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-2" id="menu-details-title">Event Menu Selection Details</span>
-        <div class="row g-2" id="menu-items-grid">
-            @if($booking->menuItems->isNotEmpty())
-                @foreach($booking->menuItems as $item)
-                    <div class="col-md-6 col-sm-12 menu-item-col mb-1">
-                        <div class="p-1 px-2 border rounded bg-light d-flex justify-content-between align-items-center fs-11">
-                            <div>
-                                <span class="fw-bold text-800">
-                                    {{ $loop->iteration }}. {{ $item->item_name }}
-                                    @if($item->urdu_name)
-                                        <span class="text-muted fs-11 ms-1">({{ $item->urdu_name }})</span>
-                                    @endif
-                                </span>
-                                @if(!empty($item->pivot->custom_note))
-                                    <div class="text-muted fs-10 italic">({{ $item->pivot->custom_note }})</div>
-                                @endif
-                            </div>
-                            @if(!empty($item->pivot->managed_by_host))
-                                <span class="badge badge-subtle-warning fs-10 d-print-none">Managed by Host</span>
-                                <span class="text-danger fw-bold fs-10 d-none d-print-inline-block">(By Host)</span>
-                            @endif
-                        </div>
-                    </div>
-                @endforeach
-            @endif
-        </div>
-
-        <!-- Rate & Pricing Summary -->
-        <div class="row justify-content-end mb-2" id="pricing-summary-card">
-            <div class="col-sm-6 text-end fs-11">
-                <div class="card bg-light border-0">
-                    <div class="card-body p-2 text-start">
-                        <h6 class="text-primary fw-bold mb-1 fs-11"><span class="fas fa-file-invoice-dollar me-2"></span>Rate & Occupancy Details</h6>
-                        @if(!$booking->no_food)
-                            <div class="fs-10">Rate per Head/Plate: <strong class="text-800">Rs. {{ number_format($booking->per_plate_price) }} per plate</strong></div>
-                            <div class="fs-10 text-600 mt-1">Tentative Guests: <strong>{{ $booking->tentative_guests ?? $booking->guest_count }}</strong> | Confirmed Guests: <strong>{{ $booking->confirmed_guests ?? 'Pending Confirmation' }}</strong> (Status: <strong>{{ $booking->guest_status ?? 'Tentative' }}</strong>)</div>
-                        @else
-                            <div class="fs-10 text-success fw-bold">Sitting Plan Only (No Catering Food)</div>
-                            <div class="fs-10 text-600 mt-1">Hall Setup / Occupancy Rent: <strong>Rs. {{ number_format($booking->hall_charges) }}</strong></div>
-                        @endif
-                        
-                        @if($booking->security_deposit > 0)
-                            <div class="fs-10 text-600 mt-1 border-top pt-1">Refundable Security Deposit (Held): <strong>Rs. {{ number_format($booking->security_deposit) }}</strong></div>
-                        @endif
-                    </div>
-                </div>
+                        </td>
+                    </tr>--}}
+                </table>
             </div>
         </div>
 
+        <!-- Split Layout Body Components -->
+        <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-2" id="menu-details-title">Menu</span>
+        <ol class="ps-4 mb-0 responsive-print-font fs-12 text-800" id="menu-items-list">
+            @if($booking->menuItems->isNotEmpty())
+                @foreach($booking->menuItems as $item)
+                    <li class="mb-1 menu-item-li">
+                        <span class="fw-bold">{{ $item->item_name }}</span>
+                        @if($item->urdu_name)
+                            <span class="text-muted fs-11 ms-1">({{ $item->urdu_name }})</span>
+                        @endif
+                        @if(!empty($item->pivot->managed_by_host))
+                            <span class="badge badge-subtle-warning fs-11 ms-1 d-print-none">Managed by Host</span>
+                            <span class="text-danger fw-bold fs-11 ms-1 d-none d-print-inline-block">(By Host)</span>
+                        @endif
+                        @if(!empty($item->pivot->custom_note))
+                            <span class="text-muted fs-11 ms-1 italic">— ({{ $item->pivot->custom_note }})</span>
+                        @endif
+                    </li>
+                @endforeach
+            @endif
+        </ol>
+
+        @if(!$booking->no_food)
+            <div class="mt-2 pt-1 border-top" id="rate-block">
+               {{--<span class="text-500 fw-bold text-uppercase fs-12 d-block">Rate</span>--}} 
+                @php
+                    $taxPercent = 13.00;
+                    if ($booking->subtotal > 0 && $booking->tax_amount > 0) {
+                        $taxPercent = round(($booking->tax_amount / $booking->subtotal) * 100, 2);
+                    }
+                    if (floor($taxPercent) == $taxPercent) {
+                        $taxPercentStr = number_format($taxPercent, 0);
+                    } else {
+                        $taxPercentStr = number_format($taxPercent, 1);
+                    }
+                @endphp
+                <span class="font-monospace fw-bold fs-18 text-primary">Rate: Rs. {{ number_format($booking->per_plate_price) }}/- + ({{ $taxPercentStr }}% Tax)</span>
+            </div>
+        @endif
+
+        @if($booking->extraServices->isNotEmpty())
+            <div class="mb-2" id="addons-block">
+                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Extra Add-ons / Services Details</span>
+                <ul class="ps-3 mb-0 fs-12 text-800">
+                    @foreach($booking->extraServices as $srv)
+                        <li class="mb-1">
+                            <span class="fw-bold">{{ $srv->service_name }}</span> 
+                            @if($srv->total_price > 0)
+                                <span class="text-muted">({{ $srv->quantity }}x @ Rs. {{ number_format($srv->unit_price) }})</span>
+                            @else
+                                <span class="text-muted">({{ $srv->quantity }}x)</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+            <div id="instructions-block">
+                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Special Setup / Instructions</span>
+                <div class="mb-2 fs-12 text-800">
+                    <span class="text-600" data-test="Privacy / Partition:">Privacy:</span>
+                    <span class="fw-bold">
+                        @if($booking->privacy_required)
+                            Yes (Ladies: {{ $booking->privacy_ladies_percentage }}%, Gents: {{ $booking->privacy_gents_percentage }}%)
+                        @else
+                            No
+                        @endif
+                    </span>
+                </div>
+                    @if($booking->special_instructions)
+                <div class="p-2 border rounded bg-light fs-12 text-800 text-wrap" style="white-space: pre-wrap; word-break: break-word;">{{ $booking->special_instructions }}</div>
+                @endif
+            </div>
+        
+
         <!-- Terms and Conditions Section -->
-        <div class="row g-3 fs-11 mt-1" id="terms-and-conditions">
+        @php
+            $rawSlipTerms = $branch->booking_slip_terms 
+                ?: ($booking->branch->booking_slip_terms 
+                ?: ($marquee->booking_slip_terms ?: null));
+
+            if ($rawSlipTerms) {
+                $slipTermsList = array_values(array_filter(array_map(function($line) {
+                    $trimmed = trim($line);
+                    return preg_replace('/^\d+[\.\)]\s*/', '', $trimmed);
+                }, explode("\n", $rawSlipTerms))));
+            } else {
+                $slipTermsList = [
+                    'The refundable security deposit remains strictly separate from event revenue and will be refunded within 3 working days post-event after evaluating any damage losses.',
+                    'Cancellations are subject to structural marquee policies. Minimum headcounts must be adhered to once finalized.',
+                    'Any extension of the time bounds stated above without written authorization may trigger extra hour charge policies.',
+                ];
+            }
+        @endphp
+        <div class="row g-3 fs-13 mt-1" id="terms-and-conditions">
             <div class="col-12">
-                <h6 class="fw-bold text-800 mb-1 fs-11">Terms & Conditions</h6>
-                <ol class="ps-3 text-600 mb-0 fs-10">
-                    <li>The refundable security deposit remains strictly separate from event revenue and will be refunded within 3 working days post-event after evaluating any damage losses.</li>
-                    <li>Cancellations are subject to structural marquee policies. Minimum headcounts must be adhered to once finalized.</li>
-                    <li>Any extension of the time bounds stated above without written authorization may trigger extra hour charge policies.</li>
+                <h6 class="fw-bold text-800 mb-1">Terms & Conditions</h6>
+                <ol class="ps-3 text-600 mb-0 fs-11">
+                    @foreach($slipTermsList as $termItem)
+                        <li>{{ $termItem }}</li>
+                    @endforeach
                 </ol>
             </div>
         </div>
 
         <!-- Signature Layout -->
-        <div class="row justify-content-between align-items-end mt-4 pt-2" id="signature-layout">
+        <div class="row justify-content-between align-items-end mt-4 pt-1" id="signature-layout">
             <div class="col-sm-5 text-center">
                 <hr class="mb-1" />
-                <span class="fs-11 text-600">Customer Signature</span>
+                <span class="fs-12 text-600">Customer Signature</span>
             </div>
             <div class="col-sm-5 text-center">
                 <hr class="mb-1" />
-                <span class="fs-11 text-600">Authorized Officer Stamp & Sign</span>
+                <span class="fs-12 text-600">Authorized Officer Stamp & Sign</span>
             </div>
         </div>
     </div>
@@ -349,7 +276,7 @@
         .print-page {
             width: 210mm;
             height: 297mm;
-            padding: 8mm 12mm;
+            padding: 6mm 10mm;
             box-sizing: border-box;
             background: white;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
@@ -357,6 +284,8 @@
             display: flex;
             flex-direction: column;
             border-radius: 4px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+            color: #1e293b !important;
         }
 
         .page-content-wrapper {
@@ -367,9 +296,9 @@
         }
 
         .page-footer-wrapper {
-            height: 25px;
+            height: 20px;
             border-top: 1px solid #dee2e6;
-            padding-top: 4px;
+            padding-top: 2px;
             margin-top: 5px;
             font-size: 8pt;
             color: #555;
@@ -379,9 +308,10 @@
             font-family: monospace;
         }
 
-        .menu-item-col {
+        .menu-item-li {
             break-inside: avoid;
             page-break-inside: avoid;
+            margin-bottom: 2px !important;
         }
 
         .compact-header {
@@ -389,19 +319,41 @@
         }
 
         /* Spacing overrides for print slip */
-        .table-sm th, .table-sm td {
-            padding: 3px 6px !important;
+        #meta-grid table td {
+            padding: 1px 0 !important;
+        }
+
+        #brand-header {
+            margin-bottom: 5px !important;
+        }
+
+        #meta-grid {
+            margin-top: 4px !important;
+            margin-bottom: 4px !important;
         }
 
         hr {
-            margin: 5px 0 !important;
+            margin: 4px 0 !important;
             opacity: 0.15;
+        }
+
+        #terms-and-conditions {
+            margin-top: 4px !important;
+        }
+
+        #terms-and-conditions h6 {
+            margin-bottom: 2px !important;
+        }
+
+        #signature-layout {
+            margin-top: 0.75rem !important;
+            padding-top: 0.1rem !important;
         }
 
         @media print {
             body {
                 background: #fff !important;
-                color: #000 !important;
+                color: #1e293b !important;
                 margin: 0 !important;
                 padding: 0 !important;
             }
@@ -426,12 +378,67 @@
                 break-after: page;
                 width: 210mm !important;
                 height: 297mm !important;
-                padding: 8mm 12mm !important;
+                padding: 4mm 8mm !important;
                 border-radius: 0 !important;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+                font-size: 9pt !important;
+                line-height: 1.25 !important;
             }
             /* Hide UI components */
             nav, .navbar, .navbar-vertical, .d-print-none, footer, .footer {
                 display: none !important;
+            }
+            
+            /* Print Point Sizing Overrides */
+            .fs-12 {
+                font-size: 9pt !important;
+            }
+            .fs-13 {
+                font-size: 9.5pt !important;
+            }
+            .fs-18 {
+                font-size: 13pt !important;
+            }
+            .fs-11 {
+                font-size: 8pt !important;
+            }
+            .text-500 {
+                color: #475569 !important;
+                font-weight: 700 !important;
+                letter-spacing: 0.5px;
+            }
+            #brand-name {
+                font-family: 'Outfit', 'Inter', sans-serif !important;
+                font-size: 17pt !important;
+                font-weight: 800 !important;
+                color: #0d6efd !important;
+            }
+            .font-monospace {
+                font-family: 'SFMono-Regular', Consolas, "Liberation Mono", Menlo, monospace !important;
+                font-size: 8.5pt !important;
+            }
+
+            /* Compact terms and signatures for optimal page-fitting */
+            #terms-and-conditions {
+                margin-top: 2px !important;
+            }
+            #terms-and-conditions h6 {
+                font-size: 8.5pt !important;
+                margin-bottom: 1px !important;
+            }
+            #terms-and-conditions ol {
+                font-size: 7.5pt !important;
+                line-height: 1.2 !important;
+            }
+            #signature-layout {
+                margin-top: 10px !important;
+                padding-top: 0 !important;
+            }
+            #signature-layout hr {
+                margin-bottom: 2px !important;
+            }
+            #signature-layout span {
+                font-size: 8.5pt !important;
             }
         }
         @page {
@@ -487,10 +494,17 @@
             // Extract template elements
             const brandHeader = original.querySelector("#brand-header")?.cloneNode(true);
             const metaGrid = original.querySelector("#meta-grid")?.cloneNode(true);
-            const financialTable = original.querySelector("#financial-summary-table")?.cloneNode(true);
+            
+            // Body parts
+            const rateBlock = original.querySelector("#rate-block")?.cloneNode(true);
+            const addonsBlock = original.querySelector("#addons-block")?.cloneNode(true);
+            const instructionsBlock = original.querySelector("#instructions-block")?.cloneNode(true);
+            
+            // Menu items
             const menuTitle = original.querySelector("#menu-details-title")?.cloneNode(true);
-            const menuItems = Array.from(original.querySelectorAll(".menu-item-col"));
-            const pricingCard = original.querySelector("#pricing-summary-card")?.cloneNode(true);
+            const menuItems = Array.from(original.querySelectorAll(".menu-item-li"));
+            
+            // Terms & Signatures
             const termsBlock = original.querySelector("#terms-and-conditions")?.cloneNode(true);
             const signatureBlock = original.querySelector("#signature-layout")?.cloneNode(true);
 
@@ -504,93 +518,291 @@
 
             let activeContent = activePage.pageContent;
 
-            // Append initial structures
+            // Append initial structures to Page 1
             if (brandHeader) activeContent.appendChild(brandHeader);
-            
-            const hrA = document.createElement("hr");
-            activeContent.appendChild(hrA);
-            
             if (metaGrid) activeContent.appendChild(metaGrid);
-            
-            const hrB = document.createElement("hr");
-            activeContent.appendChild(hrB);
-            
-            if (financialTable) activeContent.appendChild(financialTable);
+            activeContent.appendChild(document.createElement("hr"));
 
-            // Handle Menu List with Dynamic Pagination
+            // Create Page 1 split layout container
+            const splitBody = document.createElement("div");
+            splitBody.className = "row g-4 my-1";
+            
+            const leftCol = document.createElement("div");
+            leftCol.className = "col-6 border-end border-translucent";
+            
+            const rightCol = document.createElement("div");
+            rightCol.className = "col-6";
+            
+            splitBody.appendChild(leftCol);
+            splitBody.appendChild(rightCol);
+            activeContent.appendChild(splitBody);
+
+            // Populate Right Column of Page 1
+            if (addonsBlock) rightCol.appendChild(addonsBlock);
+            if (instructionsBlock) rightCol.appendChild(instructionsBlock);
+
+            // Handle Menu List on Page 1 (using Left Column)
+            // Handle Menu List on Page 1 (using Left Column first, then Right Column if Left overflows)
             if (menuItems.length > 0) {
-                if (menuTitle) activeContent.appendChild(menuTitle);
+                const N = menuItems.length;
 
-                let activeMenuRow = document.createElement("div");
-                activeMenuRow.className = "row g-2 menu-grid-row";
-                activeContent.appendChild(activeMenuRow);
+                // Helper to clean column elements for planning
+                function clearMenuContainers() {
+                    leftCol.innerHTML = "";
+                    rightCol.innerHTML = "";
+                    // Re-append default right column blocks
+                    if (addonsBlock) rightCol.appendChild(addonsBlock);
+                    if (instructionsBlock) rightCol.appendChild(instructionsBlock);
+                }
 
-                let activeMenuTitle = menuTitle;
+                // Try to find a split point K that fits all items + terms on Page 1 (max 40 items in left col)
+                let successPage1Distribution = null;
+                const endK = Math.ceil(N / 2);
+                let startK = Math.min(N, 40);
+                if (startK < endK) {
+                    startK = endK;
+                }
 
-                for (let i = 0; i < menuItems.length; i++) {
-                    const item = menuItems[i].cloneNode(true);
-                    activeMenuRow.appendChild(item);
+                for (let K = startK; K >= endK; K--) {
+                    clearMenuContainers();
 
-                    // Check if adding this menu item caused content wrapper overflow
-                    if (activeContent.scrollHeight > activeContent.clientHeight) {
-                        // Rollback item
-                        activeMenuRow.removeChild(item);
+                    // Build Left Column with K items
+                    if (menuTitle) leftCol.appendChild(menuTitle.cloneNode(true));
+                    const leftList = document.createElement("ol");
+                    leftList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                    leftList.start = 1;
+                    leftCol.appendChild(leftList);
+                    for (let i = 0; i < K; i++) {
+                        leftList.appendChild(menuItems[i].cloneNode(true));
+                    }
+                    if (rateBlock) leftCol.appendChild(rateBlock.cloneNode(true));
 
-                        // Clean up containers if empty
-                        if (activeMenuRow.children.length === 0) {
-                            activeContent.removeChild(activeMenuRow);
-                            if (activeMenuTitle && activeContent.contains(activeMenuTitle)) {
-                                activeContent.removeChild(activeMenuTitle);
-                            }
+                    // Build Right Column with N - K items (if any)
+                    if (K < N) {
+                        const rightTitle = document.createElement("span");
+                        rightTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mt-3 mb-1";
+                        rightTitle.textContent = "Menu (Continued)";
+                        rightCol.appendChild(rightTitle);
+
+                        const rightList = document.createElement("ol");
+                        rightList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                        rightList.start = K + 1;
+                        rightCol.appendChild(rightList);
+                        for (let i = K; i < N; i++) {
+                            rightList.appendChild(menuItems[i].cloneNode(true));
+                        }
+                    }
+
+                    // Check if this distribution fits on Page 1 along with terms and signatures (allowing 15px layout tolerance)
+                    let fitsWithTerms = false;
+                    if (activeContent.scrollHeight - activeContent.clientHeight <= 15) {
+                        const tempTerms = termsBlock ? termsBlock.cloneNode(true) : null;
+                        const tempSig = signatureBlock ? signatureBlock.cloneNode(true) : null;
+
+                        if (tempTerms) activeContent.appendChild(tempTerms);
+                        if (tempSig) activeContent.appendChild(tempSig);
+
+                        if (activeContent.scrollHeight - activeContent.clientHeight <= 15) {
+                            fitsWithTerms = true;
                         }
 
-                        // Transition to new page
-                        currentPageIdx++;
-                        activePage = createPage(currentPageIdx + 1);
-                        container.appendChild(activePage.page);
-                        pages.push(activePage);
+                        if (tempSig) activeContent.removeChild(tempSig);
+                        if (tempTerms) activeContent.removeChild(tempTerms);
+                    }
 
-                        activeContent = activePage.pageContent;
+                    if (fitsWithTerms) {
+                        successPage1Distribution = K;
+                        break;
+                    }
+                }
 
-                        // Inject compact continuation header
-                        const compHeader = document.createElement("div");
-                        compHeader.className = "compact-header mb-2 pb-1 d-flex justify-content-between align-items-end";
-                        compHeader.innerHTML = `
-                            <div>
-                                <h5 class="text-primary fw-black mb-0">${original.querySelector("#brand-name")?.textContent || "MARQUEE CMS"}</h5>
-                                <span class="fs-11 text-muted fw-bold">RESERVATION SLIP — CONTINUED</span>
-                            </div>
-                            <div class="text-end fs-10 font-monospace text-secondary">
-                                <strong>Voucher:</strong> #${bookingNumber}<br>
-                                <strong>Customer:</strong> ${customerName}<br>
-                                <strong>Event Date:</strong> ${eventDate}
-                            </div>
-                        `;
-                        activeContent.appendChild(compHeader);
+                if (successPage1Distribution !== null) {
+                    // Apply the successful Page 1 distribution
+                    clearMenuContainers();
+                    
+                    if (menuTitle) leftCol.appendChild(menuTitle.cloneNode(true));
+                    const leftList = document.createElement("ol");
+                    leftList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                    leftList.start = 1;
+                    leftCol.appendChild(leftList);
+                    for (let i = 0; i < successPage1Distribution; i++) {
+                        leftList.appendChild(menuItems[i].cloneNode(true));
+                    }
+                    if (rateBlock) leftCol.appendChild(rateBlock.cloneNode(true));
 
-                        // Menu continued title
-                        activeMenuTitle = document.createElement("span");
-                        activeMenuTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mb-1";
-                        activeMenuTitle.textContent = "Event Menu Selection Details (Continued)";
-                        activeContent.appendChild(activeMenuTitle);
+                    if (successPage1Distribution < N) {
+                        const rightTitle = document.createElement("span");
+                        rightTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mt-3 mb-1";
+                        rightTitle.textContent = "Menu (Continued)";
+                        rightCol.appendChild(rightTitle);
 
-                        // New Menu row
-                        activeMenuRow = document.createElement("div");
-                        activeMenuRow.className = "row g-2 menu-grid-row";
-                        activeContent.appendChild(activeMenuRow);
+                        const rightList = document.createElement("ol");
+                        rightList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                        rightList.start = successPage1Distribution + 1;
+                        rightCol.appendChild(rightList);
+                        for (let i = successPage1Distribution; i < N; i++) {
+                            rightList.appendChild(menuItems[i].cloneNode(true));
+                        }
+                    }
+                } else {
+                    // Fall back to sequential filling with spilling
+                    clearMenuContainers();
 
-                        // Place rolled back item
-                        activeMenuRow.appendChild(item);
+                    if (menuTitle) leftCol.appendChild(menuTitle.cloneNode(true));
+                    const menuList = document.createElement("ol");
+                    menuList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                    menuList.start = 1;
+                    leftCol.appendChild(menuList);
+
+                    if (rateBlock) leftCol.appendChild(rateBlock.cloneNode(true));
+
+                    let currentListTarget = menuList;
+                    let currentColumn = 'left';
+                    let rightColContinuationList = null;
+                    let rightColTitle = null;
+
+                    for (let i = 0; i < menuItems.length; i++) {
+                        const item = menuItems[i].cloneNode(true);
+                        currentListTarget.appendChild(item);
+
+                        // Check if adding this item caused overflow on Page 1 (with 15px tolerance)
+                        if (activeContent.scrollHeight - activeContent.clientHeight > 15) {
+                            // Rollback item
+                            currentListTarget.removeChild(item);
+
+                            if (currentColumn === 'left') {
+                                // Left column filled up, try flowing into Right Column (after special instructions)
+                                currentColumn = 'right';
+
+                                rightColTitle = document.createElement("span");
+                                rightColTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mt-3 mb-1";
+                                rightColTitle.textContent = "Menu (Continued)";
+                                rightCol.appendChild(rightColTitle);
+
+                                rightColContinuationList = document.createElement("ol");
+                                rightColContinuationList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                                rightColContinuationList.start = i + 1;
+                                rightCol.appendChild(rightColContinuationList);
+
+                                currentListTarget = rightColContinuationList;
+
+                                // Re-append rolled back item to right column list
+                                currentListTarget.appendChild(item);
+
+                                // Check if it immediately overflows the right column too (with 15px tolerance)
+                                if (activeContent.scrollHeight - activeContent.clientHeight > 15) {
+                                    // Right column also overflows immediately! Rollback and create Page 2
+                                    currentListTarget.removeChild(item);
+                                    rightCol.removeChild(rightColTitle);
+                                    rightCol.removeChild(rightColContinuationList);
+
+                                    createNextPageAndContinue(i);
+                                    break;
+                                }
+                            } else {
+                                // Right column also overflowed, rollback and create Page 2
+                                createNextPageAndContinue(i);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                function createNextPageAndContinue(startIndex) {
+                    // Create Page 2 (continuation full-width page)
+                    currentPageIdx++;
+                    activePage = createPage(currentPageIdx + 1);
+                    container.appendChild(activePage.page);
+                    pages.push(activePage);
+
+                    activeContent = activePage.pageContent;
+
+                    // Inject compact header
+                    const compHeader = document.createElement("div");
+                    compHeader.className = "compact-header mb-2 pb-1 d-flex justify-content-between align-items-end";
+                    compHeader.innerHTML = `
+                        <div>
+                            <h5 class="text-primary fw-black mb-0">${original.querySelector("#brand-name")?.textContent || "MARQUEE CMS"}</h5>
+                            <span class="fs-11 text-muted fw-bold">RESERVATION SLIP — MENU CONTINUED</span>
+                        </div>
+                        <div class="text-end fs-10 font-monospace text-secondary">
+                            <strong>Voucher:</strong> #${bookingNumber}<br>
+                            <strong>Customer:</strong> ${customerName}<br>
+                            <strong>Event Date:</strong> ${eventDate}
+                        </div>
+                    `;
+                    activeContent.appendChild(compHeader);
+
+                    // Menu title
+                    const nextMenuTitle = document.createElement("span");
+                    nextMenuTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mb-1";
+                    nextMenuTitle.textContent = "Event Menu Selection Details (Continued)";
+                    activeContent.appendChild(nextMenuTitle);
+
+                    // Full width menu ordered list on Page 2+
+                    let activeContinuationList = document.createElement("ol");
+                    activeContinuationList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                    activeContinuationList.start = startIndex + 1;
+                    activeContent.appendChild(activeContinuationList);
+
+                    // Continue adding remaining items starting from startIndex
+                    for (let j = startIndex; j < menuItems.length; j++) {
+                        const nextItem = menuItems[j].cloneNode(true);
+                        activeContinuationList.appendChild(nextItem);
+
+                        if (activeContent.scrollHeight - activeContent.clientHeight > 15) {
+                            // Rollback
+                            activeContinuationList.removeChild(nextItem);
+
+                            // Create Page 3+
+                            currentPageIdx++;
+                            activePage = createPage(currentPageIdx + 1);
+                            container.appendChild(activePage.page);
+                            pages.push(activePage);
+
+                            activeContent = activePage.pageContent;
+
+                            // Compact Header
+                            const pageNHeader = document.createElement("div");
+                            pageNHeader.className = "compact-header mb-2 pb-1 d-flex justify-content-between align-items-end";
+                            pageNHeader.innerHTML = `
+                                <div>
+                                    <h5 class="text-primary fw-black mb-0">${original.querySelector("#brand-name")?.textContent || "MARQUEE CMS"}</h5>
+                                    <span class="fs-11 text-muted fw-bold">RESERVATION SLIP — MENU CONTINUED</span>
+                                </div>
+                                <div class="text-end fs-10 font-monospace text-secondary">
+                                    <strong>Voucher:</strong> #${bookingNumber}<br>
+                                    <strong>Customer:</strong> ${customerName}<br>
+                                    <strong>Event Date:</strong> ${eventDate}
+                                </div>
+                            `;
+                            activeContent.appendChild(pageNHeader);
+
+                            // Title
+                            const pageNTitle = document.createElement("span");
+                            pageNTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mb-1";
+                            pageNTitle.textContent = "Event Menu Selection Details (Continued)";
+                            activeContent.appendChild(pageNTitle);
+
+                            // New continuation list
+                            activeContinuationList = document.createElement("ol");
+                            activeContinuationList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                            activeContinuationList.start = j + 1;
+                            activeContent.appendChild(activeContinuationList);
+
+                            // Append
+                            activeContinuationList.appendChild(nextItem);
+                        }
                     }
                 }
             }
 
-            // Function to safely append content with overflow logic
+            // Function to safely append remaining blocks (terms, signatures) with overflow logic
             function appendBlock(element) {
                 if (!element) return;
                 activeContent.appendChild(element);
 
-                if (activeContent.scrollHeight > activeContent.clientHeight) {
+                if (activeContent.scrollHeight - activeContent.clientHeight > 15) {
                     // Rollback
                     activeContent.removeChild(element);
 
@@ -623,13 +835,7 @@
                 }
             }
 
-            // Append pricing, terms, and signatures
-            appendBlock(pricingCard);
-            
-            const divider = document.createElement("hr");
-            divider.className = "my-2";
-            appendBlock(divider);
-            
+            // Append terms and signatures
             appendBlock(termsBlock);
             appendBlock(signatureBlock);
 
@@ -638,6 +844,8 @@
             pages.forEach((p, idx) => {
                 p.footerRight.textContent = `Printed: ${printedAt} | Page ${idx + 1} of ${totalPages}`;
             });
+            
+            console.log("Pagination complete. Total pages generated:", totalPages);
         }
     </script>
 </div>

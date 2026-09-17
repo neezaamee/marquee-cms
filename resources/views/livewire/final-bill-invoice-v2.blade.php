@@ -479,12 +479,35 @@
                             @endforeach
                         </div>
                     @endif
-                {{--@if(!empty($billing->notes) || !empty($booking->special_instructions))
-                        <div class="mt-2 text-600">
-                            <strong>Special Remarks / Instructions:</strong>
-                            <p class="mb-0 text-muted fs-10">{{ $billing->notes ?: $booking->special_instructions }}</p>
+
+                    @php
+                        $rawBillConditions = $branch->final_bill_conditions 
+                            ?: ($booking->branch->final_bill_conditions 
+                            ?: ($marquee->final_bill_conditions ?: null));
+
+                        if ($rawBillConditions) {
+                            $billConditionsList = array_values(array_filter(array_map(function($line) {
+                                $trimmed = trim($line);
+                                return preg_replace('/^\d+[\.\)]\s*/', '', $trimmed);
+                            }, explode("\n", $rawBillConditions))));
+                        } else {
+                            $billConditionsList = [
+                                'All payments must be settled in full on or prior to the conclusion of the event function.',
+                                'Any guest count exceeding guaranteed headcount will be charged per plate as per the final bill.',
+                                'Refundable security deposit is processed post-event after clearance and inspection.',
+                            ];
+                        }
+                    @endphp
+                    <div class="mt-2 pt-2 border-top">
+                        <div class="fw-bold text-secondary fs-11 mb-1">
+                            <span class="fas fa-file-contract me-1 text-primary"></span>Billing Policy & Conditions:
                         </div>
-                    @endif--}}
+                        <ol class="ps-3 text-600 mb-0 fs-10">
+                            @foreach($billConditionsList as $cItem)
+                                <li>{{ $cItem }}</li>
+                            @endforeach
+                        </ol>
+                    </div>
                 </div>
                 <!-- Right: Signature Stamps -->
                 <div class="col-6 col-sm-6 d-flex flex-column justify-content-between text-center pt-2">

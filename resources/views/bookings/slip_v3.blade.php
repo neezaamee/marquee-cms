@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Booking Slip (V3)')
+@section('title', 'Booking Slip')
 
 @section('content')
     <livewire:booking-slip-v3 :booking="$booking" />

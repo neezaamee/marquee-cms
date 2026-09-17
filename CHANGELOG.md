@@ -5,6 +5,29 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-09-17
+
+### Added
+- **Configurable Booking Slip Terms & Final Bill Conditions**:
+  - Added dedicated database schema fields `booking_slip_terms` and `final_bill_conditions` (TEXT, nullable) to both `marquees` and `branches` tables via migration `2026_09_17_000001_add_terms_and_conditions_to_marquees_and_branches_tables`.
+  - Integrated a **"Documentation Terms & Policy Conditions"** card into Step 3 ("Branch Operations Configuration") of the **Setup Wizard** (`setup-wizard.blade.php` and `SetupWizard.php`), pre-populated with standard marquee industry legal clauses while allowing full manual customization.
+  - Added a dedicated **"Slip & Bill Terms"** tab and live editor within the Tenant Default Configuration Manager (`/settings/default-data`, `TenantDefaultManager.php` and `tenant-default-manager.blade.php`) enabling business owners to update terms and policies post-onboarding.
+  - Updated standard Booking Slips (`booking-slip.blade.php`, `booking-slip-v2.blade.php`) to dynamically parse and render branch/marquee-specific booking terms with automatic fallback to system defaults.
+  - Updated Final Bill Invoices (`final-bill-invoice-v2.blade.php`) to dynamically render branch/marquee-specific final settlement conditions and billing policies.
+  - Added automated test suite `SetupWizardTermsAndConditionsTest` covering setup wizard defaults, persistence, booking slip display, and tenant default management.
+
+## [1.8.0] - 2026-09-16
+
+### Added
+- **Super Admin Database Migrations & Live Site Maintenance Hub**:
+  - Implemented a dedicated web-based database migration and system maintenance interface (`MigrationManager.php` and `migration-manager.blade.php`) under `/admin/migrations`.
+  - Enables Super Admins to execute pending database schema updates (`php artisan migrate --force`) directly from the web interface on live production deployments without requiring SSH access.
+  - Added pending and executed migration inspection, scanning `database/migrations` and comparing against the `migrations` table with batch tracking.
+  - Added integrated Live Artisan Console Terminal viewer with execution timestamps, formatted output, and exit status logs.
+  - Added one-click actions for system cache clearing (`optimize:clear`), global default data seeding (`GlobalDefaultDataSeeder`), and public storage link verification (`storage:link`).
+  - Added Developer Tools sidebar navigation item and Super Admin dashboard quick maintenance shortcut.
+  - Added automated test suite `SuperAdminMigrationManagerTest` with 10 feature test scenarios.
+
 ## [1.7.0] - 2026-09-15
 
 ### Added
@@ -16,7 +39,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added PO pipeline status tracker (`Draft`, `Ordered`, `Partial`, `Received`, `Cancelled`) with direct status filtering.
   - Added critical inventory stock-level alerts with one-click "Create PO" direct action.
   - Added recent purchase orders and vendor performance quick-access tables.
-  - Registered route and navigation item in Falcon sidebar under the Purchase & Inventory menu.
+- **Owner & Booking Officer Dedicated Dashboards**:
+  - Enhanced Business Owner Dashboard with 5 new executive cards: **Total Sales**, **Total Purchases**, **Total Number of Guests**, **Bank Balance** (consolidated liquidity from COA & CashBankAccount), and **Cash in Hand** (vault & drawer balance).
+  - Introduced dedicated **Booking Officer Operations Hub** mode: hides sensitive business financials (Operating Expenses, Net Margin, Purchases, Bank Balances) and prioritizes operational and guest intelligence (Total Guests to Host, Confirmed Bookings, Pending Inquiries / Follow-up, Today's Live Functions, 7-Day Pipeline, and Kitchen Slips Due).
+  - Streamlined live function and upcoming pipeline tables to emphasize customer contact, headcount, package, and menu execution for booking officers.
+  - Added preview toggle allowing Business Owners to seamlessly switch between the Executive Owner View and the Booking Officer View.
+
+### Changed
+- **Booking Slips Consolidation & Standardization**:
+  - Deprecated legacy Booking Slip (V1) and (V3) layouts, establishing the comprehensive V2 design as the single application-wide standard **Booking Slip**.
+  - Standardized UI actions in `BookingView` (`booking-view.blade.php`) and `BookingList` (`booking-list.blade.php`) from multiple versioned buttons (`V1`, `V2`, `V3`) to a single clean **"Print Booking Slip"** action.
+  - Updated primary `booking-slip.blade.php` and `BookingSlip` Livewire component to adopt the complete multi-page pagination, QR code verification, and responsive venue timings layout.
+  - Maintained transparent backwards compatibility for legacy `/bookings/{booking}/slip-v2` and `/bookings/{booking}/slip-v3` routes and components.
 
 ### Fixed
 - **Department Requisition Item Relationship (`inventoryItem`)**:

@@ -145,6 +145,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if the user is a Booking Officer or Booking Manager.
+     */
+    public function isBookingOfficer(): bool
+    {
+        return $this->hasRole(['booking_officer', 'booking_manager', 'booking_manager_pra']);
+    }
+
+    /**
      * Get active selected marquee ID for the current session or fallback.
      */
     public function getActiveMarqueeId(): ?int

@@ -28,6 +28,8 @@ class Branch extends Model
         'invoice_prefix',
         'booking_prefix',
         'branch_manager',
+        'booking_slip_terms',
+        'final_bill_conditions',
     ];
 
     protected $casts = [

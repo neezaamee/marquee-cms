@@ -76,6 +76,8 @@ class SetupWizard extends Component
     public $invoice_prefix = 'INV-';
     public $booking_prefix = 'BK-';
     public $default_payment_method = 'Cash';
+    public $booking_slip_terms = '';
+    public $final_bill_conditions = '';
 
     // STEP 4: Create Halls
     public $new_hall_name = '';
@@ -228,13 +230,33 @@ class SetupWizard extends Component
                 $this->fbr_pos_key = $mainBranch->fbr_pos_key;
                 $this->fbr_sandbox_mode = (bool) $mainBranch->fbr_sandbox_mode;
                 $this->enable_fbr = !empty($this->fbr_pos_id);
+                // Load terms & conditions
+                $this->booking_slip_terms = $mainBranch->booking_slip_terms 
+                    ?: ($marquee->booking_slip_terms ?: null);
+                $this->final_bill_conditions = $mainBranch->final_bill_conditions 
+                    ?: ($marquee->final_bill_conditions ?: null);
             } else {
                 // Populate branch defaults with marquee info
                 $this->branch_address = $this->address;
                 $this->branch_province = $this->province;
                 $this->branch_city = $this->city;
                 $this->branch_phone = $this->phone;
+                $this->booking_slip_terms = $marquee->booking_slip_terms ?: null;
+                $this->final_bill_conditions = $marquee->final_bill_conditions ?: null;
             }
+        }
+
+        // Standard default terms for booking slips and final bills
+        if (empty($this->booking_slip_terms)) {
+            $this->booking_slip_terms = "1. The refundable security deposit remains strictly separate from event revenue and will be refunded within 3 working days post-event after evaluating any damage losses.\n"
+                . "2. Cancellations are subject to structural marquee policies. Minimum headcounts must be adhered to once finalized.\n"
+                . "3. Any extension of the time bounds stated above without written authorization may trigger extra hour charge policies.";
+        }
+        if (empty($this->final_bill_conditions)) {
+            $this->final_bill_conditions = "1. All payments must be settled in full on or prior to the conclusion of the event.\n"
+                . "2. Any guest count exceeding the guaranteed headcount will be charged per plate according to the agreed rate.\n"
+                . "3. Refundable security deposit will be processed post-event after hall clearance and damage evaluation.\n"
+                . "4. Any damage to fixtures, equipment, or crockery will be deducted from the security deposit.";
         }
 
         // Setup financial dates
@@ -457,7 +479,14 @@ class SetupWizard extends Component
             }
         }
         elseif ($this->currentStep == 3) {
-            // Save step 3: Branch Config
+            // Save step 3: Branch Config & Documentation Terms
+            if ($marquee) {
+                $marquee->update([
+                    'booking_slip_terms' => $this->booking_slip_terms,
+                    'final_bill_conditions' => $this->final_bill_conditions,
+                ]);
+            }
+
             if ($this->createdBranchId) {
                 $branch = Branch::withoutGlobalScope('tenant')->find($this->createdBranchId);
                 if ($branch) {
@@ -468,6 +497,8 @@ class SetupWizard extends Component
                         'fbr_pos_id' => $this->enable_fbr ? $this->fbr_pos_id : null,
                         'fbr_pos_key' => $this->enable_fbr ? $this->fbr_pos_key : null,
                         'fbr_sandbox_mode' => $this->fbr_sandbox_mode,
+                        'booking_slip_terms' => $this->booking_slip_terms,
+                        'final_bill_conditions' => $this->final_bill_conditions,
                     ]);
                 }
             }

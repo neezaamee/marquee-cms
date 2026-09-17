@@ -3,7 +3,7 @@
     <div class="d-print-none card mb-3 bg-light">
         <div class="card-body d-flex justify-content-between align-items-center py-2">
             <span class="fs-12 text-700 fw-semi-bold">
-                <span class="fas fa-info-circle me-1"></span>Use the button below or print page (Ctrl+P) to generate a PDF or paper copy (Version 2).
+                <span class="fas fa-info-circle me-1"></span>Use the button below or print page (Ctrl+P) to generate a PDF or paper copy.
             </span>
             <button onclick="window.print();" class="btn btn-success btn-sm px-4">
                 <span class="fas fa-print me-1"></span> Print / Save PDF
@@ -103,7 +103,7 @@
                         </tr>
                     @endif
                     <tr>
-                        <td class="text-600 px-0 py-1" style="width: 120px;">Event / Hall:</td>
+                        <td class="text-600 px-0 py-1" style="width: 120px;">Event Type:</td>
                         <td class="text-800 fw-bold px-0 py-1">
                             {{ $booking->eventType->event_type_name ?? '—' }}
                             @if($booking->halls->isNotEmpty())
@@ -215,13 +215,31 @@
         
 
         <!-- Terms and Conditions Section -->
+        @php
+            $rawSlipTerms = $branch->booking_slip_terms 
+                ?: ($booking->branch->booking_slip_terms 
+                ?: ($marquee->booking_slip_terms ?: null));
+
+            if ($rawSlipTerms) {
+                $slipTermsList = array_values(array_filter(array_map(function($line) {
+                    $trimmed = trim($line);
+                    return preg_replace('/^\d+[\.\)]\s*/', '', $trimmed);
+                }, explode("\n", $rawSlipTerms))));
+            } else {
+                $slipTermsList = [
+                    'The refundable security deposit remains strictly separate from event revenue and will be refunded within 3 working days post-event after evaluating any damage losses.',
+                    'Cancellations are subject to structural marquee policies. Minimum headcounts must be adhered to once finalized.',
+                    'Any extension of the time bounds stated above without written authorization may trigger extra hour charge policies.',
+                ];
+            }
+        @endphp
         <div class="row g-3 fs-13 mt-1" id="terms-and-conditions">
             <div class="col-12">
                 <h6 class="fw-bold text-800 mb-1">Terms & Conditions</h6>
                 <ol class="ps-3 text-600 mb-0 fs-11">
-                    <li>The refundable security deposit remains strictly separate from event revenue and will be refunded within 3 working days post-event after evaluating any damage losses.</li>
-                    <li>Cancellations are subject to structural marquee policies. Minimum headcounts must be adhered to once finalized.</li>
-                    <li>Any extension of the time bounds stated above without written authorization may trigger extra hour charge policies.</li>
+                    @foreach($slipTermsList as $termItem)
+                        <li>{{ $termItem }}</li>
+                    @endforeach
                 </ol>
             </div>
         </div>
