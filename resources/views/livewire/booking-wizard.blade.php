@@ -745,15 +745,32 @@
                                             <table class="table table-sm bg-white border fs-11 mb-0">
                                                 <thead>
                                                     <tr class="bg-200">
+                                                        <th style="width: 32px;" class="text-center px-1" title="Drag to reorder"><span class="fas fa-arrows-alt-v text-muted fs-11"></span></th>
                                                         <th>Dish Name</th>
                                                         <th>Custom Instructions (e.g. extra spicy, double serving)</th>
                                                         <th class="text-center" style="width: 150px;">Managed by Host</th>
-                                                        <th class="text-center" style="width: 120px;">Action</th>
+                                                        <th class="text-center" style="width: 140px;">Action</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody>
+                                                <tbody x-data x-init="
+                                                    if (typeof Sortable !== 'undefined') {
+                                                        Sortable.create($el, {
+                                                            handle: '.drag-handle',
+                                                            animation: 150,
+                                                            ghostClass: 'table-primary',
+                                                            onEnd: function(evt) {
+                                                                if (evt.oldIndex !== evt.newIndex) {
+                                                                    $wire.reorderMenuItems(evt.oldIndex, evt.newIndex);
+                                                                }
+                                                            }
+                                                        });
+                                                    }
+                                                ">
                                                     @foreach($bookingMenuItems as $idx => $item)
-                                                        <tr>
+                                                        <tr wire:key="wizard-menu-item-{{ $item['id'] ?? $idx }}-{{ $idx }}">
+                                                            <td class="align-middle text-center px-1">
+                                                                <span class="fas fa-grip-vertical text-400 drag-handle" style="cursor: grab;" title="Hold and move with mouse to reorder"></span>
+                                                            </td>
                                                             <td class="align-middle fw-bold text-700">
                                                                 {{ $item['item_name'] }}
                                                                 @if(!empty($item['urdu_name']))
@@ -767,7 +784,10 @@
                                                                 <input class="form-check-input" type="checkbox" wire:model.live="bookingMenuItems.{{ $idx }}.managed_by_host" id="managed_by_host_{{ $idx }}" {{ $noFood ? 'disabled checked' : '' }} />
                                                             </td>
                                                             <td class="align-middle text-center">
-                                                                <div class="d-flex justify-content-center gap-2">
+                                                                <div class="d-flex justify-content-center align-items-center gap-2">
+                                                                    <button type="button" class="btn btn-sm btn-link text-primary p-0" wire:click="openReplaceDishModal({{ $idx }})" title="Replace / Swap this dish">
+                                                                        <span class="fas fa-exchange-alt fs-11"></span>
+                                                                    </button>
                                                                     <button type="button" class="btn btn-sm btn-link text-secondary p-0" wire:click="moveMenuItemUp({{ $idx }})" {{ $idx === 0 ? 'disabled' : '' }} title="Move Up">
                                                                         <span class="fas fa-arrow-up fs-11"></span>
                                                                     </button>
@@ -982,4 +1002,116 @@
             </div>
         </div>
     </div>
+
+    <!-- Replace / Add Dish Modal -->
+    @if($replacingDishIndex !== null && isset($bookingMenuItems[$replacingDishIndex]))
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.55); z-index: 1060;" role="dialog" wire:keydown.escape="closeReplaceDishModal">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-primary text-white py-2.5">
+                        <h6 class="modal-title mb-0 text-white fw-bold">
+                            <span class="fas fa-exchange-alt me-2"></span>Replace Dish: <span class="badge bg-white text-primary fs-12 ms-1">{{ $bookingMenuItems[$replacingDishIndex]['item_name'] }}</span>
+                        </h6>
+                        <button type="button" class="btn-close btn-close-white" wire:click="closeReplaceDishModal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-3">
+                        <div class="row g-3">
+                            <!-- Left Column: Search & Select from Existing Dishes -->
+                            <div class="col-md-7 border-end-md">
+                                <label class="form-label fw-bold text-700 fs-12 mb-1">
+                                    <span class="fas fa-search me-1 text-primary"></span>Select from Existing Menu Items
+                                </label>
+                                <input type="text" 
+                                       class="form-control form-control-sm mb-2" 
+                                       placeholder="Type to search dishes by name..." 
+                                       wire:model.live.debounce.250ms="replaceDishSearch" 
+                                       autofocus />
+
+                                <div class="border rounded bg-light overflow-auto p-1" style="max-height: 260px;">
+                                    @forelse($replaceDishAutocomplete as $dish)
+                                        <div class="d-flex align-items-center justify-content-between p-2 border-bottom bg-white rounded mb-1 hover-bg-100 transition-all">
+                                            <div class="me-2 text-truncate">
+                                                <span class="fw-bold text-800 fs-12">{{ $dish->item_name }}</span>
+                                                @if($dish->urdu_name)
+                                                    <span class="text-muted fs-11 ms-1">({{ $dish->urdu_name }})</span>
+                                                @endif
+                                                <div>
+                                                    <span class="badge badge-subtle-secondary fs-11">{{ $dish->category->category_name ?? 'General' }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="btn-group btn-group-sm shrink-0">
+                                                <button type="button" 
+                                                        class="btn btn-falcon-primary btn-xs" 
+                                                        wire:click="replaceWithExistingDish({{ $dish->id }})" 
+                                                        title="Replace current dish with this dish">
+                                                    <span class="fas fa-exchange-alt me-1"></span>Replace
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-falcon-default btn-xs" 
+                                                        wire:click="insertDishAfterCurrent({{ $dish->id }})" 
+                                                        title="Insert this dish right below current dish">
+                                                    <span class="fas fa-plus me-1"></span>Insert Below
+                                                </button>
+                                            </div>
+                                        </div>
+                                    @empty
+                                        <div class="text-center py-4 text-muted fs-12">
+                                            <span class="fas fa-info-circle me-1"></span>No matching menu dishes found.
+                                        </div>
+                                    @endforelse
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Add New Dish on the Fly -->
+                            <div class="col-md-5">
+                                <div class="card bg-100 border-0 h-100">
+                                    <div class="card-body p-3">
+                                        <h6 class="fw-bold text-primary fs-12 mb-2">
+                                            <span class="fas fa-plus-circle me-1"></span>Add New Dish to System
+                                        </h6>
+                                        <p class="text-600 fs-11 mb-2">Can't find the dish? Add a new dish directly to your catalog and swap it here.</p>
+                                        
+                                        <div class="mb-2">
+                                            <label class="form-label fs-11 fw-bold mb-1">Dish Name (English) *</label>
+                                            <input type="text" class="form-control form-control-sm" placeholder="e.g. Mutton Shinwari Karahi" wire:model="newCustomDishName" />
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label fs-11 fw-bold mb-1">Urdu Name (Optional)</label>
+                                            <input type="text" class="form-control form-control-sm" placeholder="e.g. مٹن شنواری کڑاہی" style="direction: rtl;" wire:model="newCustomDishUrdu" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fs-11 fw-bold mb-1">Category</label>
+                                            <select class="form-select form-select-sm" wire:model="newCustomDishCategory">
+                                                <option value="">Select Category...</option>
+                                                @foreach($availableCategories as $cat)
+                                                    <option value="{{ $cat->id }}">{{ $cat->category_name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="d-grid gap-2">
+                                            <button type="button" 
+                                                    class="btn btn-primary btn-sm" 
+                                                    wire:click="replaceWithNewCustomDish"
+                                                    {{ empty(trim($newCustomDishName)) ? 'disabled' : '' }}>
+                                                <span class="fas fa-exchange-alt me-1"></span>Save & Replace Current
+                                            </button>
+                                            <button type="button" 
+                                                    class="btn btn-falcon-default btn-sm" 
+                                                    wire:click="insertNewCustomDishAfter"
+                                                    {{ empty(trim($newCustomDishName)) ? 'disabled' : '' }}>
+                                                <span class="fas fa-plus me-1"></span>Save & Insert Below
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light py-2">
+                        <button type="button" class="btn btn-secondary btn-sm" wire:click="closeReplaceDishModal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

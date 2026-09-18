@@ -288,12 +288,6 @@
                 <td>
                     <div class="section-title">Event details</div>
                     <table class="meta-table">
-                        @if($branch)
-                            <tr>
-                                <td class="meta-label">Branch:</td>
-                                <td class="meta-value">{{ $branch->name }}</td>
-                            </tr>
-                        @endif
                         <tr>
                             <td class="meta-label">Event Date:</td>
                             <td class="meta-value">{{ $booking->booking_date->format('l, F d, Y') }}</td>
@@ -479,10 +473,12 @@
                             <td class="summary-label" style="font-weight: bold; border-top: 1px solid #dee2e6;">Subtotal:</td>
                             <td class="summary-value" style="border-top: 1px solid #dee2e6;">Rs. {{ number_format($billing->subtotal, 2) }}</td>
                         </tr>
-                        <tr>
-                            <td class="summary-label">Tax Amount:</td>
-                            <td class="summary-value">Rs. {{ number_format($billing->tax_amount, 2) }}</td>
-                        </tr>
+                        @if($billing->tax_amount > 0)
+                            <tr>
+                                <td class="summary-label">Tax Amount:</td>
+                                <td class="summary-value">Rs. {{ number_format($billing->tax_amount, 2) }}</td>
+                            </tr>
+                        @endif
                         @if($booking->security_deposit > 0)
                             <tr style="color: #0c5460;">
                                 <td class="summary-label">Refundable Security Deposit:</td>

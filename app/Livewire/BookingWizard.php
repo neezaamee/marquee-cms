@@ -11,6 +11,7 @@ use App\Models\Package;
 use App\Models\Slot;
 use App\Models\ExtraService;
 use App\Models\MenuItem;
+use App\Models\MenuCategory;
 use App\Services\AvailabilityService;
 use App\Services\BookingPricingService;
 use Carbon\Carbon;
@@ -90,6 +91,15 @@ class BookingWizard extends Component
     public $selectedMenuItemToAdd = ''; // dropdown selection to add menu item
     public $menuItemsAutocomplete = []; // list of all menu items for the dropdown
     public $menuItemSearch = '';
+    
+    // Dish Replacement & In-Place Adding
+    public $replacingDishIndex = null;
+    public $replaceDishSearch = '';
+    public $replaceDishAutocomplete = [];
+    public $newCustomDishName = '';
+    public $newCustomDishCategory = '';
+    public $newCustomDishUrdu = '';
+    public $availableCategories = [];
 
     // Search and Multi-select states
     public $eventTypeSearch = '';
@@ -845,6 +855,215 @@ class BookingWizard extends Component
             $this->bookingMenuItems[$index + 1] = $this->bookingMenuItems[$index];
             $this->bookingMenuItems[$index] = $temp;
         }
+    }
+
+    public function reorderMenuItems($oldIndex, $newIndex)
+    {
+        if ($oldIndex === $newIndex || !isset($this->bookingMenuItems[$oldIndex])) {
+            return;
+        }
+        $item = array_splice($this->bookingMenuItems, $oldIndex, 1);
+        array_splice($this->bookingMenuItems, $newIndex, 0, $item);
+        $this->bookingMenuItems = array_values($this->bookingMenuItems);
+    }
+
+    public function openReplaceDishModal($index)
+    {
+        $this->replacingDishIndex = (int) $index;
+        $this->replaceDishSearch = '';
+        $this->newCustomDishName = '';
+        $this->newCustomDishCategory = '';
+        $this->newCustomDishUrdu = '';
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $this->availableCategories = MenuCategory::where('marquee_id', $marqueeId)
+            ->where('status', 'Active')
+            ->orderBy('sort_order')
+            ->orderBy('category_name')
+            ->get();
+        $this->updatedReplaceDishSearch();
+    }
+
+    public function closeReplaceDishModal()
+    {
+        $this->replacingDishIndex = null;
+        $this->replaceDishSearch = '';
+        $this->replaceDishAutocomplete = [];
+        $this->newCustomDishName = '';
+        $this->newCustomDishCategory = '';
+        $this->newCustomDishUrdu = '';
+    }
+
+    public function updatedReplaceDishSearch()
+    {
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $term = '%' . trim($this->replaceDishSearch) . '%';
+
+        $query = MenuItem::where('marquee_id', $marqueeId)
+            ->where('status', 'Active')
+            ->with('category');
+
+        if (!empty(trim($this->replaceDishSearch))) {
+            $query->where(function ($q) use ($term) {
+                $q->where('item_name', 'like', $term)
+                  ->orWhere('urdu_name', 'like', $term);
+            });
+        }
+
+        $this->replaceDishAutocomplete = $query->orderBy('item_name')->limit(25)->get();
+    }
+
+    public function replaceWithExistingDish($newDishId)
+    {
+        if ($this->replacingDishIndex === null || !isset($this->bookingMenuItems[$this->replacingDishIndex])) {
+            return;
+        }
+
+        $item = MenuItem::find($newDishId);
+        if ($item) {
+            $this->bookingMenuItems[$this->replacingDishIndex]['id'] = $item->id;
+            $this->bookingMenuItems[$this->replacingDishIndex]['item_name'] = $item->item_name;
+            $this->bookingMenuItems[$this->replacingDishIndex]['urdu_name'] = $item->urdu_name;
+        }
+
+        $this->closeReplaceDishModal();
+    }
+
+    public function insertDishAfterCurrent($newDishId)
+    {
+        if ($this->replacingDishIndex === null || !isset($this->bookingMenuItems[$this->replacingDishIndex])) {
+            return;
+        }
+
+        $item = MenuItem::find($newDishId);
+        if ($item) {
+            $newItemData = [
+                'id' => $item->id,
+                'item_name' => $item->item_name,
+                'urdu_name' => $item->urdu_name,
+                'custom_note' => '',
+                'managed_by_host' => $this->noFood ? true : false,
+            ];
+            array_splice($this->bookingMenuItems, $this->replacingDishIndex + 1, 0, [$newItemData]);
+            $this->bookingMenuItems = array_values($this->bookingMenuItems);
+        }
+
+        $this->closeReplaceDishModal();
+    }
+
+    public function replaceWithNewCustomDish()
+    {
+        if ($this->replacingDishIndex === null || !isset($this->bookingMenuItems[$this->replacingDishIndex])) {
+            return;
+        }
+
+        $name = trim($this->newCustomDishName);
+        if (empty($name)) {
+            return;
+        }
+
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
+
+        $categoryId = $this->newCustomDishCategory;
+        if (empty($categoryId)) {
+            $firstCategory = MenuCategory::where('marquee_id', $marqueeId)->where('status', 'Active')->first();
+            $categoryId = $firstCategory ? $firstCategory->id : null;
+        }
+
+        if (!$categoryId) {
+            $cat = MenuCategory::firstOrCreate(
+                ['marquee_id' => $marqueeId, 'category_name' => 'General'],
+                ['created_by' => $user->id, 'status' => 'Active']
+            );
+            $categoryId = $cat->id;
+        }
+
+        $baseCode = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $name), 0, 4));
+        if (empty($baseCode)) {
+            $baseCode = 'DISH';
+        }
+        $itemCode = $baseCode . '-' . rand(100, 999);
+        while (MenuItem::where('marquee_id', $marqueeId)->where('item_code', $itemCode)->exists()) {
+            $itemCode = $baseCode . '-' . rand(100, 999);
+        }
+
+        $newItem = MenuItem::create([
+            'marquee_id' => $marqueeId,
+            'category_id' => $categoryId,
+            'item_name' => $name,
+            'urdu_name' => trim($this->newCustomDishUrdu) ?: null,
+            'item_code' => $itemCode,
+            'selling_price' => 0.00,
+            'status' => 'Active',
+            'created_by' => $user->id,
+        ]);
+
+        $this->bookingMenuItems[$this->replacingDishIndex]['id'] = $newItem->id;
+        $this->bookingMenuItems[$this->replacingDishIndex]['item_name'] = $newItem->item_name;
+        $this->bookingMenuItems[$this->replacingDishIndex]['urdu_name'] = $newItem->urdu_name;
+
+        $this->closeReplaceDishModal();
+    }
+
+    public function insertNewCustomDishAfter()
+    {
+        if ($this->replacingDishIndex === null || !isset($this->bookingMenuItems[$this->replacingDishIndex])) {
+            return;
+        }
+
+        $name = trim($this->newCustomDishName);
+        if (empty($name)) {
+            return;
+        }
+
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
+
+        $categoryId = $this->newCustomDishCategory;
+        if (empty($categoryId)) {
+            $firstCategory = MenuCategory::where('marquee_id', $marqueeId)->where('status', 'Active')->first();
+            $categoryId = $firstCategory ? $firstCategory->id : null;
+        }
+
+        if (!$categoryId) {
+            $cat = MenuCategory::firstOrCreate(
+                ['marquee_id' => $marqueeId, 'category_name' => 'General'],
+                ['created_by' => $user->id, 'status' => 'Active']
+            );
+            $categoryId = $cat->id;
+        }
+
+        $baseCode = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $name), 0, 4));
+        if (empty($baseCode)) {
+            $baseCode = 'DISH';
+        }
+        $itemCode = $baseCode . '-' . rand(100, 999);
+        while (MenuItem::where('marquee_id', $marqueeId)->where('item_code', $itemCode)->exists()) {
+            $itemCode = $baseCode . '-' . rand(100, 999);
+        }
+
+        $newItem = MenuItem::create([
+            'marquee_id' => $marqueeId,
+            'category_id' => $categoryId,
+            'item_name' => $name,
+            'urdu_name' => trim($this->newCustomDishUrdu) ?: null,
+            'item_code' => $itemCode,
+            'selling_price' => 0.00,
+            'status' => 'Active',
+            'created_by' => $user->id,
+        ]);
+
+        $newItemData = [
+            'id' => $newItem->id,
+            'item_name' => $newItem->item_name,
+            'urdu_name' => $newItem->urdu_name,
+            'custom_note' => '',
+            'managed_by_host' => $this->noFood ? true : false,
+        ];
+        array_splice($this->bookingMenuItems, $this->replacingDishIndex + 1, 0, [$newItemData]);
+        $this->bookingMenuItems = array_values($this->bookingMenuItems);
+
+        $this->closeReplaceDishModal();
     }
 
     public function updatedTentativeGuests()

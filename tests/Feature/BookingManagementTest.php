@@ -1341,5 +1341,138 @@ class BookingManagementTest extends TestCase
         $this->assertEquals('synced', $booking->finalBill->fbr_sync_status);
         $this->assertEquals('PRA-BM-889977-INV', $booking->finalBill->fbr_invoice_number);
     }
+
+    public function test_booking_slip_and_menu_reordering_and_replacement(): void
+    {
+        $category = \App\Models\MenuCategory::create([
+            'marquee_id' => $this->marqueeA->id,
+            'category_name' => 'Main Courses',
+            'category_code' => 'MAIN',
+            'status' => 'Active',
+        ]);
+
+        $dish1 = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marqueeA->id,
+            'category_id' => $category->id,
+            'item_name' => 'Chicken Biryani',
+            'urdu_name' => 'چکن بریانی',
+            'item_code' => 'CB-001',
+            'selling_price' => 1500,
+            'status' => 'Active',
+        ]);
+
+        $dish2 = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marqueeA->id,
+            'category_id' => $category->id,
+            'item_name' => 'Mutton Qorma',
+            'urdu_name' => 'مٹن قورمہ',
+            'item_code' => 'MQ-002',
+            'selling_price' => 2200,
+            'status' => 'Active',
+        ]);
+
+        $dish3 = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marqueeA->id,
+            'category_id' => $category->id,
+            'item_name' => 'Roghni Naan',
+            'urdu_name' => 'روغنی نان',
+            'item_code' => 'RN-003',
+            'selling_price' => 100,
+            'status' => 'Active',
+        ]);
+
+        // Test 1: Booking Wizard reorder and replacement
+        $wizard = Livewire::actingAs($this->userOwnerA)
+            ->test(\App\Livewire\BookingWizard::class)
+            ->call('selectMenuItem', $dish1->id)
+            ->call('selectMenuItem', $dish2->id)
+            ->call('selectMenuItem', $dish3->id);
+
+        $items = $wizard->get('bookingMenuItems');
+        $this->assertCount(3, $items);
+        $this->assertEquals('Chicken Biryani', $items[0]['item_name']);
+        $this->assertEquals('Mutton Qorma', $items[1]['item_name']);
+        $this->assertEquals('Roghni Naan', $items[2]['item_name']);
+
+        // Test drag-and-drop reorder: move Roghni Naan (index 2) to top (index 0)
+        $wizard->call('reorderMenuItems', 2, 0);
+        $items = $wizard->get('bookingMenuItems');
+        $this->assertEquals('Roghni Naan', $items[0]['item_name']);
+        $this->assertEquals('Chicken Biryani', $items[1]['item_name']);
+        $this->assertEquals('Mutton Qorma', $items[2]['item_name']);
+
+        // Test replace dish with existing dish
+        $dish4 = \App\Models\MenuItem::create([
+            'marquee_id' => $this->marqueeA->id,
+            'category_id' => $category->id,
+            'item_name' => 'Special Seekh Kabab',
+            'urdu_name' => 'سیخ کباب',
+            'item_code' => 'SK-004',
+            'selling_price' => 1800,
+            'status' => 'Active',
+        ]);
+
+        $wizard->call('openReplaceDishModal', 1);
+        $this->assertEquals(1, $wizard->get('replacingDishIndex'));
+        $wizard->call('replaceWithExistingDish', $dish4->id);
+        $items = $wizard->get('bookingMenuItems');
+        $this->assertEquals('Special Seekh Kabab', $items[1]['item_name']);
+        $this->assertNull($wizard->get('replacingDishIndex'));
+
+        // Test replace with new custom dish created on the fly
+        $wizard->call('openReplaceDishModal', 0);
+        $wizard->set('newCustomDishName', 'Fresh Green Salad')
+               ->set('newCustomDishUrdu', 'سبز سلاد')
+               ->set('newCustomDishCategory', $category->id)
+               ->call('replaceWithNewCustomDish');
+        $items = $wizard->get('bookingMenuItems');
+        $this->assertEquals('Fresh Green Salad', $items[0]['item_name']);
+
+        // Test insert dish after current
+        $wizard->call('openReplaceDishModal', 0);
+        $wizard->call('insertDishAfterCurrent', $dish1->id);
+        $items = $wizard->get('bookingMenuItems');
+        $this->assertCount(4, $items);
+        $this->assertEquals('Fresh Green Salad', $items[0]['item_name']);
+        $this->assertEquals('Chicken Biryani', $items[1]['item_name']);
+
+        // Test 2: Booking Slip checks (zero tax vs positive tax, English-only menu, no branch under Event Venue & Timings)
+        $bookingNoTax = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'branch_id' => $this->branchA->id,
+            'customer_id' => $this->customerA->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_number' => 'BK-NOTAX-001',
+            'booking_date' => '2026-07-15',
+            'start_time' => '2026-07-15 18:00:00',
+            'end_time' => '2026-07-15 23:00:00',
+            'guest_count' => 150,
+            'per_plate_price' => 2500.00,
+            'subtotal' => 375000.00,
+            'tax_amount' => 0.00, // zero tax
+            'grand_total' => 375000.00,
+            'booking_status' => 'Confirmed',
+        ]);
+        $bookingNoTax->menuItems()->attach($dish1->id);
+
+        $slipResponse = Livewire::actingAs($this->userOwnerA)
+            ->test(\App\Livewire\BookingSlip::class, ['booking' => $bookingNoTax]);
+
+        // Menu should display English item name without Urdu
+        $slipResponse->assertSee('Chicken Biryani');
+        $slipResponse->assertDontSee('چکن بریانی');
+
+        // Rate should show Rs. 2,500/- without "+ (0% Tax)" or "+ (13% Tax)"
+        $slipResponse->assertSee('Rate: Rs. 2,500/-');
+        $slipResponse->assertDontSee('+ (0% Tax)');
+        $slipResponse->assertDontSee('+ (13% Tax)');
+
+        // Branch: Main Gulberg Branch should NOT appear under Event Venue & Timings
+        $html = $slipResponse->html();
+        $this->assertStringNotContainsString('Branch:</td>', $html);
+    }
 }
 

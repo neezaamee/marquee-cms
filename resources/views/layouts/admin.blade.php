@@ -251,6 +251,7 @@
       })();
     </script>
 
+    <script src="{{ asset('vendors/sortablejs/Sortable.min.js') }}"></script>
     @yield('scripts')
 
   </body>

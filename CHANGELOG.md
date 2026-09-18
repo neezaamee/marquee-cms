@@ -5,6 +5,24 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-09-18
+
+### Added
+- **Interactive Drag-and-Drop Booking Menu Reordering**:
+  - Integrated `SortableJS` with Livewire 3 and Alpine.js across `BookingWizard`, `BookingOnePage`, and `BookingEdit`.
+  - Added dedicated grip drag handles allowing operators to intuitively drag dishes up or down with the mouse.
+- **Inline Dish Replacement and Contextual Insertion**:
+  - Added interactive modal dialog allowing booking operators to swap an existing menu dish with an alternate dish or create a new custom dish on the fly directly from that dish's row.
+  - Added contextual "Insert Dish Below" capability so dishes can be placed directly after any selected item without appending to the bottom of the table.
+- **Automated Feature Test Coverage**:
+  - Added `test_booking_slip_and_menu_reordering_and_replacement` feature test in `BookingManagementTest.php` covering slip rendering, zero-tax suppression, drag reordering, and modal-based dish replacement.
+
+### Changed
+- **Booking Slip Presentation Refinements**:
+  - Standardized food menu display on `booking-slip.blade.php`, `booking-slip-v2.blade.php`, `booking-slip-v3.blade.php`, and `pdf.blade.php` to show English dish names only.
+  - Suppressed the Tax Rate / Tax Amount line when tax percentage or amount is zero.
+  - Cleaned up Event Venue & Timing header by removing the redundant "Branch:" prefix.
+
 ## [1.9.0] - 2026-09-17
 
 ### Added

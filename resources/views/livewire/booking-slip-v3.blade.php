@@ -104,12 +104,6 @@
             <div class="col-6">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
                 <table class="table table-sm table-borderless fs-12 mb-0">
-                    @if($branch)
-                        <tr>
-                            <td class="text-600 px-0 py-1" style="width: 120px;">Branch:</td>
-                            <td class="text-800 fw-bold px-0 py-1">{{ $branch->name }}</td>
-                        </tr>
-                    @endif
                     <tr>
                         <td class="text-600 px-0 py-1" style="width: 120px;">Booking Hall(s):</td>
                         <td class="text-800 fw-bold px-0 py-1">
@@ -158,9 +152,6 @@
                     @foreach($booking->menuItems as $item)
                         <div class="col-3 mb-1">
                             <span class="fw-bold">• {{ $item->item_name }}</span>
-                            @if($item->urdu_name)
-                                <span class="text-muted fs-11 ms-1">({{ $item->urdu_name }})</span>
-                            @endif
                             @if(!empty($item->pivot->managed_by_host))
                                 <span class="badge badge-subtle-warning fs-11 ms-1 d-print-none">Managed by Host</span>
                                 <span class="text-danger fw-bold fs-11 ms-1 d-none d-print-inline-block">(By Host)</span>

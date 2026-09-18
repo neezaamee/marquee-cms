@@ -3,12 +3,15 @@
 .env.*
 !.env.example
 /vendor
+vendor/
 /node_modules
+node_modules/
 npm-debug.log
 yarn-error.log
+yarn-debug.log*
 *.log
 
-# Application Specific Caches
+# Application Specific Caches & Generated Runtime Files
 /bootstrap/cache/*
 !/bootstrap/cache/.gitignore
 !/bootstrap/cache/.gitkeep
@@ -34,20 +37,24 @@ yarn-error.log
 /public/hot
 /public/fonts-manifest.dev.json
 
-# Local Databases & Dumps
+# Local Databases, SQLite & SQL Dumps
 *.sqlite
+*.sqlite3
+*.db
 database/*.sqlite
+database/*.sqlite3
 database/*.sql
+*.sql
 *.sql.gz
 
-# Testing cache & Scratch artifacts
+# Testing Cache, Coverage & Scratch Artifacts
 .phpunit.result.cache
 /.phpunit.cache
 scratch*.txt
 *.tmp
 *.bak
 
-# AI-generated walkthrough / PR summary files (local only — do not commit)
+# Local Notes, AI Walkthrough & Review Artifacts (Do not commit)
 McmsPR
 McmsPR.*
 WalkthroughPR
@@ -58,8 +65,15 @@ WalkthroughPR.*
 # IDE, Editor and OS System Configurations
 .idea/
 .vscode/
+.fleet/
+.run/
+.sublime-*
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
+ehthumbs.db
 Desktop.ini
 Homestead.json
 Homestead.yaml
@@ -72,4 +86,3 @@ _ide_helper_models.php
 /.cursor/
 /.nova
 /.zed
-

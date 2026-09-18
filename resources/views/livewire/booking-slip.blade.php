@@ -96,12 +96,6 @@
             <div class="col-6">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
                 <table class="table table-sm table-borderless fs-12 mb-0">
-                    @if($branch)
-                        <tr>
-                            <td class="text-600 px-0 py-1" style="width: 120px;">Branch:</td>
-                            <td class="text-800 fw-bold px-0 py-1">{{ $branch->name }}</td>
-                        </tr>
-                    @endif
                     <tr>
                         <td class="text-600 px-0 py-1" style="width: 120px;">Event Type:</td>
                         <td class="text-800 fw-bold px-0 py-1">
@@ -146,9 +140,6 @@
                 @foreach($booking->menuItems as $item)
                     <li class="mb-1 menu-item-li">
                         <span class="fw-bold">{{ $item->item_name }}</span>
-                        @if($item->urdu_name)
-                            <span class="text-muted fs-11 ms-1">({{ $item->urdu_name }})</span>
-                        @endif
                         @if(!empty($item->pivot->managed_by_host))
                             <span class="badge badge-subtle-warning fs-11 ms-1 d-print-none">Managed by Host</span>
                             <span class="text-danger fw-bold fs-11 ms-1 d-none d-print-inline-block">(By Host)</span>
@@ -165,7 +156,7 @@
             <div class="mt-2 pt-1 border-top" id="rate-block">
                {{--<span class="text-500 fw-bold text-uppercase fs-12 d-block">Rate</span>--}} 
                 @php
-                    $taxPercent = 13.00;
+                    $taxPercent = 0;
                     if ($booking->subtotal > 0 && $booking->tax_amount > 0) {
                         $taxPercent = round(($booking->tax_amount / $booking->subtotal) * 100, 2);
                     }
@@ -175,7 +166,11 @@
                         $taxPercentStr = number_format($taxPercent, 1);
                     }
                 @endphp
-                <span class="font-monospace fw-bold fs-18 text-primary">Rate: Rs. {{ number_format($booking->per_plate_price) }}/- + ({{ $taxPercentStr }}% Tax)</span>
+                @if($booking->tax_amount > 0 && $taxPercent > 0)
+                    <span class="font-monospace fw-bold fs-18 text-primary">Rate: Rs. {{ number_format($booking->per_plate_price) }}/- + ({{ $taxPercentStr }}% Tax)</span>
+                @else
+                    <span class="font-monospace fw-bold fs-18 text-primary">Rate: Rs. {{ number_format($booking->per_plate_price) }}/-</span>
+                @endif
             </div>
         @endif
 
