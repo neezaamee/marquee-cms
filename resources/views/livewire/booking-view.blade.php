@@ -290,28 +290,46 @@
                     <div class="row g-3">
                         <!-- Custom Menu Items -->
                         <div class="col-md-6 border-end border-translucent">
-                            <h6 class="text-primary font-sans-serif fw-bold mb-2">Customized Menu Items</h6>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-primary font-sans-serif fw-bold mb-0">Customized Menu Items</h6>
+                                <span class="badge bg-primary-subtle text-primary fs-11 font-monospace">{{ $booking->menuItems->count() }} Dishes</span>
+                            </div>
                             @if($booking->menuItems->isNotEmpty())
-                                <ul class="list-group list-group-flush border-translucent">
-                                    @foreach($booking->menuItems as $item)
-                                        <li class="list-group-item px-0 py-1 d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <span class="fw-bold text-800">
-                                                    {{ $item->item_name }}
-                                                    @if($item->urdu_name)
-                                                        <span class="text-muted fs-11 ms-1">({{ $item->urdu_name }})</span>
+                                <ol class="list-group list-group-flush border-translucent ps-0 mb-0">
+                                    @foreach($booking->menuItems as $idx => $item)
+                                        <li class="list-group-item px-0 py-1.5 d-flex justify-content-between align-items-center border-bottom border-translucent">
+                                            <div class="d-flex align-items-start gap-2">
+                                                <span class="badge bg-light text-primary border font-monospace fs-11 mt-0.5">{{ $loop->iteration }}</span>
+                                                <div>
+                                                    <span class="fw-bold text-900 fs-12">
+                                                        {{ $item->item_name }}
+                                                        @if($item->urdu_name)
+                                                            <span class="text-muted fs-11 ms-1 text-urdu">({{ $item->urdu_name }})</span>
+                                                        @endif
+                                                    </span>
+                                                    @if($item->pivot->custom_note)
+                                                        <span class="d-block text-muted fs-11 italic">— {{ $item->pivot->custom_note }}</span>
                                                     @endif
-                                                </span>
-                                                @if($item->pivot->custom_note)
-                                                    <span class="d-block text-muted fs-12 italic">({{ $item->pivot->custom_note }})</span>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-1">
+                                                @if(!empty($item->pivot->managed_by_host))
+                                                    <span class="badge badge-subtle-warning fs-11 me-1">Managed by Host</span>
+                                                @endif
+                                                @if(!$booking->trashed() && ($booking->booking_status !== 'Completed' || (auth()->user()->role && in_array(auth()->user()->role->name, ['owner', 'super_admin']))))
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button type="button" class="btn btn-xs btn-outline-secondary px-1 py-0" wire:click="moveMenuItemUp({{ $item->pivot->id }})" {{ $idx === 0 ? 'disabled' : '' }} title="Move Up">
+                                                            <i class="fas fa-chevron-up fs-11"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-xs btn-outline-secondary px-1 py-0" wire:click="moveMenuItemDown({{ $item->pivot->id }})" {{ $idx === count($booking->menuItems) - 1 ? 'disabled' : '' }} title="Move Down">
+                                                            <i class="fas fa-chevron-down fs-11"></i>
+                                                        </button>
+                                                    </div>
                                                 @endif
                                             </div>
-                                            @if(!empty($item->pivot->managed_by_host))
-                                                <span class="badge badge-subtle-warning fs-11">Managed by Host</span>
-                                            @endif
                                         </li>
                                     @endforeach
-                                </ul>
+                                </ol>
                             @else
                                 <p class="text-muted fs-11">No customized menu items recorded.</p>
                             @endif

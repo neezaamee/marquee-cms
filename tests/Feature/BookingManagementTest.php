@@ -9,6 +9,8 @@ use App\Models\Customer;
 use App\Models\EventType;
 use App\Models\Hall;
 use App\Models\Marquee;
+use App\Models\MenuCategory;
+use App\Models\MenuItem;
 use App\Models\Package;
 use App\Models\Role;
 use App\Models\Slot;
@@ -1473,6 +1475,104 @@ class BookingManagementTest extends TestCase
         // Branch: Main Gulberg Branch should NOT appear under Event Venue & Timings
         $html = $slipResponse->html();
         $this->assertStringNotContainsString('Branch:</td>', $html);
+    }
+
+    /** @test */
+    public function test_menu_item_order_sequence_consistency_between_booking_view_and_slip()
+    {
+        $cat = MenuCategory::create([
+            'marquee_id' => $this->marqueeA->id,
+            'category_name' => 'Full Menu',
+            'category_code' => 'FM-01',
+            'status' => 'Active',
+        ]);
+
+        $dishA = MenuItem::create([
+            'marquee_id' => $this->marqueeA->id,
+            'category_id' => $cat->id,
+            'item_name' => '1st Starter Soup',
+            'item_code' => 'SP-001',
+            'urdu_name' => 'سوپ',
+            'selling_price' => 500.00,
+            'status' => 'Active',
+        ]);
+
+        $dishB = MenuItem::create([
+            'marquee_id' => $this->marqueeA->id,
+            'category_id' => $cat->id,
+            'item_name' => '2nd Mutton Roast',
+            'item_code' => 'MR-002',
+            'urdu_name' => 'مٹن روسٹ',
+            'selling_price' => 1800.00,
+            'status' => 'Active',
+        ]);
+
+        $dishC = MenuItem::create([
+            'marquee_id' => $this->marqueeA->id,
+            'category_id' => $cat->id,
+            'item_name' => '3rd Kulfa Dessert',
+            'item_code' => 'KD-003',
+            'urdu_name' => 'کلفہ',
+            'selling_price' => 400.00,
+            'status' => 'Active',
+        ]);
+
+        $booking = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'branch_id' => $this->branchA->id,
+            'customer_id' => $this->customerA->id,
+            'hall_id' => $this->hallA->id,
+            'booking_number' => 'ORD-TEST-001',
+            'booking_date' => '2026-09-25',
+            'start_time' => '2026-09-25 19:00:00',
+            'end_time' => '2026-09-25 23:30:00',
+            'guest_count' => 200,
+            'per_plate_price' => 3000.00,
+            'subtotal' => 600000.00,
+            'tax_amount' => 0.00,
+            'grand_total' => 600000.00,
+            'booking_status' => 'Confirmed',
+        ]);
+
+        // Attach with sequential sort_order
+        $booking->menuItems()->attach($dishA->id, ['sort_order' => 0]);
+        $booking->menuItems()->attach($dishB->id, ['sort_order' => 1]);
+        $booking->menuItems()->attach($dishC->id, ['sort_order' => 2]);
+
+        $booking->refresh();
+        $this->assertEquals('1st Starter Soup', $booking->menuItems[0]->item_name);
+        $this->assertEquals('2nd Mutton Roast', $booking->menuItems[1]->item_name);
+        $this->assertEquals('3rd Kulfa Dessert', $booking->menuItems[2]->item_name);
+
+        // Test BookingView component
+        $dishAPivotId = $booking->menuItems[0]->pivot->id;
+        $viewComponent = Livewire::actingAs($this->userOwnerA)
+            ->test(\App\Livewire\BookingView::class, ['booking' => $booking]);
+
+        $viewComponent->assertSee('1st Starter Soup')
+            ->assertSee('2nd Mutton Roast')
+            ->assertSee('3rd Kulfa Dessert');
+
+        // Move Dish A down -> sequence becomes Dish B (0), Dish A (1), Dish C (2)
+        $viewComponent->call('moveMenuItemDown', $dishAPivotId);
+
+        $booking->refresh();
+        $this->assertEquals('2nd Mutton Roast', $booking->menuItems[0]->item_name);
+        $this->assertEquals('1st Starter Soup', $booking->menuItems[1]->item_name);
+        $this->assertEquals('3rd Kulfa Dessert', $booking->menuItems[2]->item_name);
+
+        // Test BookingSlip renders with identical sequence
+        $slipResponse = Livewire::actingAs($this->userOwnerA)
+            ->test(\App\Livewire\BookingSlip::class, ['booking' => $booking]);
+
+        $slipHtml = $slipResponse->html();
+        $posB = strpos($slipHtml, '2nd Mutton Roast');
+        $posA = strpos($slipHtml, '1st Starter Soup');
+        $posC = strpos($slipHtml, '3rd Kulfa Dessert');
+
+        $this->assertTrue($posB !== false && $posA !== false && $posC !== false);
+        $this->assertTrue($posB < $posA, '2nd Mutton Roast must appear before 1st Starter Soup after reordering');
+        $this->assertTrue($posA < $posC, '1st Starter Soup must appear before 3rd Kulfa Dessert');
     }
 }
 

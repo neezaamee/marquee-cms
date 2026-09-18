@@ -528,6 +528,110 @@ class BookingView extends Component
     }
 
     /**
+     * Move a menu dish up in the order sequence.
+     */
+    public function moveMenuItemUp($pivotId)
+    {
+        if ($this->booking->trashed()) {
+            return;
+        }
+
+        $items = \Illuminate\Support\Facades\DB::table('booking_menu_items')
+            ->where('booking_id', $this->booking->id)
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $targetIndex = null;
+        foreach ($items as $idx => $item) {
+            if ($item->id == $pivotId) {
+                $targetIndex = $idx;
+                break;
+            }
+        }
+
+        if ($targetIndex !== null && $targetIndex > 0) {
+            $prevItem = $items[$targetIndex - 1];
+            $currentItem = $items[$targetIndex];
+
+            \Illuminate\Support\Facades\DB::table('booking_menu_items')
+                ->where('id', $currentItem->id)
+                ->update(['sort_order' => $targetIndex - 1]);
+
+            \Illuminate\Support\Facades\DB::table('booking_menu_items')
+                ->where('id', $prevItem->id)
+                ->update(['sort_order' => $targetIndex]);
+
+            $allUpdated = \Illuminate\Support\Facades\DB::table('booking_menu_items')
+                ->where('booking_id', $this->booking->id)
+                ->orderBy('sort_order', 'asc')
+                ->orderBy('id', 'asc')
+                ->get();
+
+            foreach ($allUpdated as $seq => $row) {
+                \Illuminate\Support\Facades\DB::table('booking_menu_items')
+                    ->where('id', $row->id)
+                    ->update(['sort_order' => $seq]);
+            }
+
+            $this->booking->load('menuItems');
+            session()->flash('success', 'Menu dish order sequence updated successfully.');
+        }
+    }
+
+    /**
+     * Move a menu dish down in the order sequence.
+     */
+    public function moveMenuItemDown($pivotId)
+    {
+        if ($this->booking->trashed()) {
+            return;
+        }
+
+        $items = \Illuminate\Support\Facades\DB::table('booking_menu_items')
+            ->where('booking_id', $this->booking->id)
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $targetIndex = null;
+        foreach ($items as $idx => $item) {
+            if ($item->id == $pivotId) {
+                $targetIndex = $idx;
+                break;
+            }
+        }
+
+        if ($targetIndex !== null && $targetIndex < count($items) - 1) {
+            $nextItem = $items[$targetIndex + 1];
+            $currentItem = $items[$targetIndex];
+
+            \Illuminate\Support\Facades\DB::table('booking_menu_items')
+                ->where('id', $currentItem->id)
+                ->update(['sort_order' => $targetIndex + 1]);
+
+            \Illuminate\Support\Facades\DB::table('booking_menu_items')
+                ->where('id', $nextItem->id)
+                ->update(['sort_order' => $targetIndex]);
+
+            $allUpdated = \Illuminate\Support\Facades\DB::table('booking_menu_items')
+                ->where('booking_id', $this->booking->id)
+                ->orderBy('sort_order', 'asc')
+                ->orderBy('id', 'asc')
+                ->get();
+
+            foreach ($allUpdated as $seq => $row) {
+                \Illuminate\Support\Facades\DB::table('booking_menu_items')
+                    ->where('id', $row->id)
+                    ->update(['sort_order' => $seq]);
+            }
+
+            $this->booking->load('menuItems');
+            session()->flash('success', 'Menu dish order sequence updated successfully.');
+        }
+    }
+
+    /**
      * Open Accountant Post Modal for a specific payment.
      */
     public function openAccountantPostModal($paymentId)

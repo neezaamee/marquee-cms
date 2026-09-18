@@ -14,8 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Inline Dish Replacement and Contextual Insertion**:
   - Added interactive modal dialog allowing booking operators to swap an existing menu dish with an alternate dish or create a new custom dish on the fly directly from that dish's row.
   - Added contextual "Insert Dish Below" capability so dishes can be placed directly after any selected item without appending to the bottom of the table.
+- **Booking View & Printed Slip Menu Order Parity**:
+  - Enforced deterministic ordering in `Booking::menuItems` with composite secondary sorting (`booking_menu_items.sort_order ASC, booking_menu_items.id ASC`).
+  - Added database migration `2026_09_18_000001_ensure_booking_menu_items_sequential_sort_order` with composite index `(booking_id, sort_order, id)` and backfilled normalized sequential indices for all existing records.
+  - Added visual numbered badges and Quick Move Up / Move Down controls to the Customized Menu Items section on the Booking View page (`BookingView`).
 - **Automated Feature Test Coverage**:
-  - Added `test_booking_slip_and_menu_reordering_and_replacement` feature test in `BookingManagementTest.php` covering slip rendering, zero-tax suppression, drag reordering, and modal-based dish replacement.
+  - Added `test_booking_slip_and_menu_reordering_and_replacement` and `test_menu_item_order_sequence_consistency_between_booking_view_and_slip` feature tests in `BookingManagementTest.php`.
 
 ### Changed
 - **Booking Slip Presentation Refinements**:

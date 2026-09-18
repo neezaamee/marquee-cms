@@ -449,9 +449,10 @@ class Booking extends Model
     public function menuItems(): BelongsToMany
     {
         return $this->belongsToMany(MenuItem::class, 'booking_menu_items')
-                    ->withPivot(['custom_note', 'managed_by_host', 'sort_order'])
+                    ->withPivot(['id', 'custom_note', 'managed_by_host', 'sort_order'])
                     ->withTimestamps()
-                    ->orderBy('booking_menu_items.sort_order', 'asc');
+                    ->orderBy('booking_menu_items.sort_order', 'asc')
+                    ->orderBy('booking_menu_items.id', 'asc');
     }
 
     /**
