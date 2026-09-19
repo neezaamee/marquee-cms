@@ -20,8 +20,42 @@
 @endif
 
 @if($isSuperAdmin)
-    <!-- Super Admin SaaS Executive Dashboard -->
-    <livewire:super-admin.super-admin-dashboard />
+    @php
+        $saasView = request('view', session('dashboard_view', 'owner'));
+        session(['dashboard_view' => $saasView]);
+    @endphp
+
+    <!-- Super Admin View Switcher -->
+    <div class="card mb-3 border border-200 shadow-sm">
+        <div class="card-body py-2 px-3">
+            <div class="row align-items-center justify-content-between g-2">
+                <div class="col-auto d-flex align-items-center gap-2">
+                    <span class="badge bg-primary-subtle text-primary rounded-pill fs-11">
+                        <span class="fas fa-crown me-1"></span> Super Admin
+                    </span>
+                    <span class="text-700 fs-11 fw-semibold">Dashboard View:</span>
+                </div>
+                <div class="col-auto">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="{{ route('dashboard', ['view' => 'saas']) }}" class="btn {{ $saasView === 'saas' ? 'btn-primary' : 'btn-outline-secondary' }}">
+                            <span class="fas fa-network-wired me-1"></span> SaaS Command Center
+                        </a>
+                        <a href="{{ route('dashboard', ['view' => 'owner']) }}" class="btn {{ $saasView === 'owner' ? 'btn-primary' : 'btn-outline-secondary' }}">
+                            <span class="fas fa-chart-pie me-1"></span> Business Owner Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if($saasView === 'owner')
+        <!-- Business Owner Live Dashboard -->
+        <livewire:owner.business-owner-dashboard />
+    @else
+        <!-- Super Admin SaaS Executive Dashboard -->
+        <livewire:super-admin.super-admin-dashboard />
+    @endif
 @else
     @if(!$isSetupCompleted)
     <!-- Onboarding / Setup Progress Widget -->

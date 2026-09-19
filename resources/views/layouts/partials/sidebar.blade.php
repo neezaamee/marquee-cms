@@ -49,31 +49,41 @@
         </div>
         
         <li class="nav-item">
-          <a class="nav-link {{ Route::is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" role="button">
+          <a class="nav-link {{ Route::is('dashboard') && request('view') !== 'saas' ? 'active' : '' }}" href="{{ route('dashboard', ['view' => 'owner']) }}" role="button">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-chart-pie"></span></span>
-              <span class="nav-link-text ps-1">Dashboard</span>
+              <span class="nav-link-text ps-1">Owner Dashboard</span>
             </div>
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-muted" href="#!" role="button">
+          <a class="nav-link" href="{{ route('dashboard', ['view' => 'owner']) }}#analytics-section" role="button">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-chart-line text-400"></span></span>
+              <span class="nav-link-icon"><span class="fas fa-chart-line text-primary"></span></span>
               <span class="nav-link-text ps-1">Analytics</span>
-              <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+              <span class="badge badge-subtle-success rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Live</span>
             </div>
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-muted" href="#!" role="button">
+          <a class="nav-link" href="{{ route('dashboard', ['view' => 'owner']) }}#quick-stats-section" role="button">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-list-alt text-400"></span></span>
+              <span class="nav-link-icon"><span class="fas fa-list-alt text-primary"></span></span>
               <span class="nav-link-text ps-1">Quick Stats</span>
-              <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+              <span class="badge badge-subtle-success rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Live</span>
             </div>
           </a>
         </li>
+        @if(auth()->user()?->isSuperAdmin())
+        <li class="nav-item">
+          <a class="nav-link {{ Route::is('dashboard') && request('view') === 'saas' ? 'active' : '' }}" href="{{ route('dashboard', ['view' => 'saas']) }}" role="button">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-crown text-warning"></span></span>
+              <span class="nav-link-text ps-1">SaaS Command Center</span>
+            </div>
+          </a>
+        </li>
+        @endif
 
         <!-- ========================================== -->
         <!-- BUSINESSES & SAAS MANAGEMENT SECTION -->

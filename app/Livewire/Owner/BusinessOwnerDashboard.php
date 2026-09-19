@@ -13,6 +13,7 @@ use App\Models\Employee;
 use App\Models\Expense;
 use App\Models\Hall;
 use App\Models\InventoryItem;
+use App\Models\Lead;
 use App\Models\Marquee;
 use App\Models\PurchaseInvoice;
 use Carbon\Carbon;
@@ -21,18 +22,77 @@ use Livewire\Component;
 
 class BusinessOwnerDashboard extends Component
 {
+    public ?int $selectedMarqueeId = null; // null = Default/Active Marquee
     public ?int $selectedBranchId = null; // null = All Branches
-    public string $timeframe = 'month'; // 'today', 'week', 'month', 'year'
+    public string $timeframe = 'this_month'; // 'today', 'this_week', 'this_month', 'this_quarter', 'this_year', 'last_30_days', 'custom'
+    public string $filterRange = 'this_month'; // Synchronized alias matching Purchase Dashboard
+    public string $customDateFrom = '';
+    public string $customDateTo = '';
     public ?string $viewMode = null; // 'executive', 'operations' (for owners to toggle preview)
+
+    protected $queryString = [
+        'selectedMarqueeId' => ['except' => null],
+        'selectedBranchId' => ['except' => null],
+        'timeframe' => ['except' => 'this_month'],
+        'filterRange' => ['except' => 'this_month'],
+        'customDateFrom' => ['except' => ''],
+        'customDateTo' => ['except' => ''],
+    ];
+
+    public function mount()
+    {
+        $user = auth()->user();
+        if ($user) {
+            $activeId = session('active_marquee_id') ?: $user->getActiveMarqueeId();
+            if ($user->isSuperAdmin() && !session('active_marquee_id')) {
+                $marqueeWithData = Marquee::whereHas('bookings')->first();
+                $activeId = $marqueeWithData ? $marqueeWithData->id : ($activeId ?: Marquee::first()?->id);
+            }
+            $this->selectedMarqueeId = $activeId ? (int) $activeId : null;
+        }
+
+        $this->filterRange = $this->timeframe;
+        $this->customDateFrom = now()->startOfMonth()->format('Y-m-d');
+        $this->customDateTo = now()->endOfMonth()->format('Y-m-d');
+    }
+
+    public function updatedSelectedMarqueeId()
+    {
+        if ($this->selectedMarqueeId) {
+            session(['active_marquee_id' => (int) $this->selectedMarqueeId]);
+        }
+        $this->selectedBranchId = null;
+    }
 
     public function updatedSelectedBranchId()
     {
         // Reactive refresh
     }
 
+    public function updatedFilterRange()
+    {
+        $this->timeframe = $this->filterRange;
+    }
+
     public function updatedTimeframe()
     {
+        $this->filterRange = $this->timeframe;
+    }
+
+    public function updatedCustomDateFrom()
+    {
         // Reactive refresh
+    }
+
+    public function updatedCustomDateTo()
+    {
+        // Reactive refresh
+    }
+
+    public function setFilterRange(string $range)
+    {
+        $this->timeframe = $range;
+        $this->filterRange = $range;
     }
 
     public function setViewMode(?string $mode)
@@ -40,10 +100,48 @@ class BusinessOwnerDashboard extends Component
         $this->viewMode = $mode;
     }
 
+    protected function getDateRange(): array
+    {
+        $now = Carbon::now();
+        switch ($this->timeframe) {
+            case 'today':
+                return [$now->copy()->startOfDay(), $now->copy()->endOfDay(), 'Today'];
+            case 'this_week':
+            case 'week':
+                return [$now->copy()->startOfWeek(), $now->copy()->endOfWeek(), 'This Week'];
+            case 'this_month':
+            case 'month':
+                return [$now->copy()->startOfMonth(), $now->copy()->endOfMonth(), 'This Month'];
+            case 'this_quarter':
+            case 'quarter':
+                return [$now->copy()->startOfQuarter(), $now->copy()->endOfQuarter(), 'This Quarter'];
+            case 'this_year':
+            case 'year':
+                return [$now->copy()->startOfYear(), $now->copy()->endOfYear(), 'This Year'];
+            case 'last_30_days':
+                return [$now->copy()->subDays(30)->startOfDay(), $now->copy()->endOfDay(), 'Last 30 Days'];
+            case 'custom':
+                $from = $this->customDateFrom ? Carbon::parse($this->customDateFrom)->startOfDay() : $now->copy()->startOfMonth();
+                $to = $this->customDateTo ? Carbon::parse($this->customDateTo)->endOfDay() : $now->copy()->endOfMonth();
+                return [$from, $to, 'Custom Range'];
+            default:
+                return [$now->copy()->startOfMonth(), $now->copy()->endOfMonth(), 'This Month'];
+        }
+    }
+
     public function render()
     {
         $user = auth()->user();
-        $marqueeId = $user->getActiveMarqueeId();
+        $accessibleMarquees = $user ? ($user->isSuperAdmin() ? Marquee::where('status', 'active')->orderBy('name')->get() : $user->getAccessibleMarquees()->where('status', 'active')) : collect();
+
+        if (!$this->selectedMarqueeId) {
+            $this->selectedMarqueeId = session('active_marquee_id') ?: ($user ? $user->getActiveMarqueeId() : null);
+            if (!$this->selectedMarqueeId && $accessibleMarquees->isNotEmpty()) {
+                $this->selectedMarqueeId = (int) $accessibleMarquees->first()->id;
+            }
+        }
+
+        $marqueeId = $this->selectedMarqueeId ?: ($user ? ($user->getActiveMarqueeId() ?: Marquee::first()?->id) : null);
 
         $marquee = $marqueeId ? Marquee::with('branches')->find($marqueeId) : null;
         $branches = $marquee ? $marquee->branches : collect();
@@ -56,15 +154,9 @@ class BusinessOwnerDashboard extends Component
         $canViewFinancials = !$isBookingOfficer && ($user->isBusinessOwner() || $user->isSuperAdmin() || $user->hasRole(['accountant', 'branch_manager']));
 
         // 1. Date filter range
-        $now = Carbon::now();
-        $dateRange = match ($this->timeframe) {
-            'today' => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
-            'week' => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
-            'year' => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
-            default => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()], // 'month'
-        };
-        $startDateStr = $dateRange[0]->format('Y-m-d');
-        $endDateStr = $dateRange[1]->format('Y-m-d');
+        [$startDate, $endDate, $periodLabel] = $this->getDateRange();
+        $startDateStr = $startDate->format('Y-m-d');
+        $endDateStr = $endDate->format('Y-m-d');
 
         // 2. Booking Base Query
         $bookingQuery = Booking::where('marquee_id', $marqueeId);
@@ -288,6 +380,144 @@ class BusinessOwnerDashboard extends Component
             ->whereNull('kitchen_printed_at')
             ->count();
 
+        // =========================================================================
+        // ANALYTICS & QUICK STATS
+        // =========================================================================
+        // Financial & commercial quick ratios
+        $avgBookingValue = $totalBookingsPeriod > 0 ? (float) ($totalSales / $totalBookingsPeriod) : 0.0;
+        $avgSpendPerGuest = $totalGuests > 0 ? (float) ($totalSales / $totalGuests) : 0.0;
+        $collectionRate = $totalSales > 0 ? (float) round((max(0, $totalSales - $pendingReceivables) / $totalSales) * 100, 1) : 0.0;
+        $advanceCoverageRatio = $totalSales > 0 ? (float) round(($customerAdvanceHeld / $totalSales) * 100, 1) : 0.0;
+        $profitMarginPct = $realizedRevenue > 0 ? (float) round(($netOperatingCashflow / $realizedRevenue) * 100, 1) : 0.0;
+        $expenseToRevenueRatio = $realizedRevenue > 0 ? (float) round(($operatingExpenses / $realizedRevenue) * 100, 1) : 0.0;
+
+        // CRM & Customer Analytics
+        $totalCustomersCount = Customer::where('marquee_id', $marqueeId)->count();
+        $leadsInPeriodCount = Lead::where('marquee_id', $marqueeId)
+            ->whereBetween('created_at', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
+            ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
+            ->count();
+        $convertedLeadsCount = Lead::where('marquee_id', $marqueeId)
+            ->whereBetween('created_at', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
+            ->where('status', 'converted')
+            ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
+            ->count();
+        $leadConversionRate = $leadsInPeriodCount > 0 ? (float) round(($convertedLeadsCount / $leadsInPeriodCount) * 100, 1) : 0.0;
+
+        // Event Type Analytics Breakdown
+        $eventTypeBreakdown = DB::table('bookings')
+            ->join('event_types', 'event_types.id', '=', 'bookings.event_type_id')
+            ->where('bookings.marquee_id', $marqueeId)
+            ->whereBetween('bookings.booking_date', [$startDateStr, $endDateStr])
+            ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
+            ->when($this->selectedBranchId, fn($q) => $q->where('bookings.branch_id', $this->selectedBranchId))
+            ->select(
+                'event_types.id',
+                'event_types.event_type_name',
+                DB::raw('COUNT(bookings.id) as booking_count'),
+                DB::raw('SUM(bookings.guest_count) as total_guests'),
+                DB::raw('SUM(bookings.grand_total) as total_revenue')
+            )
+            ->groupBy('event_types.id', 'event_types.event_type_name')
+            ->orderByDesc('total_revenue')
+            ->take(6)
+            ->get();
+
+        // Hall Venue Distribution
+        $hallBreakdown = DB::table('bookings')
+            ->leftJoin('halls', 'halls.id', '=', 'bookings.hall_id')
+            ->where('bookings.marquee_id', $marqueeId)
+            ->whereBetween('bookings.booking_date', [$startDateStr, $endDateStr])
+            ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
+            ->when($this->selectedBranchId, fn($q) => $q->where('bookings.branch_id', $this->selectedBranchId))
+            ->select(
+                DB::raw("COALESCE(halls.hall_name, 'Main Hall') as hall_name"),
+                DB::raw('COUNT(bookings.id) as booking_count'),
+                DB::raw('SUM(bookings.guest_count) as total_guests'),
+                DB::raw('SUM(bookings.grand_total) as total_revenue')
+            )
+            ->groupBy(DB::raw("COALESCE(halls.hall_name, 'Main Hall')"))
+            ->orderByDesc('total_revenue')
+            ->take(5)
+            ->get();
+
+        // Shift Slot Utilization
+        $slotBreakdown = DB::table('bookings')
+            ->leftJoin('slots', 'slots.id', '=', 'bookings.slot_id')
+            ->where('bookings.marquee_id', $marqueeId)
+            ->whereBetween('bookings.booking_date', [$startDateStr, $endDateStr])
+            ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
+            ->when($this->selectedBranchId, fn($q) => $q->where('bookings.branch_id', $this->selectedBranchId))
+            ->select(
+                DB::raw("COALESCE(slots.slot_name, 'Standard Shift') as slot_name"),
+                DB::raw('COUNT(bookings.id) as booking_count'),
+                DB::raw('SUM(bookings.guest_count) as total_guests'),
+                DB::raw('SUM(bookings.grand_total) as total_revenue')
+            )
+            ->groupBy(DB::raw("COALESCE(slots.slot_name, 'Standard Shift')"))
+            ->orderByDesc('booking_count')
+            ->get();
+
+        // 6-Month Rolling Commercial & P&L Trend
+        $monthlyPerformanceTrend = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $mStart = now()->subMonths($i)->startOfMonth()->format('Y-m-d');
+            $mEnd = now()->subMonths($i)->endOfMonth()->format('Y-m-d');
+            $mLabel = now()->subMonths($i)->format('M Y');
+
+            $mSales = (float) Booking::where('marquee_id', $marqueeId)
+                ->whereBetween('booking_date', [$mStart, $mEnd])
+                ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
+                ->sum('grand_total');
+
+            $mRealized = (float) Booking::where('marquee_id', $marqueeId)
+                ->where('is_revenue_recognized', true)
+                ->whereBetween('booking_date', [$mStart, $mEnd])
+                ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
+                ->sum('revenue_recognized');
+
+            $mExpenses = (float) Expense::where('marquee_id', $marqueeId)
+                ->where('status', 'Approved')
+                ->whereBetween('expense_date', [$mStart, $mEnd])
+                ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
+                ->sum('total_amount');
+
+            $mBookingsCount = Booking::where('marquee_id', $marqueeId)
+                ->whereBetween('booking_date', [$mStart, $mEnd])
+                ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
+                ->count();
+
+            $mNet = $mRealized - $mExpenses;
+
+            $monthlyPerformanceTrend[] = [
+                'month' => $mLabel,
+                'sales' => $mSales,
+                'realized' => $mRealized,
+                'expenses' => $mExpenses,
+                'net' => $mNet,
+                'bookings_count' => $mBookingsCount,
+            ];
+        }
+
+        // Top 5 Expense Categories Breakdown
+        $topExpenseCategories = DB::table('expenses')
+            ->join('expense_categories', 'expense_categories.id', '=', 'expenses.expense_category_id')
+            ->where('expenses.marquee_id', $marqueeId)
+            ->where('expenses.status', 'Approved')
+            ->whereBetween('expenses.expense_date', [$startDateStr, $endDateStr])
+            ->when($this->selectedBranchId, fn($q) => $q->where('expenses.branch_id', $this->selectedBranchId))
+            ->select(
+                'expense_categories.name as category_name',
+                DB::raw('COUNT(expenses.id) as expense_count'),
+                DB::raw('SUM(expenses.total_amount) as total_amount')
+            )
+            ->groupBy('expense_categories.id', 'expense_categories.name')
+            ->orderByDesc('total_amount')
+            ->take(5)
+            ->get();
+
         return view('livewire.owner.business-owner-dashboard', [
             'marquee' => $marquee,
             'branches' => $branches,
@@ -304,6 +534,23 @@ class BusinessOwnerDashboard extends Component
             'pendingReceivables' => $pendingReceivables,
             'operatingExpenses' => $operatingExpenses,
             'netOperatingCashflow' => $netOperatingCashflow,
+            // Quick stats & Ratios
+            'avgBookingValue' => $avgBookingValue,
+            'avgSpendPerGuest' => $avgSpendPerGuest,
+            'collectionRate' => $collectionRate,
+            'advanceCoverageRatio' => $advanceCoverageRatio,
+            'profitMarginPct' => $profitMarginPct,
+            'expenseToRevenueRatio' => $expenseToRevenueRatio,
+            'totalCustomersCount' => $totalCustomersCount,
+            'leadsInPeriodCount' => $leadsInPeriodCount,
+            'convertedLeadsCount' => $convertedLeadsCount,
+            'leadConversionRate' => $leadConversionRate,
+            // Visual Analytics Breakdowns
+            'eventTypeBreakdown' => $eventTypeBreakdown,
+            'hallBreakdown' => $hallBreakdown,
+            'slotBreakdown' => $slotBreakdown,
+            'monthlyPerformanceTrend' => $monthlyPerformanceTrend,
+            'topExpenseCategories' => $topExpenseCategories,
             // Booking & Guest cards
             'totalGuests' => $totalGuests,
             'totalBookingsPeriod' => $totalBookingsPeriod,
@@ -321,6 +568,15 @@ class BusinessOwnerDashboard extends Component
             'lowStockItems' => $lowStockItems,
             'overdueReceivablesCount' => $overdueReceivablesCount,
             'unprintedKitchenSlipsCount' => $unprintedKitchenSlipsCount,
+            'periodLabel' => $periodLabel,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'customDateFrom' => $this->customDateFrom,
+            'customDateTo' => $this->customDateTo,
+            'timeframe' => $this->timeframe,
+            'filterRange' => $this->timeframe,
+            'accessibleMarquees' => $accessibleMarquees,
+            'selectedMarqueeId' => $this->selectedMarqueeId,
         ]);
     }
 }

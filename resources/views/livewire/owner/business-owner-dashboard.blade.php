@@ -3,37 +3,41 @@
     <div class="card mb-3 border-0 shadow-sm">
         <div class="card-body py-3">
             <div class="row flex-between-center g-3">
-                <div class="col-12 col-md-auto">
+                <div class="col-12 col-xl-auto">
                     <div class="d-flex align-items-center gap-3">
                         <div class="avatar avatar-xl {{ $isBookingOfficer ? 'bg-info-subtle text-info' : 'bg-primary-subtle text-primary' }} rounded-3 d-flex align-items-center justify-content-center shadow-sm">
                             <span class="fas {{ $isBookingOfficer ? 'fa-calendar-alt' : 'fa-chart-pie' }} fa-lg"></span>
                         </div>
                         <div>
-                            <h4 class="mb-0 fw-bold text-900 d-flex align-items-center gap-2">
-                                {{ $marquee->name ?? 'Banquet Operations Hub' }}
-                                @if($isBookingOfficer)
-                                    <span class="badge bg-info-subtle text-info rounded-pill fs-11">
-                                        <span class="fas fa-calendar-check me-1"></span>Booking Desk & Operations
-                                    </span>
-                                @else
-                                    <span class="badge bg-success-subtle text-success rounded-pill fs-11">
-                                        <span class="fas fa-chart-line me-1"></span>Live Financials
-                                    </span>
-                                @endif
-                            </h4>
+                            <div class="d-flex align-items-center gap-2">
+                                <h4 class="mb-0 fw-bold text-900 d-flex align-items-center gap-2">
+                                    {{ $marquee->name ?? 'Banquet Operations Hub' }}
+                                    @if($isBookingOfficer)
+                                        <span class="badge bg-info-subtle text-info rounded-pill fs-11">
+                                            <span class="fas fa-calendar-check me-1"></span>Booking Desk & Operations
+                                        </span>
+                                    @else
+                                        <span class="badge bg-success-subtle text-success rounded-pill fs-11">
+                                            <span class="fas fa-chart-line me-1"></span>Live Financials
+                                        </span>
+                                    @endif
+                                </h4>
+                                <span class="badge badge-subtle-primary rounded-pill">{{ $periodLabel }}</span>
+                            </div>
                             <p class="text-600 fs-11 mb-0">
                                 @if($isBookingOfficer)
                                     Live event schedules, guest headcounts, banquet slot utilization, and booking confirmations.
                                 @else
                                     Real-time double-entry ledger metrics, event schedules, sales, purchases, and cash liquidity.
                                 @endif
+                                <span class="text-muted ms-1">({{ $startDate->format('d M Y') }} &mdash; {{ $endDate->format('d M Y') }})</span>
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <div class="col-12 col-md-auto">
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="col-12 col-xl-auto">
+                    <div class="d-flex align-items-center gap-2 flex-wrap justify-content-xl-end">
                         <!-- Owner View Mode Toggle (Preview Booking Officer View) -->
                         @if($isOwnerUser)
                         <div class="btn-group btn-group-sm" role="group" title="Switch dashboard view mode">
@@ -46,32 +50,66 @@
                         </div>
                         @endif
 
-                        <!-- Multi-Branch Filter -->
-                        @if($branches && $branches->count() > 1)
-                        <div class="input-group input-group-sm" style="min-width: 200px;">
-                            <span class="input-group-text bg-light text-700 fw-semibold"><span class="fas fa-code-branch me-1"></span> Branch:</span>
-                            <select wire:model.live="selectedBranchId" class="form-select form-select-sm fw-bold">
-                                <option value="">All Branches (Consolidated)</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        @endif
-
-                        <!-- Timeframe Selector -->
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn {{ $timeframe === 'today' ? 'btn-primary' : 'btn-outline-secondary' }}" wire:click="$set('timeframe', 'today')">Today</button>
-                            <button type="button" class="btn {{ $timeframe === 'week' ? 'btn-primary' : 'btn-outline-secondary' }}" wire:click="$set('timeframe', 'week')">Week</button>
-                            <button type="button" class="btn {{ $timeframe === 'month' ? 'btn-primary' : 'btn-outline-secondary' }}" wire:click="$set('timeframe', 'month')">This Month</button>
-                            <button type="button" class="btn {{ $timeframe === 'year' ? 'btn-primary' : 'btn-outline-secondary' }}" wire:click="$set('timeframe', 'year')">Year</button>
-                        </div>
-
                         <!-- Quick New Booking -->
                         <a href="{{ route('bookings.create') }}" class="btn btn-primary btn-sm fw-bold shadow-sm">
                             <span class="fas fa-plus me-1"></span> Book an Event
                         </a>
                     </div>
+                </div>
+            </div>
+
+            <hr class="my-3 border-200">
+
+            <!-- Filter Controls -->
+            <div class="row g-2 align-items-center justify-content-between">
+                <div class="col-auto">
+                    <!-- Period Filter Tabs -->
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" wire:click="setFilterRange('today')" class="btn {{ $timeframe === 'today' ? 'btn-primary' : 'btn-outline-secondary' }}">Today</button>
+                        <button type="button" wire:click="setFilterRange('this_week')" class="btn {{ in_array($timeframe, ['this_week', 'week']) ? 'btn-primary' : 'btn-outline-secondary' }}">This Week</button>
+                        <button type="button" wire:click="setFilterRange('this_month')" class="btn {{ in_array($timeframe, ['this_month', 'month']) ? 'btn-primary' : 'btn-outline-secondary' }}">This Month</button>
+                        <button type="button" wire:click="setFilterRange('this_quarter')" class="btn {{ in_array($timeframe, ['this_quarter', 'quarter']) ? 'btn-primary' : 'btn-outline-secondary' }}">Quarter</button>
+                        <button type="button" wire:click="setFilterRange('this_year')" class="btn {{ in_array($timeframe, ['this_year', 'year']) ? 'btn-primary' : 'btn-outline-secondary' }}">This Year</button>
+                        <button type="button" wire:click="setFilterRange('last_30_days')" class="btn {{ $timeframe === 'last_30_days' ? 'btn-primary' : 'btn-outline-secondary' }}">Last 30 Days</button>
+                        <button type="button" wire:click="setFilterRange('custom')" class="btn {{ $timeframe === 'custom' ? 'btn-primary' : 'btn-outline-secondary' }}">Custom</button>
+                    </div>
+                </div>
+
+                <div class="col-auto d-flex flex-wrap gap-2 align-items-center">
+                    <!-- Multi-Business / Marquee Filter (For Super Admin or Multi-Business Owners) -->
+                    @if(isset($accessibleMarquees) && $accessibleMarquees->count() > 1)
+                    <div class="input-group input-group-sm" style="min-width: 220px;">
+                        <span class="input-group-text bg-light text-700 fw-semibold"><span class="fas fa-building me-1 text-primary"></span> Business:</span>
+                        <select wire:model.live="selectedMarqueeId" class="form-select form-select-sm fw-bold">
+                            @foreach($accessibleMarquees as $m)
+                                <option value="{{ $m->id }}">{{ $m->name }} ({{ $m->city ?? 'Main' }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+
+                    <!-- Multi-Branch Filter -->
+                    @if($branches && $branches->count() > 1)
+                    <div class="input-group input-group-sm" style="min-width: 200px;">
+                        <span class="input-group-text bg-light text-700 fw-semibold"><span class="fas fa-code-branch me-1"></span> Branch:</span>
+                        <select wire:model.live="selectedBranchId" class="form-select form-select-sm fw-bold">
+                            <option value="">All Branches (Consolidated)</option>
+                            @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+
+                    <!-- Custom Date Range Pickers -->
+                    @if($timeframe === 'custom')
+                        <div class="d-flex align-items-center gap-1 bg-white p-1 rounded border shadow-none">
+                            <span class="text-600 fs-11 ps-1 fw-semibold"><span class="fas fa-calendar-alt text-primary me-1"></span>From:</span>
+                            <input type="date" wire:model.live="customDateFrom" class="form-control form-control-sm border-0 py-0" style="width: 125px;">
+                            <span class="text-500 fs-11">To:</span>
+                            <input type="date" wire:model.live="customDateTo" class="form-control form-control-sm border-0 py-0" style="width: 125px;">
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -86,7 +124,7 @@
             <span class="text-800 fw-bold fs-11 text-uppercase">
                 <span class="fas fa-coins me-1 text-primary"></span>Sales, Purchases & Working Capital
             </span>
-            <span class="badge bg-light text-muted border fs-11">Selected Timeframe: {{ ucfirst($timeframe) }}</span>
+            <span class="badge bg-light text-muted border fs-11">Selected Period: {{ $periodLabel }}</span>
         </div>
 
         <div class="row g-3 mb-3">
@@ -102,9 +140,9 @@
                                 </div>
                                 <h3 class="mb-0 fw-bolder text-primary mt-1">
                                     @if($totalSales >= 1000000)
-                                        PKR {{ number_format($totalSales / 1000000, 2) }}M
+                                        Rs. {{ number_format($totalSales / 1000000, 2) }}M
                                     @else
-                                        PKR {{ number_format($totalSales / 1000, 1) }}k
+                                        Rs. {{ number_format($totalSales / 1000, 1) }}k
                                     @endif
                                 </h3>
                                 <span class="fs-11 text-muted">{{ $totalBookingsPeriod }} event bookings</span>
@@ -129,9 +167,9 @@
                                 </div>
                                 <h3 class="mb-0 fw-bolder text-warning mt-1">
                                     @if($totalPurchases >= 1000000)
-                                        PKR {{ number_format($totalPurchases / 1000000, 2) }}M
+                                        Rs. {{ number_format($totalPurchases / 1000000, 2) }}M
                                     @else
-                                        PKR {{ number_format($totalPurchases / 1000, 1) }}k
+                                        Rs. {{ number_format($totalPurchases / 1000, 1) }}k
                                     @endif
                                 </h3>
                                 <span class="fs-11 text-muted">Raw inventory & vendor bills</span>
@@ -177,9 +215,9 @@
                                 </div>
                                 <h3 class="mb-0 fw-bolder text-primary mt-1">
                                     @if(abs($bankBalance) >= 1000000)
-                                        PKR {{ number_format($bankBalance / 1000000, 2) }}M
+                                        Rs. {{ number_format($bankBalance / 1000000, 2) }}M
                                     @else
-                                        PKR {{ number_format($bankBalance / 1000, 1) }}k
+                                        Rs. {{ number_format($bankBalance / 1000, 1) }}k
                                     @endif
                                 </h3>
                                 <span class="fs-11 text-muted">Consolidated bank liquidity</span>
@@ -204,9 +242,9 @@
                                 </div>
                                 <h3 class="mb-0 fw-bolder text-success mt-1">
                                     @if(abs($cashInHand) >= 1000000)
-                                        PKR {{ number_format($cashInHand / 1000000, 2) }}M
+                                        Rs. {{ number_format($cashInHand / 1000000, 2) }}M
                                     @else
-                                        PKR {{ number_format($cashInHand / 1000, 1) }}k
+                                        Rs. {{ number_format($cashInHand / 1000, 1) }}k
                                     @endif
                                 </h3>
                                 <span class="fs-11 text-muted">Counter & petty drawer</span>
@@ -231,7 +269,7 @@
                                 <div class="d-flex align-items-center gap-1">
                                     <h6 class="text-700 fs-11 mb-0">Realized Revenue</h6>
                                 </div>
-                                <h3 class="mb-0 fw-bolder text-success mt-1">PKR {{ number_format($realizedRevenue / 1000, 1) }}k</h3>
+                                <h3 class="mb-0 fw-bolder text-success mt-1">Rs. {{ number_format($realizedRevenue / 1000, 1) }}k</h3>
                                 <span class="fs-11 text-muted">From completed events</span>
                             </div>
                             <div class="avatar avatar-m bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
@@ -252,7 +290,7 @@
                                     <h6 class="text-700 fs-11 mb-0">Advances Held</h6>
                                     <span class="badge bg-info-subtle text-info rounded-pill" style="font-size: 8px;">Liability</span>
                                 </div>
-                                <h3 class="mb-0 fw-bolder text-info mt-1">PKR {{ number_format($customerAdvanceHeld / 1000, 1) }}k</h3>
+                                <h3 class="mb-0 fw-bolder text-info mt-1">Rs. {{ number_format($customerAdvanceHeld / 1000, 1) }}k</h3>
                                 <span class="fs-11 text-muted">Upcoming token deposits</span>
                             </div>
                             <div class="avatar avatar-m bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center">
@@ -270,7 +308,7 @@
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Receivables Due</h6>
-                                <h3 class="mb-0 fw-bolder text-warning">PKR {{ number_format($pendingReceivables / 1000, 1) }}k</h3>
+                                <h3 class="mb-0 fw-bolder text-warning">Rs. {{ number_format($pendingReceivables / 1000, 1) }}k</h3>
                                 <span class="fs-11 text-muted">Outstanding balances</span>
                             </div>
                             <div class="avatar avatar-m bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center">
@@ -288,7 +326,7 @@
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Expenses Paid</h6>
-                                <h3 class="mb-0 fw-bolder text-danger">PKR {{ number_format($operatingExpenses / 1000, 1) }}k</h3>
+                                <h3 class="mb-0 fw-bolder text-danger">Rs. {{ number_format($operatingExpenses / 1000, 1) }}k</h3>
                                 <span class="fs-11 text-muted">Approved operational bills</span>
                             </div>
                             <div class="avatar avatar-m bg-danger-subtle text-danger rounded-circle d-flex align-items-center justify-content-center">
@@ -307,7 +345,7 @@
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Net Margin</h6>
                                 <h3 class="mb-0 fw-bolder {{ $netOperatingCashflow >= 0 ? 'text-primary' : 'text-danger' }}">
-                                    PKR {{ number_format($netOperatingCashflow / 1000, 1) }}k
+                                    Rs. {{ number_format($netOperatingCashflow / 1000, 1) }}k
                                 </h3>
                                 <span class="fs-11 text-muted">Revenue - Expenses</span>
                             </div>
@@ -337,6 +375,326 @@
                 </div>
             </div>
         </div>
+
+        <!-- Section 3: Commercial & Efficiency Quick Stats -->
+        <div id="quick-stats-section" class="card border-0 shadow-sm mb-3 bg-body-tertiary">
+            <div class="card-body p-2 p-md-3">
+                <div class="row g-2 align-items-center text-center text-md-start">
+                    <!-- Stat 1: Collection Rate -->
+                    <div class="col-6 col-md-4 col-xl-2 border-end-md">
+                        <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
+                            <div class="avatar avatar-m {{ $collectionRate >= 70 ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning' }} rounded-circle d-flex align-items-center justify-content-center">
+                                <span class="fas fa-check-double"></span>
+                            </div>
+                            <div>
+                                <span class="text-600 fs-11 d-block text-uppercase fw-semi-bold">Collection Rate</span>
+                                <span class="fw-bolder fs-10 text-900 font-monospace">{{ $collectionRate }}%</span>
+                                <span class="text-muted fs-11 d-block">Recovered</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stat 2: Net Profit Margin -->
+                    <div class="col-6 col-md-4 col-xl-2 border-end-md">
+                        <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
+                            <div class="avatar avatar-m {{ $profitMarginPct >= 0 ? 'bg-primary-subtle text-primary' : 'bg-danger-subtle text-danger' }} rounded-circle d-flex align-items-center justify-content-center">
+                                <span class="fas fa-percentage"></span>
+                            </div>
+                            <div>
+                                <span class="text-600 fs-11 d-block text-uppercase fw-semi-bold">Net Margin</span>
+                                <span class="fw-bolder fs-10 {{ $profitMarginPct >= 0 ? 'text-primary' : 'text-danger' }} font-monospace">{{ $profitMarginPct }}%</span>
+                                <span class="text-muted fs-11 d-block">Net / Realized</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stat 3: Avg Booking Value -->
+                    <div class="col-6 col-md-4 col-xl-2 border-end-md">
+                        <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
+                            <div class="avatar avatar-m bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center">
+                                <span class="fas fa-tag"></span>
+                            </div>
+                            <div>
+                                <span class="text-600 fs-11 d-block text-uppercase fw-semi-bold">Avg Event Value</span>
+                                <span class="fw-bolder fs-10 text-900 font-monospace">
+                                    @if($avgBookingValue >= 1000000)
+                                        Rs. {{ number_format($avgBookingValue / 1000000, 2) }}M
+                                    @else
+                                        Rs. {{ number_format($avgBookingValue / 1000, 1) }}k
+                                    @endif
+                                </span>
+                                <span class="text-muted fs-11 d-block">Per booking</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stat 4: Avg Spend Per Guest -->
+                    <div class="col-6 col-md-4 col-xl-2 border-end-md">
+                        <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
+                            <div class="avatar avatar-m bg-secondary-subtle text-secondary rounded-circle d-flex align-items-center justify-content-center">
+                                <span class="fas fa-utensils"></span>
+                            </div>
+                            <div>
+                                <span class="text-600 fs-11 d-block text-uppercase fw-semi-bold">Pax Rate</span>
+                                <span class="fw-bolder fs-10 text-900 font-monospace">Rs. {{ number_format($avgSpendPerGuest) }}</span>
+                                <span class="text-muted fs-11 d-block">Avg / guest</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stat 5: Advance Held Ratio -->
+                    <div class="col-6 col-md-4 col-xl-2 border-end-md">
+                        <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
+                            <div class="avatar avatar-m bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center">
+                                <span class="fas fa-shield-alt"></span>
+                            </div>
+                            <div>
+                                <span class="text-600 fs-11 d-block text-uppercase fw-semi-bold">Advance Secured</span>
+                                <span class="fw-bolder fs-10 text-900 font-monospace">{{ $advanceCoverageRatio }}%</span>
+                                <span class="text-muted fs-11 d-block">Deposits / Sales</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stat 6: CRM Lead Conversion -->
+                    <div class="col-6 col-md-4 col-xl-2">
+                        <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
+                            <div class="avatar avatar-m bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
+                                <span class="fas fa-funnel-dollar"></span>
+                            </div>
+                            <div>
+                                <span class="text-600 fs-11 d-block text-uppercase fw-semi-bold">Lead Win Rate</span>
+                                <span class="fw-bolder fs-10 text-success font-monospace">{{ $leadConversionRate }}%</span>
+                                <span class="text-muted fs-11 d-block">{{ $convertedLeadsCount }} won / {{ $leadsInPeriodCount }} inquiries</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Visual Analytics Grid (6-Month Trend & Event Type Share) -->
+        <div id="analytics-section" class="row g-3 mb-3">
+            <!-- 6-Month Commercial & P&L Performance Trend -->
+            <div class="col-12 col-xl-7">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-body-tertiary py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h6 class="mb-0 fw-bold text-800">
+                            <span class="fas fa-chart-line me-2 text-primary"></span>6-Month Commercial & Margin Trend
+                        </h6>
+                        <span class="fs-11 text-muted">Bookings &bull; Realized &bull; Operating Bills</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive scrollbar">
+                            <table class="table table-sm table-striped mb-0 align-middle fs-10">
+                                <thead class="bg-200 text-800">
+                                    <tr>
+                                        <th class="px-3 py-2">Month</th>
+                                        <th class="py-2 text-center">Events</th>
+                                        <th class="py-2 text-end">Booked Sales</th>
+                                        <th class="py-2 text-end">Realized Rev</th>
+                                        <th class="py-2 text-end">Expenses</th>
+                                        <th class="py-2 text-end">Net Margin</th>
+                                        <th class="px-3 py-2 text-center">Health</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($monthlyPerformanceTrend as $mTrend)
+                                    @php
+                                        $mNetMargin = $mTrend['net'];
+                                        $mRealized = $mTrend['realized'];
+                                        $healthPct = $mRealized > 0 ? max(0, min(100, round(($mNetMargin / $mRealized) * 100))) : 0;
+                                    @endphp
+                                    <tr>
+                                        <td class="px-3 py-2 fw-bold text-900">{{ $mTrend['month'] }}</td>
+                                        <td class="py-2 text-center">
+                                            <span class="badge bg-light text-dark border">{{ $mTrend['bookings_count'] }}</span>
+                                        </td>
+                                        <td class="py-2 text-end font-monospace text-700">
+                                            Rs. {{ number_format($mTrend['sales'] / 1000, 1) }}k
+                                        </td>
+                                        <td class="py-2 text-end font-monospace text-success fw-semi-bold">
+                                            Rs. {{ number_format($mTrend['realized'] / 1000, 1) }}k
+                                        </td>
+                                        <td class="py-2 text-end font-monospace text-danger">
+                                            Rs. {{ number_format($mTrend['expenses'] / 1000, 1) }}k
+                                        </td>
+                                        <td class="py-2 text-end font-monospace fw-bold {{ $mNetMargin >= 0 ? 'text-primary' : 'text-danger' }}">
+                                            Rs. {{ number_format($mNetMargin / 1000, 1) }}k
+                                        </td>
+                                        <td class="px-3 py-2 text-center" style="min-width: 90px;">
+                                            @if($mRealized > 0)
+                                                <div class="progress" style="height: 6px;" title="{{ $healthPct }}% Margin">
+                                                    <div class="progress-bar {{ $mNetMargin >= 0 ? 'bg-success' : 'bg-danger' }}" role="progressbar" style="width: {{ $healthPct }}%"></div>
+                                                </div>
+                                                <span class="fs-11 text-muted">{{ $healthPct }}%</span>
+                                            @else
+                                                <span class="text-muted fs-11">&mdash;</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Type Distribution & Revenue Share -->
+            <div class="col-12 col-xl-5">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-body-tertiary py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h6 class="mb-0 fw-bold text-800">
+                            <span class="fas fa-layer-group me-2 text-primary"></span>Event Type Distribution
+                        </h6>
+                        <span class="fs-11 text-muted">Selected Period</span>
+                    </div>
+                    <div class="card-body p-3">
+                        @if($eventTypeBreakdown->isEmpty())
+                            <div class="text-center py-4 text-muted">
+                                <span class="fas fa-glass-cheers fa-2x text-300 mb-2 d-block"></span>
+                                <span class="fs-11">No event type revenue recorded in this period.</span>
+                            </div>
+                        @else
+                            @php
+                                $totalEventRev = max(1, $eventTypeBreakdown->sum('total_revenue'));
+                                $palette = ['primary', 'success', 'info', 'warning', 'danger', 'secondary'];
+                            @endphp
+                            @foreach($eventTypeBreakdown as $idx => $evType)
+                                @php
+                                    $color = $palette[$idx % count($palette)];
+                                    $sharePct = round(($evType->total_revenue / $totalEventRev) * 100, 1);
+                                @endphp
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center fs-11 mb-1">
+                                        <div>
+                                            <span class="badge bg-{{ $color }}-subtle text-{{ $color }} me-1">{{ $evType->event_type_name }}</span>
+                                            <span class="text-muted fs-11">({{ $evType->booking_count }} events &bull; {{ number_format($evType->total_guests) }} pax)</span>
+                                        </div>
+                                        <span class="font-monospace fw-bold text-900">
+                                            Rs. {{ number_format($evType->total_revenue / 1000, 1) }}k
+                                            <span class="text-muted fw-normal">({{ $sharePct }}%)</span>
+                                        </span>
+                                    </div>
+                                    <div class="progress" style="height: 6px;">
+                                        <div class="progress-bar bg-{{ $color }}" role="progressbar" style="width: {{ $sharePct }}%"></div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Venue Capacity & Slot Utilization Analytics -->
+        <div class="row g-3 mb-3">
+            <!-- Hall Venue Performance -->
+            <div class="col-12 col-md-6 col-xl-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-body-tertiary py-2 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-800">
+                            <span class="fas fa-archway me-2 text-primary"></span>Hall Venue Performance
+                        </h6>
+                        <span class="fs-11 text-muted">Bookings & Revenue</span>
+                    </div>
+                    <div class="card-body p-3">
+                        @if($hallBreakdown->isEmpty())
+                            <div class="text-center py-4 text-muted fs-11">No hall bookings in this period.</div>
+                        @else
+                            @php $hallMaxRev = max(1, $hallBreakdown->sum('total_revenue')); @endphp
+                            @foreach($hallBreakdown as $hIdx => $hall)
+                                @php $hallPct = round(($hall->total_revenue / $hallMaxRev) * 100, 1); @endphp
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center fs-11 mb-1">
+                                        <span class="fw-bold text-800">
+                                            <span class="fas fa-building text-400 me-1"></span>{{ $hall->hall_name }}
+                                            <span class="text-muted fw-normal">({{ $hall->booking_count }} bookings)</span>
+                                        </span>
+                                        <span class="font-monospace fw-semi-bold text-900">Rs. {{ number_format($hall->total_revenue / 1000, 1) }}k</span>
+                                    </div>
+                                    <div class="progress" style="height: 5px;">
+                                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $hallPct }}%"></div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shift Slot Occupancy (Lunch vs Dinner) -->
+            <div class="col-12 col-md-6 col-xl-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-body-tertiary py-2 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-800">
+                            <span class="fas fa-clock me-2 text-info"></span>Shift Slot Occupancy
+                        </h6>
+                        <span class="fs-11 text-muted">Shift Share</span>
+                    </div>
+                    <div class="card-body p-3">
+                        @if($slotBreakdown->isEmpty())
+                            <div class="text-center py-4 text-muted fs-11">No shift slot data in this period.</div>
+                        @else
+                            @php $totalSlotEvents = max(1, $slotBreakdown->sum('booking_count')); @endphp
+                            @foreach($slotBreakdown as $sIdx => $slot)
+                                @php
+                                    $slotPct = round(($slot->booking_count / $totalSlotEvents) * 100, 1);
+                                    $slotColor = $sIdx % 2 === 0 ? 'info' : 'primary';
+                                @endphp
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center fs-11 mb-1">
+                                        <span class="fw-bold text-800">
+                                            <span class="fas fa-sun text-warning me-1"></span>{{ $slot->slot_name }}
+                                            <span class="text-muted fw-normal">({{ $slot->booking_count }} events &bull; {{ number_format($slot->total_guests) }} pax)</span>
+                                        </span>
+                                        <span class="badge bg-{{ $slotColor }}-subtle text-{{ $slotColor }} font-monospace">{{ $slotPct }}%</span>
+                                    </div>
+                                    <div class="progress" style="height: 5px;">
+                                        <div class="progress-bar bg-{{ $slotColor }}" role="progressbar" style="width: {{ $slotPct }}%"></div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operational Expense Breakdown -->
+            <div class="col-12 col-xl-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-body-tertiary py-2 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-800">
+                            <span class="fas fa-receipt me-2 text-danger"></span>Top Expense Categories
+                        </h6>
+                        <span class="fs-11 text-muted">Approved Bills</span>
+                    </div>
+                    <div class="card-body p-3">
+                        @if($topExpenseCategories->isEmpty())
+                            <div class="text-center py-4 text-muted fs-11">No approved expenses in this period.</div>
+                        @else
+                            @php $expTotalSum = max(1, $topExpenseCategories->sum('total_amount')); @endphp
+                            @foreach($topExpenseCategories as $eIdx => $expCat)
+                                @php $expPct = round(($expCat->total_amount / $expTotalSum) * 100, 1); @endphp
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center fs-11 mb-1">
+                                        <span class="fw-bold text-800">
+                                            <span class="fas fa-file-invoice text-400 me-1"></span>{{ $expCat->category_name }}
+                                            <span class="text-muted fw-normal">({{ $expCat->expense_count }} bills)</span>
+                                        </span>
+                                        <span class="font-monospace text-danger fw-semi-bold">Rs. {{ number_format($expCat->total_amount / 1000, 1) }}k</span>
+                                    </div>
+                                    <div class="progress" style="height: 5px;">
+                                        <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $expPct }}%"></div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
     @else
         {{-- ========================================================================= --}}
         {{-- BOOKING OFFICER DASHBOARD CARDS (FINANCIAL METRICS MINIMIZED) --}}
@@ -345,7 +703,7 @@
             <span class="text-800 fw-bold fs-11 text-uppercase">
                 <span class="fas fa-clipboard-list me-1 text-primary"></span>Guest Headcount & Booking Operations
             </span>
-            <span class="badge bg-info-subtle text-info border fs-11">Timeframe: {{ ucfirst($timeframe) }}</span>
+            <span class="badge bg-info-subtle text-info border fs-11">Period: {{ $periodLabel }}</span>
         </div>
 
         <div class="row g-3 mb-3">
@@ -457,6 +815,86 @@
                 </div>
             </div>
         </div>
+
+        <!-- Operational Analytics Grid for Booking Officer -->
+        <div class="row g-3 mb-3">
+            <!-- Event Type Headcount Distribution -->
+            <div class="col-12 col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-body-tertiary py-2 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-800">
+                            <span class="fas fa-layer-group me-2 text-primary"></span>Event Type Distribution & Guests
+                        </h6>
+                        <span class="fs-11 text-muted">Selected Period</span>
+                    </div>
+                    <div class="card-body p-3">
+                        @if($eventTypeBreakdown->isEmpty())
+                            <div class="text-center py-4 text-muted fs-11">No event bookings in this period.</div>
+                        @else
+                            @php
+                                $totEvents = max(1, $eventTypeBreakdown->sum('booking_count'));
+                                $palette = ['primary', 'success', 'info', 'warning', 'danger', 'secondary'];
+                            @endphp
+                            @foreach($eventTypeBreakdown as $idx => $evType)
+                                @php
+                                    $color = $palette[$idx % count($palette)];
+                                    $sharePct = round(($evType->booking_count / $totEvents) * 100, 1);
+                                @endphp
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center fs-11 mb-1">
+                                        <span class="badge bg-{{ $color }}-subtle text-{{ $color }}">{{ $evType->event_type_name }}</span>
+                                        <span class="font-monospace fw-bold text-900">
+                                            {{ $evType->booking_count }} events ({{ number_format($evType->total_guests) }} pax &bull; {{ $sharePct }}%)
+                                        </span>
+                                    </div>
+                                    <div class="progress" style="height: 6px;">
+                                        <div class="progress-bar bg-{{ $color }}" role="progressbar" style="width: {{ $sharePct }}%"></div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hall & Shift Slot Occupancy -->
+            <div class="col-12 col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-body-tertiary py-2 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-800">
+                            <span class="fas fa-calendar-check me-2 text-info"></span>Hall & Slot Utilization
+                        </h6>
+                        <span class="fs-11 text-muted">Live utilization</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="row g-3">
+                            <div class="col-12 col-sm-6">
+                                <h6 class="fs-11 text-700 text-uppercase fw-bold mb-2">By Hall Venue</h6>
+                                @forelse($hallBreakdown as $hall)
+                                    <div class="d-flex justify-content-between align-items-center fs-11 mb-2">
+                                        <span class="text-800">{{ $hall->hall_name }}</span>
+                                        <span class="badge bg-light text-dark border">{{ $hall->booking_count }} events</span>
+                                    </div>
+                                @empty
+                                    <div class="text-muted fs-11">No hall data.</div>
+                                @endforelse
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <h6 class="fs-11 text-700 text-uppercase fw-bold mb-2">By Shift Slot</h6>
+                                @forelse($slotBreakdown as $slot)
+                                    <div class="d-flex justify-content-between align-items-center fs-11 mb-2">
+                                        <span class="text-800">{{ $slot->slot_name }}</span>
+                                        <span class="badge bg-info-subtle text-info">{{ $slot->booking_count }} events</span>
+                                    </div>
+                                @empty
+                                    <div class="text-muted fs-11">No slot data.</div>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     @endif
 
     <!-- Main Operational Grid -->
@@ -519,7 +957,7 @@
 
                                     @if($canViewFinancials)
                                         <td class="py-2 align-middle text-end fw-bold text-900">
-                                            PKR {{ number_format($event->grand_total) }}
+                                            Rs. {{ number_format($event->grand_total) }}
                                         </td>
                                         <td class="py-2 align-middle text-center">
                                             @if($event->receivable_amount <= 0)
@@ -624,7 +1062,7 @@
 
                                     @if($canViewFinancials)
                                         <td class="py-2 align-middle text-end text-success fw-bold">
-                                            PKR {{ number_format($upcoming->advance_received) }}
+                                            Rs. {{ number_format($upcoming->advance_received) }}
                                         </td>
                                     @else
                                         <td class="py-2 align-middle text-center text-700">

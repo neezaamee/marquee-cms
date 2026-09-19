@@ -158,7 +158,12 @@ class User extends Authenticatable
     public function getActiveMarqueeId(): ?int
     {
         if ($this->isSuperAdmin()) {
-            return session('active_marquee_id', $this->marquee_id);
+            $sessionActive = session('active_marquee_id', $this->marquee_id);
+            if ($sessionActive) {
+                return (int) $sessionActive;
+            }
+            $firstMarquee = Marquee::first();
+            return $firstMarquee ? (int) $firstMarquee->id : null;
         }
 
         if ($this->isBusinessOwner()) {

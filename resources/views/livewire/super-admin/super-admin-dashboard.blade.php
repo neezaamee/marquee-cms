@@ -19,13 +19,16 @@
                 </div>
                 <div class="col-12 col-md-5 text-md-end">
                     <div class="d-flex gap-2 justify-content-md-end flex-wrap">
+                        <a href="{{ route('dashboard', ['view' => 'owner']) }}" class="btn btn-primary btn-sm fw-bold shadow-sm">
+                            <span class="fas fa-chart-pie me-1"></span> Business Owner View
+                        </a>
                         <a href="{{ route('super-admin.synthetic-data') }}" class="btn btn-falcon-default btn-sm shadow-sm">
                             <span class="fas fa-magic text-primary me-1"></span> Synthetic Data Studio
                         </a>
                         <a href="{{ route('super-admin.global-defaults') }}" class="btn btn-falcon-default btn-sm shadow-sm">
                             <span class="fas fa-sliders-h text-info me-1"></span> Global Defaults
                         </a>
-                        <a href="{{ route('super-admin.business-owners.create') }}" class="btn btn-primary btn-sm fw-bold shadow-sm">
+                        <a href="{{ route('super-admin.business-owners.create') }}" class="btn btn-falcon-default btn-sm shadow-sm">
                             <span class="fas fa-user-plus me-1"></span> New Business Owner
                         </a>
                     </div>

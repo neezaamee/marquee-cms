@@ -878,7 +878,7 @@ class AccountingService
                     'type_code' => 'CURRENT_LIABILITIES',
                     'nature' => 'Liability',
                     'system' => true,
-                    'desc' => 'Outstanding Vendor Payments',
+                    'desc' => 'Outstanding Suppliars Payments',
                 ],
                 [
                     'parent_code' => '2000',
@@ -914,7 +914,7 @@ class AccountingService
                     'type_code' => 'CURRENT_LIABILITIES',
                     'nature' => 'Liability',
                     'system' => true,
-                    'desc' => 'Net liabilities payable to contracted event vendors',
+                    'desc' => 'Net liabilities payable to contracted event service providers',
                 ],
 
                 // Equity

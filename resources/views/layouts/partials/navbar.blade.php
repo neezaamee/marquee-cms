@@ -52,7 +52,7 @@
       $navActiveMarquee = $navAccessibleMarquees->firstWhere('id', $navActiveMarqueeId) ?? ($navActiveMarqueeId ? \App\Models\Marquee::find($navActiveMarqueeId) : null);
     @endphp
 
-    @if($navUser && !$navUser->isSuperAdmin() && ($navAccessibleMarquees->count() > 1 || $navUser->isBusinessOwner() || $navUser->isAreaManager()))
+    @if($navUser && ($navUser->isSuperAdmin() || $navAccessibleMarquees->count() > 1 || $navUser->isBusinessOwner() || $navUser->isAreaManager()))
     <li class="nav-item dropdown me-2">
       <a class="btn btn-sm btn-outline-primary dropdown-toggle d-flex align-items-center gap-1 py-1 px-2 rounded-pill shadow-none" href="#" role="button" id="activeBusinessDropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
         <span class="fas fa-building fs-10 text-primary"></span>
@@ -89,7 +89,7 @@
         @endif
       </div>
     </li>
-    @elseif($navActiveMarquee && !$navUser->isSuperAdmin())
+    @elseif($navActiveMarquee)
     <li class="nav-item me-2 d-none d-sm-block">
       <span class="badge badge-subtle-primary py-2 px-3 rounded-pill fs-11 d-flex align-items-center gap-1">
         <span class="fas fa-building"></span> {{ $navActiveMarquee->name }}

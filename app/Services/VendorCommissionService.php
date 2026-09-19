@@ -644,7 +644,7 @@ class VendorCommissionService
                     'account_code' => '2150-VEN',
                     'account_type_id' => $liabilityType->id,
                     'nature' => 'Liability',
-                    'description' => 'Net liabilities payable to contracted event vendors',
+                    'description' => 'Net liabilities payable to contracted event service providers',
                     'is_active' => true,
                 ]
             );
@@ -804,7 +804,7 @@ class VendorCommissionService
                     'account_code' => '2150-VEN',
                     'account_type_id' => $liabilityType->id,
                     'nature' => 'Liability',
-                    'description' => 'Net liabilities payable to contracted event vendors',
+                    'description' => 'Net liabilities payable to contracted event service providers',
                     'is_active' => true,
                 ]
             );
