@@ -15,6 +15,7 @@ use App\Models\Hall;
 use App\Models\InventoryItem;
 use App\Models\Lead;
 use App\Models\Marquee;
+use App\Models\PettyCashAccount;
 use App\Models\PurchaseInvoice;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -252,9 +253,9 @@ class BusinessOwnerDashboard extends Component
                 ->where('receivable_amount', '>', 0)
                 ->sum('receivable_amount');
 
-            // Operating Expenses
+            // Operating Expenses (Recognized / Posted / Approved operational expenses)
             $expenseQuery = Expense::where('marquee_id', $marqueeId)
-                ->where('status', 'Approved');
+                ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED]);
             if ($this->selectedBranchId) {
                 $expenseQuery->where('branch_id', $this->selectedBranchId);
             }
@@ -295,10 +296,14 @@ class BusinessOwnerDashboard extends Component
 
             $bankBalance = $bankOpening + $bankJv;
 
-            // Cash in Hand from Chart of Accounts & CashBankAccount
+            // Cash in Hand from Chart of Accounts, CashBankAccount & PettyCashAccount
             $cashAccountIds = CashBankAccount::where('marquee_id', $marqueeId)
                 ->where('type', 'cash')
                 ->pluck('account_id')
+                ->merge(
+                    PettyCashAccount::where('marquee_id', $marqueeId)
+                        ->pluck('gl_account_id')
+                )
                 ->filter()
                 ->unique();
 
@@ -478,7 +483,7 @@ class BusinessOwnerDashboard extends Component
                 ->sum('revenue_recognized');
 
             $mExpenses = (float) Expense::where('marquee_id', $marqueeId)
-                ->where('status', 'Approved')
+                ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
                 ->whereBetween('expense_date', [$mStart, $mEnd])
                 ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
                 ->sum('total_amount');
@@ -505,7 +510,7 @@ class BusinessOwnerDashboard extends Component
         $topExpenseCategories = DB::table('expenses')
             ->join('expense_categories', 'expense_categories.id', '=', 'expenses.expense_category_id')
             ->where('expenses.marquee_id', $marqueeId)
-            ->where('expenses.status', 'Approved')
+            ->whereNotIn('expenses.status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
             ->whereBetween('expenses.expense_date', [$startDateStr, $endDateStr])
             ->when($this->selectedBranchId, fn($q) => $q->where('expenses.branch_id', $this->selectedBranchId))
             ->select(

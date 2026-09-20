@@ -168,6 +168,11 @@
                                                 <span class="fas fa-receipt"></span>
                                             </button>
                                         @endif
+                                        @if(in_array($exp->status, ['Draft', 'Submitted', 'Approved']))
+                                            <button wire:click="postDirectly({{ $exp->id }})" wire:loading.attr="disabled" class="btn btn-link p-0 text-success" title="Post to General Ledger">
+                                                <span class="fas fa-paper-plane"></span>
+                                            </button>
+                                        @endif
                                         @if($exp->status === 'Draft' || $exp->status === 'Rejected')
                                             <a href="{{ route('expenses.edit', $exp->id) }}" class="btn btn-link p-0 text-primary" title="Edit">
                                                 <span class="fas fa-edit"></span>

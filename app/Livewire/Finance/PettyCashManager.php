@@ -40,15 +40,22 @@ class PettyCashManager extends Component
     public $isReplenishOpen = false;
     public $isReconcileOpen = false;
 
+    // Search & Filter
+    public $search = '';
+    public $filterBranch = '';
+
     protected $rules = [
         'account_name' => 'required|string|max:100',
         'branch_id' => 'required|exists:branches,id',
-        'gl_account_id' => 'required|exists:accounts,id',
+        'gl_account_id' => 'nullable|exists:accounts,id',
         'custodian_id' => 'required|exists:users,id',
         'limit_amount' => 'required|numeric|min:0',
         'current_balance' => 'required|numeric|min:0',
         'is_active' => 'boolean',
     ];
+
+    public function updatingSearch() { $this->resetPage(); }
+    public function updatingFilterBranch() { $this->resetPage(); }
 
     public function openCreateForm()
     {
@@ -79,17 +86,32 @@ class PettyCashManager extends Component
     {
         $this->validate();
 
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+
+        $resolvedGlId = $this->gl_account_id;
+        if (!$resolvedGlId) {
+            $resolvedGlId = Account::where('marquee_id', $marqueeId)
+                ->where('nature', 'Asset')
+                ->where(function ($q) {
+                    $q->where('account_code', '1002')
+                      ->orWhere('name', 'like', '%Petty%')
+                      ->orWhere('account_code', '1001')
+                      ->orWhere('name', 'like', '%Cash%');
+                })
+                ->orderBy('account_code')
+                ->value('id');
+        }
 
         $data = [
             'marquee_id' => $marqueeId,
             'branch_id' => $this->branch_id,
             'account_name' => $this->account_name,
-            'gl_account_id' => $this->gl_account_id,
+            'gl_account_id' => $resolvedGlId,
             'custodian_id' => $this->custodian_id,
-            'limit_amount' => $this->limit_amount,
-            'current_balance' => $this->current_balance,
-            'is_active' => $this->is_active,
+            'limit_amount' => (float)$this->limit_amount,
+            'current_balance' => (float)$this->current_balance,
+            'is_active' => (bool)$this->is_active,
         ];
 
         if ($this->editId) {
@@ -183,12 +205,31 @@ class PettyCashManager extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         $query = PettyCashAccount::where('marquee_id', $marqueeId)
             ->with(['branch', 'glAccount', 'custodian']);
 
+        if ($this->search) {
+            $query->where('account_name', 'like', '%' . $this->search . '%');
+        }
+
+        if ($this->filterBranch) {
+            $query->where('branch_id', $this->filterBranch);
+        }
+
         $accounts = $query->paginate(10);
+
+        // KPI metrics
+        $totalBalance = (float)PettyCashAccount::where('marquee_id', $marqueeId)->where('is_active', true)->sum('current_balance');
+        $activeDrawersCount = PettyCashAccount::where('marquee_id', $marqueeId)->where('is_active', true)->count();
+        $lowBalanceCount = PettyCashAccount::where('marquee_id', $marqueeId)->where('is_active', true)->whereRaw('current_balance < (limit_amount * 0.20)')->count();
+        $disbursedMtd = (float)\App\Models\Expense::where('marquee_id', $marqueeId)
+            ->where('payment_method', 'Petty Cash')
+            ->whereBetween('expense_date', [now()->startOfMonth()->format('Y-m-d'), now()->endOfMonth()->format('Y-m-d')])
+            ->whereNotIn('status', [\App\Models\Expense::STATUS_DRAFT, \App\Models\Expense::STATUS_REJECTED])
+            ->sum('total_amount_base');
 
         // Fetch dropdown options
         $branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
@@ -201,11 +242,14 @@ class PettyCashManager extends Component
             ->get();
 
         $users = User::where('marquee_id', $marqueeId)->where('status', 'active')->get();
-
         $bankAccounts = CashBankAccount::where('marquee_id', $marqueeId)->get();
 
         return view('livewire.finance.petty-cash-manager', [
             'accounts' => $accounts,
+            'totalBalance' => $totalBalance,
+            'activeDrawersCount' => $activeDrawersCount,
+            'lowBalanceCount' => $lowBalanceCount,
+            'disbursedMtd' => $disbursedMtd,
             'branches' => $branches,
             'glAccounts' => $glAccounts,
             'users' => $users,

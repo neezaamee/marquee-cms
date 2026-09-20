@@ -21,7 +21,7 @@
 
 @if($isSuperAdmin)
     @php
-        $saasView = request('view', session('dashboard_view', 'owner'));
+        $saasView = request('view', session('dashboard_view', 'saas'));
         session(['dashboard_view' => $saasView]);
     @endphp
 

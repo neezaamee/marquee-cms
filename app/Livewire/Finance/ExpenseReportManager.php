@@ -12,12 +12,13 @@ use Livewire\Component;
 
 class ExpenseReportManager extends Component
 {
-    public $reportType = 'register';
+    public $reportType = 'category_summary';
     
     // Filters
     public $branch_id;
     public $expense_category_id;
     public $supplier_id;
+    public $payment_method;
     public $department;
     public $cost_center;
     public $start_date;
@@ -30,22 +31,83 @@ class ExpenseReportManager extends Component
     {
         $this->start_date = now()->startOfMonth()->format('Y-m-d');
         $this->end_date = now()->endOfMonth()->format('Y-m-d');
-        $this->year = date('Y');
+        $this->year = (int)date('Y');
+        $this->generateReport();
+    }
+
+    public function updatedReportType()
+    {
+        $this->generateReport();
     }
 
     public function generateReport()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         switch ($this->reportType) {
+            case 'category_summary':
+                $query = Expense::where('marquee_id', $marqueeId)
+                    ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED]);
+                if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
+                if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
+                if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
+                
+                $totalAll = (float)(clone $query)->sum('total_amount_base');
+
+                $records = (clone $query)
+                    ->select('expense_category_id', DB::raw('COUNT(id) as count'), DB::raw('SUM(total_amount_base) as total_amount'))
+                    ->groupBy('expense_category_id')
+                    ->with('category')
+                    ->orderByDesc('total_amount')
+                    ->get();
+
+                $this->reportData = $records->map(function ($row) use ($totalAll) {
+                    $pct = $totalAll > 0 ? ($row->total_amount / $totalAll) * 100 : 0;
+                    return [
+                        'category_name' => $row->category->name ?? 'Unclassified / Split',
+                        'voucher_count' => $row->count,
+                        'total_amount' => (float)$row->total_amount,
+                        'percentage' => round($pct, 1),
+                    ];
+                })->toArray();
+                break;
+
+            case 'payment_methods':
+                $query = Expense::where('marquee_id', $marqueeId)
+                    ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED]);
+                if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
+                if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
+                if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
+                
+                $totalAll = (float)(clone $query)->sum('total_amount_base');
+
+                $records = (clone $query)
+                    ->select('payment_method', DB::raw('COUNT(id) as count'), DB::raw('SUM(total_amount_base) as total_amount'))
+                    ->groupBy('payment_method')
+                    ->orderByDesc('total_amount')
+                    ->get();
+
+                $this->reportData = $records->map(function ($row) use ($totalAll) {
+                    $pct = $totalAll > 0 ? ($row->total_amount / $totalAll) * 100 : 0;
+                    return [
+                        'payment_method' => $row->payment_method ?: 'Cash',
+                        'voucher_count' => $row->count,
+                        'total_amount' => (float)$row->total_amount,
+                        'percentage' => round($pct, 1),
+                    ];
+                })->toArray();
+                break;
+
             case 'register':
                 $query = Expense::where('marquee_id', $marqueeId)->with(['category', 'branch', 'supplier']);
                 if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
                 if ($this->expense_category_id) { $query->where('expense_category_id', $this->expense_category_id); }
                 if ($this->supplier_id) { $query->where('supplier_id', $this->supplier_id); }
+                if ($this->payment_method) { $query->where('payment_method', $this->payment_method); }
                 if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
                 if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
-                $this->reportData = $query->orderBy('expense_date')->get()->toArray();
+                $this->reportData = $query->orderBy('expense_date', 'desc')->get()->toArray();
                 break;
 
             case 'budget_vs_actual':
@@ -63,17 +125,7 @@ class ExpenseReportManager extends Component
                 if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
                 if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
                 if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
-                $this->reportData = $query->orderBy('expense_date')->get()->toArray();
-                break;
-
-            case 'maintenance':
-                $query = Expense::where('marquee_id', $marqueeId)
-                    ->whereHas('maintenanceRecord')
-                    ->with(['maintenanceRecord', 'branch']);
-                if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
-                if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
-                if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
-                $this->reportData = $query->orderBy('expense_date')->get()->toArray();
+                $this->reportData = $query->orderBy('expense_date', 'desc')->get()->toArray();
                 break;
 
             case 'tax_summary':
@@ -83,7 +135,7 @@ class ExpenseReportManager extends Component
                 if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
                 if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
                 if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
-                $this->reportData = $query->orderBy('expense_date')->get()->toArray();
+                $this->reportData = $query->orderBy('expense_date', 'desc')->get()->toArray();
                 break;
 
             case 'cost_center':
@@ -117,7 +169,27 @@ class ExpenseReportManager extends Component
         $callback = function() {
             $file = fopen('php://output', 'w');
             
-            if ($this->reportType === 'register') {
+            if ($this->reportType === 'category_summary') {
+                fputcsv($file, ['Category Name', 'Voucher Count', 'Total Spent (PKR)', 'Percentage (%)']);
+                foreach ($this->reportData as $row) {
+                    fputcsv($file, [
+                        $row['category_name'],
+                        $row['voucher_count'],
+                        $row['total_amount'],
+                        $row['percentage'] . '%',
+                    ]);
+                }
+            } elseif ($this->reportType === 'payment_methods') {
+                fputcsv($file, ['Payment Method', 'Voucher Count', 'Total Amount (PKR)', 'Percentage (%)']);
+                foreach ($this->reportData as $row) {
+                    fputcsv($file, [
+                        $row['payment_method'],
+                        $row['voucher_count'],
+                        $row['total_amount'],
+                        $row['percentage'] . '%',
+                    ]);
+                }
+            } elseif ($this->reportType === 'register') {
                 fputcsv($file, ['Voucher No', 'Date', 'Category', 'Vendor', 'Method', 'Tax', 'Discount', 'Total']);
                 foreach ($this->reportData as $row) {
                     fputcsv($file, [
@@ -188,16 +260,32 @@ class ExpenseReportManager extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         $branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
-        $categories = ExpenseCategory::where('marquee_id', $marqueeId)->where('is_active', true)->get();
-        $suppliers = Supplier::where('marquee_id', $marqueeId)->get();
+        $categories = ExpenseCategory::where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
+        $suppliers = Supplier::where('marquee_id', $marqueeId)->orderBy('name')->get();
+
+        // Calculate summary KPI cards for current view
+        $reportTotal = 0;
+        $reportCount = count($this->reportData);
+        if ($this->reportType === 'category_summary' || $this->reportType === 'payment_methods') {
+            $reportTotal = array_sum(array_column($this->reportData, 'total_amount'));
+        } elseif ($this->reportType === 'register' || $this->reportType === 'utility' || $this->reportType === 'tax_summary') {
+            $reportTotal = array_sum(array_column($this->reportData, 'total_amount'));
+        } elseif ($this->reportType === 'budget_vs_actual') {
+            $reportTotal = array_sum(array_column($this->reportData, 'consumed_amount'));
+        } elseif ($this->reportType === 'cost_center') {
+            $reportTotal = array_sum(array_column($this->reportData, 'total'));
+        }
 
         return view('livewire.finance.expense-report-manager', [
             'branches' => $branches,
             'categories' => $categories,
             'suppliers' => $suppliers,
+            'reportTotal' => $reportTotal,
+            'reportCount' => $reportCount,
         ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Account;
+use App\Models\Currency;
 use App\Models\Expense;
 use App\Models\ExpenseApproval;
 use App\Models\ExpenseApprovalRule;
@@ -37,23 +38,30 @@ class ExpenseService
         return DB::transaction(function () use ($expenseId) {
             $expense = Expense::findOrFail($expenseId);
 
-            if ($expense->status !== Expense::STATUS_DRAFT) {
-                throw new InvalidArgumentException("Only Draft expenses can be submitted.");
+            if (!in_array($expense->status, [Expense::STATUS_DRAFT, Expense::STATUS_SUBMITTED])) {
+                throw new InvalidArgumentException("Only Draft or Submitted expenses can be processed.");
             }
 
             // Check budget consumption warnings before submitting
             $this->checkBudgetWarning($expense);
 
+            $user = auth()->user();
+            $isAuthorized = $user && (
+                $user->isSuperAdmin() 
+                || ($user->role && in_array($user->role->name, ['owner', 'business_owner', 'accountant']))
+                || $user->hasPermission('approve_expenses')
+            );
+
             // Find matching approval rules
             $rule = $this->getNextApprovalRule($expense, 0);
 
-            if ($rule) {
+            if (!$isAuthorized && $rule) {
                 $expense->update([
                     'status' => Expense::STATUS_PENDING,
                 ]);
                 $this->notifyApprover($expense, $rule);
             } else {
-                // If no rules exist, auto-approve it
+                // If user is authorized or no rules exist, auto-approve and post
                 $expense->update([
                     'status' => Expense::STATUS_APPROVED,
                 ]);
@@ -566,6 +574,114 @@ class ExpenseService
             // If there's a discrepancy, we can post a Journal Voucher adjusting the balance (omitted here for simplicity, but easily added)
 
             return $reconciliation;
+        });
+    }
+
+    /**
+     * Generate the sequential expense number for an expense voucher.
+     */
+    public function generateNextExpenseNumber(int $marqueeId, ?int $branchId = null): string
+    {
+        $datePrefix = date('Ymd');
+        $query = Expense::withTrashed()->where('marquee_id', $marqueeId);
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $latest = (clone $query)->where('expense_number', 'like', "EXP-{$datePrefix}-%")
+            ->orderByRaw('CAST(SUBSTRING_INDEX(expense_number, "-", -1) AS UNSIGNED) DESC')
+            ->value('expense_number');
+
+        $nextSequence = 1;
+        if ($latest) {
+            $parts = explode('-', $latest);
+            $lastSeq = end($parts);
+            if (is_numeric($lastSeq)) {
+                $nextSequence = (int)$lastSeq + 1;
+            }
+        } else {
+            $overallLatest = Expense::withTrashed()
+                ->where('marquee_id', $marqueeId)
+                ->orderByRaw('CAST(SUBSTRING_INDEX(expense_number, "-", -1) AS UNSIGNED) DESC')
+                ->value('expense_number');
+            if ($overallLatest) {
+                $parts = explode('-', $overallLatest);
+                $lastSeq = end($parts);
+                if (is_numeric($lastSeq)) {
+                    $nextSequence = (int)$lastSeq + 1;
+                }
+            }
+        }
+
+        return "EXP-{$datePrefix}-" . str_pad((string)$nextSequence, 5, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Generate an expense immediately from a single recurring template.
+     */
+    public function generateSingleRecurringExpense(int $templateId, bool $autoSubmit = false): Expense
+    {
+        return DB::transaction(function () use ($templateId, $autoSubmit) {
+            $tmpl = RecurringExpense::findOrFail($templateId);
+
+            $expenseNumber = $this->generateNextExpenseNumber($tmpl->marquee_id, $tmpl->branch_id);
+            $currency = Currency::where('marquee_id', $tmpl->marquee_id)->where('is_base', true)->first()
+                ?? Currency::where('marquee_id', $tmpl->marquee_id)->first();
+
+            $expense = Expense::create([
+                'marquee_id' => $tmpl->marquee_id,
+                'branch_id' => $tmpl->branch_id,
+                'expense_number' => $expenseNumber,
+                'expense_date' => now(),
+                'department' => $tmpl->department,
+                'cost_center' => $tmpl->cost_center,
+                'expense_category_id' => $tmpl->expense_category_id,
+                'expense_type_id' => $tmpl->expense_type_id,
+                'supplier_id' => $tmpl->supplier_id,
+                'employee_id' => $tmpl->employee_id,
+                'currency_id' => $currency?->id,
+                'exchange_rate' => 1.000000,
+                'description' => "Recurring: " . $tmpl->description,
+                'amount' => $tmpl->amount,
+                'tax_amount' => $tmpl->tax_amount ?: 0,
+                'discount_amount' => $tmpl->discount_amount ?: 0,
+                'total_amount' => $tmpl->total_amount ?: $tmpl->amount,
+                'total_amount_base' => $tmpl->total_amount ?: $tmpl->amount,
+                'payment_method' => Expense::METHOD_CASH,
+                'payment_status' => 'Paid',
+                'status' => Expense::STATUS_DRAFT,
+            ]);
+
+            // Advance next scheduled date
+            $next = now();
+            switch ($tmpl->frequency) {
+                case 'Daily':
+                    $next->addDay();
+                    break;
+                case 'Weekly':
+                    $next->addWeek();
+                    break;
+                case 'Monthly':
+                    $next->addMonth();
+                    break;
+                case 'Quarterly':
+                    $next->addMonths(3);
+                    break;
+                case 'Yearly':
+                    $next->addYear();
+                    break;
+            }
+
+            $tmpl->update([
+                'last_generated_date' => now(),
+                'next_generation_date' => $next->format('Y-m-d'),
+            ]);
+
+            if ($autoSubmit) {
+                $this->submitExpense($expense->id);
+            }
+
+            return $expense->fresh();
         });
     }
 

@@ -18,6 +18,8 @@ use App\Models\PurchaseInvoice;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Services\ExpenseService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -85,18 +87,18 @@ class ExpenseForm extends Component
         $rules = [
             'expense_date' => 'required|date',
             'branch_id' => 'required|exists:branches,id',
+            'expense_type_id' => 'nullable|exists:expense_types,id',
             'department' => 'nullable|string|max:100',
             'cost_center' => 'nullable|string|max:100',
-            'expense_type_id' => 'required|exists:expense_types,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'employee_id' => 'nullable|exists:employees,id',
             'booking_id' => 'nullable|exists:bookings,id',
             'purchase_order_id' => 'nullable|exists:purchase_orders,id',
             'purchase_invoice_id' => 'nullable|exists:purchase_invoices,id',
-            'currency_id' => 'required|exists:currencies,id',
-            'exchange_rate' => 'required|numeric|min:0.000001',
-            'description' => 'nullable|string',
-            'internal_notes' => 'nullable|string',
+            'currency_id' => 'nullable|exists:currencies,id',
+            'exchange_rate' => 'nullable|numeric|min:0.000001',
+            'description' => 'nullable|string|max:1000',
+            'internal_notes' => 'nullable|string|max:1000',
             'payment_method' => 'required|in:Cash,Bank,Accounts Payable,Petty Cash',
             'cash_bank_account_id' => 'required_if:payment_method,Bank|nullable|exists:cash_bank_accounts,id',
             'petty_cash_account_id' => 'required_if:payment_method,Petty Cash|nullable|exists:petty_cash_accounts,id',
@@ -109,33 +111,14 @@ class ExpenseForm extends Component
             $rules['items'] = 'required|array|min:1';
             $rules['items.*.expense_category_id'] = 'required|exists:expense_categories,id';
             $rules['items.*.amount'] = 'required|numeric|min:0.01';
-            $rules['items.*.tax_amount'] = 'required|numeric|min:0';
-            $rules['items.*.discount_amount'] = 'required|numeric|min:0';
+            $rules['items.*.tax_amount'] = 'nullable|numeric|min:0';
+            $rules['items.*.discount_amount'] = 'nullable|numeric|min:0';
             $rules['items.*.description'] = 'nullable|string|max:255';
         } else {
             $rules['expense_category_id'] = 'required|exists:expense_categories,id';
             $rules['amount'] = 'required|numeric|min:0.01';
-            $rules['tax_amount'] = 'required|numeric|min:0';
-            $rules['discount_amount'] = 'required|numeric|min:0';
-        }
-
-        // Conditional Utility rules
-        if ($this->isUtilityBill()) {
-            $rules['utility_type'] = 'required|in:Electricity,Gas,Water,Internet,Telephone';
-            $rules['consumer_number'] = 'required|string|max:100';
-            $rules['billing_period'] = 'required|string|max:50';
-            $rules['previous_reading'] = 'nullable|numeric|min:0';
-            $rules['current_reading'] = 'nullable|numeric|min:0';
-            $rules['late_charges'] = 'required|numeric|min:0';
-        }
-
-        // Conditional Maintenance rules
-        if ($this->isMaintenance()) {
-            $rules['maintenance_type'] = 'required|string|max:100';
-            $rules['asset_name'] = 'required|string|max:100';
-            $rules['scheduled_date'] = 'required|date';
-            $rules['completion_date'] = 'nullable|date';
-            $rules['warranty_period_months'] = 'required|integer|min:0';
+            $rules['tax_amount'] = 'nullable|numeric|min:0';
+            $rules['discount_amount'] = 'nullable|numeric|min:0';
         }
 
         return $rules;
@@ -230,13 +213,27 @@ class ExpenseForm extends Component
             }
         } else {
             $this->expense_date = date('Y-m-d');
-            if ($user->branch_id) {
-                $this->branch_id = $user->branch_id;
-            }
+            $this->branch_id = $user->branch_id ?: Branch::where('marquee_id', $marqueeId)->value('id');
+            $this->payment_method = 'Cash';
             $this->items = [
                 ['expense_category_id' => '', 'description' => '', 'amount' => '', 'tax_amount' => 0.00, 'discount_amount' => 0.00, 'total_amount' => 0.00]
             ];
         }
+    }
+
+    public function updatedAmount()
+    {
+        $this->recalculateTotals();
+    }
+
+    public function updatedTaxAmount()
+    {
+        $this->recalculateTotals();
+    }
+
+    public function updatedDiscountAmount()
+    {
+        $this->recalculateTotals();
     }
 
     public function updatedIsMultiline()
@@ -283,14 +280,14 @@ class ExpenseForm extends Component
     public function recalculateTotals()
     {
         if ($this->is_multiline) {
-            $subtotal = 0;
-            $tax = 0;
-            $discount = 0;
+            $subtotal = 0.0;
+            $tax = 0.0;
+            $discount = 0.0;
 
             foreach ($this->items as $index => $item) {
-                $itemAmt = (float)($item['amount'] ?: 0);
-                $itemTax = (float)($item['tax_amount'] ?: 0);
-                $itemDisc = (float)($item['discount_amount'] ?: 0);
+                $itemAmt = (isset($item['amount']) && is_numeric($item['amount'])) ? (float)$item['amount'] : 0.0;
+                $itemTax = (isset($item['tax_amount']) && is_numeric($item['tax_amount'])) ? (float)$item['tax_amount'] : 0.0;
+                $itemDisc = (isset($item['discount_amount']) && is_numeric($item['discount_amount'])) ? (float)$item['discount_amount'] : 0.0;
 
                 $total = $itemAmt + $itemTax - $itemDisc;
                 $this->items[$index]['total_amount'] = $total;
@@ -305,10 +302,12 @@ class ExpenseForm extends Component
             $this->discount_amount = $discount;
         }
 
-        // Add late charges to utility bill subtotal if applicable
-        $late = $this->isUtilityBill() ? (float)($this->late_charges ?: 0) : 0;
+        $amt = (isset($this->amount) && is_numeric($this->amount)) ? (float)$this->amount : 0.0;
+        $tax = (isset($this->tax_amount) && is_numeric($this->tax_amount)) ? (float)$this->tax_amount : 0.0;
+        $disc = (isset($this->discount_amount) && is_numeric($this->discount_amount)) ? (float)$this->discount_amount : 0.0;
+        $late = ($this->isUtilityBill() && isset($this->late_charges) && is_numeric($this->late_charges)) ? (float)$this->late_charges : 0.0;
 
-        $this->total_amount = $this->amount + $this->tax_amount - $this->discount_amount + $late;
+        $this->total_amount = $amt + $tax - $disc + $late;
     }
 
     public function isUtilityBill(): bool
@@ -329,14 +328,48 @@ class ExpenseForm extends Component
         return in_array($code, ['maintenance', 'repairs', 'asset_maintenance']);
     }
 
+    public function generateNextExpenseNumber(int $marqueeId, ?int $branchId = null): string
+    {
+        $datePrefix = date('Ymd');
+        
+        $latest = Expense::withTrashed()
+            ->where('marquee_id', $marqueeId)
+            ->where('expense_number', 'like', "EXP-{$datePrefix}-%")
+            ->orderByRaw('CAST(SUBSTRING_INDEX(expense_number, "-", -1) AS UNSIGNED) DESC')
+            ->value('expense_number');
+
+        $nextSequence = 1;
+        if ($latest) {
+            $parts = explode('-', $latest);
+            $lastSeq = end($parts);
+            if (is_numeric($lastSeq)) {
+                $nextSequence = (int)$lastSeq + 1;
+            }
+        } else {
+            $overallLatest = Expense::withTrashed()
+                ->where('marquee_id', $marqueeId)
+                ->orderByRaw('CAST(SUBSTRING_INDEX(expense_number, "-", -1) AS UNSIGNED) DESC')
+                ->value('expense_number');
+            if ($overallLatest) {
+                $parts = explode('-', $overallLatest);
+                $lastSeq = end($parts);
+                if (is_numeric($lastSeq)) {
+                    $nextSequence = (int)$lastSeq + 1;
+                }
+            }
+        }
+
+        return "EXP-{$datePrefix}-" . str_pad((string)$nextSequence, 5, '0', STR_PAD_LEFT);
+    }
+
     public function saveDraft()
     {
-        $this->saveExpense(Expense::STATUS_DRAFT);
+        return $this->saveExpense(Expense::STATUS_DRAFT);
     }
 
     public function submit()
     {
-        $this->saveExpense(Expense::STATUS_SUBMITTED);
+        return $this->saveExpense(Expense::STATUS_SUBMITTED);
     }
 
     protected function saveExpense(string $statusToSet)
@@ -344,52 +377,63 @@ class ExpenseForm extends Component
         $this->recalculateTotals();
         $this->validate();
 
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
-        // Auto Number generation
-        if (!$this->expense_number) {
-            $count = Expense::withTrashed()->where('marquee_id', $marqueeId)->count();
-            $this->expense_number = 'EXP-' . date('Ymd') . '-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
-        }
+        // Ensure base currency
+        $resolvedCurrencyId = $this->currency_id 
+            ?: (Currency::where('marquee_id', $marqueeId)->where('is_base', true)->value('id') 
+                ?? Currency::where('marquee_id', $marqueeId)->value('id'));
+        
+        // Auto resolve operational type if not set
+        $resolvedTypeId = $this->expense_type_id 
+            ?: ExpenseType::where('marquee_id', $marqueeId)->value('id');
 
         // Calculate base totals
-        $rate = (float)($this->exchange_rate ?: 1.00);
+        $rate = is_numeric($this->exchange_rate) && (float)$this->exchange_rate > 0 ? (float)$this->exchange_rate : 1.0;
         $totalBase = $this->total_amount * $rate;
+
+        // Guaranteed unique sequence number on create
+        $expenseNum = $this->editId 
+            ? Expense::where('id', $this->editId)->value('expense_number')
+            : $this->generateNextExpenseNumber($marqueeId, $this->branch_id);
 
         $data = [
             'marquee_id' => $marqueeId,
             'branch_id' => $this->branch_id ?: null,
-            'expense_number' => $this->expense_number,
+            'expense_number' => $expenseNum,
             'expense_date' => $this->expense_date,
             'department' => $this->department ?: null,
             'cost_center' => $this->cost_center ?: null,
             'expense_category_id' => !$this->is_multiline ? $this->expense_category_id : null,
-            'expense_type_id' => $this->expense_type_id,
+            'expense_type_id' => $resolvedTypeId,
             'supplier_id' => $this->supplier_id ?: null,
             'employee_id' => $this->employee_id ?: null,
             'booking_id' => $this->booking_id ?: null,
             'purchase_order_id' => $this->purchase_order_id ?: null,
             'purchase_invoice_id' => $this->purchase_invoice_id ?: null,
-            'currency_id' => $this->currency_id,
+            'currency_id' => $resolvedCurrencyId,
             'exchange_rate' => $rate,
             'description' => $this->description,
             'internal_notes' => $this->internal_notes,
-            'amount' => $this->amount,
-            'tax_amount' => $this->tax_amount,
-            'discount_amount' => $this->discount_amount,
-            'total_amount' => $this->total_amount,
-            'total_amount_base' => $totalBase,
+            'amount' => (float)($this->amount ?: 0),
+            'tax_amount' => (float)($this->tax_amount ?: 0),
+            'discount_amount' => (float)($this->discount_amount ?: 0),
+            'total_amount' => (float)($this->total_amount ?: $this->amount ?: 0),
+            'total_amount_base' => $totalBase ?: (float)($this->total_amount ?: $this->amount ?: 0),
             'payment_method' => $this->payment_method,
             'cash_bank_account_id' => $this->payment_method === 'Bank' ? $this->cash_bank_account_id : null,
             'petty_cash_account_id' => $this->payment_method === 'Petty Cash' ? $this->petty_cash_account_id : null,
             'payment_status' => $this->payment_method === 'Accounts Payable' ? 'Unpaid' : 'Paid',
-            'status' => $statusToSet,
+            'status' => Expense::STATUS_DRAFT, // Always initialize as draft before submission workflow
             'due_date' => $this->due_date ?: null,
             'reference_number' => $this->reference_number ?: null,
         ];
 
         try {
-            DB::transaction(function () use ($data, $statusToSet) {
+            $createdExpense = null;
+
+            DB::transaction(function () use ($data, $statusToSet, &$createdExpense) {
                 if ($this->editId) {
                     $expense = Expense::findOrFail($this->editId);
                     $expense->update($data);
@@ -405,46 +449,46 @@ class ExpenseForm extends Component
                             'expense_id' => $expense->id,
                             'expense_category_id' => $item['expense_category_id'],
                             'description' => $item['description'] ?: null,
-                            'amount' => $item['amount'],
-                            'tax_amount' => $item['tax_amount'],
-                            'discount_amount' => $item['discount_amount'],
-                            'total_amount' => $item['total_amount'],
+                            'amount' => (float)($item['amount'] ?: 0),
+                            'tax_amount' => (float)($item['tax_amount'] ?: 0),
+                            'discount_amount' => (float)($item['discount_amount'] ?: 0),
+                            'total_amount' => (float)($item['total_amount'] ?: 0),
                         ]);
                     }
                 }
 
-                // Create/Update Utility Detail
-                if ($this->isUtilityBill()) {
+                // Create/Update Utility Detail only if specific details provided
+                if ($this->isUtilityBill() && !empty($this->consumer_number)) {
                     $expense->utilityBill()->updateOrCreate(
                         ['expense_id' => $expense->id],
                         [
-                            'utility_type' => $this->utility_type,
+                            'utility_type' => $this->utility_type ?: 'Electricity',
                             'consumer_number' => $this->consumer_number,
                             'account_number' => $this->account_number ?: null,
-                            'billing_period' => $this->billing_period,
+                            'billing_period' => $this->billing_period ?: date('F Y'),
                             'previous_reading' => $this->previous_reading ?: null,
                             'current_reading' => $this->current_reading ?: null,
                             'late_charges' => $this->late_charges ?: 0.00,
                         ]
                     );
                 } else {
-                    $expense->utilityBill()->delete();
+                    $expense->utilityBill()?->delete();
                 }
 
-                // Create/Update Maintenance Detail
-                if ($this->isMaintenance()) {
+                // Create/Update Maintenance Detail only if specific asset details provided
+                if ($this->isMaintenance() && !empty($this->asset_name)) {
                     $expense->maintenanceRecord()->updateOrCreate(
                         ['expense_id' => $expense->id],
                         [
-                            'maintenance_type' => $this->maintenance_type,
+                            'maintenance_type' => $this->maintenance_type ?: 'General Repair',
                             'asset_name' => $this->asset_name,
-                            'scheduled_date' => $this->scheduled_date,
+                            'scheduled_date' => $this->scheduled_date ?: date('Y-m-d'),
                             'completion_date' => $this->completion_date ?: null,
                             'warranty_period_months' => $this->warranty_period_months ?: 0,
                         ]
                     );
                 } else {
-                    $expense->maintenanceRecord()->delete();
+                    $expense->maintenanceRecord()?->delete();
                 }
 
                 // Upload Attachments
@@ -460,15 +504,25 @@ class ExpenseForm extends Component
                     ]);
                 }
 
-                // Auto-run submission workflow triggers if Status is Submitted
+                // If user clicked "Record & Post Expense", submit through workflow
                 if ($statusToSet === Expense::STATUS_SUBMITTED) {
                     app(ExpenseService::class)->submitExpense($expense->id);
                 }
+
+                $createdExpense = $expense;
             });
 
-            session()->flash('success', 'Expense recorded successfully.');
+            // Reset state
+            $this->expense_number = null;
+
+            $msg = ($statusToSet === Expense::STATUS_SUBMITTED) 
+                ? "Expense {$createdExpense->expense_number} recorded and processed successfully." 
+                : "Expense {$createdExpense->expense_number} saved as draft.";
+
+            session()->flash('success', $msg);
             return redirect()->route('expenses.index');
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("ExpenseForm save error: " . $e->getMessage());
             session()->flash('error', $e->getMessage());
         }
     }

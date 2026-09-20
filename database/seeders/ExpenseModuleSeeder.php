@@ -88,37 +88,61 @@ class ExpenseModuleSeeder extends Seeder
                     );
                 }
 
-                // Retrieve Mapped Accounts from pre-seeded Chart of Accounts
-                $salaryAccount = Account::where('marquee_id', $marquee->id)->where('account_code', '5501')->first();
-                $utilityAccount = Account::where('marquee_id', $marquee->id)->where('account_code', '5502')->first();
-                $maintenanceAccount = Account::where('marquee_id', $marquee->id)->where('account_code', '5503')->first();
-                $marketingAccount = Account::where('marquee_id', $marquee->id)->where('account_code', '5504')->first();
+                // 26 Standard Marquee Operational Expense Categories
+                $categoriesData = [
+                    ['code' => 'KITCHEN', 'name' => 'Kitchen Purchase', 'gl_code' => '5101', 'order' => 1],
+                    ['code' => 'GEN_DIESEL', 'name' => 'Generator Rent + Diesel', 'gl_code' => '5102', 'order' => 2],
+                    ['code' => 'OUTSOURCE', 'name' => 'Out Sources', 'gl_code' => '5103', 'order' => 3],
+                    ['code' => 'DAILY_WAGES', 'name' => 'Daily Wages', 'gl_code' => '5104', 'order' => 4],
+                    ['code' => 'LAUNDRY', 'name' => 'Laundry', 'gl_code' => '5105', 'order' => 5],
+                    ['code' => 'TRANSPORT', 'name' => 'Transport', 'gl_code' => '5106', 'order' => 6],
+                    ['code' => 'ELEC_BILL', 'name' => 'Electricity Bill', 'gl_code' => '5201', 'order' => 7],
+                    ['code' => 'SNGPL_BILL', 'name' => 'SNGPL Bill', 'gl_code' => '5202', 'order' => 8],
+                    ['code' => 'WASA_BILL', 'name' => 'Wasa Bill', 'gl_code' => '5203', 'order' => 9],
+                    ['code' => 'INTERNET_BILL', 'name' => 'Internet Bill', 'gl_code' => '5204', 'order' => 10],
+                    ['code' => 'RENT', 'name' => 'Rent', 'gl_code' => '5301', 'order' => 11],
+                    ['code' => 'SALARY', 'name' => 'Salary', 'gl_code' => '5302', 'order' => 12],
+                    ['code' => 'EOBI', 'name' => 'EOBI', 'gl_code' => '5303', 'order' => 13],
+                    ['code' => 'SOC_SEC', 'name' => 'Social Security', 'gl_code' => '5304', 'order' => 14],
+                    ['code' => 'UNIFORM', 'name' => 'Uniform', 'gl_code' => '5305', 'order' => 15],
+                    ['code' => 'PAINT', 'name' => 'Paint', 'gl_code' => '5306', 'order' => 16],
+                    ['code' => 'STATIONERY', 'name' => 'Stationery', 'gl_code' => '5307', 'order' => 17],
+                    ['code' => 'REFRESHMENT', 'name' => 'Refreshment', 'gl_code' => '5308', 'order' => 18],
+                    ['code' => 'TRAVELING', 'name' => 'Traveling', 'gl_code' => '5309', 'order' => 19],
+                    ['code' => 'LEGAL', 'name' => 'Legal', 'gl_code' => '5310', 'order' => 20],
+                    ['code' => 'MISC_GEN', 'name' => 'Misc/General', 'gl_code' => '5311', 'order' => 21],
+                    ['code' => 'COMMISSION', 'name' => 'Commission', 'gl_code' => '5401', 'order' => 22],
+                    ['code' => 'BANK_CHARGES', 'name' => 'Bank Charges', 'gl_code' => '5601', 'order' => 23],
+                    ['code' => 'CHARITY', 'name' => 'Charity', 'gl_code' => '5701', 'order' => 24],
+                    ['code' => 'WHT_TAX', 'name' => 'With Holding Taxes', 'gl_code' => '5801', 'order' => 25],
+                    ['code' => 'SALES_TAX', 'name' => 'Sales Taxes', 'gl_code' => '5802', 'order' => 26],
+                ];
 
-                // Categories
-                $catSalaries = ExpenseCategory::updateOrCreate(
-                    ['marquee_id' => $marquee->id, 'category_code' => 'SAL'],
-                    ['name' => 'Salaries & Advances', 'parent_id' => null, 'default_account_id' => $salaryAccount?->id, 'default_tax_rate' => 0.00, 'default_budget_amount' => 500000.00, 'display_order' => 1, 'is_active' => true]
-                );
+                $catElec = null;
+                $catMaint = null;
 
-                $catUtilities = ExpenseCategory::updateOrCreate(
-                    ['marquee_id' => $marquee->id, 'category_code' => 'UTL'],
-                    ['name' => 'Utilities (Bills)', 'parent_id' => null, 'default_account_id' => $utilityAccount?->id, 'default_tax_rate' => 15.00, 'default_budget_amount' => 150000.00, 'display_order' => 2, 'is_active' => true]
-                );
+                foreach ($categoriesData as $cData) {
+                    $acc = Account::where('marquee_id', $marquee->id)->where('account_code', $cData['gl_code'])->first();
+                    $createdCat = ExpenseCategory::updateOrCreate(
+                        ['marquee_id' => $marquee->id, 'category_code' => $cData['code']],
+                        [
+                            'name' => $cData['name'],
+                            'parent_id' => null,
+                            'default_account_id' => $acc?->id,
+                            'default_tax_rate' => 0.00,
+                            'default_budget_amount' => 0.00,
+                            'display_order' => $cData['order'],
+                            'is_active' => true,
+                        ]
+                    );
 
-                $catElec = ExpenseCategory::updateOrCreate(
-                    ['marquee_id' => $marquee->id, 'category_code' => 'UTL-E'],
-                    ['name' => 'Electricity Bills', 'parent_id' => $catUtilities->id, 'default_account_id' => $utilityAccount?->id, 'default_tax_rate' => 17.00, 'default_budget_amount' => 100000.00, 'display_order' => 1, 'is_active' => true]
-                );
-
-                $catMaint = ExpenseCategory::updateOrCreate(
-                    ['marquee_id' => $marquee->id, 'category_code' => 'MNT'],
-                    ['name' => 'Maintenance Repairs', 'parent_id' => null, 'default_account_id' => $maintenanceAccount?->id, 'default_tax_rate' => 5.00, 'default_budget_amount' => 80000.00, 'display_order' => 3, 'is_active' => true]
-                );
-
-                $catPromo = ExpenseCategory::updateOrCreate(
-                    ['marquee_id' => $marquee->id, 'category_code' => 'MKT'],
-                    ['name' => 'Marketing Campaigns', 'parent_id' => null, 'default_account_id' => $marketingAccount?->id, 'default_tax_rate' => 0.00, 'default_budget_amount' => 120000.00, 'display_order' => 4, 'is_active' => true]
-                );
+                    if ($cData['code'] === 'ELEC_BILL') {
+                        $catElec = $createdCat;
+                    }
+                    if ($cData['code'] === 'PAINT') {
+                        $catMaint = $createdCat;
+                    }
+                }
 
                 // Fetch a default branch
                 $branch = Branch::where('marquee_id', $marquee->id)->first();

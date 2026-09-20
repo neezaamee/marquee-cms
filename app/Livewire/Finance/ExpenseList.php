@@ -95,6 +95,29 @@ class ExpenseList extends Component
         session()->flash('success', "Posted {$count} expenses to general ledger.");
     }
 
+    public function postDirectly($id, ExpenseService $expenseService)
+    {
+        try {
+            $expense = Expense::findOrFail($id);
+            if (!in_array($expense->status, [Expense::STATUS_DRAFT, Expense::STATUS_SUBMITTED, Expense::STATUS_APPROVED])) {
+                session()->flash('error', 'Expense cannot be posted directly in its current status.');
+                return;
+            }
+
+            if ($expense->status === Expense::STATUS_DRAFT || $expense->status === Expense::STATUS_SUBMITTED) {
+                $expenseService->submitExpense($expense->id);
+            } elseif ($expense->status === Expense::STATUS_APPROVED) {
+                $expenseService->postExpenseJournalEntry($expense);
+            }
+
+            $freshExpense = $expense->fresh();
+            session()->flash('success', "Expense {$freshExpense->expense_number} posted to General Ledger successfully (Status: {$freshExpense->status}).");
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("ExpenseList postDirectly error: " . $e->getMessage());
+            session()->flash('error', 'Failed to post expense: ' . $e->getMessage());
+        }
+    }
+
     public function delete($id, ExpenseRepositoryInterface $repository)
     {
         $expense = Expense::findOrFail($id);

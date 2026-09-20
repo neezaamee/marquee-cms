@@ -5,6 +5,20 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-09-20
+
+### Added
+- **Standardized 26 Marquee Chart of Accounts & Expense Categories**:
+  - Added system-wide standardized marquee expense accounts: Kitchen Purchase, Utility Bills (SNGPL, Wasa, Internet, Electricity), Generator Rent & Diesel, Stationery, Refreshment, Charity, Rent, Outsourced Services, Traveling, Laundry, Daily Wages, Salaries, Transport, Maintenance & Paint, Taxes (WHT, Sales Tax, Social Security, EOBI), Uniforms, Legal & Professional, Commission, and Bank Charges.
+  - Added database migration `2026_09_20_000001_ensure_marquee_standard_expense_accounts_and_categories.php` and updated `AccountingModuleSeeder` and `ExpenseModuleSeeder` to maintain consistency across all tenant environments.
+- **Enterprise Expense Register Modernization**:
+  - Simplified and streamlined the Expense Entry Form (`ExpenseForm.php`) removing redundant fields and improving usability.
+  - Aligned Petty Cash Drawers, Budgets, Recurring Expenses, and Expense Reports with standardized marquee accounts.
+- **Business Owner Dashboard Link & Metric Reconciliation**:
+  - Audited and repaired all KPI cards, stat widgets, and navigation links on `BusinessOwnerDashboard` and `dashboard.blade.php`.
+  - Fixed unrecognized 'Posted' operational expenses query to accurately reflect financial liabilities.
+  - Consolidated petty cash drawers into Cash in Hand drawer reconciliations.
+
 ## [1.10.0] - 2026-09-18
 
 ### Added

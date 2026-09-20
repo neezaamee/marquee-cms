@@ -8,6 +8,7 @@ use App\Models\ExpenseCategory;
 use App\Models\ExpenseType;
 use App\Models\RecurringExpense;
 use App\Models\Supplier;
+use App\Services\ExpenseService;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -38,15 +39,15 @@ class RecurringExpenseManager extends Component
     protected $rules = [
         'branch_id' => 'nullable|exists:branches,id',
         'expense_category_id' => 'required|exists:expense_categories,id',
-        'expense_type_id' => 'required|exists:expense_types,id',
+        'expense_type_id' => 'nullable|exists:expense_types,id',
         'supplier_id' => 'nullable|exists:suppliers,id',
         'employee_id' => 'nullable|exists:employees,id',
         'department' => 'nullable|string|max:100',
         'cost_center' => 'nullable|string|max:100',
-        'description' => 'required|string',
+        'description' => 'required|string|max:500',
         'amount' => 'required|numeric|min:0.01',
-        'tax_amount' => 'required|numeric|min:0',
-        'discount_amount' => 'required|numeric|min:0',
+        'tax_amount' => 'nullable|numeric|min:0',
+        'discount_amount' => 'nullable|numeric|min:0',
         'frequency' => 'required|in:Daily,Weekly,Monthly,Quarterly,Yearly',
         'start_date' => 'required|date',
         'end_date' => 'nullable|date|after_or_equal:start_date',
@@ -70,11 +71,11 @@ class RecurringExpenseManager extends Component
         $this->department = '';
         $this->cost_center = '';
         $this->description = '';
-        $this->amount = 0.00;
+        $this->amount = '';
         $this->tax_amount = 0.00;
         $this->discount_amount = 0.00;
         $this->frequency = 'Monthly';
-        $this->start_date = '';
+        $this->start_date = date('Y-m-d');
         $this->end_date = '';
         $this->is_active = true;
         $this->editId = null;
@@ -90,8 +91,15 @@ class RecurringExpenseManager extends Component
     {
         $this->validate();
 
-        $marqueeId = auth()->user()->marquee_id;
-        $total = $this->amount + $this->tax_amount - $this->discount_amount;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+
+        $resolvedTypeId = $this->expense_type_id 
+            ?: ExpenseType::where('marquee_id', $marqueeId)->value('id');
+
+        $tax = (float)($this->tax_amount ?: 0);
+        $discount = (float)($this->discount_amount ?: 0);
+        $total = (float)$this->amount + $tax - $discount;
 
         // Calculate next generation date
         $next = now();
@@ -103,20 +111,20 @@ class RecurringExpenseManager extends Component
             'marquee_id' => $marqueeId,
             'branch_id' => $this->branch_id ?: null,
             'expense_category_id' => $this->expense_category_id,
-            'expense_type_id' => $this->expense_type_id,
+            'expense_type_id' => $resolvedTypeId,
             'supplier_id' => $this->supplier_id ?: null,
             'employee_id' => $this->employee_id ?: null,
             'department' => $this->department ?: null,
             'cost_center' => $this->cost_center ?: null,
             'description' => $this->description,
-            'amount' => $this->amount,
-            'tax_amount' => $this->tax_amount,
-            'discount_amount' => $this->discount_amount,
+            'amount' => (float)$this->amount,
+            'tax_amount' => $tax,
+            'discount_amount' => $discount,
             'total_amount' => $total,
             'frequency' => $this->frequency,
             'start_date' => $this->start_date,
             'end_date' => $this->end_date ?: null,
-            'is_active' => $this->is_active,
+            'is_active' => (bool)$this->is_active,
         ];
 
         if ($this->editId) {
@@ -126,7 +134,7 @@ class RecurringExpenseManager extends Component
         } else {
             $data['next_generation_date'] = $next->format('Y-m-d');
             RecurringExpense::create($data);
-            session()->flash('success', 'Recurring expense template created.');
+            session()->flash('success', 'Recurring expense template created successfully.');
         }
 
         $this->isFormOpen = false;
@@ -160,6 +168,16 @@ class RecurringExpenseManager extends Component
         $template = RecurringExpense::findOrFail($id);
         $template->update(['is_active' => !$template->is_active]);
         session()->flash('success', 'Template state updated.');
+    }
+
+    public function generateNow($id, ExpenseService $expenseService)
+    {
+        try {
+            $expense = $expenseService->generateSingleRecurringExpense($id, true);
+            session()->flash('success', "Voucher {$expense->expense_number} ({$expense->total_amount} PKR) generated and posted to GL successfully.");
+        } catch (\Exception $e) {
+            session()->flash('error', "Failed to generate expense: " . $e->getMessage());
+        }
     }
 
     public function skipCycle($id)
@@ -198,16 +216,19 @@ class RecurringExpenseManager extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         $templates = RecurringExpense::where('marquee_id', $marqueeId)
-            ->with(['branch', 'category', 'type'])
+            ->with(['branch', 'category', 'type', 'supplier'])
+            ->orderBy('is_active', 'desc')
+            ->orderBy('next_generation_date')
             ->paginate(10);
 
         $branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
-        $categories = ExpenseCategory::where('marquee_id', $marqueeId)->where('is_active', true)->get();
+        $categories = ExpenseCategory::where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
         $expenseTypes = ExpenseType::where('marquee_id', $marqueeId)->where('is_active', true)->get();
-        $suppliers = Supplier::where('marquee_id', $marqueeId)->get();
+        $suppliers = Supplier::where('marquee_id', $marqueeId)->orderBy('name')->get();
         $employees = Employee::where('marquee_id', $marqueeId)->where('status', 'active')->get();
 
         $departments = [

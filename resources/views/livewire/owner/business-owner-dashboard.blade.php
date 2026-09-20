@@ -130,7 +130,7 @@
         <div class="row g-3 mb-3">
             <!-- 1. Total Sales -->
             <div class="col-6 col-md-4 col-xl">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -145,19 +145,23 @@
                                         Rs. {{ number_format($totalSales / 1000, 1) }}k
                                     @endif
                                 </h3>
-                                <span class="fs-11 text-muted">{{ $totalBookingsPeriod }} event bookings</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">{{ $totalBookingsPeriod }} event bookings</span>
+                                    <span class="fas fa-arrow-right fs-11 text-primary ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-chart-line fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('bookings.index') }}" class="stretched-link" title="View Bookings Register"></a>
                 </div>
             </div>
 
             <!-- 2. Total Purchases -->
             <div class="col-6 col-md-4 col-xl">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -172,19 +176,23 @@
                                         Rs. {{ number_format($totalPurchases / 1000, 1) }}k
                                     @endif
                                 </h3>
-                                <span class="fs-11 text-muted">Raw inventory & vendor bills</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Raw inventory & bills</span>
+                                    <span class="fas fa-arrow-right fs-11 text-warning ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-shopping-cart fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('purchases.dashboard') }}" class="stretched-link" title="View Purchases & Procurement Hub"></a>
                 </div>
             </div>
 
             <!-- 3. Total Number of Guests -->
             <div class="col-6 col-md-4 col-xl">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -193,19 +201,23 @@
                                     <span class="badge bg-info-subtle text-info rounded-pill" style="font-size: 8px;">Pax</span>
                                 </div>
                                 <h3 class="mb-0 fw-bolder text-info mt-1">{{ number_format($totalGuests) }}</h3>
-                                <span class="fs-11 text-muted">Avg. {{ $averageGuestsPerEvent }} pax / event</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Avg. {{ $averageGuestsPerEvent }} pax / event</span>
+                                    <span class="fas fa-arrow-right fs-11 text-info ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-users fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('bookings.index') }}" class="stretched-link" title="View Guest Headcounts & Events"></a>
                 </div>
             </div>
 
             <!-- 4. Bank Balance -->
             <div class="col-6 col-md-6 col-xl">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -220,19 +232,23 @@
                                         Rs. {{ number_format($bankBalance / 1000, 1) }}k
                                     @endif
                                 </h3>
-                                <span class="fs-11 text-muted">Consolidated bank liquidity</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Bank accounts & ledger</span>
+                                    <span class="fas fa-arrow-right fs-11 text-primary ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-university fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('finance.cash-bank') }}" class="stretched-link" title="View Bank Accounts & Ledgers"></a>
                 </div>
             </div>
 
             <!-- 5. Cash in Hand -->
             <div class="col-6 col-md-6 col-xl">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -247,13 +263,17 @@
                                         Rs. {{ number_format($cashInHand / 1000, 1) }}k
                                     @endif
                                 </h3>
-                                <span class="fs-11 text-muted">Counter & petty drawer</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Counter & petty drawer</span>
+                                    <span class="fas fa-arrow-right fs-11 text-success ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-money-bill-wave fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('expenses.petty-cash') }}" class="stretched-link" title="View Petty Cash & Cash Drawers"></a>
                 </div>
             </div>
         </div>
@@ -262,7 +282,7 @@
         <div class="row g-3 mb-3">
             <!-- 1. Realized Revenue -->
             <div class="col-6 col-md-4 col-xxl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -270,19 +290,23 @@
                                     <h6 class="text-700 fs-11 mb-0">Realized Revenue</h6>
                                 </div>
                                 <h3 class="mb-0 fw-bolder text-success mt-1">Rs. {{ number_format($realizedRevenue / 1000, 1) }}k</h3>
-                                <span class="fs-11 text-muted">From completed events</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Completed events</span>
+                                    <span class="fas fa-arrow-right fs-11 text-success ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-hand-holding-usd fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('finance.revenue') }}" class="stretched-link" title="View Realized Revenue Register"></a>
                 </div>
             </div>
 
             <!-- 2. Customer Advance Deposits Held -->
             <div class="col-6 col-md-4 col-xxl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -291,55 +315,67 @@
                                     <span class="badge bg-info-subtle text-info rounded-pill" style="font-size: 8px;">Liability</span>
                                 </div>
                                 <h3 class="mb-0 fw-bolder text-info mt-1">Rs. {{ number_format($customerAdvanceHeld / 1000, 1) }}k</h3>
-                                <span class="fs-11 text-muted">Upcoming token deposits</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Upcoming token deposits</span>
+                                    <span class="fas fa-arrow-right fs-11 text-info ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-piggy-bank fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('finance.advance-liabilities') }}" class="stretched-link" title="View Customer Advance Liabilities"></a>
                 </div>
             </div>
 
             <!-- 3. Pending Receivables -->
             <div class="col-6 col-md-4 col-xxl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Receivables Due</h6>
                                 <h3 class="mb-0 fw-bolder text-warning">Rs. {{ number_format($pendingReceivables / 1000, 1) }}k</h3>
-                                <span class="fs-11 text-muted">Outstanding balances</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Outstanding balances</span>
+                                    <span class="fas fa-arrow-right fs-11 text-warning ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-file-invoice fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('finance.payments') }}" class="stretched-link" title="View Receivables & Payment Collections"></a>
                 </div>
             </div>
 
             <!-- 4. Operating Expenses -->
             <div class="col-6 col-md-4 col-xxl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Expenses Paid</h6>
                                 <h3 class="mb-0 fw-bolder text-danger">Rs. {{ number_format($operatingExpenses / 1000, 1) }}k</h3>
-                                <span class="fs-11 text-muted">Approved operational bills</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Approved & posted bills</span>
+                                    <span class="fas fa-arrow-right fs-11 text-danger ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-danger-subtle text-danger rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-receipt fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('expenses.dashboard') }}" class="stretched-link" title="View Operating Expenses Dashboard"></a>
                 </div>
             </div>
 
             <!-- 5. Net Operating Margin -->
             <div class="col-6 col-md-4 col-xxl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -347,31 +383,39 @@
                                 <h3 class="mb-0 fw-bolder {{ $netOperatingCashflow >= 0 ? 'text-primary' : 'text-danger' }}">
                                     Rs. {{ number_format($netOperatingCashflow / 1000, 1) }}k
                                 </h3>
-                                <span class="fs-11 text-muted">Revenue - Expenses</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Revenue - Expenses</span>
+                                    <span class="fas fa-arrow-right fs-11 text-primary ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-balance-scale fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('finance.profit-loss') }}" class="stretched-link" title="View Profit & Loss Statement"></a>
                 </div>
             </div>
 
             <!-- 6. Total Bookings -->
             <div class="col-6 col-md-4 col-xxl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Total Bookings</h6>
                                 <h3 class="mb-0 fw-bolder text-dark">{{ $totalBookings }}</h3>
-                                <span class="fs-11 text-success fw-semi-bold">{{ $confirmedBookings }} Confirmed</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-success fw-semi-bold">{{ $confirmedBookings }} Confirmed</span>
+                                    <span class="fas fa-arrow-right fs-11 text-secondary ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-secondary-subtle text-secondary rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-calendar-check fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('bookings.index') }}" class="stretched-link" title="View All Banquet Bookings"></a>
                 </div>
             </div>
         </div>
@@ -381,7 +425,7 @@
             <div class="card-body p-2 p-md-3">
                 <div class="row g-2 align-items-center text-center text-md-start">
                     <!-- Stat 1: Collection Rate -->
-                    <div class="col-6 col-md-4 col-xl-2 border-end-md">
+                    <div class="col-6 col-md-4 col-xl-2 border-end-md position-relative">
                         <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
                             <div class="avatar avatar-m {{ $collectionRate >= 70 ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning' }} rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-check-double"></span>
@@ -392,10 +436,11 @@
                                 <span class="text-muted fs-11 d-block">Recovered</span>
                             </div>
                         </div>
+                        <a href="{{ route('finance.payments') }}" class="stretched-link" title="View Customer Receipts"></a>
                     </div>
 
                     <!-- Stat 2: Net Profit Margin -->
-                    <div class="col-6 col-md-4 col-xl-2 border-end-md">
+                    <div class="col-6 col-md-4 col-xl-2 border-end-md position-relative">
                         <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
                             <div class="avatar avatar-m {{ $profitMarginPct >= 0 ? 'bg-primary-subtle text-primary' : 'bg-danger-subtle text-danger' }} rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-percentage"></span>
@@ -406,10 +451,11 @@
                                 <span class="text-muted fs-11 d-block">Net / Realized</span>
                             </div>
                         </div>
+                        <a href="{{ route('finance.profit-loss') }}" class="stretched-link" title="View Profit & Loss Statement"></a>
                     </div>
 
                     <!-- Stat 3: Avg Booking Value -->
-                    <div class="col-6 col-md-4 col-xl-2 border-end-md">
+                    <div class="col-6 col-md-4 col-xl-2 border-end-md position-relative">
                         <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
                             <div class="avatar avatar-m bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-tag"></span>
@@ -426,10 +472,11 @@
                                 <span class="text-muted fs-11 d-block">Per booking</span>
                             </div>
                         </div>
+                        <a href="{{ route('bookings.report') }}" class="stretched-link" title="View Booking Reports"></a>
                     </div>
 
                     <!-- Stat 4: Avg Spend Per Guest -->
-                    <div class="col-6 col-md-4 col-xl-2 border-end-md">
+                    <div class="col-6 col-md-4 col-xl-2 border-end-md position-relative">
                         <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
                             <div class="avatar avatar-m bg-secondary-subtle text-secondary rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-utensils"></span>
@@ -440,10 +487,11 @@
                                 <span class="text-muted fs-11 d-block">Avg / guest</span>
                             </div>
                         </div>
+                        <a href="{{ route('bookings.report') }}" class="stretched-link" title="View Guest Analytics"></a>
                     </div>
 
                     <!-- Stat 5: Advance Held Ratio -->
-                    <div class="col-6 col-md-4 col-xl-2 border-end-md">
+                    <div class="col-6 col-md-4 col-xl-2 border-end-md position-relative">
                         <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
                             <div class="avatar avatar-m bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-shield-alt"></span>
@@ -454,10 +502,11 @@
                                 <span class="text-muted fs-11 d-block">Deposits / Sales</span>
                             </div>
                         </div>
+                        <a href="{{ route('finance.advance-liabilities') }}" class="stretched-link" title="View Customer Advance Liabilities"></a>
                     </div>
 
                     <!-- Stat 6: CRM Lead Conversion -->
-                    <div class="col-6 col-md-4 col-xl-2">
+                    <div class="col-6 col-md-4 col-xl-2 position-relative">
                         <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
                             <div class="avatar avatar-m bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-funnel-dollar"></span>
@@ -468,6 +517,7 @@
                                 <span class="text-muted fs-11 d-block">{{ $convertedLeadsCount }} won / {{ $leadsInPeriodCount }} inquiries</span>
                             </div>
                         </div>
+                        <a href="{{ route('customers.referral-analytics') }}" class="stretched-link" title="View CRM Lead Conversion Analytics"></a>
                     </div>
                 </div>
             </div>
@@ -479,10 +529,15 @@
             <div class="col-12 col-xl-7">
                 <div class="card h-100 border-0 shadow-sm">
                     <div class="card-header bg-body-tertiary py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <h6 class="mb-0 fw-bold text-800">
-                            <span class="fas fa-chart-line me-2 text-primary"></span>6-Month Commercial & Margin Trend
-                        </h6>
-                        <span class="fs-11 text-muted">Bookings &bull; Realized &bull; Operating Bills</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <h6 class="mb-0 fw-bold text-800">
+                                <span class="fas fa-chart-line me-2 text-primary"></span>6-Month Commercial & Margin Trend
+                            </h6>
+                            <span class="fs-11 text-muted d-none d-sm-inline">&bull; Bookings &bull; Realized &bull; Bills</span>
+                        </div>
+                        <a href="{{ route('finance.profit-loss') }}" class="btn btn-link btn-sm text-primary p-0 text-decoration-none fs-11 fw-semibold">
+                            P&L Statement <span class="fas fa-chevron-right ms-1 fs-11"></span>
+                        </a>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive scrollbar">
@@ -548,7 +603,9 @@
                         <h6 class="mb-0 fw-bold text-800">
                             <span class="fas fa-layer-group me-2 text-primary"></span>Event Type Distribution
                         </h6>
-                        <span class="fs-11 text-muted">Selected Period</span>
+                        <a href="{{ route('bookings.index') }}" class="btn btn-link btn-sm text-primary p-0 text-decoration-none fs-11 fw-semibold">
+                            All Events <span class="fas fa-chevron-right ms-1 fs-11"></span>
+                        </a>
                     </div>
                     <div class="card-body p-3">
                         @if($eventTypeBreakdown->isEmpty())
@@ -597,7 +654,9 @@
                         <h6 class="mb-0 fw-bold text-800">
                             <span class="fas fa-archway me-2 text-primary"></span>Hall Venue Performance
                         </h6>
-                        <span class="fs-11 text-muted">Bookings & Revenue</span>
+                        <a href="{{ route('halls.index') }}" class="btn btn-link btn-sm text-primary p-0 text-decoration-none fs-11 fw-semibold">
+                            Manage Halls <span class="fas fa-chevron-right ms-1 fs-11"></span>
+                        </a>
                     </div>
                     <div class="card-body p-3">
                         @if($hallBreakdown->isEmpty())
@@ -631,7 +690,9 @@
                         <h6 class="mb-0 fw-bold text-800">
                             <span class="fas fa-clock me-2 text-info"></span>Shift Slot Occupancy
                         </h6>
-                        <span class="fs-11 text-muted">Shift Share</span>
+                        <a href="{{ route('slots.index') }}" class="btn btn-link btn-sm text-info p-0 text-decoration-none fs-11 fw-semibold">
+                            Manage Shifts <span class="fas fa-chevron-right ms-1 fs-11"></span>
+                        </a>
                     </div>
                     <div class="card-body p-3">
                         @if($slotBreakdown->isEmpty())
@@ -668,7 +729,9 @@
                         <h6 class="mb-0 fw-bold text-800">
                             <span class="fas fa-receipt me-2 text-danger"></span>Top Expense Categories
                         </h6>
-                        <span class="fs-11 text-muted">Approved Bills</span>
+                        <a href="{{ route('expenses.categories') }}" class="btn btn-link btn-sm text-danger p-0 text-decoration-none fs-11 fw-semibold">
+                            Categories <span class="fas fa-chevron-right ms-1 fs-11"></span>
+                        </a>
                     </div>
                     <div class="card-body p-3">
                         @if($topExpenseCategories->isEmpty())
@@ -709,109 +772,133 @@
         <div class="row g-3 mb-3">
             <!-- 1. Total Number of Guests -->
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Total Guests</h6>
                                 <h3 class="mb-0 fw-bolder text-primary">{{ number_format($totalGuests) }}</h3>
-                                <span class="fs-11 text-muted">Avg. {{ $averageGuestsPerEvent }} pax / event</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Avg. {{ $averageGuestsPerEvent }} pax / event</span>
+                                    <span class="fas fa-arrow-right fs-11 text-primary ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-users fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('bookings.index') }}" class="stretched-link" title="View Guest Headcounts & Events"></a>
                 </div>
             </div>
 
             <!-- 2. Confirmed Bookings -->
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Confirmed Events</h6>
                                 <h3 class="mb-0 fw-bolder text-success">{{ $confirmedBookingsPeriod }}</h3>
-                                <span class="fs-11 text-success fw-semi-bold">Ready for execution</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-success fw-semi-bold">Ready for execution</span>
+                                    <span class="fas fa-arrow-right fs-11 text-success ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-calendar-check fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('bookings.index') }}" class="stretched-link" title="View Confirmed Events"></a>
                 </div>
             </div>
 
             <!-- 3. Tentative & Inquiries -->
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Pending Inquiries</h6>
                                 <h3 class="mb-0 fw-bolder text-warning">{{ $tentativeBookingsPeriod }}</h3>
-                                <span class="fs-11 text-warning fw-semi-bold">Draft / Needs follow-up</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-warning fw-semi-bold">Draft / Needs follow-up</span>
+                                    <span class="fas fa-arrow-right fs-11 text-warning ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-hourglass-half fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('bookings.index') }}" class="stretched-link" title="View Inquiries & Drafts"></a>
                 </div>
             </div>
 
             <!-- 4. Today's Live Functions -->
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Today's Functions</h6>
                                 <h3 class="mb-0 fw-bolder text-danger">{{ $todayEvents->count() }}</h3>
-                                <span class="fs-11 text-danger fw-semi-bold">Live banquet events</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-danger fw-semi-bold">Live banquet events</span>
+                                    <span class="fas fa-arrow-right fs-11 text-danger ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-danger-subtle text-danger rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-glass-cheers fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('bookings.calendar') }}" class="stretched-link" title="View Today's Banquet Schedule"></a>
                 </div>
             </div>
 
             <!-- 5. 7-Day Pipeline -->
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Next 7 Days</h6>
                                 <h3 class="mb-0 fw-bolder text-info">{{ $upcomingEvents->count() }}</h3>
-                                <span class="fs-11 text-muted">Upcoming schedule</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Upcoming schedule</span>
+                                    <span class="fas fa-arrow-right fs-11 text-info ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-calendar-alt fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('bookings.calendar') }}" class="stretched-link" title="View Banquet Calendar"></a>
                 </div>
             </div>
 
             <!-- 6. Kitchen Menus Slips Pending -->
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <h6 class="text-700 fs-11 mb-1">Kitchen Slips Due</h6>
                                 <h3 class="mb-0 fw-bolder {{ $unprintedKitchenSlipsCount > 0 ? 'text-danger' : 'text-success' }}">{{ $unprintedKitchenSlipsCount }}</h3>
-                                <span class="fs-11 text-muted">Menus pending print</span>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Menus pending print</span>
+                                    <span class="fas fa-arrow-right fs-11 text-secondary ms-auto"></span>
+                                </div>
                             </div>
                             <div class="avatar avatar-m bg-secondary-subtle text-secondary rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-utensils fa-lg"></span>
                             </div>
                         </div>
                     </div>
+                    <a href="{{ route('bookings.index') }}" class="stretched-link" title="View Kitchen Menus"></a>
                 </div>
             </div>
         </div>
@@ -1111,6 +1198,7 @@
                             <span class="fas fa-utensils me-1"></span> <strong>{{ $unprintedKitchenSlipsCount }} Kitchen Menus Due:</strong>
                             <div class="text-700 fs-11 mt-1">Today's catering menus pending kitchen print.</div>
                         </div>
+                        <a href="{{ route('bookings.index') }}" class="btn btn-warning btn-sm fs-11 px-2 py-0">Review</a>
                     </div>
                     @endif
 
@@ -1125,6 +1213,7 @@
                                 @endforeach
                             </div>
                         </div>
+                        <a href="{{ route('inventory.stock') }}" class="btn btn-warning btn-sm fs-11 px-2 py-0">Restock</a>
                     </div>
                     @endif
 
@@ -1192,11 +1281,20 @@
                             <span class="fas fa-chevron-right text-400 fs-11"></span>
                         </a>
 
-                        <a href="{{ route('expenses.index') }}" class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2">
-                            <span class="fas fa-file-invoice-dollar text-danger"></span>
+                        <a href="{{ route('expenses.create') }}" class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2">
+                            <span class="fas fa-plus-circle text-danger"></span>
                             <div class="flex-1">
-                                <div class="fw-bold">Log Operating Expense</div>
-                                <span class="text-muted fs-11">Salaries, utilities, maintenance</span>
+                                <div class="fw-bold">Record New Expense</div>
+                                <span class="text-muted fs-11">Post operational voucher or bill</span>
+                            </div>
+                            <span class="fas fa-chevron-right text-400 fs-11"></span>
+                        </a>
+
+                        <a href="{{ route('expenses.dashboard') }}" class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2">
+                            <span class="fas fa-wallet text-danger"></span>
+                            <div class="flex-1">
+                                <div class="fw-bold">Expense & Petty Cash Hub</div>
+                                <span class="text-muted fs-11">Drawers, budgets & expense trends</span>
                             </div>
                             <span class="fas fa-chevron-right text-400 fs-11"></span>
                         </a>
@@ -1206,6 +1304,24 @@
                             <div class="flex-1">
                                 <div class="fw-bold">Purchase & Procurement</div>
                                 <span class="text-muted fs-11">Vendor POs & inventory analytics</span>
+                            </div>
+                            <span class="fas fa-chevron-right text-400 fs-11"></span>
+                        </a>
+
+                        <a href="{{ route('finance.cash-bank') }}" class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2">
+                            <span class="fas fa-university text-primary"></span>
+                            <div class="flex-1">
+                                <div class="fw-bold">Cash & Bank Accounts</div>
+                                <span class="text-muted fs-11">Bank ledgers & cash vault balances</span>
+                            </div>
+                            <span class="fas fa-chevron-right text-400 fs-11"></span>
+                        </a>
+
+                        <a href="{{ route('finance.profit-loss') }}" class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2">
+                            <span class="fas fa-balance-scale text-primary"></span>
+                            <div class="flex-1">
+                                <div class="fw-bold">Profit & Loss Statement</div>
+                                <span class="text-muted fs-11">Comprehensive revenue vs expense report</span>
                             </div>
                             <span class="fas fa-chevron-right text-400 fs-11"></span>
                         </a>
