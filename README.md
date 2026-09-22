@@ -14,6 +14,7 @@
 
 * **Multi-Tenant SaaS Architecture**: Dynamic onboarding setup wizard, isolated databases (tenant and branch level query scoping with `BelongsToTenant` and `BelongsToBranch`), and Stripe multi-currency subscriptions.
 * **Double-Entry Financial Accounting**: Automated Chart of Accounts (COA) provisioning, automated Journal Voucher generation on booking creation and payment posting, Trial Balance, Profit & Loss, and Balance Sheet generation.
+* **Cash & Bank Payment Vouchers (CPV / BPV)**: Complete payment disbursement workflow supporting Cash Payment Vouchers and Bank Payment Vouchers with multi-level approval stages, automated double-entry general ledger posting, and formal printable voucher slips.
 * **Customer Ledger & Advance Liabilities**: Real-time customer balance tracking, advance payment reconciliation against actual events, and automated liability reporting (`CustomerAdvanceLiabilityReport`).
 * **Two-Stage Payment & Ledger Posting**: Separation of front-desk customer payment collection (`pending_posting`) and accountant verification/posting to financial accounts.
 * **Leads & Inquiries CRM**: Full sales lead lifecycle tracking (New, Contacted, Qualified, Proposal Sent, Won, Lost), lead interaction logs, and instant conversion into active bookings.

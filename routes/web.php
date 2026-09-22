@@ -146,6 +146,14 @@ Route::middleware('auth')->group(function () {
             Route::get('finance/journal-vouchers', [AccountingController::class, 'journalVouchers'])->name('finance.journal-vouchers.index');
             Route::get('finance/journal-vouchers/create', [AccountingController::class, 'createJournalVoucher'])->name('finance.journal-vouchers.create');
             Route::get('finance/journal-vouchers/{id}/edit', [AccountingController::class, 'editJournalVoucher'])->name('finance.journal-vouchers.edit');
+
+            // Payment Vouchers (CPV / BPV) Module
+            Route::get('finance/payment-vouchers', [AccountingController::class, 'paymentVouchers'])->name('finance.payment-vouchers.index');
+            Route::get('finance/payment-vouchers/create', [AccountingController::class, 'createPaymentVoucher'])->name('finance.payment-vouchers.create');
+            Route::get('finance/payment-vouchers/{id}/edit', [AccountingController::class, 'editPaymentVoucher'])->name('finance.payment-vouchers.edit');
+            Route::get('finance/payment-vouchers/{id}', [AccountingController::class, 'showPaymentVoucher'])->name('finance.payment-vouchers.show');
+            Route::get('finance/payment-vouchers/{id}/print', [AccountingController::class, 'printPaymentVoucher'])->name('finance.payment-vouchers.print');
+
             Route::get('finance/general-ledger', [AccountingController::class, 'generalLedger'])->name('finance.general-ledger');
             Route::get('finance/trial-balance', [AccountingController::class, 'trialBalance'])->name('finance.trial-balance');
             Route::get('finance/profit-loss', [AccountingController::class, 'profitLoss'])->name('finance.profit-loss');

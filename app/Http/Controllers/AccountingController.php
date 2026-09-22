@@ -104,4 +104,51 @@ class AccountingController extends Controller
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
         return view('finance.cash-bank');
     }
+
+    /**
+     * Display the payment vouchers (CPV / BPV) list.
+     */
+    public function paymentVouchers()
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        return view('finance.payment-vouchers.index');
+    }
+
+    /**
+     * Display the create payment voucher screen.
+     */
+    public function createPaymentVoucher()
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        return view('finance.payment-vouchers.create');
+    }
+
+    /**
+     * Display the edit payment voucher screen.
+     */
+    public function editPaymentVoucher($id)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        return view('finance.payment-vouchers.edit', compact('id'));
+    }
+
+    /**
+     * Display payment voucher details.
+     */
+    public function showPaymentVoucher($id)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        return view('finance.payment-vouchers.show', compact('id'));
+    }
+
+    /**
+     * Display printable A4 / A5 formal payment voucher slip.
+     */
+    public function printPaymentVoucher($id)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        $voucher = \App\Models\PaymentVoucher::with(['branch', 'marquee', 'cashBankAccount.account', 'debitAccount', 'supplier', 'vendor', 'expense', 'preparedBy', 'approvedBy', 'disbursedBy', 'journalVoucher'])->findOrFail($id);
+        return view('finance.payment-vouchers.print', compact('voucher'));
+    }
 }
+

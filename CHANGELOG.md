@@ -5,6 +5,17 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-09-22
+
+### Added
+- **Cash & Bank Payment Voucher (CPV / BPV) Module**:
+  - Implemented full lifecycle for Cash Payment Vouchers (`CPV`) and Bank Payment Vouchers (`BPV`) with auto-generated sequential voucher numbers.
+  - Added Livewire 3 components: `PaymentVoucherList`, `PaymentVoucherForm`, and `PaymentVoucherDetail`.
+  - Added comprehensive `PaymentVoucherService` handling voucher draft creation, approval workflow, cancellation, and automated double-entry Journal Voucher generation (debiting target expense/supplier/vendor account, crediting cash/bank account).
+  - Designed print-ready A4/A5 voucher slip template (`print.blade.php`) formatted for official financial audit documentation with multi-tier signature lines (Prepared By, Verified By, Approved By, Received By).
+  - Added database migration `2026_09_22_000001_create_payment_vouchers_table.php` with foreign keys, tenant scoping, and status tracking (`draft`, `approved`, `disbursed`, `cancelled`).
+  - Integrated navigation links in the General Ledger sidebar menu under the accounting dropdown.
+
 ## [1.11.0] - 2026-09-20
 
 ### Added

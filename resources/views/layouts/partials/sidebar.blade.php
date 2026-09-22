@@ -839,7 +839,7 @@
 
         <!-- General Ledger Accounting dropdown -->
         @php
-          $accountingActive = Route::is('finance.financial-years') || Route::is('finance.chart-of-accounts') || Route::is('finance.opening-balances') || Route::is('finance.journal-vouchers.*') || Route::is('finance.general-ledger') || Route::is('finance.trial-balance') || Route::is('finance.profit-loss') || Route::is('finance.balance-sheet') || Route::is('finance.cash-bank') || Route::is('finance.coa-categories') || Route::is('finance.expense-categories') || Route::is('finance.tax-configuration');
+          $accountingActive = Route::is('finance.financial-years') || Route::is('finance.chart-of-accounts') || Route::is('finance.opening-balances') || Route::is('finance.journal-vouchers.*') || Route::is('finance.payment-vouchers.*') || Route::is('finance.general-ledger') || Route::is('finance.trial-balance') || Route::is('finance.profit-loss') || Route::is('finance.balance-sheet') || Route::is('finance.cash-bank') || Route::is('finance.coa-categories') || Route::is('finance.expense-categories') || Route::is('finance.tax-configuration');
         @endphp
         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'))
         <li class="nav-item">
@@ -868,6 +868,14 @@
             <li class="nav-item">
               <a class="nav-link {{ Route::is('finance.journal-vouchers.*') ? 'active' : '' }}" href="{{ route('finance.journal-vouchers.index') }}">
                 <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Journal Vouchers</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.payment-vouchers.*') ? 'active' : '' }}" href="{{ route('finance.payment-vouchers.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Payment Voucher</span>
+                  <!-- <span class="badge rounded-pill bg-success-subtle text-success ms-2 font-mono fs-11">CPV/BPV</span> -->
+                </div>
               </a>
             </li>
             <li class="nav-item">
