@@ -141,7 +141,7 @@ class CustomerForm extends Component
             'referred_by_type' => 'nullable|string|max:100',
             'referred_by_name' => 'nullable|string|max:255',
             'referred_by_contact' => ['nullable', 'string', 'regex:/^(03\d{2}-\d{7}|0(21|42)-\d{8}|0[24-9]\d{2}-\d{7,8}|\+?92\d{9,10}|0092\d{9,10}|0[0-9]{9,10})$/'],
-            'photo' => 'nullable|image|max:2048', // Max 2MB profile picture
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048', // Max 2MB profile picture
         ];
     }
 

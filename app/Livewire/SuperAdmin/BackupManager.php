@@ -73,17 +73,13 @@ class BackupManager extends Component
      */
     public function createBackup(BackupService $backupService)
     {
-        $user = auth()->user();
-        if (!$user || !$user->isSuperAdmin()) {
-            session()->flash('error', 'Unauthorized access.');
-            return;
-        }
+        abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized access.');
 
         try {
             $backup = $backupService->createBackup(
                 type: $this->backupType,
                 trigger: 'manual',
-                userId: $user->id,
+                userId: auth()->id(),
                 notes: $this->backupNotes
             );
 
@@ -99,16 +95,12 @@ class BackupManager extends Component
      */
     public function deleteBackup($backupId, BackupService $backupService)
     {
-        $user = auth()->user();
-        if (!$user || !$user->isSuperAdmin()) {
-            session()->flash('error', 'Unauthorized access.');
-            return;
-        }
+        abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized access.');
 
         $backup = SystemBackup::findOrFail($backupId);
 
         try {
-            $backupService->deleteBackup($backup, $user->id);
+            $backupService->deleteBackup($backup, auth()->id());
             session()->flash('success', "Backup archive deleted successfully.");
         } catch (\Throwable $e) {
             session()->flash('error', "Failed deleting backup: " . $e->getMessage());
@@ -120,11 +112,7 @@ class BackupManager extends Component
      */
     public function saveScheduleSettings(BackupService $backupService)
     {
-        $user = auth()->user();
-        if (!$user || !$user->isSuperAdmin()) {
-            session()->flash('error', 'Unauthorized access.');
-            return;
-        }
+        abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized access.');
 
         $this->validate([
             'scheduleFrequency' => 'required|in:disabled,daily,weekly,monthly',
@@ -137,7 +125,7 @@ class BackupManager extends Component
         $backupService->logActivity(
             action: 'schedule_updated',
             backupId: null,
-            userId: $user->id,
+            userId: auth()->id(),
             fileName: null,
             description: "Updated backup schedule settings (Frequency: {$this->scheduleFrequency}, Retention: {$this->retentionDays} days)",
             status: 'success'
@@ -151,6 +139,8 @@ class BackupManager extends Component
      */
     public function prepareRestore($backupId)
     {
+        abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized access.');
+
         $this->selectedRestoreBackupId = $backupId;
         $this->uploadedBackup = null;
         $this->restoreConfirmationText = '';
@@ -162,6 +152,8 @@ class BackupManager extends Component
      */
     public function prepareUploadRestore()
     {
+        abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized access.');
+
         $this->validate([
             'uploadedBackup' => 'required|file|max:512000', // 500MB max
         ]);
@@ -182,11 +174,7 @@ class BackupManager extends Component
      */
     public function executeRestore(BackupService $backupService)
     {
-        $user = auth()->user();
-        if (!$user || !$user->isSuperAdmin()) {
-            session()->flash('error', 'Unauthorized access.');
-            return;
-        }
+        abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized access.');
 
         if (trim(strtoupper($this->restoreConfirmationText)) !== 'RESTORE') {
             session()->flash('error', 'Confirmation failed. Please type RESTORE to confirm data restoration.');
@@ -203,7 +191,7 @@ class BackupManager extends Component
                 throw new \Exception("No backup file selected for restoration.");
             }
 
-            $backupService->restoreBackup($filePath, $user->id);
+            $backupService->restoreBackup($filePath, auth()->id());
 
             $this->isRestoreModalOpen = false;
             $this->uploadedBackup = null;
@@ -218,6 +206,7 @@ class BackupManager extends Component
 
     public function render()
     {
+        abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized access.');
         $backups = SystemBackup::with('creator')
             ->latest()
             ->paginate(10, ['*'], 'backupsPage');

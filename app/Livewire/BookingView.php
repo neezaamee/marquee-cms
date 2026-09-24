@@ -136,6 +136,9 @@ class BookingView extends Component
 
     public function mount(Booking $booking)
     {
+        $user = auth()->user();
+        abort_unless($user && $user->can('view', $booking), 403, 'Unauthorized access to this booking.');
+
         $this->booking = $booking;
         $this->paymentDate = date('Y-m-d');
         $this->vpPaymentDate = date('Y-m-d');
@@ -488,6 +491,10 @@ class BookingView extends Component
      */
     public function recordPayment()
     {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasPermission('create_payments') || $user->hasPermission('manage_bookings')), 403, 'Unauthorized to record payments.');
+        abort_unless($user->can('update', $this->booking), 403, 'Unauthorized access to update this booking.');
+
         $this->validate([
             'amountPaid' => 'required|numeric|min:1',
             'paymentDate' => 'required|date',
@@ -642,7 +649,7 @@ class BookingView extends Component
             return;
         }
 
-        $payment = \App\Models\BookingPayment::findOrFail($paymentId);
+        $payment = \App\Models\BookingPayment::where('booking_id', $this->booking->id)->findOrFail($paymentId);
         if (!$payment->isPendingPosting()) {
             session()->flash('error', 'This payment is not awaiting posting.');
             return;
@@ -683,7 +690,17 @@ class BookingView extends Component
 
         try {
             $financialService = app(\App\Services\BookingFinancialService::class);
-            $payment = \App\Models\BookingPayment::findOrFail($this->bvPostingPaymentId);
+            $payment = \App\Models\BookingPayment::where('booking_id', $this->booking->id)->findOrFail($this->bvPostingPaymentId);
+
+            $targetAccValid = \App\Models\Account::withoutGlobalScope('tenant')
+                ->where('marquee_id', $this->booking->marquee_id)
+                ->where('id', (int) $this->bvTargetAccountId)
+                ->exists();
+            if (!$targetAccValid) {
+                session()->flash('error', 'Selected financial account does not belong to this marquee.');
+                return;
+            }
+
             $financialService->postPayment($payment, [
                 'account_id' => (int) $this->bvTargetAccountId,
                 'posting_date' => $this->bvPostingDate,
@@ -821,6 +838,9 @@ class BookingView extends Component
      */
     public function saveFinalBill()
     {
+        $user = auth()->user();
+        abort_unless($user && $user->can('update', $this->booking), 403, 'Unauthorized access to update this booking.');
+
         $this->recalculateFinalBill();
 
         $this->validate([
@@ -967,6 +987,10 @@ class BookingView extends Component
      */
     public function processDeposit()
     {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasRole(['branch_manager', 'booking_manager']) || $user->hasPermission('manage_deposits') || $user->hasPermission('edit_bookings')), 403, 'Unauthorized to process deposit.');
+        abort_unless($user->can('update', $this->booking), 403, 'Unauthorized access to update this booking.');
+
         if ($this->depositAction === 'refund_full') {
             $this->depositRefundedAmount = $this->booking->security_deposit;
             $this->depositDeductedAmount = 0.00;
@@ -1017,6 +1041,9 @@ class BookingView extends Component
      */
     public function updateStatus($newStatus)
     {
+        $user = auth()->user();
+        abort_unless($user && $user->can('update', $this->booking), 403, 'Unauthorized access to update this booking.');
+
         if (!in_array($newStatus, ['Draft', 'Reserved', 'Confirmed', 'Completed', 'Cancelled', 'Rejected'])) {
             return;
         }
@@ -1109,6 +1136,10 @@ class BookingView extends Component
      */
     public function executeBookingCancellation()
     {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasRole(['branch_manager', 'booking_manager']) || $user->hasPermission('cancel_bookings')), 403, 'Unauthorized to cancel bookings.');
+        abort_unless($user->can('update', $this->booking), 403, 'Unauthorized access to update this booking.');
+
         $this->validate([
             'bkCancelRefundAmount' => 'required|numeric|min:0',
             'bkCancelFeeAmount' => 'required|numeric|min:0',

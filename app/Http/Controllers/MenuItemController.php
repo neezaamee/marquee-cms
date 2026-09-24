@@ -32,7 +32,7 @@ class MenuItemController extends Controller
     {
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_menus'), 403);
 
-        if (!auth()->user()->isSuperAdmin() && $menuItem->marquee_id !== auth()->user()->marquee_id) {
+        if (!auth()->user()->isSuperAdmin() && !auth()->user()->hasAccessToMarquee($menuItem->marquee_id)) {
             abort(403, 'Unauthorized access to this menu item.');
         }
 
@@ -46,7 +46,7 @@ class MenuItemController extends Controller
     {
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_menus'), 403);
 
-        if (!auth()->user()->isSuperAdmin() && $menuItem->marquee_id !== auth()->user()->marquee_id) {
+        if (!auth()->user()->isSuperAdmin() && !auth()->user()->hasAccessToMarquee($menuItem->marquee_id)) {
             abort(403, 'Unauthorized access to this menu item.');
         }
 

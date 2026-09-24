@@ -50,6 +50,19 @@ class BookingPayment extends Model
     ];
 
     /**
+     * The "booted" method of the model.
+     * Enforces financial ledger immutability: posted payments cannot be deleted.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (BookingPayment $payment) {
+            if ($payment->isPosted()) {
+                throw new \DomainException("Posted payment transactions cannot be deleted. They must be reversed via an authorized reversal workflow.");
+            }
+        });
+    }
+
+    /**
      * Get the booking associated with this payment transaction.
      */
     public function booking(): BelongsTo

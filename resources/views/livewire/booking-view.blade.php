@@ -796,7 +796,7 @@
                                 <td class="px-0 text-end fw-semi-bold">{{ $booking->finalBill->guest_count }}</td>
                             </tr>
                             <tr>
-                                <td class="text-500 px-0">Per Plate Rate:</td>
+                                <td class="text-500 px-0">Per Head Rate:</td>
                                 <td class="px-0 text-end fw-semi-bold">Rs. {{ number_format($booking->finalBill->per_plate_price, 2) }}</td>
                             </tr>
                             <tr class="border-bottom">
@@ -867,7 +867,7 @@
                                 <td class="px-0 text-end fw-semi-bold">{{ $booking->guest_count }}</td>
                             </tr>
                             <tr>
-                                <td class="text-500 px-0">Per Plate Rate:</td>
+                                <td class="text-500 px-0">Per Head Rate:</td>
                                 <td class="px-0 text-end fw-semi-bold">Rs. {{ number_format($booking->per_plate_price, 2) }}</td>
                             </tr>
                             <tr class="border-bottom">
@@ -1152,7 +1152,7 @@
                                 <div class="col-sm-6">
                                     <strong>Original Booking Details:</strong>
                                     <div class="mt-1">Guests: {{ $booking->guest_count }}</div>
-                                    <div>Per Plate: Rs. {{ number_format($booking->per_plate_price, 2) }}</div>
+                                    <div>Per Head: Rs. {{ number_format($booking->per_plate_price, 2) }}</div>
                                     <div>Original Grand Total: Rs. {{ number_format($booking->grand_total, 2) }}</div>
                                 </div>
                                 <div class="col-sm-6 text-end">
@@ -1169,7 +1169,7 @@
                                 @error('fbGuestCount') <div class="text-danger mt-1">{{ $message }}</div> @enderror
                             </div>
                             <div class="col-sm-6">
-                                <label class="form-label fw-bold mb-1">Actual Per Plate Price (Rs.) *</label>
+                                <label class="form-label fw-bold mb-1">Actual Per Head Price (Rs.) *</label>
                                 <input wire:model.live="fbPerPlatePrice" type="number" step="0.01" class="form-control form-control-sm" />
                                 @error('fbPerPlatePrice') <div class="text-danger mt-1">{{ $message }}</div> @enderror
                             </div>

@@ -379,11 +379,11 @@
                                 </div>
                                 <div class="col-sm-4">
                                     <span class="text-500">Booking #:</span>
-                                    <div class="fw-bold font-monospace">#{{ $postingPayment->booking->booking_number }}</div>
+                                    <div class="fw-bold font-monospace">#{{ $postingPayment->booking?->booking_number ?? '—' }}</div>
                                 </div>
                                 <div class="col-sm-4">
                                     <span class="text-500">Customer:</span>
-                                    <div class="fw-bold">{{ $postingPayment->booking->customer->full_name ?? '—' }}</div>
+                                    <div class="fw-bold">{{ $postingPayment->booking?->customer?->full_name ?? '—' }}</div>
                                 </div>
                                 <div class="col-sm-4">
                                     <span class="text-500">Amount to Post:</span>

@@ -63,10 +63,13 @@ class CustomerProfile extends Component
      */
     public function uploadDocument()
     {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasAccessToMarquee($this->customer->marquee_id)), 403, 'Unauthorized.');
+
         $this->validate([
             'document_name' => 'required|string|max:255',
             'document_type' => 'required|string|max:255',
-            'document_file' => 'required|file|max:5120', // Max 5MB
+            'document_file' => 'required|file|mimes:pdf,jpg,jpeg,png,webp,doc,docx|max:5120', // Max 5MB
         ]);
 
         $filePath = $this->document_file->store("customers/documents/{$this->customer->id}", 'public');
@@ -95,11 +98,12 @@ class CustomerProfile extends Component
      */
     public function deleteDocument($id)
     {
+        $user = auth()->user();
         $doc = CustomerDocument::findOrFail($id);
         
         // Scope Check
-        if ($doc->customer->marquee_id !== auth()->user()->marquee_id && !auth()->user()->isSuperAdmin()) {
-            abort(403);
+        if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($doc->customer->marquee_id)) {
+            abort(403, 'Unauthorized.');
         }
 
         // Delete physical file
@@ -117,6 +121,9 @@ class CustomerProfile extends Component
      */
     public function logCommunication()
     {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasAccessToMarquee($this->customer->marquee_id)), 403, 'Unauthorized.');
+
         $this->validate([
             'comm_medium' => 'required|in:Call,WhatsApp,SMS,Email,Note',
             'comm_subject' => 'nullable|string|max:255',

@@ -13,18 +13,35 @@ trait LogsActivity
      */
     protected static function bootLogsActivity(): void
     {
-        static::created(function ($model) {
-            static::logModelActivity($model, 'created', null, $model->getAttributes());
+        $sensitiveFields = [
+            'updated_at',
+            'created_at',
+            'updated_by',
+            'password',
+            'remember_token',
+            'two_factor_secret',
+            'two_factor_recovery_codes',
+            'fbr_pos_key',
+            'api_token',
+            'access_token',
+            'secret',
+        ];
+
+        static::created(function ($model) use ($sensitiveFields) {
+            $attrs = $model->getAttributes();
+            foreach ($sensitiveFields as $field) {
+                unset($attrs[$field]);
+            }
+            static::logModelActivity($model, 'created', null, $attrs);
         });
 
-        static::updated(function ($model) {
+        static::updated(function ($model) use ($sensitiveFields) {
             $old = [];
             $new = [];
             
-            // Log dirty fields
+            // Log dirty fields (excluding timestamps, audit columns, and sensitive credentials)
             foreach ($model->getDirty() as $key => $value) {
-                // Skip common audit and timestamp fields to keep logs clean
-                if (in_array($key, ['updated_at', 'created_at', 'updated_by'])) {
+                if (in_array($key, $sensitiveFields)) {
                     continue;
                 }
                 $old[$key] = $model->getOriginal($key);
@@ -36,8 +53,14 @@ trait LogsActivity
             }
         });
 
-        static::deleted(function ($model) {
-            static::logModelActivity($model, 'deleted', $model->getOriginal(), null);
+        static::deleted(function ($model) use ($sensitiveFields) {
+            $attrs = $model->getOriginal();
+            if (is_array($attrs)) {
+                foreach ($sensitiveFields as $field) {
+                    unset($attrs[$field]);
+                }
+            }
+            static::logModelActivity($model, 'deleted', $attrs, null);
         });
     }
 

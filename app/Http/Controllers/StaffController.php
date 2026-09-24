@@ -2,22 +2,46 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class StaffController extends Controller
 {
+    /**
+     * Authorize access to staff management with tenant and branch scoping.
+     */
+    private function authorizeStaffAccess(?Employee $staff = null): void
+    {
+        $user = Auth::user();
+        $canManageStaff = $user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasRole('branch_manager') || $user->hasPermission('manage_staff'));
+        abort_unless($canManageStaff, 403, 'Unauthorized access to staff management.');
+
+        if ($staff) {
+            // Tenant isolation check
+            if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($staff->marquee_id)) {
+                abort(403, 'Unauthorized access to staff from another organization.');
+            }
+
+            // Branch Manager scoping check
+            if ($user->hasRole('branch_manager') && (int) $staff->branch_id !== (int) $user->branch_id) {
+                abort(403, 'Branch Managers cannot manage staff from another branch.');
+            }
+        }
+    }
+
     /**
      * Display the staff listing with search and pagination.
      */
     public function index()
     {
+        $this->authorizeStaffAccess();
         return view('staff.index');
     }
 
@@ -26,6 +50,8 @@ class StaffController extends Controller
      */
     public function create()
     {
+        $this->authorizeStaffAccess();
+
         $user = Auth::user();
         $activeMarqueeId = $user->getActiveMarqueeId();
 
@@ -39,7 +65,7 @@ class StaffController extends Controller
         }
 
         // Branch Manager should not be able to add another Branch Manager
-        $designations = \App\Models\Employee::getDesignations();
+        $designations = Employee::getDesignations();
         if ($user->hasRole('branch_manager')) {
             $designations = array_values(array_filter($designations, fn($d) => !in_array($d, ['Branch Manager', 'Admin / Area Manager / Branches Head'])));
         }
@@ -54,6 +80,16 @@ class StaffController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorizeStaffAccess();
+
+        $user = Auth::user();
+        $activeMarqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
+
+        // Branch Managers can only assign staff to their own branch
+        if ($user->hasRole('branch_manager') && (int) $request->branch_id !== (int) $user->branch_id) {
+            abort(403, 'Branch Managers cannot assign staff to another branch.');
+        }
+
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
             'cnic'            => 'required|string|max:20',
@@ -63,7 +99,12 @@ class StaffController extends Controller
             'salary'          => 'required|numeric|min:0',
             'employment_type' => 'required|string',
             'status'          => 'required|string',
-            'branch_id'       => 'required|exists:branches,id',
+            'branch_id'       => [
+                'required',
+                $user->isSuperAdmin()
+                    ? 'exists:branches,id'
+                    : Rule::exists('branches', 'id')->where('marquee_id', $activeMarqueeId),
+            ],
             'photo'           => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
@@ -73,10 +114,8 @@ class StaffController extends Controller
             $photoPath = $request->file('photo')->store('staff/photos', 'public');
         }
 
-        $activeMarqueeId = Auth::user()->getActiveMarqueeId();
-
         Employee::create([
-            'marquee_id'      => $activeMarqueeId ?: Auth::user()->marquee_id,
+            'marquee_id'      => $activeMarqueeId,
             'branch_id'       => $validated['branch_id'],
             'name'            => $validated['name'],
             'cnic'            => $validated['cnic'],
@@ -98,6 +137,8 @@ class StaffController extends Controller
      */
     public function show(Employee $staff)
     {
+        $this->authorizeStaffAccess($staff);
+
         $staff->load(['branch', 'users.role']);
         return view('staff.show', compact('staff'));
     }
@@ -107,6 +148,8 @@ class StaffController extends Controller
      */
     public function edit(Employee $staff)
     {
+        $this->authorizeStaffAccess($staff);
+
         $user = Auth::user();
         $activeMarqueeId = $user->getActiveMarqueeId();
 
@@ -120,7 +163,7 @@ class StaffController extends Controller
         }
 
         // Branch Manager cannot change designation to Branch Manager, except when editing a Branch Manager (e.g. themselves)
-        $designations = \App\Models\Employee::getDesignations();
+        $designations = Employee::getDesignations();
         if (!empty($staff->designation) && !in_array($staff->designation, $designations)) {
             $designations[] = $staff->designation;
             natcasesort($designations);
@@ -140,6 +183,16 @@ class StaffController extends Controller
      */
     public function update(Request $request, Employee $staff)
     {
+        $this->authorizeStaffAccess($staff);
+
+        $user = Auth::user();
+        $activeMarqueeId = $staff->marquee_id ?: ($user->getActiveMarqueeId() ?: $user->marquee_id);
+
+        // Branch Managers can only assign staff to their own branch
+        if ($user->hasRole('branch_manager') && (int) $request->branch_id !== (int) $user->branch_id) {
+            abort(403, 'Branch Managers cannot reassign staff to another branch.');
+        }
+
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
             'cnic'            => 'required|string|max:20',
@@ -149,7 +202,12 @@ class StaffController extends Controller
             'salary'          => 'required|numeric|min:0',
             'employment_type' => 'required|string',
             'status'          => 'required|string',
-            'branch_id'       => 'required|exists:branches,id',
+            'branch_id'       => [
+                'required',
+                $user->isSuperAdmin()
+                    ? 'exists:branches,id'
+                    : Rule::exists('branches', 'id')->where('marquee_id', $activeMarqueeId),
+            ],
             'photo'           => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
@@ -185,10 +243,25 @@ class StaffController extends Controller
      */
     public function destroy(Employee $staff)
     {
+        $this->authorizeStaffAccess($staff);
+
         // Also soft-delete all linked user login accounts
         $staff->users()->delete();
 
         $staff->delete();
+
+        try {
+            ActivityLog::create([
+                'marquee_id' => $staff->marquee_id,
+                'user_id' => Auth::id(),
+                'action' => 'staff_deleted',
+                'model_type' => Employee::class,
+                'model_id' => $staff->id,
+                'description' => "Employee '{$staff->name}' ({$staff->designation}) was deleted.",
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+        } catch (\Throwable $e) {}
 
         return redirect()->route('staff.index')
             ->with('success', 'Employee removed successfully.');
@@ -199,7 +272,7 @@ class StaffController extends Controller
      */
     public function logins(Employee $staff)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        $this->authorizeStaffAccess($staff);
         return view('staff.logins', compact('staff'));
     }
 }

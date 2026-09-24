@@ -104,7 +104,7 @@ class ExpenseForm extends Component
             'petty_cash_account_id' => 'required_if:payment_method,Petty Cash|nullable|exists:petty_cash_accounts,id',
             'due_date' => 'nullable|date',
             'reference_number' => 'nullable|string|max:100',
-            'uploadedFiles.*' => 'nullable|file|max:10240', // 10MB Limit
+            'uploadedFiles.*' => 'nullable|file|mimes:jpeg,png,jpg,webp,pdf,doc,docx,xls,xlsx|max:10240', // 10MB Limit
         ];
 
         if ($this->is_multiline) {
@@ -127,6 +127,8 @@ class ExpenseForm extends Component
     public function mount($id = null)
     {
         $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('create_expenses') || $user->hasPermission('manage_accounting') || $user->hasPermission('view_expenses')), 403, 'Unauthorized access to expenses.');
+
         $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         // Load Default Currency
@@ -135,7 +137,10 @@ class ExpenseForm extends Component
         $this->currency_id = $baseCurrency ? $baseCurrency->id : '';
 
         if ($id) {
-            $expense = Expense::with(['items', 'utilityBill', 'maintenanceRecord', 'attachments'])->findOrFail($id);
+            $expense = Expense::withoutGlobalScope('tenant')->with(['items', 'utilityBill', 'maintenanceRecord', 'attachments'])->findOrFail($id);
+            if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($expense->marquee_id)) {
+                abort(403, 'Unauthorized access to this expense.');
+            }
             
             if ($expense->status !== Expense::STATUS_DRAFT && $expense->status !== Expense::STATUS_REJECTED && !request()->has('duplicate')) {
                 return redirect()->route('expenses.show', $expense->id);
@@ -378,6 +383,8 @@ class ExpenseForm extends Component
         $this->validate();
 
         $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('create_expenses') || $user->hasPermission('manage_accounting') || $user->hasPermission('edit_expenses')), 403, 'Unauthorized.');
+
         $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         // Ensure base currency
@@ -433,9 +440,12 @@ class ExpenseForm extends Component
         try {
             $createdExpense = null;
 
-            DB::transaction(function () use ($data, $statusToSet, &$createdExpense) {
+            DB::transaction(function () use ($data, $statusToSet, $user, &$createdExpense) {
                 if ($this->editId) {
-                    $expense = Expense::findOrFail($this->editId);
+                    $expense = Expense::withoutGlobalScope('tenant')->findOrFail($this->editId);
+                    if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($expense->marquee_id)) {
+                        abort(403, 'Unauthorized access to this expense.');
+                    }
                     $expense->update($data);
                     $expense->items()->delete();
                 } else {

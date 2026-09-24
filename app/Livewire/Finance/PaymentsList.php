@@ -44,6 +44,32 @@ class PaymentsList extends Component
 
     protected $paginationTheme = 'bootstrap';
 
+    public function mount()
+    {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasRole(['accountant', 'branch_manager']) || $user->hasPermission('view_payments') || $user->hasPermission('manage_accounting')), 403, 'Unauthorized access to payments.');
+    }
+
+    /**
+     * Authorize access to a specific booking payment with tenant and branch scoping.
+     */
+    private function authorizePaymentAction(BookingPayment $payment): void
+    {
+        $user = auth()->user();
+        abort_unless($user, 403, 'Unauthorized.');
+
+        $booking = \App\Models\Booking::withoutGlobalScopes()->find($payment->booking_id);
+        if ($booking) {
+            if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($booking->marquee_id)) {
+                abort(403, 'Unauthorized access to payment from another organization.');
+            }
+
+            if ($user->hasRole('branch_manager') && (int) $booking->branch_id !== (int) $user->branch_id) {
+                abort(403, 'Branch Managers cannot manage payments from another branch.');
+            }
+        }
+    }
+
     public function updatingSearch() { $this->resetPage(); }
     public function updatingStatusFilter() { $this->resetPage(); }
     public function updatingPaymentMethod() { $this->resetPage(); }
@@ -60,6 +86,7 @@ class PaymentsList extends Component
         }
 
         $payment = BookingPayment::with(['booking', 'booking.customer', 'account'])->findOrFail($paymentId);
+        $this->authorizePaymentAction($payment);
 
         if ($payment->status !== 'pending_posting' && $payment->status !== 'received') {
             session()->flash('error', 'This payment is not awaiting accountant posting.');
@@ -98,7 +125,20 @@ class PaymentsList extends Component
         ]);
 
         try {
-            $payment = BookingPayment::findOrFail($this->postingPaymentId);
+            $payment = BookingPayment::with('booking')->findOrFail($this->postingPaymentId);
+            $this->authorizePaymentAction($payment);
+
+            $bookingMarqueeId = $payment->booking ? $payment->booking->marquee_id : $user->getActiveMarqueeId();
+            $accountValid = Account::withoutGlobalScope('tenant')
+                ->where('marquee_id', $bookingMarqueeId)
+                ->where('id', (int) $this->targetAccountId)
+                ->exists();
+            if (!$accountValid) {
+                $this->addError('targetAccountId', 'Selected financial account does not belong to this organization.');
+                session()->flash('error', 'Selected financial account does not belong to this organization.');
+                return;
+            }
+
             $financialService->postPayment($payment, [
                 'account_id' => (int) $this->targetAccountId,
                 'posting_date' => $this->postingDate,
@@ -122,7 +162,9 @@ class PaymentsList extends Component
             return;
         }
 
-        $payment = BookingPayment::findOrFail($paymentId);
+        $payment = BookingPayment::with('booking')->findOrFail($paymentId);
+        $this->authorizePaymentAction($payment);
+
         if ($payment->status !== 'pending_posting' && $payment->status !== 'received') {
             session()->flash('error', 'Only pending payments can be rejected.');
             return;
@@ -147,7 +189,9 @@ class PaymentsList extends Component
         ]);
 
         try {
-            $payment = BookingPayment::findOrFail($this->rejectingPaymentId);
+            $payment = BookingPayment::with('booking')->findOrFail($this->rejectingPaymentId);
+            $this->authorizePaymentAction($payment);
+
             $financialService->rejectPayment($payment, $this->rejectionReason, $user->id);
 
             $this->showRejectModal = false;
@@ -166,7 +210,9 @@ class PaymentsList extends Component
             return;
         }
 
-        $payment = BookingPayment::findOrFail($paymentId);
+        $payment = BookingPayment::with('booking')->findOrFail($paymentId);
+        $this->authorizePaymentAction($payment);
+
         if ($payment->status !== 'posted') {
             session()->flash('error', 'Only posted payments can be reversed.');
             return;
@@ -191,7 +237,9 @@ class PaymentsList extends Component
         ]);
 
         try {
-            $payment = BookingPayment::findOrFail($this->reversingPaymentId);
+            $payment = BookingPayment::with('booking')->findOrFail($this->reversingPaymentId);
+            $this->authorizePaymentAction($payment);
+
             $financialService->reversePayment($payment, $this->reversalReason, $user->id);
 
             $this->showReverseModal = false;
@@ -204,6 +252,9 @@ class PaymentsList extends Component
 
     public function openDetailModal($paymentId)
     {
+        $payment = BookingPayment::with('booking')->findOrFail($paymentId);
+        $this->authorizePaymentAction($payment);
+
         $this->viewingPaymentId = $paymentId;
         $this->showDetailModal = true;
     }

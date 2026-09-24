@@ -78,8 +78,17 @@ class StockTakeManager extends Component
         ];
     }
 
+    public function getMarqueeId(): ?int
+    {
+        $user = auth()->user();
+        return $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+    }
+
     public function mount(): void
     {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('inventory.adjust') || $user->hasPermission('inventory.manage') || $user->hasPermission('manage_inventory') || $user->hasPermission('view_inventory')), 403, 'Unauthorized access to stock take.');
+
         $this->count_date = now()->format('Y-m-d');
         $this->adj_date   = now()->format('Y-m-d');
     }
@@ -96,7 +105,7 @@ class StockTakeManager extends Component
 
     public function generateNextStockTakeNumber(): string
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $count = InventoryStockTake::where('marquee_id', $marqueeId)->count();
         return 'STK-' . date('Y') . '-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
     }
@@ -198,16 +207,16 @@ class StockTakeManager extends Component
 
     public function approveStockTake(int $id): void
     {
-        if (!auth()->user()->isSuperAdmin() && !auth()->user()->hasPermission('inventory.adjust')) {
-            session()->flash('error', 'Unauthorized access. Only managers can approve adjustments.');
-            return;
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('inventory.adjust')) {
+            abort(403, 'Unauthorized access. Only managers can approve adjustments.');
         }
 
-        $marqueeId = auth()->user()->marquee_id;
-        $branchId  = auth()->user()->branch_id;
+        $marqueeId = $this->getMarqueeId();
+        $branchId  = $user->branch_id;
 
-        DB::transaction(function () use ($id, $marqueeId, $branchId) {
-            $stockTake = InventoryStockTake::with('items.item')->findOrFail($id);
+        DB::transaction(function () use ($id, $marqueeId, $branchId, $user) {
+            $stockTake = InventoryStockTake::with('items.item')->where('marquee_id', $marqueeId)->findOrFail($id);
 
             if ($stockTake->status !== 'Draft') {
                 throw new \InvalidArgumentException('Only Draft counts can be approved.');
@@ -250,15 +259,24 @@ class StockTakeManager extends Component
                         'running_balance'  => $newCentralBalance,
                         'unit_price'       => $unitCost,
                         'total_cost'       => abs($diff) * $unitCost,
-                        'created_by'       => auth()->id(),
+                        'created_by'       => $user->id,
                     ]);
                 }
             }
 
             $stockTake->update([
                 'status'      => 'Approved',
-                'approved_by' => auth()->id(),
+                'approved_by' => $user->id,
                 'approved_at' => now(),
+            ]);
+
+            \App\Models\ActivityLog::create([
+                'user_id' => $user->id,
+                'marquee_id' => $marqueeId,
+                'action' => 'stock_take_approved',
+                'description' => "Approved Stock Count #{$stockTake->stock_take_number} and posted ledger adjustments",
+                'model_type' => InventoryStockTake::class,
+                'model_id' => $stockTake->id,
             ]);
         });
 
@@ -269,13 +287,29 @@ class StockTakeManager extends Component
 
     public function cancelStockTake(int $id): void
     {
-        $stockTake = InventoryStockTake::findOrFail($id);
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('inventory.adjust')) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $marqueeId = $this->getMarqueeId();
+        $stockTake = InventoryStockTake::where('marquee_id', $marqueeId)->findOrFail($id);
         if ($stockTake->status !== 'Draft') {
             session()->flash('error', 'Only Draft counts can be cancelled.');
             return;
         }
 
         $stockTake->update(['status' => 'Cancelled']);
+
+        \App\Models\ActivityLog::create([
+            'user_id' => $user->id,
+            'marquee_id' => $marqueeId,
+            'action' => 'stock_take_cancelled',
+            'description' => "Cancelled Stock Count #{$stockTake->stock_take_number}",
+            'model_type' => InventoryStockTake::class,
+            'model_id' => $stockTake->id,
+        ]);
+
         session()->flash('success', 'Stock count cancelled.');
         $this->isViewModalOpen = false;
         $this->viewStockTake   = null;
@@ -285,6 +319,11 @@ class StockTakeManager extends Component
 
     public function openAdjustmentForm(string $defaultType = 'Adjustment'): void
     {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('inventory.adjust')) {
+            abort(403, 'Unauthorized access. Only managers can make stock adjustments.');
+        }
+
         $this->resetAdjustmentForm();
         $this->adj_type      = $defaultType;
         $this->adj_direction = in_array($defaultType, ['Opening', 'Adjustment']) ? 'in' : 'out';
@@ -331,7 +370,7 @@ class StockTakeManager extends Component
 
     protected function checkExistingOpening(): void
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->getMarqueeId();
         $branchId  = auth()->user()->branch_id;
 
         $this->adj_has_existing_opening = InventoryStockLedger::where('marquee_id', $marqueeId)
@@ -343,10 +382,15 @@ class StockTakeManager extends Component
 
     public function saveAdjustment(): void
     {
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && !$user->hasPermission('inventory.adjust')) {
+            abort(403, 'Unauthorized access. Only managers can make stock adjustments.');
+        }
+
         $this->validate();
 
-        $marqueeId = auth()->user()->marquee_id;
-        $branchId  = auth()->user()->branch_id;
+        $marqueeId = $this->getMarqueeId();
+        $branchId  = $user->branch_id;
 
         if (!$branchId) {
             session()->flash('error', 'Please make sure you are logged in to a branch.');
@@ -381,7 +425,7 @@ class StockTakeManager extends Component
             }
         }
 
-        DB::transaction(function () use ($marqueeId, $branchId, $qty, $isOut, $unitCost) {
+        DB::transaction(function () use ($marqueeId, $branchId, $qty, $isOut, $unitCost, $user) {
             $stockService = app(DepartmentStockService::class);
             $prevBalance  = $stockService->getCentralWarehouseStock($marqueeId, $branchId, (int)$this->adj_item_id);
             $newBalance   = $isOut ? $prevBalance - $qty : $prevBalance + $qty;
@@ -399,7 +443,16 @@ class StockTakeManager extends Component
                 'running_balance'  => $newBalance,
                 'unit_price'       => $unitCost,
                 'total_cost'       => $qty * $unitCost,
-                'created_by'       => auth()->id(),
+                'created_by'       => $user->id,
+            ]);
+
+            \App\Models\ActivityLog::create([
+                'user_id' => $user->id,
+                'marquee_id' => $marqueeId,
+                'action' => 'stock_adjustment_posted',
+                'description' => "Posted {$this->adj_type} adjustment of {$qty} units for Item ID {$this->adj_item_id}",
+                'model_type' => InventoryStockLedger::class,
+                'model_id' => null,
             ]);
         });
 

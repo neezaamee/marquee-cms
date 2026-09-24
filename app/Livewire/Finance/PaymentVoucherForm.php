@@ -89,9 +89,11 @@ class PaymentVoucherForm extends Component
 
     public function mount($id = null)
     {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('manage_accounting')), 403, 'Unauthorized access to payment vouchers.');
+
         $service = app(PaymentVoucherService::class);
         $marqueeId = $this->getMarqueeId();
-        $user = auth()->user();
 
         $this->branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
         $this->suppliers = Supplier::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
@@ -110,7 +112,7 @@ class PaymentVoucherForm extends Component
             ->get();
 
         if ($id) {
-            $voucher = PaymentVoucher::findOrFail($id);
+            $voucher = PaymentVoucher::where('marquee_id', $marqueeId)->findOrFail($id);
             if ($voucher->status === PaymentVoucher::STATUS_POSTED) {
                 session()->flash('error', 'Cannot edit a posted payment voucher.');
                 return redirect()->route('finance.payment-vouchers.index');
@@ -332,10 +334,27 @@ class PaymentVoucherForm extends Component
 
     public function save()
     {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('manage_accounting')), 403, 'Unauthorized.');
+
         $service = app(PaymentVoucherService::class);
         $this->validate();
 
         $marqueeId = $this->getMarqueeId();
+
+        // Validate cash_bank_account_id belongs to marquee
+        $cbValid = CashBankAccount::where('marquee_id', $marqueeId)->where('id', (int) $this->cash_bank_account_id)->exists();
+        if (!$cbValid) {
+            $this->addError('cash_bank_account_id', 'Selected Cash/Bank account does not belong to your organization.');
+            return;
+        }
+
+        // Validate debit_account_id belongs to marquee
+        $debitValid = Account::where('marquee_id', $marqueeId)->where('id', (int) $this->debit_account_id)->exists();
+        if (!$debitValid) {
+            $this->addError('debit_account_id', 'Selected debit account does not belong to your organization.');
+            return;
+        }
 
         // Safely extract numeric payee_id if prefixed
         $cleanPayeeId = null;
@@ -370,11 +389,31 @@ class PaymentVoucherForm extends Component
 
         try {
             if ($this->editId) {
-                $voucher = PaymentVoucher::findOrFail($this->editId);
+                $voucher = PaymentVoucher::where('marquee_id', $marqueeId)->findOrFail($this->editId);
                 $service->updatePaymentVoucher($voucher, $payload, auth()->id());
+
+                \App\Models\ActivityLog::create([
+                    'user_id' => $user->id,
+                    'marquee_id' => $marqueeId,
+                    'action' => 'payment_voucher_updated',
+                    'description' => "Updated Payment Voucher #{$voucher->voucher_no}",
+                    'model_type' => PaymentVoucher::class,
+                    'model_id' => $voucher->id,
+                ]);
+
                 session()->flash('success', "Payment Voucher {$voucher->voucher_no} updated successfully.");
             } else {
                 $voucher = $service->createPaymentVoucher($payload, auth()->id());
+
+                \App\Models\ActivityLog::create([
+                    'user_id' => $user->id,
+                    'marquee_id' => $marqueeId,
+                    'action' => 'payment_voucher_created',
+                    'description' => "Created Payment Voucher #{$voucher->voucher_no}",
+                    'model_type' => PaymentVoucher::class,
+                    'model_id' => $voucher->id,
+                ]);
+
                 session()->flash('success', "Payment Voucher {$voucher->voucher_no} created successfully.");
             }
 

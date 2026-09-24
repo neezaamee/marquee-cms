@@ -30,6 +30,16 @@ class ManageStaffLogins extends Component
         $currentUser = auth()->user();
         abort_unless($currentUser->isSuperAdmin() || $currentUser->isBusinessOwner() || $currentUser->hasRole('branch_manager') || $currentUser->hasPermission('manage_staff'), 403);
 
+        // Security check: tenant isolation
+        if (!$currentUser->isSuperAdmin() && !$currentUser->hasAccessToMarquee($staff->marquee_id)) {
+            abort(403, 'Unauthorized access to staff in another organization.');
+        }
+
+        // Security check: branch manager scope
+        if ($currentUser->hasRole('branch_manager') && (int)$staff->branch_id !== (int)$currentUser->branch_id) {
+            abort(403, 'Unauthorized access to staff in another branch.');
+        }
+
         $this->staff = $staff;
 
         // Auto-assign branch if there is only one available
@@ -46,7 +56,7 @@ class ManageStaffLogins extends Component
             'email' => 'required|email|max:255|unique:users,email',
             'username' => ['required', 'string', 'min:3', 'max:50', 'unique:users,username', 'regex:/^[a-zA-Z0-9_\-\.]+$/'],
             'role_id' => 'required|exists:roles,id',
-            'password' => 'required|string|min:6',
+            'password' => ['required', \Illuminate\Validation\Rules\Password::defaults()],
         ];
     }
 
@@ -72,7 +82,13 @@ class ManageStaffLogins extends Component
 
         // Security check for role assignment
         $assignedRole = Role::findOrFail($this->role_id);
-        if ($assignedRole->name === 'super_admin' || ($currentUser->hasRole('branch_manager') && in_array($assignedRole->name, ['business_owner', 'owner', 'area_manager', 'branch_manager']))) {
+        if ($assignedRole->name === 'super_admin' && !$currentUser->isSuperAdmin()) {
+            abort(403, 'Unauthorized role assignment.');
+        }
+        if (in_array($assignedRole->name, ['business_owner', 'owner']) && !$currentUser->isSuperAdmin() && !$currentUser->isBusinessOwner()) {
+            abort(403, 'Unauthorized role assignment.');
+        }
+        if ($currentUser->hasRole('branch_manager') && in_array($assignedRole->name, ['area_manager', 'branch_manager'])) {
             abort(403, 'Unauthorized role assignment.');
         }
 
@@ -164,14 +180,20 @@ class ManageStaffLogins extends Component
 
         $rules = [
             'edit_role_id' => 'required|exists:roles,id',
-            'edit_password' => 'nullable|string|min:6',
+            'edit_password' => ['nullable', \Illuminate\Validation\Rules\Password::defaults()],
         ];
 
         $this->validate($rules);
 
         // Security check for role assignment
         $assignedRole = Role::findOrFail($this->edit_role_id);
-        if ($assignedRole->name === 'super_admin' || ($currentUser->hasRole('branch_manager') && in_array($assignedRole->name, ['business_owner', 'owner', 'area_manager', 'branch_manager']))) {
+        if ($assignedRole->name === 'super_admin' && !$currentUser->isSuperAdmin()) {
+            abort(403, 'Unauthorized role assignment.');
+        }
+        if (in_array($assignedRole->name, ['business_owner', 'owner']) && !$currentUser->isSuperAdmin() && !$currentUser->isBusinessOwner()) {
+            abort(403, 'Unauthorized role assignment.');
+        }
+        if ($currentUser->hasRole('branch_manager') && in_array($assignedRole->name, ['area_manager', 'branch_manager'])) {
             abort(403, 'Unauthorized role assignment.');
         }
 

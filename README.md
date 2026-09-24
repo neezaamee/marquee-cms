@@ -30,7 +30,12 @@
 * **Kitchen & Catering Recipes**: Linked dish menus to raw inventory items, with automated per-head material requirement calculations (`RecipeService`).
 * **Super Admin Migration & Live Maintenance Hub**: Web-based execution of pending database migrations (`php artisan migrate --force`), global master default data synchronization, system cache flushes, and live Artisan console log viewer without requiring direct SSH server access.
 * **Configurable Legal Terms & Bill Policies**: Dynamic manual terms and conditions editor for Booking Slips and Final Bill Invoices in both the onboarding Setup Wizard and Tenant Default Configuration Manager (`/settings/default-data`).
-* **Executive vs Front-Desk Role-Based Dashboards**: Dedicated operational views for Business Owners (Sales, Purchases, Guest Counts, Cash-in-Hand, Bank Balances) and Booking Officers (event scheduling, guest count tracking, kitchen slips without sensitive financial exposure).
+* **Multi-Tier Role-Based Operational Dashboards**: Dedicated role-tailored workspaces for:
+  - **Business Owners / Admins**: Financial summary KPIs, revenue inflows/outflows, cash/bank drawer balances, operational margins, and pending approvals.
+  - **Booking Officers**: Function scheduling, hall calendars, upcoming event timelines, and kitchen order slips without financial exposure.
+  - **Accountants**: Cash collections, payment posting queues, payment vouchers (CPV/BPV), journal vouchers, and ledger reconciliations.
+  - **Storekeepers**: Real-time kitchen ingredient stock, minimum threshold reorder alerts, pending purchase orders, and stock issue requisitions.
+* **Enterprise Security & Access Control**: Spatie RBAC matrix, interactive module permission editor, brute-force rate limiting (`throttle:5,1`), session fixation protection, security headers middleware, instant deactivation guards (`EnsureUserIsActive`), and financial isolation.
 * **Interactive Booking Menu Management**: SortableJS drag-and-drop mouse reordering of dishes, inline dish swap modal, and contextual dish insertion beneath any row across all booking creation and editing wizards.
 * **Standardized Falcon Booking Slip**: High-definition multi-page print-optimized booking slip with integrated QR code verification, food menu specifications (English format), zero-tax suppression logic, and venue shift schedules.
 * **Regional Tax Integrations**: FBR (Federal Board of Revenue) and PRA (Punjab Revenue Authority e-IMS) dual-mode POS synchronization — Cloud Web API or Local Fiscal Agent (`localhost:8524`) — with PCT coding, QR verification, and sandbox/production routing.

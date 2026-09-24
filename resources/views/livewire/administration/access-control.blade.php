@@ -68,35 +68,44 @@
                     <tbody>
                         @foreach($groupedPermissions as $category => $permissions)
                             <!-- Category Header Row -->
-                            <tr class="bg-200">
+                            <tr class="bg-200" wire:key="category-{{ \Illuminate\Support\Str::slug($category) }}">
                                 <td colspan="{{ count($roles) + 1 }}" class="py-2 px-3 fw-bold text-700 uppercase tracking-wider fs-11">
                                     <span class="fas fa-folder-open me-2 text-primary"></span>{{ $category }}
                                 </td>
                             </tr>
                             
                             @foreach($permissions as $perm)
-                                <tr>
+                                <tr wire:key="perm-row-{{ $perm->id }}">
                                     <td class="px-3 py-2">
                                         <div class="fw-semi-bold text-800">{{ $perm->label }}</div>
                                         <span class="font-monospace text-500 fs-11">{{ $perm->name }}</span>
                                     </td>
                                     @foreach($roles as $role)
-                                        <td class="text-center py-2">
+                                        <td class="text-center py-2" wire:key="cell-perm-{{ $perm->id }}-role-{{ $role->id }}">
                                             @php
                                                 $hasPerm = $role->permissions->contains('id', $perm->id);
                                                 $isSuperAdminRole = $role->name === 'super_admin';
                                                 $canEdit = auth()->user()->isSuperAdmin() && !$isSuperAdminRole;
                                             @endphp
                                             
-                                            <div class="form-check form-switch d-inline-block">
+                                            <div class="form-check form-switch d-inline-block position-relative" wire:key="switch-perm-{{ $perm->id }}-role-{{ $role->id }}">
                                                 <input 
+                                                    id="perm_{{ $perm->id }}_role_{{ $role->id }}"
                                                     type="checkbox" 
                                                     class="form-check-input @if($isSuperAdminRole) bg-primary border-primary @endif" 
                                                     style="cursor: @if($canEdit) pointer @else not-allowed @endif;"
                                                     @if($hasPerm || $isSuperAdminRole) checked @endif
                                                     @if(!$canEdit) disabled @endif
-                                                    @if($canEdit) wire:click="togglePermission({{ $role->id }}, {{ $perm->id }})" @endif
+                                                    @if($canEdit) 
+                                                        wire:click="togglePermission({{ $role->id }}, {{ $perm->id }})" 
+                                                        wire:loading.attr="disabled"
+                                                        wire:target="togglePermission({{ $role->id }}, {{ $perm->id }})"
+                                                    @endif
                                                 />
+                                                <span wire:loading wire:target="togglePermission({{ $role->id }}, {{ $perm->id }})" 
+                                                      class="spinner-border spinner-border-sm text-primary position-absolute" 
+                                                      style="width: 12px; height: 12px; right: -18px; top: 4px;" 
+                                                      role="status"></span>
                                             </div>
                                         </td>
                                     @endforeach
@@ -109,3 +118,4 @@
         </div>
     </div>
 </div>
+

@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MarqueeController;
 use App\Http\Controllers\BranchController;
@@ -30,42 +32,33 @@ Route::get('/', function () {
 
 // Storage fallback route: serves public files/logos if the storage symlink is missing or unsupported on live hosting
 Route::get('storage/{path}', function ($path) {
-    $filePath = storage_path('app/public/' . $path);
-    if (!file_exists($filePath)) {
+    $basePath = storage_path('app/public');
+    $filePath = $basePath . '/' . $path;
+    $realPath = realpath($filePath);
+
+    if (!$realPath || !str_starts_with(str_replace('\\', '/', $realPath), str_replace('\\', '/', $basePath)) || !file_exists($realPath)) {
         abort(404);
     }
-    return response()->file($filePath);
+    return response()->file($realPath);
 })->where('path', '.*');
-
-Route::get('/debug-cache', function () {
-    try {
-        $output = [];
-        \Artisan::call('config:clear');
-        $output[] = 'config:clear success';
-        \Artisan::call('cache:clear');
-        $output[] = 'cache:clear success';
-        
-        $output[] = 'DB Database: ' . config('database.connections.mysql.database');
-        $output[] = 'DB Username: ' . config('database.connections.mysql.username');
-        $output[] = 'DB Host: ' . config('database.connections.mysql.host');
-        
-        return response()->json($output);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()]);
-    }
-});
 
 // Authentication Guest Routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
 
     Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
-    Route::post('/register', [RegisterController::class, 'register']);
+    Route::post('/register', [RegisterController::class, 'register'])->middleware('throttle:10,1');
+
+    // Password Reset Routes
+    Route::get('/forgot-password', [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email')->middleware('throttle:5,1');
+    Route::get('/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset');
+    Route::post('/reset-password', [ResetPasswordController::class, 'reset'])->name('password.update')->middleware('throttle:5,1');
 });
 
 // Authenticated Routes
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'user.active'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
     Route::post('/switch-marquee', [\App\Http\Controllers\MarqueeSwitchController::class, 'switch'])->name('marquee.switch');

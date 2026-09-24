@@ -2,12 +2,18 @@
 
 namespace App\Livewire\Administration;
 
+use App\Models\ActivityLog;
 use App\Models\Role;
 use App\Models\Permission;
 use Livewire\Component;
 
 class AccessControl extends Component
 {
+    public function mount()
+    {
+        abort_unless(auth()->user() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff')), 403, 'Unauthorized access.');
+    }
+
     public function togglePermission($roleId, $permissionId)
     {
         if (!auth()->user()->isSuperAdmin()) {
@@ -15,6 +21,7 @@ class AccessControl extends Component
         }
 
         $role = Role::findOrFail($roleId);
+        $permission = Permission::findOrFail($permissionId);
 
         // Security check: super_admin permissions are immutable to prevent lockout
         if ($role->name === 'super_admin') {
@@ -22,11 +29,27 @@ class AccessControl extends Component
             return;
         }
 
-        if ($role->permissions()->where('permissions.id', $permissionId)->exists()) {
+        $wasAttached = $role->permissions()->where('permissions.id', $permissionId)->exists();
+        if ($wasAttached) {
             $role->permissions()->detach($permissionId);
+            $actionDesc = "Revoked permission '{$permission->name}' from role '{$role->name}'";
         } else {
             $role->permissions()->attach($permissionId);
+            $actionDesc = "Granted permission '{$permission->name}' to role '{$role->name}'";
         }
+
+        try {
+            ActivityLog::create([
+                'marquee_id' => null,
+                'user_id' => auth()->id(),
+                'action' => 'role_permission_toggled',
+                'model_type' => Role::class,
+                'model_id' => $role->id,
+                'description' => $actionDesc,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+        } catch (\Throwable $e) {}
 
         session()->flash('success', "Updated permissions for the '{$role->label}' role.");
     }
@@ -69,12 +92,12 @@ class AccessControl extends Component
 
     public function render()
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        abort_unless(auth()->user() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff')), 403);
 
         $roles = Role::with('permissions')->orderBy('label', 'asc')->get();
         $permissionsList = Permission::orderBy('label', 'asc')->get();
 
-        // Group permissions by category for a clean, premium dashboard matrix
+        // Group permissions by category for a clean dashboard matrix
         $groupedPermissions = [];
         foreach ($permissionsList as $permission) {
             $category = $this->getPermissionCategory($permission->name);

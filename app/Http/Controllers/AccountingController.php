@@ -56,7 +56,12 @@ class AccountingController extends Controller
      */
     public function editJournalVoucher($id)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('manage_accounting')), 403);
+        $voucher = \App\Models\JournalVoucher::withoutGlobalScopes()->findOrFail($id);
+        if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($voucher->marquee_id)) {
+            abort(403, 'Unauthorized access to this journal voucher.');
+        }
         return view('finance.journal-voucher-edit', compact('id'));
     }
 
@@ -128,7 +133,12 @@ class AccountingController extends Controller
      */
     public function editPaymentVoucher($id)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('manage_accounting')), 403);
+        $voucher = \App\Models\PaymentVoucher::withoutGlobalScopes()->findOrFail($id);
+        if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($voucher->marquee_id)) {
+            abort(403, 'Unauthorized access to this payment voucher.');
+        }
         return view('finance.payment-vouchers.edit', compact('id'));
     }
 
@@ -137,7 +147,12 @@ class AccountingController extends Controller
      */
     public function showPaymentVoucher($id)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('manage_accounting')), 403);
+        $voucher = \App\Models\PaymentVoucher::withoutGlobalScopes()->findOrFail($id);
+        if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($voucher->marquee_id)) {
+            abort(403, 'Unauthorized access to this payment voucher.');
+        }
         return view('finance.payment-vouchers.show', compact('id'));
     }
 
@@ -146,8 +161,12 @@ class AccountingController extends Controller
      */
     public function printPaymentVoucher($id)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
-        $voucher = \App\Models\PaymentVoucher::with(['branch', 'marquee', 'cashBankAccount.account', 'debitAccount', 'supplier', 'vendor', 'expense', 'preparedBy', 'approvedBy', 'disbursedBy', 'journalVoucher'])->findOrFail($id);
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('manage_accounting')), 403);
+        $voucher = \App\Models\PaymentVoucher::withoutGlobalScopes()->with(['branch', 'marquee', 'cashBankAccount.account', 'debitAccount', 'supplier', 'vendor', 'expense', 'preparedBy', 'approvedBy', 'disbursedBy', 'journalVoucher'])->findOrFail($id);
+        if (!$user->isSuperAdmin() && !$user->hasAccessToMarquee($voucher->marquee_id)) {
+            abort(403, 'Unauthorized access to this payment voucher.');
+        }
         return view('finance.payment-vouchers.print', compact('voucher'));
     }
 }

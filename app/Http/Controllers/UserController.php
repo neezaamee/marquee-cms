@@ -2,22 +2,51 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Models\Role;
+use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\Marquee;
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 
 class UserController extends Controller
 {
     /**
+     * Authorize access to user management with tenant isolation and privilege escalation prevention.
+     */
+    private function authorizeUserAccess(?User $targetUser = null, bool $allowSelf = false): void
+    {
+        $currentUser = Auth::user();
+        abort_unless($currentUser && ($currentUser->isSuperAdmin() || $currentUser->hasPermission('manage_staff')), 403, 'Unauthorized access to user management.');
+
+        if ($targetUser) {
+            // Tenant isolation check
+            if (!$currentUser->isSuperAdmin() && !$currentUser->hasAccessToMarquee($targetUser->marquee_id)) {
+                abort(403, 'Unauthorized access to user from another organization.');
+            }
+
+            // Privilege escalation prevention:
+            // Non-super admins cannot modify or delete Super Admin users
+            if ($targetUser->isSuperAdmin() && !$currentUser->isSuperAdmin()) {
+                abort(403, 'Unauthorized operation on Super Admin user.');
+            }
+
+            // Non-super admins cannot modify or delete Business Owners (unless it is themselves)
+            if ($targetUser->isBusinessOwner() && !$currentUser->isSuperAdmin() && (!$allowSelf || $currentUser->id !== $targetUser->id)) {
+                abort(403, 'Unauthorized operation on Business Owner account.');
+            }
+        }
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        $this->authorizeUserAccess();
         return view('users.index');
     }
 
@@ -26,7 +55,7 @@ class UserController extends Controller
      */
     public function create()
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        $this->authorizeUserAccess();
         return view('users.create');
     }
 
@@ -43,7 +72,7 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        $this->authorizeUserAccess($user, true);
 
         $user->load(['role', 'branch', 'marquee']);
         return view('users.show', compact('user'));
@@ -54,14 +83,14 @@ class UserController extends Controller
      */
     public function edit(User $user)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        $this->authorizeUserAccess($user, true);
 
-        $roles = auth()->user()->isSuperAdmin()
+        $roles = Auth::user()->isSuperAdmin()
             ? Role::all()
-            : Role::where('name', '!=', 'super_admin')->get();
+            : Role::whereNotIn('name', ['super_admin', 'business_owner', 'owner'])->get();
 
         $branches = Branch::all();
-        $marquees = auth()->user()->isSuperAdmin() ? Marquee::all() : [];
+        $marquees = Auth::user()->isSuperAdmin() ? Marquee::all() : [];
 
         return view('users.edit', compact('user', 'roles', 'branches', 'marquees'));
     }
@@ -71,7 +100,9 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        $this->authorizeUserAccess($user, true);
+
+        $currentUser = Auth::user();
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -83,16 +114,19 @@ class UserController extends Controller
             'status' => 'required|in:active,inactive',
         ];
 
-        if (auth()->user()->isSuperAdmin()) {
+        if ($currentUser->isSuperAdmin()) {
             $rules['marquee_id'] = 'nullable|exists:marquees,id';
         }
 
         $validated = $request->validate($rules);
 
-        // Security check for role assignment
-        $assignedRole = Role::find($validated['role_id']);
-        if ($assignedRole->name === 'super_admin' && !auth()->user()->isSuperAdmin()) {
-            abort(403, 'Unauthorized role assignment.');
+        // Security check for role assignment privilege escalation
+        $assignedRole = Role::findOrFail($validated['role_id']);
+        if ($assignedRole->name === 'super_admin' && !$currentUser->isSuperAdmin()) {
+            abort(403, 'Unauthorized role assignment: cannot assign super admin.');
+        }
+        if (in_array($assignedRole->name, ['business_owner', 'owner']) && !$currentUser->isSuperAdmin() && !$currentUser->isBusinessOwner()) {
+            abort(403, 'Unauthorized role assignment: cannot assign owner role.');
         }
 
         if (empty($validated['password'])) {
@@ -101,11 +135,24 @@ class UserController extends Controller
             $validated['password'] = Hash::make($validated['password']);
         }
 
-        if (!auth()->user()->isSuperAdmin()) {
-            $validated['marquee_id'] = $user->marquee_id ?? auth()->user()->getActiveMarqueeId();
+        if (!$currentUser->isSuperAdmin()) {
+            $validated['marquee_id'] = $user->marquee_id ?? $currentUser->getActiveMarqueeId();
         }
 
         $user->update($validated);
+
+        try {
+            ActivityLog::create([
+                'marquee_id' => $user->marquee_id,
+                'user_id' => $currentUser->id,
+                'action' => 'user_updated',
+                'model_type' => User::class,
+                'model_id' => $user->id,
+                'description' => "User account '{$user->name}' was updated.",
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+        } catch (\Throwable $e) {}
 
         return redirect()->route('users.index')->with('success', 'User updated successfully.');
     }
@@ -115,14 +162,27 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        $this->authorizeUserAccess($user, false);
 
         // Prevent self-deletion
-        if ($user->id === auth()->id()) {
+        if ($user->id === Auth::id()) {
             return redirect()->route('users.index')->with('error', 'You cannot delete your own account.');
         }
 
         $user->delete();
+
+        try {
+            ActivityLog::create([
+                'marquee_id' => $user->marquee_id,
+                'user_id' => Auth::id(),
+                'action' => 'user_deleted',
+                'model_type' => User::class,
+                'model_id' => $user->id,
+                'description' => "User account '{$user->name}' was deleted.",
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+        } catch (\Throwable $e) {}
 
         return redirect()->route('users.index')->with('success', 'User deleted successfully.');
     }

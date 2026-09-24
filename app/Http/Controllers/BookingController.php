@@ -205,6 +205,12 @@ class BookingController extends Controller
             $lang = 'bilingual';
         }
 
+        // Paper size selection (a5, a4) - defaults to a5 for single-page 20-dish kitchen slip
+        $paper = $request->input('paper', 'a5');
+        if (!in_array($paper, ['a5', 'a4'])) {
+            $paper = 'a5';
+        }
+
         // Update special kitchen instructions if provided
         if ($request->filled('kitchen_special_instructions')) {
             $booking->kitchen_special_instructions = $request->input('kitchen_special_instructions');
@@ -292,6 +298,7 @@ class BookingController extends Controller
             'booking',
             'groupedMenuItems',
             'lang',
+            'paper',
             'marquee',
             'branch'
         ));

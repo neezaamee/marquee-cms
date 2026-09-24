@@ -52,7 +52,7 @@
           <a class="nav-link {{ Route::is('dashboard') && request('view') !== 'saas' ? 'active' : '' }}" href="{{ route('dashboard', ['view' => 'owner']) }}" role="button">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-chart-pie"></span></span>
-              <span class="nav-link-text ps-1">Owner Dashboard</span>
+              <span class="nav-link-text ps-1">Dashboard</span>
             </div>
           </a>
         </li>
@@ -438,7 +438,7 @@
         </li>
 
         <!-- Kitchen Production -->
-        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'))
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting') || auth()->user()->hasPermission('view_menus') || auth()->user()->hasPermission('manage_inventory') || auth()->user()->hasPermission('department.inventory.issue'))
         <li class="nav-item">
           <a class="nav-link {{ Route::is('departments.production') ? 'active' : '' }}" href="{{ route('departments.production') }}">
             <div class="d-flex align-items-center">
@@ -453,7 +453,7 @@
         <!-- ========================================== -->
         <!-- OPERATIONS SECTION -->
         <!-- ========================================== -->
-        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings') || auth()->user()->hasPermission('manage_staff') || auth()->user()->hasPermission('manage_accounting'))
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings') || auth()->user()->hasPermission('manage_staff') || auth()->user()->hasPermission('manage_accounting') || auth()->user()->hasPermission('department.view') || auth()->user()->hasPermission('department.inventory.issue'))
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
           <div class="col-auto navbar-vertical-label">Operations</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
@@ -485,7 +485,7 @@
         @php
           $deptActive = Route::is('departments.*') && !Route::is('departments.production');
         @endphp
-        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'))
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting') || auth()->user()->hasPermission('department.view') || auth()->user()->hasPermission('department.inventory.issue') || auth()->user()->hasPermission('department.request.manage') || auth()->user()->hasPermission('manage_inventory') || auth()->user()->hasRole(['store_keeper', 'branch_manager']))
         <li class="nav-item">
           <a class="nav-link dropdown-indicator {{ $deptActive ? '' : 'collapsed' }}" href="#departmentsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $deptActive ? 'true' : 'false' }}" aria-controls="departmentsCollapse">
             <div class="d-flex align-items-center">
@@ -565,11 +565,12 @@
         <!-- ========================================== -->
         <!-- PROCUREMENT & INVENTORY SECTION -->
         <!-- ========================================== -->
-        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_inventory'))
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_inventory') || auth()->user()->hasPermission('manage_inventory') || auth()->user()->hasPermission('inventory.stock-take') || auth()->user()->hasPermission('inventory.adjust') || auth()->user()->hasPermission('view_supplier_categories') || auth()->user()->hasPermission('purchase.approve-po') || auth()->user()->hasRole('store_keeper'))
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
           <div class="col-auto navbar-vertical-label">Procurement & Inventory</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
         </div>
+
 
         <!-- Inventory dropdown -->
         @php
@@ -607,7 +608,7 @@
             <li class="nav-item">
               <a class="nav-link {{ Route::is('inventory.items') ? 'active' : '' }}" href="{{ route('inventory.items') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Item Catalog</span>
+                  <span class="nav-link-text ps-1">Stock Items</span>
                 </div>
               </a>
             </li>

@@ -13,8 +13,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->authenticateSessions();
+        $middleware->web(append: [
+            \App\Http\Middleware\SecurityHeaders::class,
+        ]);
 
         $middleware->alias([
+            'user.active' => \App\Http\Middleware\EnsureUserIsActive::class,
             'setup.completed' => \App\Http\Middleware\EnsureInitialSetupIsCompleted::class,
             'subscription.active' => \App\Http\Middleware\EnsureSubscriptionIsActive::class,
         ]);

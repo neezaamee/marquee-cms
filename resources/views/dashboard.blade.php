@@ -36,12 +36,21 @@
                     <span class="text-700 fs-11 fw-semibold">Dashboard View:</span>
                 </div>
                 <div class="col-auto">
-                    <div class="btn-group btn-group-sm" role="group">
+                    <div class="btn-group btn-group-sm flex-wrap" role="group">
                         <a href="{{ route('dashboard', ['view' => 'saas']) }}" class="btn {{ $saasView === 'saas' ? 'btn-primary' : 'btn-outline-secondary' }}">
-                            <span class="fas fa-network-wired me-1"></span> SaaS Command Center
+                            <span class="fas fa-network-wired me-1"></span> SaaS Command
                         </a>
                         <a href="{{ route('dashboard', ['view' => 'owner']) }}" class="btn {{ $saasView === 'owner' ? 'btn-primary' : 'btn-outline-secondary' }}">
-                            <span class="fas fa-chart-pie me-1"></span> Business Owner Dashboard
+                            <span class="fas fa-chart-pie me-1"></span> Owner
+                        </a>
+                        <a href="{{ route('dashboard', ['view' => 'storekeeper']) }}" class="btn {{ $saasView === 'storekeeper' ? 'btn-primary' : 'btn-outline-secondary' }}">
+                            <span class="fas fa-boxes me-1"></span> Storekeeper
+                        </a>
+                        <a href="{{ route('dashboard', ['view' => 'accountant']) }}" class="btn {{ $saasView === 'accountant' ? 'btn-primary' : 'btn-outline-secondary' }}">
+                            <span class="fas fa-coins me-1"></span> Accountant
+                        </a>
+                        <a href="{{ route('dashboard', ['view' => 'booking']) }}" class="btn {{ $saasView === 'booking' ? 'btn-primary' : 'btn-outline-secondary' }}">
+                            <span class="fas fa-calendar-alt me-1"></span> Booking Desk
                         </a>
                     </div>
                 </div>
@@ -52,6 +61,15 @@
     @if($saasView === 'owner')
         <!-- Business Owner Live Dashboard -->
         <livewire:owner.business-owner-dashboard />
+    @elseif($saasView === 'storekeeper')
+        <!-- Storekeeper & Inventory Dashboard -->
+        <livewire:inventory.storekeeper-dashboard />
+    @elseif($saasView === 'accountant')
+        <!-- Accountant & Finance Dashboard -->
+        <livewire:finance.accountant-dashboard />
+    @elseif($saasView === 'booking')
+        <!-- Booking Desk & Operations Dashboard -->
+        <livewire:owner.business-owner-dashboard :viewMode="'operations'" />
     @else
         <!-- Super Admin SaaS Executive Dashboard -->
         <livewire:super-admin.super-admin-dashboard />
@@ -219,8 +237,22 @@
       </div>
     </div>
     @else
-    <!-- Business Owner Live Dashboard -->
-    <livewire:owner.business-owner-dashboard />
+        @if($userRole === 'store_keeper')
+            <!-- Storekeeper & Inventory Dashboard -->
+            <livewire:inventory.storekeeper-dashboard />
+        @elseif($userRole === 'accountant')
+            <!-- Accountant & Finance Dashboard -->
+            <livewire:finance.accountant-dashboard />
+        @elseif(in_array($userRole, ['booking_officer', 'booking_manager', 'booking_manager_pra']))
+            <!-- Booking Desk & Operations Dashboard -->
+            <livewire:owner.business-owner-dashboard :viewMode="'operations'" />
+        @elseif($userRole === 'branch_manager')
+            <!-- Branch-scoped Operational Dashboard -->
+            <livewire:owner.business-owner-dashboard :selectedBranchId="auth()->user()->branch_id" />
+        @else
+            <!-- Business Owner Live Dashboard -->
+            <livewire:owner.business-owner-dashboard />
+        @endif
     @endif
 @endif
 @endsection

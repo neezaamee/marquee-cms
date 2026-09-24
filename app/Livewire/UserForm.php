@@ -65,7 +65,7 @@ class UserForm extends Component
 
         if ($user) {
             // Tenant isolation check
-            if (!$currentUser->isSuperAdmin() && $user->marquee_id !== $currentUser->marquee_id) {
+            if (!$currentUser->isSuperAdmin() && !$currentUser->hasAccessToMarquee($user->marquee_id)) {
                 abort(403, 'Unauthorized operation.');
             }
 
@@ -124,9 +124,9 @@ class UserForm extends Component
         }
 
         if (!$this->isEditMode) {
-            $rules['password'] = 'required|string|min:6';
+            $rules['password'] = ['required', \Illuminate\Validation\Rules\Password::defaults()];
         } else {
-            $rules['password'] = 'nullable|string|min:6';
+            $rules['password'] = ['nullable', \Illuminate\Validation\Rules\Password::defaults()];
         }
 
         return $rules;
@@ -146,7 +146,7 @@ class UserForm extends Component
         abort_unless($currentUser->isSuperAdmin() || $currentUser->hasPermission('manage_staff'), 403);
 
         if (!$currentUser->isSuperAdmin()) {
-            $this->marquee_id = $currentUser->marquee_id;
+            $this->marquee_id = $currentUser->getActiveMarqueeId() ?: $currentUser->marquee_id;
         }
 
         $validatedData = $this->validate();
@@ -155,6 +155,9 @@ class UserForm extends Component
         $assignedRole = Role::find($this->role_id);
         if ($assignedRole->name === 'super_admin' && !$currentUser->isSuperAdmin()) {
             abort(403, 'Unauthorized role assignment.');
+        }
+        if (in_array($assignedRole->name, ['business_owner', 'owner']) && !$currentUser->isSuperAdmin() && !$currentUser->isBusinessOwner()) {
+            abort(403, 'Unauthorized role assignment: cannot assign owner role.');
         }
 
         // Format password
@@ -207,7 +210,7 @@ class UserForm extends Component
             $userModel = User::findOrFail($this->userId);
 
             // Tenant security check
-            if (!$currentUser->isSuperAdmin() && $userModel->marquee_id !== $currentUser->marquee_id) {
+            if (!$currentUser->isSuperAdmin() && !$currentUser->hasAccessToMarquee($userModel->marquee_id)) {
                 abort(403, 'Unauthorized operation.');
             }
 

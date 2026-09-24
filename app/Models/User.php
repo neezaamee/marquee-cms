@@ -31,6 +31,10 @@ class User extends Authenticatable
         'credit_balance',
     ];
 
+    protected $attributes = [
+        'status' => 'active',
+    ];
+
     protected $hidden = [
         'password',
         'remember_token',

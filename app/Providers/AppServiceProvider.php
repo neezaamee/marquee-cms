@@ -45,6 +45,26 @@ class AppServiceProvider extends ServiceProvider
 
         Paginator::useBootstrapFive();
 
+        // Centralized standard password policy (minimum 8 characters, requiring letters and numbers)
+        \Illuminate\Validation\Rules\Password::defaults(function () {
+            $rule = \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers();
+            return $this->app->environment('production') ? $rule->uncompromised() : $rule;
+        });
+
+        // Centralized Gate authorization bridge:
+        // 1. Super Admins bypass all authorization checks globally.
+        // 2. Named permissions (without model parameters) evaluate against User::hasPermission().
+        // 3. Model-specific abilities fall through to dedicated model policies to preserve tenant scoping.
+        Gate::before(function ($user, $ability, $params = []) {
+            if ($user->isSuperAdmin()) {
+                return true;
+            }
+            if (empty($params) && $user->hasPermission($ability)) {
+                return true;
+            }
+            return null;
+        });
+
         Gate::policy(\App\Models\Booking::class, \App\Policies\BookingPolicy::class);
         Gate::policy(\App\Models\Branch::class, \App\Policies\BranchPolicy::class);
         Gate::policy(\App\Models\Marquee::class, \App\Policies\MarqueePolicy::class);

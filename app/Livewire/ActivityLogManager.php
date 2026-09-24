@@ -140,9 +140,19 @@ class ActivityLogManager extends Component
     public function showDetailModal(int $logId)
     {
         $this->selectedLogId = $logId;
+        $user = Auth::user();
         $log = ActivityLog::withoutGlobalScope('tenant')
             ->with(['user.role', 'marquee'])
             ->find($logId);
+
+        if ($log && !$user->isSuperAdmin()) {
+            $accessibleMarqueeIds = $this->getAccessibleMarqueeIds();
+            $canAccess = ($log->marquee_id && in_array((int) $log->marquee_id, array_map('intval', $accessibleMarqueeIds), true))
+                || ((int) $log->user_id === (int) $user->id);
+            if (!$canAccess) {
+                abort(403, 'Unauthorized access to activity log from another organization.');
+            }
+        }
 
         if ($log) {
             $this->selectedLogDetails = [

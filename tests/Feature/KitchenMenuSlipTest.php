@@ -306,4 +306,66 @@ class KitchenMenuSlipTest extends TestCase
 
         $response->assertStatus(404);
     }
+
+    public function test_kitchen_slip_displays_shift_slot_and_empty_instructions_when_no_notes()
+    {
+        $slot = \App\Models\Slot::create([
+            'marquee_id' => $this->marquee->id,
+            'slot_name' => 'Dinner Shift',
+            'start_time' => '19:00:00',
+            'end_time' => '23:30:00',
+            'status' => 'active',
+        ]);
+
+        $this->booking->update(['slot_id' => $slot->id]);
+
+        // Attach an item without custom_note and another with empty custom_note
+        $this->booking->menuItems()->sync([
+            $this->chickenTikka->id => ['custom_note' => null],
+            $this->naan->id => ['custom_note' => 'Extra Crispy'],
+        ]);
+
+        $response = $this->actingAs($this->owner)
+            ->get(route('bookings.kitchen-slip', ['booking' => $this->booking->id, 'lang' => 'bilingual']));
+
+        $response->assertStatus(200);
+        $response->assertSee('Dinner Shift');
+        $response->assertSee('Shift Slot / شفٹ سلاٹ');
+        $response->assertSee('Extra Crispy');
+        $response->assertDontSee('Standard Preparation');
+    }
+
+    public function test_kitchen_slip_manages_20_dishes_on_a5_page()
+    {
+        $itemsToAttach = [];
+        for ($i = 1; $i <= 20; $i++) {
+            $dish = MenuItem::create([
+                'marquee_id' => $this->marquee->id,
+                'category_id' => $this->chickenTikka->category_id,
+                'item_name' => "Special Dish Item #{$i}",
+                'item_code' => "CODE-DISH-{$i}",
+                'urdu_name' => "خصوصی ڈش نمبر {$i}",
+                'base_cost' => 100 + $i,
+                'selling_price' => 200 + $i,
+                'unit' => 'Servings',
+                'status' => 'active',
+            ]);
+            $itemsToAttach[$dish->id] = ['custom_note' => $i % 2 === 0 ? "Instruction note for dish {$i}" : null];
+        }
+
+        $this->booking->menuItems()->sync($itemsToAttach);
+
+        $response = $this->actingAs($this->owner)
+            ->get(route('bookings.kitchen-slip', ['booking' => $this->booking->id, 'lang' => 'bilingual', 'paper' => 'a5']));
+
+        $response->assertStatus(200);
+        $response->assertSee('paper-a5');
+        $response->assertSee('A5 (1 Page / 20 Dishes)');
+        $response->assertSee('size: A5 portrait', false);
+        for ($i = 1; $i <= 20; $i++) {
+            $response->assertSee("Special Dish Item #{$i}");
+        }
+        $response->assertSee('Instruction note for dish 2');
+        $response->assertDontSee('Standard Preparation');
+    }
 }

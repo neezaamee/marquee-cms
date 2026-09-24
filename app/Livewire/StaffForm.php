@@ -112,7 +112,7 @@ class StaffForm extends Component
             'employment_type' => 'required|string',
             'status' => 'required|string',
             'branch_id' => 'required|exists:branches,id',
-            'photo' => 'nullable|image|max:2048', // 2MB Max
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048', // 2MB Max
         ];
     }
 

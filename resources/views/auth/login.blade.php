@@ -7,11 +7,17 @@
   <div class="col-auto">
     <h5>Log in</h5>
   </div>
-  <div class="col-auto fs-10 text-600">
+  <!--<div class="col-auto fs-10 text-600">
     <span class="mb-0">or</span> 
     <a href="{{ route('register') }}">Create an account</a>
   </div>
-</div>
+</div>-->
+
+@if (session('status'))
+  <div class="alert alert-success fs-10 mb-3" role="alert">
+    {{ session('status') }}
+  </div>
+@endif
 
 <form method="POST" action="{{ route('login') }}">
   @csrf
@@ -60,9 +66,9 @@
       </div>
     </div>
     
-    <!-- Forgot Password (Placeholder path for now) -->
+    <!-- Forgot Password -->
     <div class="col-auto">
-      <a class="fs-10" href="#">Forgot Password?</a>
+      <a class="fs-10" href="{{ route('password.request') }}">Forgot Password?</a>
     </div>
   </div>
 
@@ -72,7 +78,7 @@
   </div>
 </form>
 
-<div class="position-relative mt-4">
+<!--<div class="position-relative mt-4">
   <hr />
   <div class="divider-content-center">or log in with</div>
 </div>
@@ -88,7 +94,7 @@
       <span class="fab fa-facebook-square me-2" data-fa-transform="grow-8"></span> facebook
     </a>
   </div>
-</div>
+</div>-->
 
 <script>
   function togglePassword(id, btn) {

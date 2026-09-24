@@ -108,9 +108,39 @@ class ProfileController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $user->update([
+        // Update password and rotate remember token
+        $user->forceFill([
             'password' => Hash::make($request->password),
-        ]);
+            'remember_token' => \Illuminate\Support\Str::random(60),
+        ])->save();
+
+        // Invalidate sessions on other devices using Laravel's session guard
+        try {
+            Auth::logoutOtherDevices($request->password);
+        } catch (\Throwable $e) {}
+
+        // If database session store is active, delete other sessions for this user
+        if (config('session.driver') === 'database') {
+            try {
+                \Illuminate\Support\Facades\DB::table('sessions')
+                    ->where('user_id', $user->id)
+                    ->where('id', '!=', $request->session()->getId())
+                    ->delete();
+            } catch (\Throwable $e) {}
+        }
+
+        try {
+            ActivityLog::create([
+                'marquee_id' => $user->getActiveMarqueeId(),
+                'user_id' => $user->id,
+                'action' => 'password_changed',
+                'model_type' => User::class,
+                'model_id' => $user->id,
+                'description' => 'User changed their password and invalidated other active sessions.',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+        } catch (\Throwable $e) {}
 
         return redirect()->route('profile.show')->with('success', 'Password changed successfully.');
     }

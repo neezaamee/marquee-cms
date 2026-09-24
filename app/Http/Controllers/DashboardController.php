@@ -54,11 +54,13 @@ class DashboardController extends Controller
         }
 
         $isSuperAdmin = $user->isSuperAdmin();
+        $userRole = $user->role ? $user->role->name : 'staff';
 
         return view('dashboard', compact(
             'isSuperAdmin',
             'isSetupCompleted',
-            'setupChecklist'
+            'setupChecklist',
+            'userRole'
         ));
     }
 }

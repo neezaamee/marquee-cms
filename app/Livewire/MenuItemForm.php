@@ -57,7 +57,8 @@ class MenuItemForm extends Component
 
     protected function rules()
     {
-        $marqueeId = auth()->user()->marquee_id;
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         return [
             'category_id' => [
@@ -79,7 +80,7 @@ class MenuItemForm extends Component
             'unit' => 'required|string|max:50',
             'base_cost' => 'nullable|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
-            'image' => 'nullable|image|max:2048', // 2MB max
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048', // 2MB max
             'status' => 'required|in:Active,Inactive',
         ];
     }
@@ -98,9 +99,10 @@ class MenuItemForm extends Component
         abort_unless($user->isSuperAdmin() || $user->hasPermission($this->isEditMode ? 'edit_menus' : 'create_menus'), 403);
 
         $validatedData = $this->validate();
+        $marqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
 
         $itemData = [
-            'marquee_id' => auth()->user()->marquee_id,
+            'marquee_id' => $marqueeId,
             'category_id' => $this->category_id,
             'item_name' => $this->item_name,
             'urdu_name' => $this->urdu_name ?: null,

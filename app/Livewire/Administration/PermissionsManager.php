@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Administration;
 
+use App\Models\ActivityLog;
 use App\Models\Permission;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -27,6 +28,11 @@ class PermissionsManager extends Component
     protected $queryString = [
         'search' => ['except' => ''],
     ];
+
+    public function mount()
+    {
+        abort_unless(auth()->user() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff')), 403, 'Unauthorized access.');
+    }
 
     public function updatedSearch()
     {
@@ -103,12 +109,40 @@ class PermissionsManager extends Component
                 'name' => $this->name,
                 'label' => $this->label,
             ]);
+
+            try {
+                ActivityLog::create([
+                    'marquee_id' => null,
+                    'user_id' => auth()->id(),
+                    'action' => 'permission_updated',
+                    'model_type' => Permission::class,
+                    'model_id' => $permission->id,
+                    'description' => "Permission '{$permission->name}' was updated.",
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]);
+            } catch (\Throwable $e) {}
+
             session()->flash('success', 'Permission updated successfully.');
         } else {
-            Permission::create([
+            $permission = Permission::create([
                 'name' => $this->name,
                 'label' => $this->label,
             ]);
+
+            try {
+                ActivityLog::create([
+                    'marquee_id' => null,
+                    'user_id' => auth()->id(),
+                    'action' => 'permission_created',
+                    'model_type' => Permission::class,
+                    'model_id' => $permission->id,
+                    'description' => "New permission '{$permission->name}' was created.",
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]);
+            } catch (\Throwable $e) {}
+
             session()->flash('success', 'Permission created successfully.');
         }
 
@@ -134,9 +168,22 @@ class PermissionsManager extends Component
         if ($this->confirmingDeletionId) {
             $permission = Permission::findOrFail($this->confirmingDeletionId);
             
-            // Delete matches from pivot implicitly through database cascade constraint, 
-            // but we can also detach manually just in case
+            // Detach from pivot table
             $permission->roles()->detach();
+
+            try {
+                ActivityLog::create([
+                    'marquee_id' => null,
+                    'user_id' => auth()->id(),
+                    'action' => 'permission_deleted',
+                    'model_type' => Permission::class,
+                    'model_id' => $permission->id,
+                    'description' => "Permission '{$permission->name}' was deleted.",
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]);
+            } catch (\Throwable $e) {}
+
             $permission->delete();
 
             session()->flash('success', 'Permission deleted successfully.');
@@ -147,7 +194,7 @@ class PermissionsManager extends Component
 
     public function render()
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        abort_unless(auth()->user() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff')), 403);
 
         $query = Permission::query();
 

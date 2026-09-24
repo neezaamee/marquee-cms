@@ -257,8 +257,8 @@
                         <label class="form-label fs-11 text-700 mb-1">Guest Status</label>
                         <select wire:model.live="filterGuestStatus" class="form-select form-select-sm">
                             <option value="">All Guest Statuses</option>
-                            <option value="Tentative">Tentative Headcount</option>
-                            <option value="Confirmed">Confirmed Headcount</option>
+                            <option value="Tentative">Tentative Guest</option>
+                            <option value="Confirmed">Confirmed Guest</option>
                         </select>
                     </div>
 
@@ -321,10 +321,10 @@
                     <thead class="bg-200 text-900">
                         <tr>
                             <th class="px-3">Booking #</th>
-                            <th>Customer Profile</th>
-                            <th>Venue / Branch & Hall</th>
+                            <th>Customer Name</th>
+                            <th>Venue & Hall</th>
                             <th>Event Details</th>
-                            <th>Headcount & Confirmation</th>
+                            <th>No. Of Guests</th>
                             <th>Booking Status</th>
                             <th>Payment & Balance</th>
                             <th class="text-end px-3">Actions</th>

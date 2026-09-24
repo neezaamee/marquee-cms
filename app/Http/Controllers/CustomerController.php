@@ -33,7 +33,7 @@ class CustomerController extends Controller
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_bookings'), 403);
 
         // Tenant scoping security check
-        if (!auth()->user()->isSuperAdmin() && $customer->marquee_id !== auth()->user()->marquee_id) {
+        if (!auth()->user()->isSuperAdmin() && !auth()->user()->hasAccessToMarquee($customer->marquee_id)) {
             abort(403, 'Unauthorized access to this customer profile.');
         }
 
@@ -48,7 +48,7 @@ class CustomerController extends Controller
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings'), 403);
 
         // Tenant scoping security check
-        if (!auth()->user()->isSuperAdmin() && $customer->marquee_id !== auth()->user()->marquee_id) {
+        if (!auth()->user()->isSuperAdmin() && !auth()->user()->hasAccessToMarquee($customer->marquee_id)) {
             abort(403, 'Unauthorized access to this customer record.');
         }
 

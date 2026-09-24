@@ -179,6 +179,7 @@ class SaasPaymentForm extends Component
 
     public function render()
     {
+        abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403);
         return view('livewire.saas-payment-form');
     }
 }

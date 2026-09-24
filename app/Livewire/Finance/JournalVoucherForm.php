@@ -54,13 +54,15 @@ class JournalVoucherForm extends Component
 
     public function mount($id = null)
     {
-        $marqueeId = $this->getMarqueeId();
         $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('manage_accounting')), 403, 'Unauthorized access to journal vouchers.');
+
+        $marqueeId = $this->getMarqueeId();
 
         $this->branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
 
         if ($id) {
-            $voucher = JournalVoucher::with('items')->findOrFail($id);
+            $voucher = JournalVoucher::with('items')->where('marquee_id', $marqueeId)->findOrFail($id);
             
             if ($voucher->status === 'posted') {
                 session()->flash('error', 'Cannot edit a posted journal voucher.');
@@ -120,9 +122,21 @@ class JournalVoucherForm extends Component
 
     public function save(AccountingService $accountingService)
     {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('manage_accounting')), 403, 'Unauthorized.');
+
         $this->validate();
 
         $marqueeId = $this->getMarqueeId();
+
+        // Validate all item accounts belong to this marquee
+        $accountIds = array_filter(array_column($this->items, 'account_id'));
+        $validAccountCount = Account::where('marquee_id', $marqueeId)->whereIn('id', $accountIds)->count();
+        $uniqueAccountIds = array_unique($accountIds);
+        if ($validAccountCount < count($uniqueAccountIds)) {
+            session()->flash('validation_error', 'One or more selected accounts do not belong to this organization.');
+            return;
+        }
 
         // Clean items array structure
         $cleanItems = [];
@@ -170,10 +184,31 @@ class JournalVoucherForm extends Component
 
         try {
             if ($this->editId) {
+                $voucher = JournalVoucher::where('marquee_id', $marqueeId)->findOrFail($this->editId);
                 $accountingService->updateJournalVoucher($this->editId, $header, $cleanItems);
+
+                \App\Models\ActivityLog::create([
+                    'user_id' => $user->id,
+                    'marquee_id' => $marqueeId,
+                    'action' => 'journal_voucher_updated',
+                    'description' => "Updated Journal Voucher #{$voucher->voucher_no}",
+                    'model_type' => JournalVoucher::class,
+                    'model_id' => $voucher->id,
+                ]);
+
                 session()->flash('success', 'Journal Voucher updated successfully.');
             } else {
-                $accountingService->createJournalVoucher($header, $cleanItems);
+                $jv = $accountingService->createJournalVoucher($header, $cleanItems);
+
+                \App\Models\ActivityLog::create([
+                    'user_id' => $user->id,
+                    'marquee_id' => $marqueeId,
+                    'action' => 'journal_voucher_created',
+                    'description' => "Created Journal Voucher #{$jv->voucher_no}",
+                    'model_type' => JournalVoucher::class,
+                    'model_id' => $jv->id,
+                ]);
+
                 session()->flash('success', 'Journal Voucher created successfully.');
             }
 

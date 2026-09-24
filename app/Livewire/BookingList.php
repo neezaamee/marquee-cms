@@ -515,12 +515,17 @@ class BookingList extends Component
             'paymentNotes' => 'nullable|string|max:500',
         ]);
 
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasPermission('create_payments') || $user->hasPermission('manage_bookings')), 403, 'Unauthorized to record payments.');
+
         $this->isSubmittingPayment = true;
-        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $marqueeId = $user->getActiveMarqueeId();
 
         $booking = Booking::with(['customer', 'payments', 'branch', 'hall', 'finalBill'])
             ->where('marquee_id', $marqueeId)
             ->findOrFail($this->paymentBookingId);
+
+        abort_unless($user->can('update', $booking), 403, 'Unauthorized access to update this booking.');
 
         $amount = floatval($this->paymentAmount);
 

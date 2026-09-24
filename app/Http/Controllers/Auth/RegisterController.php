@@ -24,6 +24,12 @@ class RegisterController extends Controller
      */
     public function register(Request $request)
     {
+        // Sanitize name and email
+        $request->merge([
+            'name' => trim((string) $request->input('name', '')),
+            'email' => strtolower(trim((string) $request->input('email', ''))),
+        ]);
+
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
@@ -34,9 +40,23 @@ class RegisterController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'status' => 'active',
         ]);
 
         Auth::login($user);
+        $request->session()->regenerate();
+
+        try {
+            \App\Models\ActivityLog::create([
+                'user_id' => $user->id,
+                'action' => 'register',
+                'model_type' => get_class($user),
+                'model_id' => $user->id,
+                'description' => "New user account '{$user->name}' registered",
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+        } catch (\Throwable $e) {}
 
         return redirect()->route('dashboard');
     }

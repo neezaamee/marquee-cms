@@ -5,6 +5,26 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-09-24
+
+### Added
+- **Role-Based Dynamic Dashboards**:
+  - Implemented tailored, role-specific operational dashboards:
+    - **Owner / Administrator Dashboard**: Financial KPIs, Revenue, Inflow/Outflow, Bank/Cash Balances, Pending Approvals, Recent Bookings.
+    - **Booking Officer Dashboard**: Event Calendar, Upcoming Functions, Shift Schedules, Hall Allocations, Kitchen Slips without financial exposure.
+    - **Accountant Dashboard** (`AccountantDashboard`): Daily cash collections, pending payment postings, CPV/BPV disbursement queues, journal vouchers, customer advance liabilities, trial balances.
+    - **Storekeeper Dashboard** (`StorekeeperDashboard`): Kitchen stock balances, minimum threshold reorder alerts, pending department stock requests, pending purchase orders, stock take cycles.
+  - Added full automated test coverage (`RoleBasedDashboardTest.php`).
+- **Enterprise Access Control Matrix & Permissions Manager**:
+  - Upgraded `AccessControl` and `PermissionsManager` with Livewire 3 real-time module-wise permission assignment for custom roles (`Storekeeper`, `Inventory Manager`, `Accountant`, `Cashier`, `Booking Officer`).
+  - Added module grouping, instant visual state persistence, and tenant-scoped permission sync.
+- **Enterprise Security Hardening**:
+  - **Authentication & Rate Limiting**: Added strict throttle protection (`throttle:5,1`) on login endpoints, session regeneration post-authentication to prevent session fixation, and brute-force mitigations.
+  - **Account Status Guard**: Implemented `EnsureUserIsActive` middleware blocking deactivated or suspended tenants/users instantly with automatic session invalidation.
+  - **Security HTTP Headers**: Added `SecurityHeaders` middleware enforcing `X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`, `Referrer-Policy`, and `Content-Security-Policy`.
+  - **Financial Isolation**: Enforced server-side policy guards preventing unauthorized modification, deletion, or backdating of posted payments, journal vouchers, and ledger accounts.
+  - **Automated Security Suites**: Added 5 dedicated feature test suites in `tests/Feature/Security/` verifying authentication, tenant isolation, RBAC escalation resistance, and financial transaction integrity.
+
 ## [1.12.0] - 2026-09-22
 
 ### Added

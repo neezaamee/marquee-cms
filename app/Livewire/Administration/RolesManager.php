@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Administration;
 
+use App\Models\ActivityLog;
 use App\Models\Role;
 use App\Models\User;
 use Livewire\Component;
@@ -42,6 +43,11 @@ class RolesManager extends Component
     protected $queryString = [
         'search' => ['except' => ''],
     ];
+
+    public function mount()
+    {
+        abort_unless(auth()->user() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff')), 403, 'Unauthorized access.');
+    }
 
     public function updatedSearch()
     {
@@ -132,13 +138,41 @@ class RolesManager extends Component
                 'label' => $this->label,
                 'description' => $this->description,
             ]);
+
+            try {
+                ActivityLog::create([
+                    'marquee_id' => null,
+                    'user_id' => auth()->id(),
+                    'action' => 'role_updated',
+                    'model_type' => Role::class,
+                    'model_id' => $role->id,
+                    'description' => "Role '{$role->name}' ({$role->label}) was updated.",
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]);
+            } catch (\Throwable $e) {}
+
             session()->flash('success', 'Role updated successfully.');
         } else {
-            Role::create([
+            $role = Role::create([
                 'name' => $this->name,
                 'label' => $this->label,
                 'description' => $this->description,
             ]);
+
+            try {
+                ActivityLog::create([
+                    'marquee_id' => null,
+                    'user_id' => auth()->id(),
+                    'action' => 'role_created',
+                    'model_type' => Role::class,
+                    'model_id' => $role->id,
+                    'description' => "New role '{$role->name}' ({$role->label}) was created.",
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]);
+            } catch (\Throwable $e) {}
+
             session()->flash('success', 'Role created successfully.');
         }
 
@@ -178,6 +212,19 @@ class RolesManager extends Component
                 return;
             }
 
+            try {
+                ActivityLog::create([
+                    'marquee_id' => null,
+                    'user_id' => auth()->id(),
+                    'action' => 'role_deleted',
+                    'model_type' => Role::class,
+                    'model_id' => $role->id,
+                    'description' => "Role '{$role->name}' was deleted.",
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]);
+            } catch (\Throwable $e) {}
+
             $role->delete();
             session()->flash('success', 'Role deleted successfully.');
             $this->confirmingDeletionId = null;
@@ -187,7 +234,7 @@ class RolesManager extends Component
 
     public function render()
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff'), 403);
+        abort_unless(auth()->user() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_staff')), 403);
 
         $query = Role::query()->withCount('users');
 

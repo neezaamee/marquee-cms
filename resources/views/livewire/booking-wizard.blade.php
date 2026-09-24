@@ -586,7 +586,7 @@
                             <!-- Per Plate Price -->
                             @if(!$noFood)
                                 <div class="col-md-6">
-                                    <label class="form-label font-sans-serif fw-bold text-700" for="perPlatePrice">Per Plate Rate *</label>
+                                    <label class="form-label font-sans-serif fw-bold text-700" for="perPlatePrice">Per Head Rate *</label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">Rs.</span>
                                         <input wire:model.live.debounce.350ms="perPlatePrice" class="form-control" type="number" id="perPlatePrice" step="0.01" />
