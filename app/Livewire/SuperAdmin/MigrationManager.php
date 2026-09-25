@@ -119,6 +119,30 @@ class MigrationManager extends Component
     }
 
     /**
+     * Run the Roles & Permissions Seeder to refresh system role privileges.
+     */
+    public function runRolesAndPermissionsSeeder(): void
+    {
+        abort_unless(auth()->check() && auth()->user()->isSuperAdmin(), 403);
+
+        try {
+            $exitCode = Artisan::call('db:seed', [
+                '--class' => 'RolesAndPermissionsSeeder',
+                '--force' => true,
+            ]);
+
+            $output = Artisan::output();
+            $logContent = !empty(trim($output)) ? $output : "Seeder finished with Exit Code: {$exitCode}.";
+
+            $this->addConsoleLog('php artisan db:seed --class=RolesAndPermissionsSeeder --force', $logContent);
+            session()->flash('success', 'Roles and Permissions synchronized successfully.');
+        } catch (\Throwable $e) {
+            $this->addConsoleLog('php artisan db:seed (Roles & Permissions) [FAILED]', $e->getMessage());
+            session()->flash('error', 'Role seeding failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Clear all application caches (views, routes, config, compiled).
      */
     public function clearSystemCache(): void

@@ -7,11 +7,11 @@
   <div class="col-auto">
     <h5>Log in</h5>
   </div>
-  <!--<div class="col-auto fs-10 text-600">
+  {{--<div class="col-auto fs-10 text-600">
     <span class="mb-0">or</span> 
     <a href="{{ route('register') }}">Create an account</a>
   </div>
-</div>-->
+</div>--}}
 
 @if (session('status'))
   <div class="alert alert-success fs-10 mb-3" role="alert">

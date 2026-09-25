@@ -406,10 +406,15 @@ class BookingList extends Component
      */
     public function openPaymentModal(int $bookingId)
     {
-        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->isBookingOfficer() || $user->hasRole('booking_officer') || $user->hasPermission('create_payments') || $user->hasPermission('manage_bookings')), 403, 'Unauthorized to record payments.');
+
+        $marqueeId = $user->getActiveMarqueeId();
         $booking = Booking::with(['customer', 'payments', 'branch', 'hall', 'finalBill'])
             ->where('marquee_id', $marqueeId)
             ->findOrFail($bookingId);
+
+        abort_unless($user->can('update', $booking), 403, 'Unauthorized access to update this booking.');
 
         $this->paymentBookingId = $booking->id;
         $this->paymentBooking = $booking;
@@ -516,7 +521,7 @@ class BookingList extends Component
         ]);
 
         $user = auth()->user();
-        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasPermission('create_payments') || $user->hasPermission('manage_bookings')), 403, 'Unauthorized to record payments.');
+        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->isBookingOfficer() || $user->hasRole('booking_officer') || $user->hasPermission('create_payments') || $user->hasPermission('manage_bookings')), 403, 'Unauthorized to record payments.');
 
         $this->isSubmittingPayment = true;
         $marqueeId = $user->getActiveMarqueeId();

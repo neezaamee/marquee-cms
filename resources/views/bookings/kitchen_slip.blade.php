@@ -754,7 +754,7 @@
             </div>
 
             <table class="table table-bordered table-sm table-kitchen align-middle">
-                <thead>
+                {{--<thead>
                     <tr>
                         <th style="width: 7%;" class="text-center">#</th>
                         <th style="width: 53%;">
@@ -768,7 +768,7 @@
                             @if($lang === 'bilingual') Instructions / خصوصی ہدایت @endif
                         </th>
                     </tr>
-                </thead>
+                </thead>--}}
                 <tbody>
                     @foreach($deptData['items'] as $index => $item)
                         @php

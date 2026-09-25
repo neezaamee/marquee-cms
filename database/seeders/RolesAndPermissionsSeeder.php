@@ -200,7 +200,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view_bookings', 'create_bookings', 'edit_bookings',
                     'view_halls', 'view_menus',
                     'event-types.view',
-                    'view_packages'
+                    'view_packages',
+                    'view_payments', 'create_payments'
                 ],
             ],
             'store_keeper' => [

@@ -64,12 +64,14 @@ class BookingManagementTest extends TestCase
             'name' => 'Grand Emerald Lahore',
             'address' => 'Gulberg', 'city' => 'Lahore', 'province' => 'Punjab', 'phone' => '11',
             'email' => 'emerald.lhr@marquee.com', 'status' => 'active', 'subscription_plan_id' => $this->plan->id,
+            'is_setup_completed' => true,
         ]);
 
         $this->marqueeB = Marquee::create([
             'name' => 'Royal Sapphire Karachi',
             'address' => 'Clifton', 'city' => 'Karachi', 'province' => 'Sindh', 'phone' => '22',
             'email' => 'sapphire.khi@marquee.com', 'status' => 'active', 'subscription_plan_id' => $this->plan->id,
+            'is_setup_completed' => true,
         ]);
 
         $this->branchA = Branch::create([
@@ -96,7 +98,11 @@ class BookingManagementTest extends TestCase
             'password' => bcrypt('password'),
             'role_id' => $this->ownerRole->id,
             'marquee_id' => $this->marqueeA->id,
+            'subscription_plan_id' => $this->plan->id,
+            'subscription_ends_at' => now()->addMonth(),
         ]);
+        $this->userOwnerA->ownedMarquees()->attach($this->marqueeA->id);
+        $this->marqueeA->update(['owner_user_id' => $this->userOwnerA->id]);
 
         $this->userOfficerA = User::create([
             'name' => 'Officer Omar',
@@ -172,6 +178,7 @@ class BookingManagementTest extends TestCase
         $response->assertStatus(403);
 
         // 3. Officer Omar accesses create wizard (Allowed)
+        $this->flushSession();
         $this->actingAs($this->userOfficerA);
         $this->userOfficerA->role->permissions()->syncWithoutDetaching([
             \App\Models\Permission::firstOrCreate(['name' => 'create_bookings', 'label' => 'Create Bookings'])->id
@@ -737,6 +744,7 @@ class BookingManagementTest extends TestCase
         $response->assertRedirect(route('bookings.show', $booking->id));
 
         // Try accessing route with Owner (Allowed) -> should load successfully
+        $this->flushSession();
         $this->actingAs($this->userOwnerA);
         $responseOwner = $this->get(route('bookings.edit', $booking->id));
         $responseOwner->assertStatus(200);

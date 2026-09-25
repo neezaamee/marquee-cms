@@ -27,6 +27,11 @@
                     <span wire:loading wire:target="runGlobalDefaultsSeeder" class="spinner-border spinner-border-sm me-1"></span>
                     Sync Global Defaults
                 </button>
+                <button wire:click="runRolesAndPermissionsSeeder" wire:loading.attr="disabled" class="btn btn-falcon-default btn-sm text-nowrap" type="button" title="Synchronize system role permissions">
+                    <span wire:loading.remove wire:target="runRolesAndPermissionsSeeder" class="fas fa-user-shield text-info me-1"></span>
+                    <span wire:loading wire:target="runRolesAndPermissionsSeeder" class="spinner-border spinner-border-sm me-1"></span>
+                    Sync Roles & Permissions
+                </button>
                 <button wire:click="promptRunMigrations" wire:loading.attr="disabled" class="btn btn-primary btn-sm text-nowrap shadow-sm" type="button">
                     <span wire:loading.remove wire:target="runMigrations" class="fas fa-play me-1"></span>
                     <span wire:loading wire:target="runMigrations" class="spinner-border spinner-border-sm me-1"></span>

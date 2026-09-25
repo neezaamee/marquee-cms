@@ -1124,7 +1124,7 @@
                                 </div>
                             </div>
                         @else
-                            @if(!$booking->is_financially_settled && $booking->booking_status !== 'Cancelled')
+                            @if(!$booking->is_financially_settled && $booking->booking_status !== 'Cancelled' && (auth()->user()->isSuperAdmin() || auth()->user()->isBusinessOwner() || auth()->user()->isBookingOfficer() || auth()->user()->hasRole('booking_officer') || auth()->user()->hasPermission('create_payments') || auth()->user()->hasPermission('manage_bookings')))
                                 <button wire:click="openPaymentModal" class="btn btn-falcon-warning btn-sm w-100" type="button">
                                     <span class="fas fa-wallet me-1"></span> Record Payment
                                 </button>

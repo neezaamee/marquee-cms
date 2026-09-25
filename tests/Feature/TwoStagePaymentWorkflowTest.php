@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\BookingList;
+use App\Livewire\BookingView;
 use App\Livewire\Finance\PaymentsList;
 use App\Models\Account;
 use App\Models\AccountType;
@@ -569,6 +571,62 @@ class TwoStagePaymentWorkflowTest extends TestCase
 
         $payment->refresh();
         $this->assertEquals('pending_posting', $payment->status);
+    }
+
+    /**
+     * Test: Authorized Booking Officer can record payment against a booking in BookingView and BookingList.
+     */
+    public function test_booking_officer_can_record_payment_against_booking(): void
+    {
+        $booking = $this->createTestBooking(500000);
+
+        // Booking officer assigned to the branch
+        $officerRole = Role::where('name', 'booking_officer')->first();
+        $bookingOfficer = User::factory()->create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'role_id' => $officerRole->id,
+        ]);
+
+        // 1. Record payment via BookingView
+        Livewire::actingAs($bookingOfficer)
+            ->test(BookingView::class, ['booking' => $booking])
+            ->call('openPaymentModal')
+            ->assertSet('showPaymentModal', true)
+            ->set('amountPaid', 50000)
+            ->set('paymentMethod', 'Cash')
+            ->set('paymentDate', date('Y-m-d'))
+            ->set('paymentNote', 'Advance from customer')
+            ->call('recordPayment')
+            ->assertHasNoErrors()
+            ->assertSet('showPaymentModal', false);
+
+        $this->assertDatabaseHas('booking_payments', [
+            'booking_id' => $booking->id,
+            'amount' => 50000,
+            'status' => 'pending_posting',
+            'recorded_by' => $bookingOfficer->id,
+        ]);
+
+        // 2. Record payment via BookingList
+        Livewire::actingAs($bookingOfficer)
+            ->test(BookingList::class)
+            ->call('openPaymentModal', $booking->id)
+            ->assertSet('showPaymentModal', true)
+            ->set('paymentAmount', 25000)
+            ->set('paymentMethod', 'Bank Transfer')
+            ->set('paymentDate', date('Y-m-d'))
+            ->set('paymentType', 'advance')
+            ->call('postPayment')
+            ->assertHasNoErrors()
+            ->assertSet('showPaymentModal', false);
+
+        $this->assertDatabaseHas('booking_payments', [
+            'booking_id' => $booking->id,
+            'amount' => 25000,
+            'status' => 'pending_posting',
+            'recorded_by' => $bookingOfficer->id,
+        ]);
     }
 
     /**

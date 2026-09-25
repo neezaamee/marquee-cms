@@ -465,6 +465,10 @@ class BookingView extends Component
      */
     public function openPaymentModal()
     {
+        $user = auth()->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->isBookingOfficer() || $user->hasRole('booking_officer') || $user->hasPermission('create_payments') || $user->hasPermission('manage_bookings')), 403, 'Unauthorized to record payments.');
+        abort_unless($user->can('update', $this->booking), 403, 'Unauthorized access to update this booking.');
+
         $this->paymentDate = date('Y-m-d');
         $this->paymentMethod = 'Cash';
         $this->paymentAccountId = null;
@@ -492,7 +496,7 @@ class BookingView extends Component
     public function recordPayment()
     {
         $user = auth()->user();
-        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasPermission('create_payments') || $user->hasPermission('manage_bookings')), 403, 'Unauthorized to record payments.');
+        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->isBookingOfficer() || $user->hasRole('booking_officer') || $user->hasPermission('create_payments') || $user->hasPermission('manage_bookings')), 403, 'Unauthorized to record payments.');
         abort_unless($user->can('update', $this->booking), 403, 'Unauthorized access to update this booking.');
 
         $this->validate([

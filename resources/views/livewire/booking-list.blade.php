@@ -478,7 +478,7 @@
                                 <!-- Actions -->
                                 <td class="align-middle text-end px-3">
                                     <div class="d-inline-flex align-items-center">
-                                        @if(!$booking->trashed())
+                                        @if(!$booking->trashed() && (auth()->user()->isSuperAdmin() || auth()->user()->isBusinessOwner() || auth()->user()->isBookingOfficer() || auth()->user()->hasRole('booking_officer') || auth()->user()->hasPermission('create_payments') || auth()->user()->hasPermission('manage_bookings')))
                                             <button wire:click="openPaymentModal({{ $booking->id }})" class="btn btn-falcon-primary btn-xs me-1" type="button" title="Quick Payment / Collection">
                                                 <span class="fas fa-hand-holding-usd me-1"></span>Pay
                                             </button>
@@ -490,7 +490,7 @@
                                             </button>
                                             <div class="dropdown-menu dropdown-menu-end border py-0" aria-labelledby="booking-actions-{{ $booking->id }}">
                                                 <div class="bg-white dark__bg-1000 py-2 text-start">
-                                                    @if(!$booking->trashed())
+                                                    @if(!$booking->trashed() && (auth()->user()->isSuperAdmin() || auth()->user()->isBusinessOwner() || auth()->user()->isBookingOfficer() || auth()->user()->hasRole('booking_officer') || auth()->user()->hasPermission('create_payments') || auth()->user()->hasPermission('manage_bookings')))
                                                         <button wire:click="openPaymentModal({{ $booking->id }})" class="dropdown-item text-primary fw-semi-bold" type="button">
                                                             <span class="fas fa-hand-holding-usd me-2 text-primary"></span>Payment / Collection
                                                         </button>

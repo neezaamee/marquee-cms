@@ -165,4 +165,16 @@ class SuperAdminMigrationManagerTest extends TestCase
             ->set('statusFilter', 'ran')
             ->assertHasNoErrors();
     }
+
+    public function test_super_admin_can_run_roles_and_permissions_seeder()
+    {
+        $component = Livewire::actingAs($this->superAdmin)
+            ->test(MigrationManager::class)
+            ->call('runRolesAndPermissionsSeeder')
+            ->assertHasNoErrors();
+
+        $logs = $component->get('consoleLogs');
+        $this->assertNotEmpty($logs);
+        $this->assertStringContainsString('php artisan db:seed --class=RolesAndPermissionsSeeder --force', $logs[0]['command']);
+    }
 }
