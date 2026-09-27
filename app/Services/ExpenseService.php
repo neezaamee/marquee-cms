@@ -588,8 +588,11 @@ class ExpenseService
             $query->where('branch_id', $branchId);
         }
 
+        $isMysql = DB::connection()->getDriverName() === 'mysql';
+        $orderClause = $isMysql ? 'CAST(SUBSTRING_INDEX(expense_number, "-", -1) AS UNSIGNED) DESC' : 'id DESC';
+
         $latest = (clone $query)->where('expense_number', 'like', "EXP-{$datePrefix}-%")
-            ->orderByRaw('CAST(SUBSTRING_INDEX(expense_number, "-", -1) AS UNSIGNED) DESC')
+            ->orderByRaw($orderClause)
             ->value('expense_number');
 
         $nextSequence = 1;
@@ -602,7 +605,7 @@ class ExpenseService
         } else {
             $overallLatest = Expense::withTrashed()
                 ->where('marquee_id', $marqueeId)
-                ->orderByRaw('CAST(SUBSTRING_INDEX(expense_number, "-", -1) AS UNSIGNED) DESC')
+                ->orderByRaw($orderClause)
                 ->value('expense_number');
             if ($overallLatest) {
                 $parts = explode('-', $overallLatest);

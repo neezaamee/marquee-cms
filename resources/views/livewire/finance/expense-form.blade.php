@@ -47,7 +47,10 @@
                             <select wire:model="expense_category_id" class="form-select form-select-sm @error('expense_category_id') is-invalid @enderror" id="exp_cat">
                                 <option value="">Select category...</option>
                                 @foreach($categories as $cat)
-                                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                                    @php
+                                        $code = $cat->defaultAccount?->account_code ?? $cat->category_code;
+                                    @endphp
+                                    <option value="{{ $cat->id }}">{{ $code ? '[' . $code . '] ' : '' }}{{ $cat->name }}</option>
                                 @endforeach
                             </select>
                             @error('expense_category_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
@@ -168,7 +171,10 @@
                                                         <select wire:model="items.{{ $index }}.expense_category_id" class="form-select form-select-sm">
                                                             <option value="">Select Category</option>
                                                             @foreach($categories as $cat)
-                                                                <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                                                                @php
+                                                                    $code = $cat->defaultAccount?->account_code ?? $cat->category_code;
+                                                                @endphp
+                                                                <option value="{{ $cat->id }}">{{ $code ? '[' . $code . '] ' : '' }}{{ $cat->name }}</option>
                                                             @endforeach
                                                         </select>
                                                     </td>

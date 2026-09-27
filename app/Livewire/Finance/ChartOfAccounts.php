@@ -111,10 +111,16 @@ class ChartOfAccounts extends Component
             }
 
             $account->update($data);
+            if ($account->nature === 'Expense' && $account->marquee_id) {
+                app(\App\Services\AccountingService::class)->syncAccountToExpenseCategory($account);
+            }
             session()->flash('success', 'Account updated successfully.');
         } else {
             $data['system_generated'] = false;
-            Account::create($data);
+            $account = Account::create($data);
+            if ($account->nature === 'Expense' && $account->marquee_id) {
+                app(\App\Services\AccountingService::class)->syncAccountToExpenseCategory($account);
+            }
             session()->flash('success', 'Account created successfully.');
         }
 

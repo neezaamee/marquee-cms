@@ -43,7 +43,7 @@ class ExpenseController extends Controller
         
         $expense = Expense::findOrFail($id);
         
-        if (!auth()->user()->isSuperAdmin() && $expense->marquee_id !== auth()->user()->marquee_id) {
+        if (!auth()->user()->isSuperAdmin() && !auth()->user()->hasAccessToMarquee($expense->marquee_id)) {
             abort(403, 'Unauthorized access to this expense record.');
         }
 
@@ -59,7 +59,7 @@ class ExpenseController extends Controller
         
         $expense = Expense::findOrFail($id);
         
-        if (!auth()->user()->isSuperAdmin() && $expense->marquee_id !== auth()->user()->marquee_id) {
+        if (!auth()->user()->isSuperAdmin() && !auth()->user()->hasAccessToMarquee($expense->marquee_id)) {
             abort(403, 'Unauthorized access to this expense record.');
         }
 

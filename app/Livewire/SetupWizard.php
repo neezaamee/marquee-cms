@@ -471,10 +471,10 @@ class SetupWizard extends Component
                 );
                 $this->createdBranchId = $branch->id;
 
-                // Associate user to branch
+                // Associate user to branch (business owners remain tenant-wide with null branch_id)
                 $user->update([
                     'marquee_id' => $marqueeId,
-                    'branch_id' => $branch->id,
+                    'branch_id' => $user->isBusinessOwner() ? null : $branch->id,
                 ]);
             }
         }

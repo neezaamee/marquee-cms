@@ -26,6 +26,13 @@ class MarqueeSwitchController extends Controller
         if ($user->isSuperAdmin() || in_array($targetMarqueeId, $accessibleMarquees)) {
             session(['active_marquee_id' => $targetMarqueeId]);
 
+            if ($user->isBusinessOwner()) {
+                $user->update([
+                    'marquee_id' => $targetMarqueeId,
+                    'branch_id' => null,
+                ]);
+            }
+
             return back()->with('success', 'Active business switched successfully.');
         }
 

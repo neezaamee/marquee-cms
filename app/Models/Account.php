@@ -42,6 +42,23 @@ class Account extends Model
                 throw new \Exception("System-generated accounts cannot be deleted.");
             }
         });
+
+        static::saved(function ($account) {
+            if ($account->nature === 'Expense' && $account->marquee_id) {
+                if (!$account->children()->exists()) {
+                    app(\App\Services\AccountingService::class)->syncAccountToExpenseCategory($account);
+                }
+            }
+        });
+
+        static::deleted(function ($account) {
+            if ($account->nature === 'Expense' && $account->marquee_id) {
+                \App\Models\ExpenseCategory::withoutGlobalScope('tenant')
+                    ->where('marquee_id', $account->marquee_id)
+                    ->where('default_account_id', $account->id)
+                    ->delete();
+            }
+        });
     }
 
     /**

@@ -157,12 +157,44 @@ class User extends Authenticatable
     }
 
     /**
+     * Accessor for dynamic marquee_id based on active session context for multi-tenant owners.
+     */
+    public function getMarqueeIdAttribute($value)
+    {
+        if ($this->isBusinessOwner()) {
+            $sessionActive = session('active_marquee_id');
+            if ($sessionActive && $this->ownedMarquees()->where('marquees.id', $sessionActive)->exists()) {
+                return (int) $sessionActive;
+            }
+        } elseif ($this->isSuperAdmin()) {
+            $sessionActive = session('active_marquee_id');
+            if ($sessionActive) {
+                return (int) $sessionActive;
+            }
+        }
+
+        return $value ? (int) $value : null;
+    }
+
+    /**
+     * Accessor for branch_id ensuring Business Owners and Super Admins are never locked to a single branch.
+     */
+    public function getBranchIdAttribute($value)
+    {
+        if ($this->isBusinessOwner() || $this->isSuperAdmin()) {
+            return null;
+        }
+
+        return $value ? (int) $value : null;
+    }
+
+    /**
      * Get active selected marquee ID for the current session or fallback.
      */
     public function getActiveMarqueeId(): ?int
     {
         if ($this->isSuperAdmin()) {
-            $sessionActive = session('active_marquee_id', $this->marquee_id);
+            $sessionActive = session('active_marquee_id', $this->attributes['marquee_id'] ?? null);
             if ($sessionActive) {
                 return (int) $sessionActive;
             }
@@ -175,19 +207,24 @@ class User extends Authenticatable
             if ($sessionActive && $this->ownedMarquees()->where('marquees.id', $sessionActive)->exists()) {
                 return (int) $sessionActive;
             }
+            $rawMarqueeId = $this->attributes['marquee_id'] ?? null;
+            if ($rawMarqueeId && $this->ownedMarquees()->where('marquees.id', $rawMarqueeId)->exists()) {
+                return (int) $rawMarqueeId;
+            }
             $firstOwned = $this->ownedMarquees()->first();
             if ($firstOwned) {
                 return (int) $firstOwned->id;
             }
-            if ($this->marquee_id) {
-                return (int) $this->marquee_id;
+            if ($rawMarqueeId) {
+                return (int) $rawMarqueeId;
             }
             $fallback = Marquee::first();
             return $fallback ? (int) $fallback->id : null;
         }
 
-        if ($this->marquee_id) {
-            return (int) $this->marquee_id;
+        $rawMarqueeId = $this->attributes['marquee_id'] ?? null;
+        if ($rawMarqueeId) {
+            return (int) $rawMarqueeId;
         }
 
         if ($this->branch && $this->branch->marquee_id) {

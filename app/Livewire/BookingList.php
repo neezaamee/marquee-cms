@@ -251,9 +251,13 @@ class BookingList extends Component
         $user = auth()->user();
         $marqueeId = $user->getActiveMarqueeId();
 
-        // Lock filterBranch if user is restricted to a branch
-        if ($user->branch_id) {
+        // Lock filterBranch only if user is restricted to a branch (staff/branch manager)
+        if ($user->branch_id && !$user->isBusinessOwner() && !$user->isSuperAdmin()) {
             $this->filterBranch = $user->branch_id;
+        } else {
+            if ($this->filterBranch && !Branch::where('marquee_id', $marqueeId)->where('id', $this->filterBranch)->exists()) {
+                $this->filterBranch = '';
+            }
         }
 
         // Fetch lookup collections for filters

@@ -50,7 +50,7 @@ class PaymentVoucherList extends Component
     public function mount()
     {
         $user = auth()->user();
-        if ($user->branch_id && !$user->isSuperAdmin()) {
+        if ($user->branch_id && !$user->isSuperAdmin() && !$user->isBusinessOwner()) {
             $this->filterBranch = $user->branch_id;
         }
         $this->disbursementDate = date('Y-m-d');
@@ -135,6 +135,10 @@ class PaymentVoucherList extends Component
     public function render()
     {
         $marqueeId = $this->getMarqueeId();
+
+        if ($this->filterBranch && !Branch::where('marquee_id', $marqueeId)->where('id', $this->filterBranch)->exists()) {
+            $this->filterBranch = '';
+        }
 
         $query = PaymentVoucher::with(['branch', 'cashBankAccount.account', 'debitAccount', 'preparedBy', 'journalVoucher'])
             ->where('marquee_id', $marqueeId);

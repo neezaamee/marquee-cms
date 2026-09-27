@@ -136,10 +136,13 @@
                                         <label class="form-label fs-11 fw-bold">Select Operating Expense Category</label>
                                         <select wire:model.live="payee_id" class="form-select form-select-sm">
                                             <option value="">-- Choose Operating Expense Category --</option>
-                                            <optgroup label="Operating Expense Categories">
+                                            <optgroup label="Operating Expense Categories / Accounts">
                                                 @foreach($expenseCategories as $cat)
+                                                    @php
+                                                        $code = $cat->defaultAccount?->account_code ?? $cat->category_code;
+                                                    @endphp
                                                     <option value="cat_{{ $cat->id }}">
-                                                        {{ $cat->name }}
+                                                        {{ $code ? '[' . $code . '] ' : '' }}{{ $cat->name }}
                                                     </option>
                                                 @endforeach
                                             </optgroup>
@@ -219,10 +222,19 @@
                                     <label class="form-label fs-11 fw-bold">Debit Account Head (General Ledger)</label>
                                     <select wire:model="debit_account_id" class="form-select form-select-sm @error('debit_account_id') is-invalid @enderror" required>
                                         <option value="">-- Choose GL Account --</option>
-                                        @foreach($debitAccounts as $acc)
-                                            <option value="{{ $acc->id }}">
-                                                [{{ $acc->account_code }}] {{ $acc->name }} ({{ $acc->nature }})
-                                            </option>
+                                        @php
+                                            $groupedAccounts = $debitAccounts->groupBy(function($a) {
+                                                return $a->accountType ? $a->accountType->name : $a->nature;
+                                            });
+                                        @endphp
+                                        @foreach($groupedAccounts as $typeGroup => $accs)
+                                            <optgroup label="{{ $typeGroup }}">
+                                                @foreach($accs as $acc)
+                                                    <option value="{{ $acc->id }}">
+                                                        [{{ $acc->account_code }}] {{ $acc->name }}
+                                                    </option>
+                                                @endforeach
+                                            </optgroup>
                                         @endforeach
                                     </select>
                                     @error('debit_account_id') <div class="invalid-feedback">{{ $message }}</div> @enderror

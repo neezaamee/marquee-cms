@@ -5,6 +5,23 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-09-28
+
+### Added
+- **Owner Dashboard Payables & Liabilities Metric Card**:
+  - Added dedicated "Payables & Liabilities" card to the Business Owner dashboard alongside the "Receivables Due" card.
+  - Aggregates live debts across supplier balances, purchase invoices, vendor dues, unpaid credit expenses, and GL accounts payable (`2001`).
+  - Added direct navigation link to payment vouchers for settling liabilities.
+- **Automated Chart of Accounts & Expense Synchronization**:
+  - Implemented automatic two-way synchronization between Chart of Accounts (COA) expense accounts and `ExpenseCategory` records.
+  - Custom operating expense accounts (e.g., `5107 - Construction`) automatically populate in expense entry forms and Payment Voucher CPV/BPV expense categories.
+  - Added database migration `2026_09_28_000001_sync_all_expense_accounts_to_categories.php` and model lifecycle hooks.
+- **Enterprise Multi-Tenant Switching & Branch Isolation**:
+  - Added dynamic `marquee_id` and `branch_id` model accessors on `User` to seamlessly synchronize active session tenant context.
+  - Enforced tenant-wide access for Business Owners by setting `branch_id = null`, preventing single-branch query lockouts across multi-branch and multi-marquee profiles.
+  - Fixed listing filters across `BookingList`, `PaymentVoucherList`, and `PurchaseDashboard` to prevent cross-tenant branch filtering.
+  - Added database migration `2026_09_28_000002_clean_business_owner_branch_assignments.php`.
+
 ## [1.13.0] - 2026-09-24
 
 ### Added

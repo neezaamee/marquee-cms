@@ -131,6 +131,10 @@ class ExpenseForm extends Component
 
         $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
+        if ($marqueeId) {
+            app(\App\Services\AccountingService::class)->syncExpenseAccountsWithCategories($marqueeId);
+        }
+
         // Load Default Currency
         $baseCurrency = Currency::where('marquee_id', $marqueeId)->where('is_base', true)->first()
             ?? Currency::where('marquee_id', $marqueeId)->first();
@@ -337,10 +341,13 @@ class ExpenseForm extends Component
     {
         $datePrefix = date('Ymd');
         
+        $isMysql = DB::connection()->getDriverName() === 'mysql';
+        $orderClause = $isMysql ? 'CAST(SUBSTRING_INDEX(expense_number, "-", -1) AS UNSIGNED) DESC' : 'id DESC';
+
         $latest = Expense::withTrashed()
             ->where('marquee_id', $marqueeId)
             ->where('expense_number', 'like', "EXP-{$datePrefix}-%")
-            ->orderByRaw('CAST(SUBSTRING_INDEX(expense_number, "-", -1) AS UNSIGNED) DESC')
+            ->orderByRaw($orderClause)
             ->value('expense_number');
 
         $nextSequence = 1;
@@ -353,7 +360,7 @@ class ExpenseForm extends Component
         } else {
             $overallLatest = Expense::withTrashed()
                 ->where('marquee_id', $marqueeId)
-                ->orderByRaw('CAST(SUBSTRING_INDEX(expense_number, "-", -1) AS UNSIGNED) DESC')
+                ->orderByRaw($orderClause)
                 ->value('expense_number');
             if ($overallLatest) {
                 $parts = explode('-', $overallLatest);
@@ -554,7 +561,11 @@ class ExpenseForm extends Component
         $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
 
         $branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
-        $categories = ExpenseCategory::where('marquee_id', $marqueeId)->where('is_active', true)->get();
+        $categories = ExpenseCategory::with(['defaultAccount.accountType'])
+            ->where('marquee_id', $marqueeId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         $expenseTypes = ExpenseType::where('marquee_id', $marqueeId)->where('is_active', true)->get();
         $suppliers = Supplier::where('marquee_id', $marqueeId)->get();
         $employees = Employee::where('marquee_id', $marqueeId)->where('status', 'active')->get();

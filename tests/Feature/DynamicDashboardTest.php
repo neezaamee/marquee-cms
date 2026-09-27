@@ -130,7 +130,8 @@ class DynamicDashboardTest extends TestCase
             ->assertSee('Live Financials')
             ->assertSee('Realized Revenue')
             ->assertSee('Advances Held')
-            ->assertSee('Receivables Due');
+            ->assertSee('Receivables Due')
+            ->assertSee('Payables & Liabilities', false);
     }
 
     /** @test */
@@ -265,6 +266,27 @@ class DynamicDashboardTest extends TestCase
             ->assertDontSee('Net Margin')
             ->assertDontSee('Total Purchases')
             ->assertDontSee('Bank Balance')
-            ->assertDontSee('Cash in Hand');
+            ->assertDontSee('Cash in Hand')
+            ->assertDontSee('Payables');
+    }
+
+    /** @test */
+    public function test_business_owner_dashboard_displays_liabilities_and_payables_card_alongside_receivables()
+    {
+        \App\Models\Supplier::create([
+            'marquee_id' => $this->marquee->id,
+            'supplier_code' => 'SUP-TEST-01',
+            'name' => 'Al-Madina Meat Supplier',
+            'mobile_number' => '03001234567',
+            'opening_balance' => 85000.00,
+            'status' => 'Active',
+        ]);
+
+        Livewire::actingAs($this->businessOwner)
+            ->test(BusinessOwnerDashboard::class)
+            ->assertSee('Receivables Due')
+            ->assertSee('Payables & Liabilities', false)
+            ->assertSee('85.0k')
+            ->assertSee('Supplier & vendor dues', false);
     }
 }

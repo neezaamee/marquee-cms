@@ -32,7 +32,7 @@ class PurchaseDashboard extends Component
     public function mount()
     {
         $user = auth()->user();
-        if ($user->branch_id && !$user->isSuperAdmin()) {
+        if ($user->branch_id && !$user->isSuperAdmin() && !$user->isBusinessOwner()) {
             $this->filterBranch = $user->branch_id;
         }
 
@@ -73,7 +73,7 @@ class PurchaseDashboard extends Component
     {
         $marqueeId = auth()->user()->marquee_id;
         $user = auth()->user();
-        $branchId = $this->filterBranch ?: ($user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : null);
+        $branchId = $this->filterBranch ?: ($user->branch_id && !$user->isSuperAdmin() && !$user->isBusinessOwner() ? $user->branch_id : null);
 
         [$startDate, $endDate, $periodLabel] = $this->getDateRange();
         $startStr = $startDate->format('Y-m-d');

@@ -17,6 +17,8 @@ use App\Models\Lead;
 use App\Models\Marquee;
 use App\Models\PettyCashAccount;
 use App\Models\PurchaseInvoice;
+use App\Models\Supplier;
+use App\Models\Vendor;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -61,6 +63,13 @@ class BusinessOwnerDashboard extends Component
     {
         if ($this->selectedMarqueeId) {
             session(['active_marquee_id' => (int) $this->selectedMarqueeId]);
+            $user = auth()->user();
+            if ($user && $user->isBusinessOwner()) {
+                $user->update([
+                    'marquee_id' => (int) $this->selectedMarqueeId,
+                    'branch_id' => null,
+                ]);
+            }
         }
         $this->selectedBranchId = null;
     }
@@ -216,6 +225,7 @@ class BusinessOwnerDashboard extends Component
         $realizedRevenue = 0.0;
         $customerAdvanceHeld = 0.0;
         $pendingReceivables = 0.0;
+        $totalPayablesAndLiabilities = 0.0;
         $operatingExpenses = 0.0;
         $netOperatingCashflow = 0.0;
         $bankBalance = 0.0;
@@ -252,6 +262,60 @@ class BusinessOwnerDashboard extends Component
             $pendingReceivables = (float) (clone $bookingQuery)
                 ->where('receivable_amount', '>', 0)
                 ->sum('receivable_amount');
+
+            // Total Payables & Liabilities (Supplier dues, Vendor dues, Credit expenses, and GL Payables)
+            $supplierPayables = 0.0;
+            $suppliers = Supplier::withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
+                ->whereIn('status', ['active', 'Active'])
+                ->get();
+            foreach ($suppliers as $supp) {
+                if ($supp->current_balance > 0) {
+                    $supplierPayables += (float) $supp->current_balance;
+                }
+            }
+
+            $vendorPayables = 0.0;
+            $vendors = Vendor::withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
+                ->whereIn('status', ['active', 'Active'])
+                ->get();
+            foreach ($vendors as $v) {
+                if ($v->current_balance > 0) {
+                    $vendorPayables += (float) $v->current_balance;
+                }
+            }
+
+            $creditExpensePayables = (float) Expense::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)
+                ->where('payment_method', Expense::METHOD_CREDIT)
+                ->where('payment_status', 'Unpaid')
+                ->sum('total_amount');
+
+            $subledgerPayables = $supplierPayables + $vendorPayables + $creditExpensePayables;
+
+            $apAccountIds = Account::where('marquee_id', $marqueeId)
+                ->where(function ($q) {
+                    $q->where('account_code', '2001')
+                      ->orWhere('name', 'like', '%Accounts Payable%');
+                })
+                ->pluck('id');
+
+            $glApOpening = (float) AccountOpeningBalance::whereIn('account_id', $apAccountIds)
+                ->selectRaw('COALESCE(SUM(credit - debit), 0) as balance')
+                ->value('balance');
+
+            $glApJv = (float) DB::table('journal_voucher_items')
+                ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
+                ->whereNull('journal_vouchers.deleted_at')
+                ->where('journal_vouchers.status', 'posted')
+                ->where('journal_vouchers.marquee_id', $marqueeId)
+                ->whereIn('journal_voucher_items.account_id', $apAccountIds)
+                ->selectRaw('COALESCE(SUM(credit - debit), 0) as balance')
+                ->value('balance');
+
+            $glApBalance = max(0, $glApOpening + $glApJv);
+
+            $totalPayablesAndLiabilities = max($subledgerPayables, $glApBalance);
 
             // Operating Expenses (Recognized / Posted / Approved operational expenses)
             $expenseQuery = Expense::where('marquee_id', $marqueeId)
@@ -537,6 +601,7 @@ class BusinessOwnerDashboard extends Component
             'realizedRevenue' => $realizedRevenue,
             'customerAdvanceHeld' => $customerAdvanceHeld,
             'pendingReceivables' => $pendingReceivables,
+            'totalPayablesAndLiabilities' => $totalPayablesAndLiabilities,
             'operatingExpenses' => $operatingExpenses,
             'netOperatingCashflow' => $netOperatingCashflow,
             // Quick stats & Ratios

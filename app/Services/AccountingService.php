@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\AccountOpeningBalance;
 use App\Models\AccountType;
 use App\Models\CashBankAccount;
+use App\Models\ExpenseCategory;
 use App\Models\FinancialYear;
 use App\Models\JournalVoucher;
 use App\Models\JournalVoucherItem;
@@ -1080,4 +1081,98 @@ class AccountingService
             }
         });
     }
+
+    /**
+     * Synchronize a specific Expense account into an ExpenseCategory.
+     */
+    public function syncAccountToExpenseCategory(Account $account): ?ExpenseCategory
+    {
+        if ($account->nature !== 'Expense' || empty($account->marquee_id)) {
+            return null;
+        }
+
+        // Parent group accounts with children should not be treated as leaf expense categories
+        if ($account->children()->exists()) {
+            return null;
+        }
+
+        $marqueeId = $account->marquee_id;
+
+        // Try finding category by default_account_id
+        $category = ExpenseCategory::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where('default_account_id', $account->id)
+            ->first();
+
+        // If not found by account id, try finding by category_code or matching account_code
+        if (!$category && !empty($account->account_code)) {
+            $category = ExpenseCategory::withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
+                ->where('category_code', $account->account_code)
+                ->first();
+        }
+
+        $code = !empty($account->account_code) ? $account->account_code : ('EXP_' . $account->id);
+
+        if ($category) {
+            $category->update([
+                'name' => $account->name,
+                'default_account_id' => $account->id,
+                'is_active' => $account->is_active,
+                'description' => $account->description ?: $category->description,
+            ]);
+        } else {
+            // Check if code is already used by another category for this marquee
+            $codeExists = ExpenseCategory::withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
+                ->where('category_code', $code)
+                ->exists();
+            if ($codeExists) {
+                $code = 'EXP_' . $account->account_code;
+            }
+
+            $category = ExpenseCategory::withoutGlobalScope('tenant')->create([
+                'marquee_id' => $marqueeId,
+                'parent_id' => null,
+                'category_code' => $code,
+                'name' => $account->name,
+                'description' => $account->description,
+                'default_account_id' => $account->id,
+                'default_tax_rate' => 0.00,
+                'default_budget_amount' => 0.00,
+                'display_order' => is_numeric($account->account_code) ? (int)$account->account_code : 0,
+                'is_active' => $account->is_active,
+            ]);
+        }
+
+        return $category;
+    }
+
+    /**
+     * Synchronize all leaf Expense accounts to ExpenseCategories for a marquee or all marquees.
+     */
+    public function syncExpenseAccountsWithCategories(?int $marqueeId = null): int
+    {
+        $query = Account::withoutGlobalScope('tenant')
+            ->where('nature', 'Expense')
+            ->whereNotNull('marquee_id')
+            ->whereDoesntHave('children');
+
+        if ($marqueeId) {
+            $query->where('marquee_id', $marqueeId);
+        }
+
+        $accounts = $query->get();
+        $syncedCount = 0;
+
+        foreach ($accounts as $account) {
+            $cat = $this->syncAccountToExpenseCategory($account);
+            if ($cat) {
+                $syncedCount++;
+            }
+        }
+
+        return $syncedCount;
+    }
 }
+

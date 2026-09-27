@@ -95,17 +95,29 @@ class PaymentVoucherForm extends Component
         $service = app(PaymentVoucherService::class);
         $marqueeId = $this->getMarqueeId();
 
+        if ($marqueeId) {
+            app(\App\Services\AccountingService::class)->syncExpenseAccountsWithCategories($marqueeId);
+        }
+
         $this->branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
         $this->suppliers = Supplier::where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
         $this->vendors = Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
-        $this->expenseCategories = ExpenseCategory::where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
+        $this->expenseCategories = ExpenseCategory::with(['defaultAccount.accountType'])
+            ->where('marquee_id', $marqueeId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         if ($this->expenseCategories->isEmpty()) {
-            $this->expenseCategories = ExpenseCategory::where('marquee_id', $marqueeId)->orderBy('name')->get();
+            $this->expenseCategories = ExpenseCategory::with(['defaultAccount.accountType'])
+                ->where('marquee_id', $marqueeId)
+                ->orderBy('name')
+                ->get();
         }
         $this->expenses = Expense::where('marquee_id', $marqueeId)->whereIn('status', ['Approved', 'Submitted', 'Draft'])->orderBy('expense_date', 'desc')->limit(30)->get();
 
-        // Leaf GL accounts
-        $this->debitAccounts = Account::where('marquee_id', $marqueeId)
+        // Leaf GL accounts eager-loaded with accountType
+        $this->debitAccounts = Account::with('accountType')
+            ->where('marquee_id', $marqueeId)
             ->whereDoesntHave('children')
             ->where('is_active', true)
             ->orderBy('account_code')
@@ -307,10 +319,19 @@ class PaymentVoucherForm extends Component
                     }
                     $this->updatedAmount($this->amount);
                 }
+            } elseif (str_starts_with($val, 'acc_')) {
+                // Direct GL Account
+                $accId = (int) str_replace('acc_', '', $val);
+                $acc = Account::where('marquee_id', $marqueeId)->find($accId);
+                if ($acc) {
+                    $this->payee_name = $acc->name;
+                    $this->description = "Payment for {$acc->name}";
+                    $this->debit_account_id = $acc->id;
+                }
             } else {
                 // Expense Category
                 $catId = (int) str_replace('cat_', '', $val);
-                $cat = ExpenseCategory::where('marquee_id', $marqueeId)->find($catId);
+                $cat = ExpenseCategory::with('defaultAccount')->where('marquee_id', $marqueeId)->find($catId);
                 if ($cat) {
                     $this->payee_name = $cat->name;
                     $this->description = "Payment for {$cat->name}";
@@ -360,7 +381,7 @@ class PaymentVoucherForm extends Component
         $cleanPayeeId = null;
         if (is_numeric($this->payee_id)) {
             $cleanPayeeId = (int) $this->payee_id;
-        } elseif (is_string($this->payee_id) && preg_match('/^(?:ven_|exp_|cat_)?(\d+)$/', $this->payee_id, $matches)) {
+        } elseif (is_string($this->payee_id) && preg_match('/^(?:ven_|exp_|cat_|acc_)?(\d+)$/', $this->payee_id, $matches)) {
             $cleanPayeeId = (int) $matches[1];
         }
 

@@ -87,6 +87,10 @@ class LoginController extends Controller
             $request->session()->regenerate();
 
             $authUser = Auth::user();
+            $activeMarqueeId = $authUser->getActiveMarqueeId();
+            if ($activeMarqueeId) {
+                session(['active_marquee_id' => $activeMarqueeId]);
+            }
             try {
                 \App\Models\ActivityLog::create([
                     'marquee_id' => $authUser->marquee_id,

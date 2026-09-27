@@ -281,7 +281,7 @@
         <!-- Section 2: P&L Operations & Liabilities -->
         <div class="row g-3 mb-3">
             <!-- 1. Realized Revenue -->
-            <div class="col-6 col-md-4 col-xxl-2">
+            <div class="col-6 col-md-4 col-xl">
                 <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
@@ -305,7 +305,7 @@
             </div>
 
             <!-- 2. Customer Advance Deposits Held -->
-            <div class="col-6 col-md-4 col-xxl-2">
+            <div class="col-6 col-md-4 col-xl">
                 <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
@@ -330,15 +330,23 @@
             </div>
 
             <!-- 3. Pending Receivables -->
-            <div class="col-6 col-md-4 col-xxl-2">
+            <div class="col-6 col-md-4 col-xl">
                 <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
-                                <h6 class="text-700 fs-11 mb-1">Receivables Due</h6>
-                                <h3 class="mb-0 fw-bolder text-warning">Rs. {{ number_format($pendingReceivables / 1000, 1) }}k</h3>
+                                <div class="d-flex align-items-center gap-1">
+                                    <h6 class="text-700 fs-11 mb-0">Receivables Due</h6>
+                                </div>
+                                <h3 class="mb-0 fw-bolder text-warning mt-1">
+                                    @if(abs($pendingReceivables) >= 1000000)
+                                        Rs. {{ number_format($pendingReceivables / 1000000, 2) }}M
+                                    @else
+                                        Rs. {{ number_format($pendingReceivables / 1000, 1) }}k
+                                    @endif
+                                </h3>
                                 <div class="d-flex align-items-center gap-1 mt-1">
-                                    <span class="fs-11 text-muted">Outstanding balances</span>
+                                    <span class="fs-11 text-muted">Customer balances</span>
                                     <span class="fas fa-arrow-right fs-11 text-warning ms-auto"></span>
                                 </div>
                             </div>
@@ -351,8 +359,38 @@
                 </div>
             </div>
 
-            <!-- 4. Operating Expenses -->
-            <div class="col-6 col-md-4 col-xxl-2">
+            <!-- 4. Payables & Liabilities -->
+            <div class="col-6 col-md-4 col-xl">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <h6 class="text-700 fs-11 mb-0">Payables & Liabilities</h6>
+                                </div>
+                                <h3 class="mb-0 fw-bolder text-danger mt-1">
+                                    @if(abs($totalPayablesAndLiabilities) >= 1000000)
+                                        Rs. {{ number_format($totalPayablesAndLiabilities / 1000000, 2) }}M
+                                    @else
+                                        Rs. {{ number_format($totalPayablesAndLiabilities / 1000, 1) }}k
+                                    @endif
+                                </h3>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    <span class="fs-11 text-muted">Supplier & vendor dues</span>
+                                    <span class="fas fa-arrow-right fs-11 text-danger ms-auto"></span>
+                                </div>
+                            </div>
+                            <div class="avatar avatar-m bg-danger-subtle text-danger rounded-circle d-flex align-items-center justify-content-center">
+                                <span class="fas fa-file-invoice-dollar fa-lg"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="{{ route('finance.payment-vouchers.index') }}" class="stretched-link" title="View Liabilities & Payment Vouchers"></a>
+                </div>
+            </div>
+
+            <!-- 5. Operating Expenses -->
+            <div class="col-6 col-md-4 col-xl">
                 <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
@@ -373,8 +411,8 @@
                 </div>
             </div>
 
-            <!-- 5. Net Operating Margin -->
-            <div class="col-6 col-md-4 col-xxl-2">
+            <!-- 6. Net Operating Margin -->
+            <div class="col-6 col-md-4 col-xl">
                 <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
@@ -397,8 +435,8 @@
                 </div>
             </div>
 
-            <!-- 6. Total Bookings -->
-            <div class="col-6 col-md-4 col-xxl-2">
+            <!-- 7. Total Bookings -->
+            <div class="col-6 col-md-4 col-xl">
                 <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
