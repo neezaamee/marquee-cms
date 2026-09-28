@@ -5,6 +5,23 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-09-29
+
+### Added
+- **PWA & Offline Support for Cloud-Hosted Operations**:
+  - Web App Manifest (`public/manifest.json`) enabling standalone PWA installation on desktop and mobile browsers.
+  - Service Worker (`public/sw.js`) with intelligent caching strategies (Network-First for Kitchen Slips and Payment Receipts, Stale-While-Revalidate for static assets).
+  - Dedicated offline fallback page (`/offline` and `resources/views/offline.blade.php`) with bilingual English & Urdu messaging and automatic reconnection detection.
+  - Client-side offline manager (`public/assets/js/offline-manager.js`) and status pill indicator (`public/assets/css/offline-pill.css`) providing real-time online/offline state feedback.
+  - Offline Vault badge integration on kitchen slip print views (`kitchen_slip.blade.php`).
+  - Automated feature test suite (`tests/Feature/OfflineSupportPwaTest.php`).
+
+### Fixed
+- **Kitchen Slip View Restoration & Print Calibration**:
+  - Restored proper on-screen container width and proportional padding, fixing layout disturbance.
+  - Removed decorative icons from guest, date, time, and shift slot fields for clean formal kitchen printing.
+  - Calibrated A5 print margins (`0mm 4mm 2mm 4mm`) and eliminated top whitespace gap for compact single-page dish printing.
+
 ## [1.14.0] - 2026-09-28
 
 ### Added

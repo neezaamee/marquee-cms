@@ -30,6 +30,9 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
+// PWA Offline Fallback View (accessible without authentication for Service Worker)
+Route::view('/offline', 'offline')->name('offline');
+
 // Storage fallback route: serves public files/logos if the storage symlink is missing or unsupported on live hosting
 Route::get('storage/{path}', function ($path) {
     $basePath = storage_path('app/public');

@@ -14,6 +14,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- PWA & Offline Support -->
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <link href="{{ asset('assets/css/offline-pill.css') }}" rel="stylesheet">
+    <script src="{{ asset('assets/js/offline-manager.js') }}"></script>
+
     <!-- Dynamic @page CSS for Paper Size (A5 vs A4) -->
     @php
         $activePaper = $paper ?? 'a5';
@@ -21,7 +26,7 @@
     <style id="print-page-style">
         @page {
             size: {{ $activePaper === 'a4' ? 'A4' : 'A5' }} portrait;
-            margin: {{ $activePaper === 'a4' ? '8mm 10mm 8mm 10mm' : '3mm 4mm 3mm 4mm' }};
+            margin: {{ $activePaper === 'a4' ? '8mm 10mm 8mm 10mm' : '0mm 4mm 2mm 4mm' }};
         }
     </style>
 
@@ -32,6 +37,8 @@
             color: #0f172a;
             margin: 0;
             padding: 0;
+            font-size: 12px;
+            line-height: 1.35;
         }
 
         .urdu-font {
@@ -39,335 +46,178 @@
             line-height: 1.4;
         }
 
-        /* Base Container Styles */
+        /* Base Container Styles (Spacious & Clean screen view) */
         .slip-container {
-            margin: 10px auto;
+            max-width: 820px;
+            margin: 15px auto;
             background: #ffffff;
-            border-radius: 6px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             border: 1px solid #cbd5e1;
+            padding: 20px 28px;
+            font-size: 12px;
+            line-height: 1.35;
             transition: max-width 0.2s ease, padding 0.2s ease;
         }
 
-        /* ----------------------------------------------------
-           A5 COMPACT MODE (Engineered to fit 20 Dishes on 1 Page)
-           ---------------------------------------------------- */
-        .slip-container.paper-a5 {
-            max-width: 580px; /* Exact A5 proportion preview */
-            padding: 10px 14px;
-            font-size: 11px;
-            line-height: 1.22;
+        .header-border {
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
         }
 
-        .slip-container.paper-a5 .header-border {
-            border-bottom: 2px solid #0f172a;
-            padding-bottom: 3px;
-            margin-bottom: 5px;
-        }
-
-        .slip-container.paper-a5 .header-logo {
-            height: 34px;
+        .header-logo {
+            height: 55px;
             width: auto;
+            max-width: 160px;
+            object-fit: contain;
         }
 
-        .slip-container.paper-a5 .marquee-title {
-            font-size: 14.5px;
+        .marquee-title {
+            font-size: 19px;
             font-weight: 800;
-            line-height: 1.1;
+            line-height: 1.2;
             margin: 0;
-            letter-spacing: -0.2px;
+            letter-spacing: -0.3px;
         }
 
-        .slip-container.paper-a5 .branch-meta {
-            font-size: 9.5px;
-            line-height: 1.15;
+        .branch-meta {
+            font-size: 11.5px;
+            line-height: 1.3;
             color: #475569;
         }
 
-        .slip-container.paper-a5 .slip-title {
-            font-size: 13.5px;
+        .slip-title {
+            font-size: 18px;
             font-weight: 900;
             line-height: 1.1;
             margin: 0;
         }
 
-        .slip-container.paper-a5 .slip-subtitle-ur {
-            font-size: 11px;
-            line-height: 1.1;
+        .slip-subtitle-ur {
+            font-size: 13px;
+            line-height: 1.2;
             color: #475569;
             font-weight: 700;
         }
 
-        .slip-container.paper-a5 .version-badge {
+        .version-badge {
             background-color: #dc3545;
             color: #ffffff;
             font-weight: 800;
-            font-size: 9px;
-            padding: 1px 6px;
+            font-size: 10.5px;
+            padding: 2px 8px;
             border-radius: 12px;
         }
 
-        .slip-container.paper-a5 .info-card {
+        .info-card {
             background-color: #f8fafc;
             border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            padding: 4px 8px;
-            margin-bottom: 5px;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
         }
 
-        .slip-container.paper-a5 .info-label {
-            font-size: 8px;
+        .info-label {
+            font-size: 9.5px;
             text-transform: uppercase;
-            color: #475569;
-            font-weight: 800;
-            letter-spacing: 0.2px;
-            line-height: 1;
-            margin-bottom: 1px;
+            color: #64748b;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            line-height: 1.1;
+            margin-bottom: 3px;
         }
 
-        .slip-container.paper-a5 .info-value {
-            font-size: 11px;
+        .info-value {
+            font-size: 12.5px;
             font-weight: 700;
             color: #0f172a;
-            line-height: 1.15;
+            line-height: 1.25;
         }
 
-        .slip-container.paper-a5 .info-value-badge {
-            font-size: 9.5px;
-            padding: 1px 5px;
-            font-weight: 700;
-        }
-
-        .slip-container.paper-a5 .dept-header {
+        .dept-header {
             background-color: #1e293b;
             color: #ffffff;
-            padding: 2.5px 8px;
-            font-size: 11.5px;
+            padding: 5px 12px;
+            font-size: 13px;
             font-weight: 700;
-            border-radius: 3px;
-            margin-top: 5px;
-            margin-bottom: 2px;
+            border-radius: 4px;
+            margin-top: 12px;
+            margin-bottom: 6px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            line-height: 1.2;
+            line-height: 1.25;
         }
 
-        .slip-container.paper-a5 .dept-count {
-            font-size: 10px;
-            opacity: 0.9;
+        .dept-count {
+            font-size: 11px;
+            opacity: 0.85;
             font-family: monospace;
         }
 
-        .slip-container.paper-a5 .table-kitchen {
+        .table-kitchen {
             border: 1px solid #cbd5e1;
             margin-bottom: 0;
-            font-size: 11px;
+            font-size: 12px;
         }
 
-        .slip-container.paper-a5 .table-kitchen th {
+        .table-kitchen th {
             background-color: #f1f5f9;
             color: #1e293b;
             font-weight: 700;
-            border-bottom: 1.5px solid #94a3b8;
-            padding: 2.5px 5px !important;
-            font-size: 10px;
-            line-height: 1.15;
-        }
-
-        .slip-container.paper-a5 .table-kitchen td {
-            padding: 2.5px 5px !important;
+            border-bottom: 2px solid #94a3b8;
+            padding: 5px 8px !important;
             font-size: 11px;
-            border-color: #e2e8f0;
-            line-height: 1.18;
+            line-height: 1.2;
         }
 
-        .slip-container.paper-a5 .dish-name-en {
-            font-size: 11.5px;
+        .table-kitchen td {
+            padding: 5px 8px !important;
+            font-size: 12px;
+            border-color: #e2e8f0;
+            line-height: 1.25;
+        }
+
+        .dish-name-en {
+            font-size: 12.5px;
             font-weight: 700;
             color: #0f172a;
             display: inline-block;
         }
 
-        .slip-container.paper-a5 .dish-name-ur {
-            font-size: 11.5px;
+        .dish-name-ur {
+            font-size: 12.5px;
             font-weight: 700;
             color: #334155;
             display: inline-block;
             margin-left: 4px;
         }
 
-        .slip-container.paper-a5 .instruction-cell {
-            font-size: 10.5px;
+        .instruction-cell {
+            font-size: 11.5px;
             font-weight: 600;
             color: #1e293b;
-            line-height: 1.15;
-        }
-
-        .slip-container.paper-a5 .instructions-box {
-            background-color: #fffbeb;
-            border: 1px dashed #f59e0b;
-            border-radius: 4px;
-            padding: 4px 8px;
-            margin-top: 5px;
-            font-size: 10.5px;
-            line-height: 1.25;
-        }
-
-        .slip-container.paper-a5 .print-footer {
-            border-top: 1px solid #cbd5e1;
-            margin-top: 5px;
-            padding-top: 3px;
-            font-size: 8.5px;
-            color: #64748b;
             line-height: 1.2;
         }
 
-        /* ----------------------------------------------------
-           A4 STANDARD MODE (Spacious Multi-Page or Larger View)
-           ---------------------------------------------------- */
-        .slip-container.paper-a4 {
-            max-width: 860px;
-            padding: 20px 28px;
-            font-size: 13px;
-            line-height: 1.4;
-        }
-
-        .slip-container.paper-a4 .header-border {
-            border-bottom: 2.5px solid #1e293b;
-            padding-bottom: 8px;
-            margin-bottom: 12px;
-        }
-
-        .slip-container.paper-a4 .header-logo {
-            height: 55px;
-            width: auto;
-        }
-
-        .slip-container.paper-a4 .marquee-title {
-            font-size: 20px;
-            font-weight: 800;
-            line-height: 1.2;
-            margin: 0;
-        }
-
-        .slip-container.paper-a4 .branch-meta {
-            font-size: 12px;
-            color: #64748b;
-        }
-
-        .slip-container.paper-a4 .slip-title {
-            font-size: 18px;
-            font-weight: 900;
-        }
-
-        .slip-container.paper-a4 .slip-subtitle-ur {
-            font-size: 14px;
-            font-weight: 700;
-            color: #475569;
-        }
-
-        .slip-container.paper-a4 .version-badge {
-            background-color: #dc3545;
-            color: #ffffff;
-            font-weight: 800;
-            font-size: 11px;
-            padding: 3px 8px;
-            border-radius: 20px;
-        }
-
-        .slip-container.paper-a4 .info-card {
-            background-color: #f8fafc;
-            border: 1.5px solid #cbd5e1;
-            border-radius: 6px;
-            padding: 10px 14px;
-            margin-bottom: 12px;
-        }
-
-        .slip-container.paper-a4 .info-label {
-            font-size: 10.5px;
-            text-transform: uppercase;
-            color: #475569;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            margin-bottom: 2px;
-        }
-
-        .slip-container.paper-a4 .info-value {
-            font-size: 13.5px;
-            font-weight: 700;
-            color: #0f172a;
-        }
-
-        .slip-container.paper-a4 .info-value-badge {
-            font-size: 11px;
-            padding: 2px 7px;
-            font-weight: 700;
-        }
-
-        .slip-container.paper-a4 .dept-header {
-            background-color: #1e293b;
-            color: #ffffff;
-            padding: 6px 12px;
-            font-size: 14px;
-            font-weight: 700;
-            border-radius: 5px;
-            margin-top: 12px;
-            margin-bottom: 6px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .slip-container.paper-a4 .table-kitchen th {
-            background-color: #f1f5f9;
-            color: #1e293b;
-            font-weight: 700;
-            border-bottom: 2px solid #94a3b8;
-            padding: 6px 8px !important;
-            font-size: 12.5px;
-        }
-
-        .slip-container.paper-a4 .table-kitchen td {
-            padding: 6px 8px !important;
-            font-size: 13px;
-            border-color: #e2e8f0;
-        }
-
-        .slip-container.paper-a4 .dish-name-en {
-            font-size: 14px;
-            font-weight: 700;
-            color: #0f172a;
-        }
-
-        .slip-container.paper-a4 .dish-name-ur {
-            font-size: 14.5px;
-            font-weight: 700;
-            color: #334155;
-            display: block;
-        }
-
-        .slip-container.paper-a4 .instruction-cell {
-            font-size: 12.5px;
-            font-weight: 600;
-            color: #1e293b;
-        }
-
-        .slip-container.paper-a4 .instructions-box {
+        .instructions-box {
             background-color: #fffbeb;
             border: 1.5px dashed #f59e0b;
             border-radius: 6px;
-            padding: 10px 14px;
-            margin-top: 12px;
-            font-size: 13px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            font-size: 12px;
+            line-height: 1.3;
         }
 
-        .slip-container.paper-a4 .print-footer {
+        .print-footer {
             border-top: 1px solid #cbd5e1;
-            margin-top: 14px;
-            padding-top: 8px;
+            margin-top: 12px;
+            padding-top: 6px;
             font-size: 10px;
             color: #64748b;
+            line-height: 1.3;
         }
 
         /* ----------------------------------------------------
@@ -394,40 +244,44 @@
                 max-width: 100% !important;
             }
 
-            /* A5 Print Overrides: Guaranteed Single Page for 20 Dishes */
+            /* A5 Print Overrides: Single Page Calibration */
             .slip-container.paper-a5 {
                 font-size: 9.5px !important;
                 line-height: 1.15 !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
             }
 
             .slip-container.paper-a5 .header-border {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
                 padding-bottom: 2px !important;
-                margin-bottom: 3px !important;
+                margin-bottom: 4px !important;
                 border-bottom: 1.5px solid #000000 !important;
             }
 
             .slip-container.paper-a5 .header-logo {
-                height: 28px !important;
+                height: 30px !important;
             }
 
             .slip-container.paper-a5 .marquee-title {
-                font-size: 13px !important;
+                font-size: 13.5px !important;
                 line-height: 1.1 !important;
             }
 
             .slip-container.paper-a5 .branch-meta {
-                font-size: 8px !important;
+                font-size: 8.5px !important;
                 line-height: 1.1 !important;
                 color: #333333 !important;
             }
 
             .slip-container.paper-a5 .slip-title {
-                font-size: 12.5px !important;
+                font-size: 13px !important;
                 line-height: 1 !important;
             }
 
             .slip-container.paper-a5 .slip-subtitle-ur {
-                font-size: 9.5px !important;
+                font-size: 10px !important;
                 line-height: 1 !important;
             }
 
@@ -441,8 +295,8 @@
             }
 
             .slip-container.paper-a5 .info-card {
-                padding: 2.5px 5px !important;
-                margin-bottom: 3px !important;
+                padding: 3px 6px !important;
+                margin-bottom: 4px !important;
                 background-color: #f8fafc !important;
                 border: 1px solid #000000 !important;
                 -webkit-print-color-adjust: exact;
@@ -467,10 +321,10 @@
                 color: #ffffff !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
-                margin-top: 3px !important;
-                margin-bottom: 1px !important;
-                padding: 1.5px 5px !important;
-                font-size: 10px !important;
+                margin-top: 4px !important;
+                margin-bottom: 2px !important;
+                padding: 2px 6px !important;
+                font-size: 10.5px !important;
                 line-height: 1.15 !important;
                 page-break-after: avoid !important;
             }
@@ -494,48 +348,48 @@
                 color: #000000 !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
-                padding: 1.5px 4px !important;
+                padding: 2px 4px !important;
                 font-size: 9px !important;
                 line-height: 1.1 !important;
                 border: 1px solid #000000 !important;
             }
 
             .slip-container.paper-a5 .table-kitchen td {
-                padding: 1.5px 4px !important;
-                font-size: 10px !important;
+                padding: 2px 4px !important;
+                font-size: 9.5px !important;
                 color: #000000 !important;
                 line-height: 1.15 !important;
                 border: 1px solid #cbd5e1 !important;
             }
 
             .slip-container.paper-a5 .dish-name-en {
-                font-size: 10.5px !important;
+                font-size: 10px !important;
                 font-weight: 700 !important;
                 color: #000000 !important;
             }
 
             .slip-container.paper-a5 .dish-name-ur {
-                font-size: 11px !important;
+                font-size: 10.5px !important;
                 font-weight: 700 !important;
                 color: #000000 !important;
             }
 
             .slip-container.paper-a5 .instruction-cell {
-                font-size: 9.5px !important;
+                font-size: 9px !important;
                 font-weight: 600 !important;
                 color: #000000 !important;
             }
 
             .slip-container.paper-a5 .instructions-box {
-                padding: 2.5px 6px !important;
-                margin-top: 3px !important;
+                padding: 3px 6px !important;
+                margin-top: 4px !important;
                 border: 1px dashed #000000 !important;
                 font-size: 9px !important;
                 line-height: 1.2 !important;
             }
 
             .slip-container.paper-a5 .print-footer {
-                margin-top: 3px !important;
+                margin-top: 4px !important;
                 padding-top: 2px !important;
                 font-size: 8px !important;
                 line-height: 1.15 !important;
@@ -544,8 +398,34 @@
 
             /* A4 Print Overrides */
             .slip-container.paper-a4 {
-                font-size: 12px !important;
+                font-size: 11.5px !important;
                 line-height: 1.3 !important;
+            }
+
+            .slip-container.paper-a4 .header-border {
+                border-bottom: 2px solid #000000 !important;
+                padding-bottom: 4px !important;
+                margin-bottom: 8px !important;
+            }
+
+            .slip-container.paper-a4 .header-logo {
+                height: 48px !important;
+            }
+
+            .slip-container.paper-a4 .marquee-title {
+                font-size: 18px !important;
+            }
+
+            .slip-container.paper-a4 .branch-meta {
+                font-size: 10.5px !important;
+            }
+
+            .slip-container.paper-a4 .slip-title {
+                font-size: 16px !important;
+            }
+
+            .slip-container.paper-a4 .slip-subtitle-ur {
+                font-size: 12px !important;
             }
 
             .slip-container.paper-a4 .table-kitchen tr {
@@ -558,6 +438,10 @@
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
                 page-break-after: avoid !important;
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+                margin-top: 6px !important;
+                margin-bottom: 3px !important;
             }
 
             .slip-container.paper-a4 .table-kitchen th {
@@ -566,13 +450,13 @@
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
                 padding: 4px 6px !important;
-                font-size: 12px !important;
+                font-size: 11px !important;
                 border: 1px solid #000000 !important;
             }
 
             .slip-container.paper-a4 .table-kitchen td {
                 padding: 4px 6px !important;
-                font-size: 12.5px !important;
+                font-size: 11.5px !important;
                 color: #000000 !important;
                 border: 1px solid #cbd5e1 !important;
             }
@@ -582,13 +466,13 @@
 <body>
 
     <!-- Floating Action Toolbar (Hidden during printing) -->
-    <div class="container no-print mt-2 mb-2" style="max-width: 860px;">
+    <div class="container no-print mt-2 mb-2" style="max-width: 820px;">
         <div class="d-flex flex-wrap justify-content-between align-items-center bg-white p-2 rounded shadow-sm border">
             <div class="d-flex align-items-center gap-2">
                 <span class="fw-bold text-secondary fs-12 text-uppercase">Page Format:</span>
                 <div class="btn-group btn-group-sm" role="group" aria-label="Paper Size">
                     <button type="button" id="btn-paper-a5" onclick="switchPaperSize('a5')" class="btn {{ $activePaper === 'a5' ? 'btn-primary' : 'btn-outline-secondary' }} px-3 fw-bold">
-                        <i class="fas fa-file-alt me-1"></i> A5 (1 Page / 20 Dishes)
+                        <i class="fas fa-file-alt me-1"></i> A5 
                     </button>
                     <button type="button" id="btn-paper-a4" onclick="switchPaperSize('a4')" class="btn {{ $activePaper === 'a4' ? 'btn-primary' : 'btn-outline-secondary' }} px-3 fw-bold">
                         <i class="fas fa-file me-1"></i> A4 Standard
@@ -619,7 +503,7 @@
                             ? $marquee->logo 
                             : (Str::startsWith($marquee->logo, 'storage/') ? asset($marquee->logo) : asset('storage/' . $marquee->logo));
                     @endphp
-                    <img src="{{ $marqueeLogoUrl }}" alt="Logo" class="header-logo me-2">
+                    <img src="{{ $marqueeLogoUrl }}" alt="Logo" class="header-logo me-3">
                 @endif
                 <div>
                     <h3 class="marquee-title text-uppercase">{{ $marquee->name ?? 'Marquee CMS' }}</h3>
@@ -627,16 +511,21 @@
                         <div class="branch-meta text-primary fw-bold text-uppercase">{{ $branch->name }} @if($branch->is_head_office)(Head Office)@endif</div>
                         <div class="branch-meta">{{ $branch->address ? $branch->address . ', ' : '' }}{{ $branch->city ?? ($marquee->city ?? '') }}</div>
                         @if($branch->phone || ($marquee->phone ?? null))
-                            <div class="branch-meta"><i class="fas fa-phone me-1"></i> {{ $branch->phone ?: $marquee->phone }} @if($branch->branch_manager) | Mgr: {{ $branch->branch_manager }} @endif</div>
+                            <div class="branch-meta">Phone: {{ $branch->phone ?: $marquee->phone }} @if($branch->branch_manager) | Mgr: {{ $branch->branch_manager }} @endif</div>
                         @endif
                     @else
                         <div class="branch-meta fw-semibold">{{ $marquee->address ?? 'Main Branch' }} — {{ $marquee->city ?? 'Pakistan' }}</div>
-                        <div class="branch-meta"><i class="fas fa-phone me-1"></i> {{ $marquee->phone ?? '' }}</div>
+                        @if(!empty($marquee->phone))
+                            <div class="branch-meta">Phone: {{ $marquee->phone }}</div>
+                        @endif
                     @endif
                 </div>
             </div>
             <div class="text-end">
                 <div class="d-flex align-items-center justify-content-end gap-1 mb-1">
+                    <span id="offline-vault-badge" class="badge bg-warning text-dark d-none no-print" style="font-size: 9px; font-weight: 700;">
+                        <i class="fas fa-wifi-slash me-1"></i> Offline Vault
+                    </span>
                     <span class="version-badge">VERSION V{{ $booking->kitchen_print_version }}</span>
                 </div>
                 <h4 class="slip-title text-primary">KITCHEN MENU SLIP</h4>
@@ -646,7 +535,7 @@
 
         <!-- Booking Operational Information Grid -->
         <div class="info-card">
-            <div class="row g-1">
+            <div class="row g-2 g-md-3">
                 <!-- Booking Number -->
                 <div class="col-3">
                     <div class="info-label">
@@ -671,7 +560,7 @@
                         @if($lang === 'english') Event Date @elseif($lang === 'urdu') تقریب کی تاریخ @else Event Date / تاریخ @endif
                     </div>
                     <div class="info-value text-danger">
-                        <i class="fas fa-calendar-alt me-1"></i>{{ $booking->booking_date->format('D, d M Y') }}
+                        {{ $booking->booking_date->format('D, d M Y') }}
                     </div>
                 </div>
 
@@ -681,7 +570,7 @@
                         @if($lang === 'english') Confirmed Guests @elseif($lang === 'urdu') کل مہمان @else Confirmed Guests / مہمان @endif
                     </div>
                     <div class="info-value text-success">
-                        <i class="fas fa-users me-1"></i>{{ number_format($booking->effective_guest_count) }} Persons
+                        {{ number_format($booking->effective_guest_count) }} Persons
                     </div>
                 </div>
 
@@ -705,7 +594,7 @@
                             {{ $booking->hall->hall_name ?? 'Main Hall' }}
                         @endif
                         @if($branch)
-                            <span class="text-muted fw-normal" style="font-size: 8.5px;">({{ $branch->name }})</span>
+                            <span class="text-muted fw-normal" style="font-size: 10px;">({{ $branch->name }})</span>
                         @endif
                     </div>
                 </div>
@@ -715,10 +604,8 @@
                     <div class="info-label">
                         @if($lang === 'english') Shift Slot @elseif($lang === 'urdu') شفٹ سلاٹ @else Shift Slot / شفٹ سلاٹ @endif
                     </div>
-                    <div class="info-value">
-                        <span class="badge bg-secondary text-white info-value-badge">
-                            <i class="fas fa-layer-group me-1"></i>{{ $booking->slot->slot_name ?? 'Custom Shift' }}
-                        </span>
+                    <div class="info-value text-dark">
+                        {{ $booking->slot->slot_name ?? 'Custom Shift' }}
                     </div>
                 </div>
 
@@ -728,7 +615,7 @@
                         @if($lang === 'english') Event Timings @elseif($lang === 'urdu') اوقات @else Event Timings / وقت @endif
                     </div>
                     <div class="info-value font-monospace text-dark">
-                        <i class="far fa-clock me-1 text-primary"></i>{{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }}
+                        {{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }}
                     </div>
                 </div>
             </div>
@@ -739,7 +626,7 @@
             <div class="dept-header">
                 <div>
                     @if($lang === 'english' || $lang === 'bilingual')
-                        <span><i class="fas fa-utensils me-1"></i>{{ strtoupper($deptData['title_en']) }}</span>
+                        <span>{{ strtoupper($deptData['title_en']) }}</span>
                     @endif
                     @if($lang === 'bilingual' && !empty($deptData['title_ur']))
                         <span class="ms-1">/ {{ $deptData['title_ur'] }}</span>
@@ -754,7 +641,7 @@
             </div>
 
             <table class="table table-bordered table-sm table-kitchen align-middle">
-                {{--<thead>
+               {{-- <thead>
                     <tr>
                         <th style="width: 7%;" class="text-center">#</th>
                         <th style="width: 53%;">
@@ -802,7 +689,7 @@
             </table>
         @empty
             <div class="text-center py-3 border rounded text-muted">
-                <i class="fas fa-exclamation-circle me-1"></i> No finalized menu items attached to this booking.
+                No finalized menu items attached to this booking.
             </div>
         @endforelse
 
@@ -810,7 +697,7 @@
         @if(!empty($booking->kitchen_special_instructions) || !empty($booking->special_instructions))
             <div class="instructions-box">
                 <div class="fw-bold text-dark mb-0">
-                    <i class="fas fa-exclamation-triangle text-warning me-1"></i> SPECIAL KITCHEN INSTRUCTIONS / خصوصی کچن ہدایات:
+                    SPECIAL KITCHEN INSTRUCTIONS / خصوصی کچن ہدایات:
                 </div>
                 <div class="text-dark fw-bold">
                     {{ $booking->kitchen_special_instructions ?? $booking->special_instructions }}
@@ -847,7 +734,7 @@
             if (size === 'a5') {
                 container.classList.remove('paper-a4');
                 container.classList.add('paper-a5');
-                styleEl.innerHTML = '@page { size: A5 portrait; margin: 3mm 4mm 3mm 4mm; }';
+                styleEl.innerHTML = '@page { size: A5 portrait; margin: 0mm 4mm 2mm 4mm; }';
                 btnA5.classList.add('btn-primary');
                 btnA5.classList.remove('btn-outline-secondary');
                 btnA4.classList.add('btn-outline-secondary');
@@ -876,6 +763,21 @@
                     }
                 } catch(e){}
             }
+
+            // Offline vault badge detector
+            function syncOfflineBadge() {
+                const badge = document.getElementById('offline-vault-badge');
+                if (badge) {
+                    if (!navigator.onLine) {
+                        badge.classList.remove('d-none');
+                    } else {
+                        badge.classList.add('d-none');
+                    }
+                }
+            }
+            syncOfflineBadge();
+            window.addEventListener('online', syncOfflineBadge);
+            window.addEventListener('offline', syncOfflineBadge);
         });
     </script>
 

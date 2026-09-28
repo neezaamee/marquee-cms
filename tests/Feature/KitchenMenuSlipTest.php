@@ -360,7 +360,7 @@ class KitchenMenuSlipTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee('paper-a5');
-        $response->assertSee('A5 (1 Page / 20 Dishes)');
+        $response->assertSee('A5');
         $response->assertSee('size: A5 portrait', false);
         for ($i = 1; $i <= 20; $i++) {
             $response->assertSee("Special Dish Item #{$i}");

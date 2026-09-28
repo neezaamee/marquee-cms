@@ -12,7 +12,7 @@ class StripeBillingService
 
     public function __construct()
     {
-        $this->secretKey = config('services.stripe.secret') ?: env('STRIPE_SECRET', 'sk_test_mock_secret_key_123');
+        $this->secretKey = config('services.stripe.secret') ?: (string) env('STRIPE_SECRET', '');
     }
 
     /**
