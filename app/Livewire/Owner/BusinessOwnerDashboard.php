@@ -230,6 +230,10 @@ class BusinessOwnerDashboard extends Component
         $netOperatingCashflow = 0.0;
         $bankBalance = 0.0;
         $cashInHand = 0.0;
+        $supplierPayables = 0.0;
+        $vendorPayables = 0.0;
+        $payableSuppliers = collect();
+        $payableVendors = collect();
 
         if ($canViewFinancials) {
             // Total Booked Sales in Period
@@ -264,27 +268,29 @@ class BusinessOwnerDashboard extends Component
                 ->sum('receivable_amount');
 
             // Total Payables & Liabilities (Supplier dues, Vendor dues, Credit expenses, and GL Payables)
-            $supplierPayables = 0.0;
+            // Total Payables & Liabilities (Supplier dues, Vendor dues, Credit expenses, and GL Payables)
             $suppliers = Supplier::withoutGlobalScope('tenant')
                 ->where('marquee_id', $marqueeId)
                 ->whereIn('status', ['active', 'Active'])
+                ->with(['categories'])
                 ->get();
-            foreach ($suppliers as $supp) {
-                if ($supp->current_balance > 0) {
-                    $supplierPayables += (float) $supp->current_balance;
-                }
-            }
 
-            $vendorPayables = 0.0;
+            $payableSuppliers = $suppliers->filter(function ($supp) {
+                return (float) $supp->current_balance > 0.01;
+            })->sortByDesc('current_balance')->values();
+
+            $supplierPayables = (float) $payableSuppliers->sum('current_balance');
+
             $vendors = Vendor::withoutGlobalScope('tenant')
                 ->where('marquee_id', $marqueeId)
                 ->whereIn('status', ['active', 'Active'])
                 ->get();
-            foreach ($vendors as $v) {
-                if ($v->current_balance > 0) {
-                    $vendorPayables += (float) $v->current_balance;
-                }
-            }
+
+            $payableVendors = $vendors->filter(function ($v) {
+                return (float) $v->current_balance > 0.01;
+            })->sortByDesc('current_balance')->values();
+
+            $vendorPayables = (float) $payableVendors->sum('current_balance');
 
             $creditExpensePayables = (float) Expense::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)
                 ->where('payment_method', Expense::METHOD_CREDIT)

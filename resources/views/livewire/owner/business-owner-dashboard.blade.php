@@ -331,7 +331,7 @@
 
             <!-- 3. Pending Receivables -->
             <div class="col-6 col-md-4 col-xl">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative hover-lift" style="cursor: pointer;">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -355,13 +355,13 @@
                             </div>
                         </div>
                     </div>
-                    <a href="{{ route('finance.payments') }}" class="stretched-link" title="View Receivables & Payment Collections"></a>
+                    <a href="{{ route('customers.index', ['filterBalance' => 'outstanding']) }}" class="stretched-link" role="button" title="View Customers with Outstanding Balances"></a>
                 </div>
             </div>
 
             <!-- 4. Payables & Liabilities -->
             <div class="col-6 col-md-4 col-xl">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative hover-lift" style="cursor: pointer;">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -385,7 +385,7 @@
                             </div>
                         </div>
                     </div>
-                    <a href="{{ route('finance.payment-vouchers.index') }}" class="stretched-link" title="View Liabilities & Payment Vouchers"></a>
+                    <a href="{{ route('suppliers.index', ['balanceFilter' => 'outstanding']) }}" class="stretched-link" role="button" title="View Suppliers to Whom We Owe Payments"></a>
                 </div>
             </div>
 
@@ -1262,7 +1262,7 @@
                             <span class="fas fa-exclamation-circle me-1"></span>
                             <strong>{{ $overdueReceivablesCount }} Overdue Receivables</strong> from past completed functions.
                         </div>
-                        <a href="{{ route('finance.payments') }}" class="btn btn-danger btn-sm fs-11 px-2 py-0">Collect</a>
+                        <a href="{{ route('customers.index', ['filterBalance' => 'outstanding']) }}" class="btn btn-danger btn-sm fs-11 px-2 py-0">View List</a>
                     </div>
                     @endif
 
@@ -1378,4 +1378,5 @@
             </div>
         </div>
     </div>
-</div>
+
+    </div>

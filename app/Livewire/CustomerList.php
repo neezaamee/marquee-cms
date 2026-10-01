@@ -14,6 +14,7 @@ class CustomerList extends Component
     public $search = '';
     public $filterType = '';
     public $filterStatus = '';
+    public $filterBalance = '';
 
     // Pagination styling
     protected $paginationTheme = 'bootstrap';
@@ -23,7 +24,15 @@ class CustomerList extends Component
         'search' => ['except' => ''],
         'filterType' => ['except' => ''],
         'filterStatus' => ['except' => ''],
+        'filterBalance' => ['except' => ''],
     ];
+
+    public function mount()
+    {
+        if (request()->has('filterBalance')) {
+            $this->filterBalance = request()->query('filterBalance', '');
+        }
+    }
 
     /**
      * Reset pagination when search/filter inputs change.
@@ -31,6 +40,7 @@ class CustomerList extends Component
     public function updatingSearch() { $this->resetPage(); }
     public function updatingFilterType() { $this->resetPage(); }
     public function updatingFilterStatus() { $this->resetPage(); }
+    public function updatingFilterBalance() { $this->resetPage(); }
 
     public $confirmingDeletionId = null;
 
@@ -99,6 +109,17 @@ class CustomerList extends Component
         // Apply Status Filter
         if (!empty($this->filterStatus)) {
             $query->where('status', $this->filterStatus);
+        }
+
+        // Apply Balance Filter
+        if ($this->filterBalance === 'outstanding') {
+            $query->whereHas('bookings', function ($bq) {
+                $bq->where('receivable_amount', '>', 0)
+                   ->orWhere(function ($q) {
+                       $q->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                         ->whereRaw('(grand_total - advance_received) > 0');
+                   });
+            });
         }
 
         $customers = $query->withCount('bookings')->latest()->paginate(10);

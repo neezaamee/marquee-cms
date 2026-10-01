@@ -218,9 +218,9 @@
                             <tbody>
                                 @forelse($recentPendingPayments as $payment)
                                     <tr>
-                                        <td class="ps-3 fw-bold text-900 font-monospace">{{ $payment->receipt_number }}</td>
+                                        <td class="ps-3 fw-bold text-900 font-monospace">{{ $payment->payment_number ?? $payment->receipt_number ?? ('PAY-' . $payment->id) }}</td>
                                         <td>
-                                            <div class="fw-bold">{{ $payment->booking->customer->name ?? 'Guest' }}</div>
+                                            <div class="fw-bold">{{ $payment->booking->customer->full_name ?? $payment->booking->customer->name ?? 'Guest' }}</div>
                                             <span class="text-muted font-monospace fs-11">{{ $payment->booking->booking_number ?? '' }}</span>
                                         </td>
                                         <td><span class="badge bg-light text-dark">{{ ucfirst($payment->payment_method) }}</span></td>

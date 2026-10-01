@@ -5,6 +5,7 @@ namespace App\Livewire\Inventory;
 use App\Models\Supplier;
 use App\Models\SupplierCategory;
 use App\Services\InventoryService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -14,6 +15,7 @@ class SupplierList extends Component
 
     public $search = '';
     public $categoryFilter = 'all';
+    public $balanceFilter = 'all';
     public $confirmingDeletionId = null;
 
     // Form fields
@@ -37,7 +39,15 @@ class SupplierList extends Component
     protected $queryString = [
         'search' => ['except' => ''],
         'categoryFilter' => ['except' => 'all'],
+        'balanceFilter' => ['except' => 'all'],
     ];
+
+    public function mount()
+    {
+        if (request()->has('balanceFilter')) {
+            $this->balanceFilter = request()->query('balanceFilter', 'all');
+        }
+    }
 
     protected $rules = [
         'name' => 'required|string|max:255',
@@ -60,6 +70,11 @@ class SupplierList extends Component
     }
 
     public function updatingCategoryFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingBalanceFilter()
     {
         $this->resetPage();
     }
@@ -199,6 +214,21 @@ class SupplierList extends Component
         if ($this->categoryFilter !== 'all' && !empty($this->categoryFilter)) {
             $query->whereHas('categories', function ($q) {
                 $q->where('supplier_categories.id', $this->categoryFilter);
+            });
+        }
+
+        if ($this->balanceFilter === 'outstanding') {
+            $query->where(function ($q) {
+                $q->whereExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('supplier_ledgers as sl1')
+                        ->whereColumn('sl1.supplier_id', 'suppliers.id')
+                        ->whereNull('sl1.deleted_at')
+                        ->whereRaw('sl1.id = (SELECT MAX(sl2.id) FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL)')
+                        ->where('sl1.running_balance', '>', 0.01);
+                })->orWhere(function ($sub) {
+                    $sub->whereDoesntHave('ledgers')->where('opening_balance', '>', 0.01);
+                });
             });
         }
 

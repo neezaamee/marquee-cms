@@ -114,6 +114,12 @@
                             @endforeach
                         </select>
 
+                        <!-- Balance Filter -->
+                        <select wire:model.live="balanceFilter" class="form-select form-select-sm" style="width: 150px;">
+                            <option value="all">All Balances</option>
+                            <option value="outstanding">Outstanding (> 0)</option>
+                        </select>
+
                         <!-- Search -->
                         <div class="input-group input-group-sm" style="width: 200px;">
                             <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search suppliers..." />

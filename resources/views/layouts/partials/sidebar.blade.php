@@ -644,7 +644,7 @@
           <a class="nav-link dropdown-indicator {{ $purchasesActive ? '' : 'collapsed' }}" href="#purchasesCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $purchasesActive ? 'true' : 'false' }}" aria-controls="purchasesCollapse">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-shopping-cart text-warning"></span></span>
-              <span class="nav-link-text ps-1">Purchases</span>
+              <span class="nav-link-text ps-1">Purchases/Suppliers</span>
             </div>
           </a>
           <ul class="nav collapse {{ $purchasesActive ? 'show' : '' }}" id="purchasesCollapse" data-bs-parent="#navbarVerticalNav">

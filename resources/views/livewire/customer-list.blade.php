@@ -24,6 +24,12 @@
                     <option value="Blocked">Blocked</option>
                 </select>
 
+                <!-- Balance Filter -->
+                <select wire:model.live="filterBalance" class="form-select form-select-sm" style="min-width: 140px; max-width: 160px;">
+                    <option value="">All Balances</option>
+                    <option value="outstanding">Outstanding (> 0)</option>
+                </select>
+
                 @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('create_bookings'))
                     <a class="btn btn-falcon-primary btn-sm text-nowrap" href="{{ route('customers.create') }}">
                         <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add Customer
@@ -61,6 +67,7 @@
                             <th>Email</th>
                             <th>Phone</th>
                             <th class="text-center">Total Bookings</th>
+                            <th class="text-end" style="min-width: 110px;">Outstanding</th>
                             <th>City</th>
                             <th class="text-center">Status</th>
                             <th class="text-end px-3">Actions</th>
@@ -93,6 +100,9 @@
                                 <td class="text-center fw-semi-bold">
                                     <span class="badge badge-subtle-primary fs-11">{{ $customer->total_bookings }}</span>
                                 </td>
+                                <td class="text-end font-monospace fw-bold {{ $customer->outstanding_balance > 0 ? 'text-danger' : 'text-muted' }}">
+                                    Rs. {{ number_format($customer->outstanding_balance, 2) }}
+                                </td>
                                 <td>{{ $customer->city ?? '—' }}</td>
                                 <td class="text-center">
                                     @php
@@ -121,7 +131,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" class="text-center py-5 text-muted">
+                                <td colspan="12" class="text-center py-5 text-muted">
                                     <span class="fas fa-users fa-2x mb-2 d-block"></span>
                                     No customers found.
                                 </td>

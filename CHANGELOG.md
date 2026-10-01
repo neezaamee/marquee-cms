@@ -5,6 +5,19 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-10-01
+
+### Added
+- **Owner Dashboard Direct Receivables & Payables Navigation**:
+  - Configured Owner Dashboard "Pending Receivables" card to open directly within Customer Management with outstanding balance filter active (`filterBalance=outstanding`).
+  - Configured Owner Dashboard "Payables & Liabilities" card to open directly within Supplier Directory with outstanding balance filter active (`balanceFilter=outstanding`).
+  - Added real-time balance filtering (`outstanding`) and `Outstanding` balance column to `CustomerList` component and view.
+  - Added balance filtering (`outstanding`) to `SupplierList` component and view.
+
+### Fixed
+- **Accountant Dashboard Query Scope**:
+  - Resolved `QueryException` regarding `booking_payments` query scoping on the Accountant role dashboard.
+
 ## [1.15.0] - 2026-09-29
 
 ### Added
