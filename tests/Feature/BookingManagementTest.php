@@ -1350,6 +1350,46 @@ class BookingManagementTest extends TestCase
         $booking->refresh();
         $this->assertEquals('synced', $booking->finalBill->fbr_sync_status);
         $this->assertEquals('PRA-BM-889977-INV', $booking->finalBill->fbr_invoice_number);
+
+        // 4. Test Booking Officer role can Save final bill, but cannot Lock & Post to PRA
+        $bookingOfficer = User::create([
+            'name' => 'Booking Officer Test',
+            'email' => 'bo_test@marquee.com',
+            'username' => 'bo_test',
+            'password' => bcrypt('password'),
+            'role_id' => $this->officerRole->id,
+            'marquee_id' => $this->marqueeA->id,
+            'branch_id' => $this->branchA->id,
+            'status' => 'active',
+        ]);
+
+        // Booking officer can save final bill
+        Livewire::actingAs($bookingOfficer)
+            ->test(\App\Livewire\BookingView::class, ['booking' => $booking])
+            ->call('openFinalBillModal')
+            ->set('fbGuestCount', 110)
+            ->call('saveFinalBill')
+            ->assertHasNoErrors();
+
+        $booking->refresh();
+        $this->assertEquals(110, $booking->finalBill->guest_count);
+
+        // Booking officer is forbidden from calling saveAndLockFinalBill
+        Livewire::actingAs($bookingOfficer)
+            ->test(\App\Livewire\BookingView::class, ['booking' => $booking])
+            ->call('saveAndLockFinalBill')
+            ->assertStatus(403);
+
+        // Booking manager can call saveAndLockFinalBill successfully
+        Livewire::actingAs($bookingManagerUser)
+            ->test(\App\Livewire\BookingView::class, ['booking' => $booking])
+            ->call('openFinalBillModal')
+            ->set('fbGuestCount', 120)
+            ->call('saveAndLockFinalBill')
+            ->assertHasNoErrors();
+
+        $booking->refresh();
+        $this->assertEquals(120, $booking->finalBill->guest_count);
     }
 
     public function test_booking_slip_and_menu_reordering_and_replacement(): void
@@ -1429,12 +1469,19 @@ class BookingManagementTest extends TestCase
         $this->assertEquals('Special Seekh Kabab', $items[1]['item_name']);
         $this->assertNull($wizard->get('replacingDishIndex'));
 
+        // Test validation error when dish name is empty
+        $wizard->call('openReplaceDishModal', 0);
+        $wizard->set('newCustomDishName', '')
+               ->call('replaceWithNewCustomDish')
+               ->assertHasErrors(['newCustomDishName']);
+
         // Test replace with new custom dish created on the fly
         $wizard->call('openReplaceDishModal', 0);
         $wizard->set('newCustomDishName', 'Fresh Green Salad')
                ->set('newCustomDishUrdu', 'سبز سلاد')
                ->set('newCustomDishCategory', $category->id)
-               ->call('replaceWithNewCustomDish');
+               ->call('replaceWithNewCustomDish')
+               ->assertHasNoErrors();
         $items = $wizard->get('bookingMenuItems');
         $this->assertEquals('Fresh Green Salad', $items[0]['item_name']);
 

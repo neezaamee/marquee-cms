@@ -839,11 +839,24 @@ class BookingView extends Component
 
     /**
      * Save the prepared final bill adjustments record.
+     *
+     * @param bool $lockAndPostToPra Whether to also sync/lock with PRA/FBR POS (Booking Manager)
      */
-    public function saveFinalBill()
+    public function saveFinalBill($lockAndPostToPra = false)
     {
         $user = auth()->user();
         abort_unless($user && $user->can('update', $this->booking), 403, 'Unauthorized access to update this booking.');
+
+        if ($lockAndPostToPra) {
+            abort_unless(
+                $user->isSuperAdmin() || 
+                $user->isBusinessOwner() || 
+                $user->hasRole(['branch_manager', 'booking_manager', 'booking_manager_pra']) || 
+                $user->hasPermission('post_final_bill_pra'),
+                403,
+                'Unauthorized to lock and post final invoices to PRA / FBR.'
+            );
+        }
 
         $this->recalculateFinalBill();
 
@@ -859,7 +872,7 @@ class BookingView extends Component
         $subtotal = $packageAmount + $this->fbHallCharges + $this->fbExtraCharges - $this->fbDiscountAmount;
         $grandTotal = $subtotal + $this->fbTaxAmount + $this->booking->security_deposit;
 
-        $finalBill = \Illuminate\Support\Facades\DB::transaction(function () use ($packageAmount, $subtotal, $grandTotal) {
+        $finalBill = \Illuminate\Support\Facades\DB::transaction(function () use ($packageAmount, $subtotal, $grandTotal, $lockAndPostToPra) {
             // Remove existing final bill and its details if they exist
             if ($this->booking->finalBill) {
                 $this->booking->finalBill->extraServices()->delete();
@@ -894,20 +907,24 @@ class BookingView extends Component
             }
 
             // Log history
+            $auditNote = $lockAndPostToPra
+                ? 'Prepared & Locked Event-Day Final Bill (PRA/FBR). Actual guests: ' . $this->fbGuestCount . '. Grand Total: Rs. ' . number_format($grandTotal, 2)
+                : 'Prepared Event-Day Final Bill (Saved). Actual guests: ' . $this->fbGuestCount . '. Grand Total: Rs. ' . number_format($grandTotal, 2);
+
             BookingHistory::create([
                 'booking_id' => $this->booking->id,
                 'user_id' => auth()->id(),
                 'status_from' => $this->booking->booking_status,
                 'status_to' => $this->booking->booking_status,
-                'notes' => 'Prepared Event-Day Final Bill. Actual guests: ' . $this->fbGuestCount . '. Grand Total adjusted to Rs. ' . number_format($grandTotal, 2),
+                'notes' => $auditNote,
             ]);
 
             return $finalBill;
         });
 
-        // Trigger FBR / PRA Sync if POS configuration exists
+        // Trigger FBR / PRA Sync ONLY if requested (Lock & Post)
         $syncMessage = '';
-        if ($finalBill) {
+        if ($finalBill && $lockAndPostToPra) {
             $fbrService = app(\App\Services\FbrPosService::class);
             $syncResult = $fbrService->syncFinalBill($finalBill);
             $taxAuth = strtoupper($this->booking->marquee->tax_authority ?? 'PRA / FBR');
@@ -925,7 +942,16 @@ class BookingView extends Component
         $this->booking->refresh();
         $this->showFinalBillModal = false;
         
-        session()->flash('success', 'Event-day final bill has been generated successfully.' . $syncMessage);
+        $actionDesc = $lockAndPostToPra ? 'generated and locked' : 'saved';
+        session()->flash('success', "Event-day final bill has been {$actionDesc} successfully." . $syncMessage);
+    }
+
+    /**
+     * Dedicated method for Booking Manager to Save, Lock, and Post final bill to PRA/FBR.
+     */
+    public function saveAndLockFinalBill()
+    {
+        $this->saveFinalBill(true);
     }
 
     /**

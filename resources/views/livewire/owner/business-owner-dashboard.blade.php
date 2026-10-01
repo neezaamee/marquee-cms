@@ -50,6 +50,11 @@
                         </div>
                         @endif
 
+                        <!-- Daily Day-Book / Cash Report -->
+                        <a href="{{ route('finance.daily-cash-bank-report') }}" class="btn btn-falcon-default btn-sm fw-bold">
+                            <span class="fas fa-file-invoice-dollar me-1 text-primary"></span> Daily Day-Book
+                        </a>
+
                         <!-- Quick New Booking -->
                         <a href="{{ route('bookings.create') }}" class="btn btn-primary btn-sm fw-bold shadow-sm">
                             <span class="fas fa-plus me-1"></span> Book an Event

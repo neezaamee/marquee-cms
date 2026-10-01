@@ -5,6 +5,29 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-10-02
+
+### Added
+- **Daily Cash & Bank Report (Day-Book Ledger)**:
+  - Built dedicated `DailyCashBankReport` Livewire component and route (`/finance/daily-cash-bank-report`).
+  - Added 5 executive KPI cards: Opening Balance (Cash vs Bank), Total Daily Inflows, Total Daily Outflows/Disbursements, Net Daily Cash Flow, and Closing Balance.
+  - Implemented dual-channel liquidity matrix comparing Cash in Hand vs Bank accounts side-by-side with opening, receipts, disbursements, and closing balances.
+  - Added detailed transaction audits for incoming customer payments/advances, utilized disbursements (CPV/BPV, operating expenses, customer refunds), and counter/bank account summaries.
+  - Added date navigation controls (`Today`, `Yesterday`, `Prev Day`, `Next Day`) and multi-branch scoping.
+  - Added 1-click print stylesheet (`@media print`) and formal 3-party audit sign-off blocks (*Cashier*, *Accountant*, *Business Owner / GM*).
+  - Added navigation shortcuts on Sidebar menu, Accountant Dashboard, and Business Owner Dashboard.
+
+### Fixed & Improved
+- **Booking Menu Dish Replacement & Catalog Management**:
+  - Resolved hidden and disabled Save buttons inside the "Dish Replacement" modal across Booking Wizard, One-Page Booking, and Edit Booking forms.
+  - Enabled live model binding (`wire:model.live.debounce.150ms`) for real-time validation and input synchronization.
+  - Added `modal-dialog-scrollable` and container `overflow-y: auto` to prevent viewport cut-offs on laptop and scaled screens.
+  - Added <kbd>Enter</kbd> key shortcut to save and replace dishes instantly.
+- **Booking View Final Bill Role Separation**:
+  - Added dedicated "Save" button for the Booking Officer role to save actual event-day bill adjustments without locking or posting to PRA/FBR.
+  - Scoped "Lock & Post to PRA" action strictly to Booking Manager, Branch Manager, Business Owner, and Super Admin roles.
+  - Added backend permission guard `saveAndLockFinalBill()` to prevent unauthorized tax authority POS transmissions.
+
 ## [1.16.0] - 2026-10-01
 
 ### Added

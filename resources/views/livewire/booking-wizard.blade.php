@@ -1005,8 +1005,8 @@
 
     <!-- Replace / Add Dish Modal -->
     @if($replacingDishIndex !== null && isset($bookingMenuItems[$replacingDishIndex]))
-        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.55); z-index: 1060;" role="dialog" wire:keydown.escape="closeReplaceDishModal">
-            <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.55); z-index: 1060; overflow-y: auto;" role="dialog" wire:keydown.escape="closeReplaceDishModal">
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
                 <div class="modal-content border-0 shadow-lg">
                     <div class="modal-header bg-primary text-white py-2.5">
                         <h6 class="modal-title mb-0 text-white fw-bold">
@@ -1027,7 +1027,7 @@
                                        wire:model.live.debounce.250ms="replaceDishSearch" 
                                        autofocus />
 
-                                <div class="border rounded bg-light overflow-auto p-1" style="max-height: 260px;">
+                                <div class="border rounded bg-light overflow-auto p-1" style="max-height: 280px;">
                                     @forelse($replaceDishAutocomplete as $dish)
                                         <div class="d-flex align-items-center justify-content-between p-2 border-bottom bg-white rounded mb-1 hover-bg-100 transition-all">
                                             <div class="me-2 text-truncate">
@@ -1066,22 +1066,34 @@
                             <div class="col-md-5">
                                 <div class="card bg-100 border-0 h-100">
                                     <div class="card-body p-3">
-                                        <h6 class="fw-bold text-primary fs-12 mb-2">
+                                        <h6 class="fw-bold text-primary fs-12 mb-1">
                                             <span class="fas fa-plus-circle me-1"></span>Add New Dish to System
                                         </h6>
-                                        <p class="text-600 fs-11 mb-2">Can't find the dish? Add a new dish directly to your catalog and swap it here.</p>
+                                        <p class="text-600 fs-11 mb-2">Can't find the dish? Create and save it here.</p>
                                         
                                         <div class="mb-2">
-                                            <label class="form-label fs-11 fw-bold mb-1">Dish Name (English) *</label>
-                                            <input type="text" class="form-control form-control-sm" placeholder="e.g. Mutton Shinwari Karahi" wire:model="newCustomDishName" />
+                                            <label class="form-label fs-11 fw-bold mb-1">Dish Name (English) <span class="text-danger">*</span></label>
+                                            <input type="text" 
+                                                   class="form-control form-control-sm @error('newCustomDishName') is-invalid @enderror" 
+                                                   placeholder="e.g. Mutton Shinwari Karahi" 
+                                                   wire:model.live.debounce.150ms="newCustomDishName"
+                                                   wire:keydown.enter.prevent="replaceWithNewCustomDish" />
+                                            @error('newCustomDishName')
+                                                <div class="invalid-feedback fs-11">{{ $message }}</div>
+                                            @enderror
                                         </div>
                                         <div class="mb-2">
                                             <label class="form-label fs-11 fw-bold mb-1">Urdu Name (Optional)</label>
-                                            <input type="text" class="form-control form-control-sm" placeholder="e.g. مٹن شنواری کڑاہی" style="direction: rtl;" wire:model="newCustomDishUrdu" />
+                                            <input type="text" 
+                                                   class="form-control form-control-sm" 
+                                                   placeholder="e.g. مٹن شنواری کڑاہی" 
+                                                   style="direction: rtl;" 
+                                                   wire:model.live.debounce.150ms="newCustomDishUrdu"
+                                                   wire:keydown.enter.prevent="replaceWithNewCustomDish" />
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label fs-11 fw-bold mb-1">Category</label>
-                                            <select class="form-select form-select-sm" wire:model="newCustomDishCategory">
+                                            <select class="form-select form-select-sm" wire:model.live="newCustomDishCategory">
                                                 <option value="">Select Category...</option>
                                                 @foreach($availableCategories as $cat)
                                                     <option value="{{ $cat->id }}">{{ $cat->category_name }}</option>
@@ -1090,16 +1102,26 @@
                                         </div>
                                         <div class="d-grid gap-2">
                                             <button type="button" 
-                                                    class="btn btn-primary btn-sm" 
+                                                    class="btn btn-primary btn-sm fw-bold shadow-sm" 
                                                     wire:click="replaceWithNewCustomDish"
-                                                    {{ empty(trim($newCustomDishName)) ? 'disabled' : '' }}>
-                                                <span class="fas fa-exchange-alt me-1"></span>Save & Replace Current
+                                                    wire:loading.attr="disabled">
+                                                <span wire:loading.remove wire:target="replaceWithNewCustomDish">
+                                                    <span class="fas fa-save me-1"></span>Save & Replace Current
+                                                </span>
+                                                <span wire:loading wire:target="replaceWithNewCustomDish">
+                                                    <span class="spinner-border spinner-border-sm me-1"></span>Saving...
+                                                </span>
                                             </button>
                                             <button type="button" 
                                                     class="btn btn-falcon-default btn-sm" 
                                                     wire:click="insertNewCustomDishAfter"
-                                                    {{ empty(trim($newCustomDishName)) ? 'disabled' : '' }}>
-                                                <span class="fas fa-plus me-1"></span>Save & Insert Below
+                                                    wire:loading.attr="disabled">
+                                                <span wire:loading.remove wire:target="insertNewCustomDishAfter">
+                                                    <span class="fas fa-plus me-1"></span>Save & Insert Below
+                                                </span>
+                                                <span wire:loading wire:target="insertNewCustomDishAfter">
+                                                    <span class="spinner-border spinner-border-sm me-1"></span>Saving...
+                                                </span>
                                             </button>
                                         </div>
                                     </div>
@@ -1107,7 +1129,10 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light py-2">
+                    <div class="modal-footer bg-light py-2 d-flex justify-content-between">
+                        <span class="text-600 fs-11">
+                            <span class="fas fa-lightbulb text-warning me-1"></span>Tip: Press <kbd>Enter</kbd> in dish name to quickly save & replace.
+                        </span>
                         <button type="button" class="btn btn-secondary btn-sm" wire:click="closeReplaceDishModal">Close</button>
                     </div>
                 </div>

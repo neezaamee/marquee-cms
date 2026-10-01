@@ -134,6 +134,7 @@ Route::middleware(['auth', 'user.active'])->group(function () {
             Route::get('finance/payments', [FinanceController::class, 'payments'])->name('finance.payments');
             Route::get('finance/security-deposits', [FinanceController::class, 'securityDeposits'])->name('finance.security-deposits');
             Route::get('finance/advance-liabilities', [FinanceController::class, 'advanceLiabilities'])->name('finance.advance-liabilities');
+            Route::get('finance/daily-cash-bank-report', [FinanceController::class, 'dailyCashBankReport'])->name('finance.daily-cash-bank-report');
 
             // Accounting Foundation Module
             Route::get('finance/financial-years', [AccountingController::class, 'financialYears'])->name('finance.financial-years');

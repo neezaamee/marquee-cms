@@ -795,7 +795,7 @@
 
         <!-- Financial Dashboard/Ledgers dropdown -->
         @php
-          $financeActive = Route::is('finance.revenue') || Route::is('finance.payments') || Route::is('finance.security-deposits') || Route::is('finance.advance-liabilities');
+          $financeActive = Route::is('finance.revenue') || Route::is('finance.payments') || Route::is('finance.security-deposits') || Route::is('finance.advance-liabilities') || Route::is('finance.daily-cash-bank-report');
         @endphp
         @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_payments'))
         <li class="nav-item">
@@ -806,6 +806,14 @@
             </div>
           </a>
           <ul class="nav collapse {{ $financeActive ? 'show' : '' }}" id="financeLedgersCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('finance.daily-cash-bank-report') ? 'active' : '' }}" href="{{ route('finance.daily-cash-bank-report') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Daily Cash & Bank Report</span>
+                  <span class="badge rounded-pill bg-success-subtle text-success ms-2 font-mono fs-11">Day-Book</span>
+                </div>
+              </a>
+            </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('finance.revenue') ? 'active' : '' }}" href="{{ route('finance.revenue') }}">
                 <div class="d-flex align-items-center">

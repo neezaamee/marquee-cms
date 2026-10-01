@@ -41,4 +41,13 @@ class FinanceController extends Controller
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_payments'), 403);
         return view('finance.advance-liabilities');
     }
+
+    /**
+     * Display the consolidated daily cash & bank inflow/outflow report.
+     */
+    public function dailyCashBankReport()
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_payments') || auth()->user()->hasPermission('manage_accounting') || auth()->user()->hasPermission('manage_finance'), 403);
+        return view('finance.daily-cash-bank-report');
+    }
 }

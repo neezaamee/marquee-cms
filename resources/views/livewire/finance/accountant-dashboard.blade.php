@@ -25,6 +25,9 @@
                 </div>
                 <div class="col-12 col-md-auto">
                     <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <a href="{{ route('finance.daily-cash-bank-report') }}" class="btn btn-falcon-default btn-sm fw-bold">
+                            <span class="fas fa-file-invoice-dollar me-1 text-primary"></span> Daily Day-Book
+                        </a>
                         <a href="{{ route('finance.payments') }}" class="btn btn-primary btn-sm fw-bold shadow-sm">
                             <span class="fas fa-check-double me-1"></span> Verify Payments
                         </a>

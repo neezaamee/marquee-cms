@@ -869,6 +869,7 @@ class BookingWizard extends Component
 
     public function openReplaceDishModal($index)
     {
+        $this->resetErrorBag();
         $this->replacingDishIndex = (int) $index;
         $this->replaceDishSearch = '';
         $this->newCustomDishName = '';
@@ -885,6 +886,7 @@ class BookingWizard extends Component
 
     public function closeReplaceDishModal()
     {
+        $this->resetErrorBag();
         $this->replacingDishIndex = null;
         $this->replaceDishSearch = '';
         $this->replaceDishAutocomplete = [];
@@ -958,6 +960,7 @@ class BookingWizard extends Component
 
         $name = trim($this->newCustomDishName);
         if (empty($name)) {
+            $this->addError('newCustomDishName', 'Please enter a dish name.');
             return;
         }
 
@@ -1013,6 +1016,7 @@ class BookingWizard extends Component
 
         $name = trim($this->newCustomDishName);
         if (empty($name)) {
+            $this->addError('newCustomDishName', 'Please enter a dish name.');
             return;
         }
 

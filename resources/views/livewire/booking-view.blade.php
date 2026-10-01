@@ -1137,8 +1137,8 @@
     </div>
     <!-- Final Bill Modal -->
     @if($showFinalBillModal)
-        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index:1050;">
-            <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index:1050; overflow-y: auto;" role="dialog" wire:keydown.escape="$set('showFinalBillModal', false)">
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
                 <div class="modal-content border-translucent shadow-lg">
                     <div class="modal-header bg-light py-3">
                         <h6 class="modal-title mb-0 fw-bold text-primary">
@@ -1306,16 +1306,34 @@
                             @error('fbNotes') <div class="text-danger mt-1">{{ $message }}</div> @enderror
                         </div>
                     </div>
-                    <div class="modal-footer bg-light py-2">
-                        <button wire:click="$set('showFinalBillModal', false)" type="button" class="btn btn-falcon-default btn-xs px-3">Cancel</button>
-                        <button wire:click="saveFinalBill" wire:loading.attr="disabled" type="button" class="btn btn-warning btn-xs px-4">
-                            <span wire:loading.remove wire:target="saveFinalBill">
-                                <span class="fas fa-lock me-1"></span> Lock & Post to {{ strtoupper($booking->marquee->tax_authority ?? 'PRA/FBR') }}
-                            </span>
-                            <span wire:loading wire:target="saveFinalBill">
-                                <span class="spinner-border spinner-border-sm me-1" role="status"></span> Locking & Posting...
-                            </span>
+                    <div class="modal-footer bg-light py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <button wire:click="$set('showFinalBillModal', false)" type="button" class="btn btn-falcon-default btn-xs px-3">
+                            <span class="fas fa-times me-1"></span> Cancel
                         </button>
+
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- Separate Save Button (Intended for Booking Officer and general saving without locking to PRA) -->
+                            <button wire:click="saveFinalBill" wire:loading.attr="disabled" type="button" class="btn btn-primary btn-xs px-4 fw-bold shadow-xs">
+                                <span wire:loading.remove wire:target="saveFinalBill">
+                                    <span class="fas fa-save me-1"></span> Save
+                                </span>
+                                <span wire:loading wire:target="saveFinalBill">
+                                    <span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving...
+                                </span>
+                            </button>
+
+                            <!-- Lock and Post to PRA Button (Intended for Booking Manager role) -->
+                            @if(auth()->user()->isSuperAdmin() || auth()->user()->isBusinessOwner() || auth()->user()->hasRole(['booking_manager', 'booking_manager_pra', 'branch_manager']) || auth()->user()->hasPermission('post_final_bill_pra'))
+                                <button wire:click="saveAndLockFinalBill" wire:loading.attr="disabled" type="button" class="btn btn-warning btn-xs px-4 fw-bold shadow-xs text-dark">
+                                    <span wire:loading.remove wire:target="saveAndLockFinalBill">
+                                        <span class="fas fa-lock me-1"></span> Lock & Post to {{ strtoupper($booking->marquee->tax_authority ?? 'PRA/FBR') }}
+                                    </span>
+                                    <span wire:loading wire:target="saveAndLockFinalBill">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status"></span> Locking & Posting...
+                                    </span>
+                                </button>
+                            @endif
+                        </div>
                     </div>
                 </div>
             </div>

@@ -260,11 +260,11 @@
                                     <h6 class="mb-0 text-dark fw-bold fs-11">{{ $addon->service_name }}</h6>
                                     <p class="mb-0 text-muted fs-10">Extra requested facility/decor service</p>
                                 </td>
-                                <td class="align-middle text-center">
+                                {{--<td class="align-middle text-center">
                                     <span class="badge bg-light text-dark border">Add-on</span>
-                                </td>
+                                </td>--}}
                                 <td class="align-middle text-center font-monospace">
-                                    {{ $addon->quantity }}x
+                                    {{ $addon->quantity }} x
                                 </td>
                                 <td class="align-middle text-end font-monospace">
                                     {{ number_format($addon->unit_price, 2) }}
