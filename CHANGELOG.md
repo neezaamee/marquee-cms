@@ -5,6 +5,27 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-10-03
+
+### Added
+- **Branch-Specific Default Security Deposit Configuration**:
+  - Added `default_security_deposit` field to `branches` table schema (`2026_10_03_000001_add_default_security_deposit_to_branches_table.php`).
+  - Added configuration field to `BranchForm` Livewire component and Blade views (`branch-form.blade.php`, `branches/show.blade.php`).
+  - Integrated dynamic branch-level security deposit pre-filling in Booking Wizard, One-Page Booking, and Booking Controller workflows with fallback to system default.
+- **Enhanced Daily Cash & Bank Report Outflow Breakdown**:
+  - Added executive outflow breakdown badges in the Outflows table header (*Operating Expenses*, *Payment Vouchers*, *Customer Refunds*).
+  - Added distinct visual indicators (*Expense*, *Voucher*, *Refund*) in the Outflows classification column for instant transaction auditing.
+
+### Fixed & Improved
+- **Daily Cash & Bank Report Operating Expenses Omission**:
+  - Resolved issue in `DailyCashBankReport` where operating expenses were filtered out due to `whereNull('journal_voucher_id')` and case-sensitive payment status checks.
+  - Linked all direct cash/bank operating expenses to Outflows while preventing double-counting with Payment Vouchers.
+  - Aligned utilized funds total with General Ledger journal transactions and Cash in Hand (1001) ledger credits.
+- **Booking List Customer Name Search QueryException**:
+  - Resolved SQL error 1054 (`Unknown column 'full_name'`) by standardizing customer searches against `first_name`, `last_name`, and `customer_code`.
+- **Accountant Dashboard**:
+  - Updated operational liquidity card and added operating expenses monitoring metrics.
+
 ## [1.17.0] - 2026-10-02
 
 ### Added

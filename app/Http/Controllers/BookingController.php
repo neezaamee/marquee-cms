@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class BookingController extends Controller
 {
@@ -148,16 +149,25 @@ class BookingController extends Controller
         }
 
         if ($request->filled('search')) {
-            $searchTerm = '%' . $request->input('search') . '%';
+            $searchTerm = '%' . trim($request->input('search')) . '%';
             $cleanDigits = preg_replace('/[^0-9]/', '', $request->input('search'));
-            $query->where(function ($q) use ($searchTerm, $cleanDigits) {
+            $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+            $fullNameSql = $isSqlite
+                ? "(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))"
+                : "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))";
+
+            $query->where(function ($q) use ($searchTerm, $cleanDigits, $fullNameSql) {
                 $q->where('booking_number', 'like', $searchTerm)
-                  ->orWhereHas('customer', function ($cq) use ($searchTerm, $cleanDigits) {
+                  ->orWhereHas('customer', function ($cq) use ($searchTerm, $cleanDigits, $fullNameSql) {
                       $cq->where('first_name', 'like', $searchTerm)
-                        ->orWhere('last_name', 'like', $searchTerm);
+                        ->orWhere('last_name', 'like', $searchTerm)
+                        ->orWhereRaw("{$fullNameSql} LIKE ?", [$searchTerm])
+                        ->orWhere('company_name', 'like', $searchTerm)
+                        ->orWhere('customer_code', 'like', $searchTerm);
 
                       if (!empty($cleanDigits)) {
-                          $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%');
+                          $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%')
+                            ->orWhere('alternate_phone', 'like', '%' . $cleanDigits . '%');
                       }
                   });
             });

@@ -25,6 +25,7 @@ class Branch extends Model
         'pos_connection_type',
         'is_head_office',
         'tax_rate',
+        'default_security_deposit',
         'invoice_prefix',
         'booking_prefix',
         'branch_manager',
@@ -34,6 +35,7 @@ class Branch extends Model
 
     protected $casts = [
         'is_head_office' => 'boolean',
+        'default_security_deposit' => 'decimal:2',
     ];
 
     /**

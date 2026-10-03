@@ -24,6 +24,7 @@ class BranchForm extends Component
     public $fbr_sandbox_mode = true;
     public $pos_connection_type = 'cloud';
     public $tax_rate = 13.00;
+    public $default_security_deposit = 15000.00;
     public $invoice_prefix = 'INV-';
     public $booking_prefix = 'BK-';
     public $branch_manager = '';
@@ -98,6 +99,7 @@ class BranchForm extends Component
             $this->fbr_sandbox_mode = (bool)$branch->fbr_sandbox_mode;
             $this->pos_connection_type = $branch->pos_connection_type ?? 'cloud';
             $this->tax_rate = $branch->tax_rate !== null ? (float)$branch->tax_rate : 13.00;
+            $this->default_security_deposit = $branch->default_security_deposit !== null ? (float)$branch->default_security_deposit : 15000.00;
             $this->invoice_prefix = $branch->invoice_prefix ?: 'INV-';
             $this->booking_prefix = $branch->booking_prefix ?: 'BK-';
             $this->branch_manager = $branch->branch_manager ?: '';
@@ -118,6 +120,7 @@ class BranchForm extends Component
             'fbr_sandbox_mode' => 'boolean',
             'pos_connection_type' => 'nullable|string|in:cloud,local',
             'tax_rate' => 'required|numeric|min:0|max:100',
+            'default_security_deposit' => 'required|numeric|min:0',
             'invoice_prefix' => 'nullable|string|max:20',
             'booking_prefix' => 'nullable|string|max:20',
         ];

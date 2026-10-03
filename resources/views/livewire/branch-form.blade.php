@@ -89,21 +89,29 @@
 
 
                     <!-- Default Tax Rate -->
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label" for="tax_rate">Default Tax Rate (%) *</label>
                         <input wire:model="tax_rate" class="form-control @error('tax_rate') is-invalid @enderror" id="tax_rate" type="number" step="0.01" required />
                         @error('tax_rate') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
+                    <!-- Default Security Deposit -->
+                    <div class="col-md-3">
+                        <label class="form-label" for="default_security_deposit">Default Security Deposit (Rs.) *</label>
+                        <input wire:model="default_security_deposit" class="form-control font-monospace @error('default_security_deposit') is-invalid @enderror" id="default_security_deposit" type="number" step="100" min="0" required placeholder="e.g. 15000" />
+                        <div class="fs-11 text-muted">Auto-filled in new bookings for this branch.</div>
+                        @error('default_security_deposit') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
                     <!-- Invoice Prefix -->
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label" for="invoice_prefix">Invoice Prefix</label>
                         <input wire:model="invoice_prefix" class="form-control @error('invoice_prefix') is-invalid @enderror" id="invoice_prefix" type="text" placeholder="e.g. INV-" />
                         @error('invoice_prefix') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
                     <!-- Booking Prefix -->
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label" for="booking_prefix">Booking Prefix</label>
                         <input wire:model="booking_prefix" class="form-control @error('booking_prefix') is-invalid @enderror" id="booking_prefix" type="text" placeholder="e.g. BK-" />
                         @error('booking_prefix') <div class="invalid-feedback">{{ $message }}</div> @enderror

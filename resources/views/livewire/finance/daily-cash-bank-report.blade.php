@@ -428,7 +428,22 @@
                         <span class="fs-11 text-muted">Payment vouchers (CPV/BPV), supplier settlements, and operating expenses</span>
                     </div>
                 </div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    @if(($totalCashExpensesAmount + $totalBankExpensesAmount) > 0)
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-11">
+                            <i class="fas fa-file-invoice me-1"></i>Expenses: Rs. {{ number_format($totalCashExpensesAmount + $totalBankExpensesAmount) }}
+                        </span>
+                    @endif
+                    @if(($totalCashVouchersAmount + $totalBankVouchersAmount) > 0)
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fs-11">
+                            <i class="fas fa-receipt me-1"></i>Vouchers: Rs. {{ number_format($totalCashVouchersAmount + $totalBankVouchersAmount) }}
+                        </span>
+                    @endif
+                    @if(($totalCashRefunds + $totalBankRefunds) > 0)
+                        <span class="badge bg-info-subtle text-info border border-info-subtle fs-11">
+                            <i class="fas fa-undo me-1"></i>Refunds: Rs. {{ number_format($totalCashRefunds + $totalBankRefunds) }}
+                        </span>
+                    @endif
                     <span class="badge bg-danger text-white font-monospace fs-11 px-2 py-1">
                         Total Outflow: Rs. {{ number_format($totalOutflow, 2) }}
                     </span>
@@ -461,6 +476,19 @@
                                             {{ $item['payee_title'] }}
                                         </td>
                                         <td class="py-2">
+                                            @if($item['type'] === 'expense')
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-11 me-1">
+                                                    <i class="fas fa-file-invoice me-1"></i>Expense
+                                                </span>
+                                            @elseif($item['type'] === 'voucher')
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fs-11 me-1">
+                                                    <i class="fas fa-receipt me-1"></i>Voucher
+                                                </span>
+                                            @elseif($item['type'] === 'refund')
+                                                <span class="badge bg-info-subtle text-info border border-info-subtle fs-11 me-1">
+                                                    <i class="fas fa-undo me-1"></i>Refund
+                                                </span>
+                                            @endif
                                             <span class="badge bg-secondary-subtle text-secondary fs-11">
                                                 {{ $item['category_label'] }}
                                             </span>

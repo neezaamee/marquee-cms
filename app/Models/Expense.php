@@ -84,6 +84,14 @@ class Expense extends Model
     }
 
     /**
+     * Alias for category relationship.
+     */
+    public function expenseCategory()
+    {
+        return $this->category();
+    }
+
+    /**
      * Get the type of the expense.
      */
     public function type()

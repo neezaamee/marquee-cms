@@ -122,73 +122,144 @@
         </div>
     </div>
 
-    <!-- KPI Metric Cards -->
+    <!-- KPI Metric Cards (5 Operational Cards) -->
     <div class="row g-3 mb-3">
-        <div class="col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
+        <!-- 1. Cash & Bank Liquidity -->
+        <div class="col-6 col-md-4 col-xl">
+            <div class="card border-0 shadow-sm h-100 hover-lift bg-body position-relative">
                 <div class="card-body p-3">
                     <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <span class="text-muted fs-11 fw-semi-bold text-uppercase">Cash & Bank Liquidity</span>
-                            <h3 class="mb-0 fw-bold text-success mt-1">Rs. {{ number_format($totalCashBankBalance, 2) }}</h3>
-                            <span class="fs-11 text-muted">{{ $cashBankAccounts->count() }} active accounts</span>
+                        <div class="w-100 me-2 overflow-hidden">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="text-muted fs-11 fw-semi-bold text-uppercase">Cash & Bank Liquidity</span>
+                                <span class="badge bg-success-subtle text-success rounded-pill" style="font-size: 8px;">Working Capital</span>
+                            </div>
+                            <h3 class="mb-0 fw-bold text-success mt-1 text-truncate">
+                                Rs. {{ number_format($totalCashBankBalance, 2) }}
+                            </h3>
+                            <div class="d-flex align-items-center gap-2 mt-2 pt-1 border-top border-200 fs-11 flex-wrap">
+                                <span class="text-success fw-semi-bold text-nowrap">
+                                    <span class="fas fa-money-bill-wave me-1"></span>Cash: Rs. {{ number_format($totalCashBalance, 0) }}
+                                </span>
+                                <span class="text-300">|</span>
+                                <span class="text-primary fw-semi-bold text-nowrap">
+                                    <span class="fas fa-university me-1"></span>Bank: Rs. {{ number_format($totalBankBalance, 0) }}
+                                </span>
+                            </div>
                         </div>
-                        <div class="avatar avatar-lg bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
+                        <div class="avatar avatar-lg bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
                             <span class="fas fa-wallet fs-8"></span>
                         </div>
                     </div>
                 </div>
+                <a href="{{ route('finance.cash-bank') }}" class="stretched-link" title="Manage Cash & Bank Accounts"></a>
             </div>
         </div>
 
-        <div class="col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
+        <!-- 2. Today's Collections -->
+        <div class="col-6 col-md-4 col-xl">
+            <div class="card border-0 shadow-sm h-100 hover-lift bg-body position-relative">
                 <div class="card-body p-3">
                     <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <span class="text-muted fs-11 fw-semi-bold text-uppercase">Unposted Payments</span>
-                            <h3 class="mb-0 fw-bold text-warning mt-1">{{ number_format($pendingPaymentsCount) }}</h3>
-                            <span class="fs-11 text-muted">Rs. {{ number_format($pendingPaymentsTotal, 2) }} pending</span>
+                        <div class="w-100 me-2 overflow-hidden">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="text-muted fs-11 fw-semi-bold text-uppercase">Today's Collections</span>
+                                <span class="badge bg-primary-subtle text-primary rounded-pill" style="font-size: 8px;">Inflow</span>
+                            </div>
+                            <h3 class="mb-0 fw-bold text-primary mt-1 text-truncate">
+                                Rs. {{ number_format($todayCollectionsTotal, 2) }}
+                            </h3>
+                            <div class="mt-2 pt-1 border-top border-200 fs-11 text-muted text-truncate">
+                                <span class="fas fa-check-circle text-primary me-1"></span>Verified booking receipts
+                            </div>
                         </div>
-                        <div class="avatar avatar-lg bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center">
-                            <span class="fas fa-hourglass-half fs-8"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <span class="text-muted fs-11 fw-semi-bold text-uppercase">Today's Collections</span>
-                            <h3 class="mb-0 fw-bold text-primary mt-1">Rs. {{ number_format($todayCollectionsTotal, 2) }}</h3>
-                            <span class="fs-11 text-muted">Verified booking deposits</span>
-                        </div>
-                        <div class="avatar avatar-lg bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center">
+                        <div class="avatar avatar-lg bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
                             <span class="fas fa-hand-holding-usd fs-8"></span>
                         </div>
                     </div>
                 </div>
+                <a href="{{ route('finance.daily-cash-bank-report') }}" class="stretched-link" title="Open Daily Day-Book"></a>
             </div>
         </div>
 
-        <div class="col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
+        <!-- 3. Operating Expenses (NEW) -->
+        <div class="col-6 col-md-4 col-xl">
+            <div class="card border-0 shadow-sm h-100 hover-lift bg-body position-relative">
                 <div class="card-body p-3">
                     <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <span class="text-muted fs-11 fw-semi-bold text-uppercase">Active Bank Accounts</span>
-                            <h3 class="mb-0 fw-bold text-info mt-1">{{ $cashBankAccounts->count() }}</h3>
-                            <span class="fs-11 text-muted">Configured payment channels</span>
+                        <div class="w-100 me-2 overflow-hidden">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="text-muted fs-11 fw-semi-bold text-uppercase">Operating Expenses</span>
+                                <span class="badge bg-danger-subtle text-danger rounded-pill" style="font-size: 8px;">Disbursements</span>
+                            </div>
+                            <h3 class="mb-0 fw-bold text-danger mt-1 text-truncate">
+                                Rs. {{ number_format($monthExpensesTotal, 2) }}
+                            </h3>
+                            <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top border-200 fs-11 flex-wrap">
+                                <span class="text-muted">Today: <strong class="text-danger">Rs. {{ number_format($todayExpensesTotal, 0) }}</strong></span>
+                                <span class="badge bg-light text-danger border border-danger-subtle rounded-pill">{{ $monthExpensesCount }} bills</span>
+                            </div>
                         </div>
-                        <div class="avatar avatar-lg bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center">
+                        <div class="avatar avatar-lg bg-danger-subtle text-danger rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
+                            <span class="fas fa-file-invoice-dollar fs-8"></span>
+                        </div>
+                    </div>
+                </div>
+                <a href="{{ route('expenses.index') }}" class="stretched-link" title="View Operating Expenses"></a>
+            </div>
+        </div>
+
+        <!-- 4. Unposted Payments Queue -->
+        <div class="col-6 col-md-6 col-xl">
+            <div class="card border-0 shadow-sm h-100 hover-lift bg-body position-relative">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="w-100 me-2 overflow-hidden">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="text-muted fs-11 fw-semi-bold text-uppercase">Unposted Payments</span>
+                                <span class="badge bg-warning-subtle text-warning rounded-pill" style="font-size: 8px;">Stage 2 Queue</span>
+                            </div>
+                            <h3 class="mb-0 fw-bold text-warning mt-1 text-truncate">
+                                {{ number_format($pendingPaymentsCount) }}
+                            </h3>
+                            <div class="mt-2 pt-1 border-top border-200 fs-11 text-muted text-truncate">
+                                <span class="fas fa-clock text-warning me-1"></span>Rs. {{ number_format($pendingPaymentsTotal, 2) }} pending
+                            </div>
+                        </div>
+                        <div class="avatar avatar-lg bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
+                            <span class="fas fa-hourglass-half fs-8"></span>
+                        </div>
+                    </div>
+                </div>
+                <a href="{{ route('finance.payments') }}" class="stretched-link" title="Verify Unposted Payments"></a>
+            </div>
+        </div>
+
+        <!-- 5. Active Bank & Cash Accounts -->
+        <div class="col-6 col-md-6 col-xl">
+            <div class="card border-0 shadow-sm h-100 hover-lift bg-body position-relative">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="w-100 me-2 overflow-hidden">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="text-muted fs-11 fw-semi-bold text-uppercase">Mapped Accounts</span>
+                                <span class="badge bg-info-subtle text-info rounded-pill" style="font-size: 8px;">Channels</span>
+                            </div>
+                            <h3 class="mb-0 fw-bold text-info mt-1 text-truncate">
+                                {{ $cashBankAccounts->count() }}
+                            </h3>
+                            <div class="d-flex align-items-center gap-2 mt-2 pt-1 border-top border-200 fs-11 text-muted flex-wrap">
+                                <span><span class="fas fa-money-bill-wave text-success me-1"></span>{{ $cashBankAccounts->where('type', 'cash')->count() }} Cash</span>
+                                <span class="text-300">|</span>
+                                <span><span class="fas fa-university text-primary me-1"></span>{{ $cashBankAccounts->where('type', 'bank')->count() }} Bank</span>
+                            </div>
+                        </div>
+                        <div class="avatar avatar-lg bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
                             <span class="fas fa-landmark fs-8"></span>
                         </div>
                     </div>
                 </div>
+                <a href="{{ route('finance.cash-bank') }}" class="stretched-link" title="Configure Cash & Bank Accounts"></a>
             </div>
         </div>
     </div>
@@ -284,8 +355,8 @@
                                                 {{ ucfirst($account->type) }}
                                             </span>
                                         </td>
-                                        <td class="text-end pe-3 fw-bold {{ ($account->account->current_balance ?? 0) >= 0 ? 'text-success' : 'text-danger' }}">
-                                            Rs. {{ number_format($account->account->current_balance ?? 0, 2) }}
+                                        <td class="text-end pe-3 fw-bold {{ ($account->current_balance ?? 0) >= 0 ? 'text-success' : 'text-danger' }}">
+                                            Rs. {{ number_format($account->current_balance ?? 0, 2) }}
                                         </td>
                                     </tr>
                                 @empty

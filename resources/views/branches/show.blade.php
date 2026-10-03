@@ -38,6 +38,14 @@
               </span>
             </p>
           </div>
+          <div class="col-sm-6">
+            <h6 class="text-500 mb-1">Default Tax Rate</h6>
+            <p class="fw-semi-bold">{{ number_format($branch->tax_rate, 2) }}%</p>
+          </div>
+          <div class="col-sm-6">
+            <h6 class="text-500 mb-1">Default Security Deposit</h6>
+            <p class="fw-semi-bold font-monospace text-primary">Rs. {{ number_format($branch->default_security_deposit, 2) }}</p>
+          </div>
         </div>
       </div>
     </div>

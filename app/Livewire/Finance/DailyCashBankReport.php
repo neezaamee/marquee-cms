@@ -133,6 +133,7 @@ class DailyCashBankReport extends Component
 
         // A. Payment Vouchers (CPV & BPV)
         $voucherQuery = PaymentVoucher::where('marquee_id', $marqueeId)
+            ->when(!empty($accessibleBranchIds), fn($q) => $q->whereIn('branch_id', $accessibleBranchIds))
             ->when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))
             ->whereDate('voucher_date', $selectedDate)
             ->where('status', '!=', 'cancelled')
@@ -157,22 +158,39 @@ class DailyCashBankReport extends Component
         $totalBankVouchersAmount = (float) $bankVouchers->sum('amount');
 
         // B. Operating Expenses (Directly paid, not linked to a Payment Voucher)
+        $linkedExpenseIds = $allVouchers->pluck('expense_id')->filter()->unique();
+
         $expenseQuery = Expense::where('marquee_id', $marqueeId)
+            ->when(!empty($accessibleBranchIds), fn($q) => $q->whereIn('branch_id', $accessibleBranchIds))
             ->when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))
             ->whereDate('expense_date', $selectedDate)
-            ->where('payment_status', 'paid')
-            ->whereNull('journal_voucher_id')
+            ->whereIn('payment_status', ['Paid', 'paid'])
+            ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
+            ->whereNotIn('payment_method', ['Credit', 'credit', 'Accounts Payable', 'accounts payable', Expense::METHOD_CREDIT])
+            ->when($linkedExpenseIds->isNotEmpty(), fn($q) => $q->whereNotIn('id', $linkedExpenseIds))
             ->with([
-                'expenseCategory',
+                'category',
                 'cashBankAccount.account',
                 'branch',
+                'supplier',
+                'employee',
             ])
             ->orderBy('id', 'asc');
 
         $allExpenses = $expenseQuery->get();
 
-        $cashExpenses = $allExpenses->filter(fn($e) => strtolower($e->payment_method) === 'cash' || strtolower($e->payment_method) === 'petty_cash');
-        $bankExpenses = $allExpenses->filter(fn($e) => strtolower($e->payment_method) === 'bank' || strtolower($e->payment_method) === 'cheque' || strtolower($e->payment_method) === 'online');
+        $cashExpenses = $allExpenses->filter(function ($e) {
+            $method = strtolower($e->payment_method ?? '');
+            if (in_array($method, ['cash', 'petty_cash', 'petty cash'])) {
+                return true;
+            }
+            if ($e->cashBankAccount && ($e->cashBankAccount->type === 'cash' || str_starts_with($e->cashBankAccount->account?->account_code ?? '', '1001'))) {
+                return true;
+            }
+            return empty($method);
+        });
+
+        $bankExpenses = $allExpenses->filter(fn($e) => !$cashExpenses->contains('id', $e->id));
 
         $totalCashExpensesAmount = (float) $cashExpenses->sum('total_amount');
         $totalBankExpensesAmount = (float) $bankExpenses->sum('total_amount');
@@ -230,17 +248,23 @@ class DailyCashBankReport extends Component
         }
 
         foreach ($allExpenses as $e) {
-            $isCash = (strtolower($e->payment_method) === 'cash' || strtolower($e->payment_method) === 'petty_cash');
+            $isCash = $cashExpenses->contains('id', $e->id);
+            $payee = $e->supplier?->name 
+                ?: ($e->employee?->name 
+                ?: ($e->cost_center 
+                ?: ($e->department ?: 'Operations')));
+            $categoryName = $e->category?->name ?? 'Operating Expense';
+
             $outflowItems->push([
                 'type' => 'expense',
                 'ref_no' => $e->expense_number,
-                'category_label' => $e->expenseCategory?->name ?? 'Operating Expense',
-                'payee_title' => $e->cost_center ?: ($e->department ?: 'Operations'),
-                'description' => $e->description ?: 'Direct cash operating expense',
-                'method' => $isCash ? 'Cash' : 'Bank',
-                'account_name' => $e->cashBankAccount?->account?->name ?? ($isCash ? 'Cash in Hand' : 'Bank Account'),
+                'category_label' => $categoryName,
+                'payee_title' => $payee,
+                'description' => $e->description ?: ($categoryName . ' - Operating expense'),
+                'method' => $isCash ? 'Cash' : ($e->payment_method ?: 'Bank'),
+                'account_name' => $e->cashBankAccount?->account?->name ?? ($isCash ? 'Cash in Hand (1001)' : 'Bank Account'),
                 'amount' => (float) $e->total_amount,
-                'status' => 'Paid',
+                'status' => $e->payment_status ?: 'Paid',
                 'is_cash' => $isCash,
                 'time' => $e->created_at ? $e->created_at->format('h:i A') : '',
             ]);
@@ -427,6 +451,8 @@ class DailyCashBankReport extends Component
             'totalBankVouchersAmount' => $totalBankVouchersAmount,
             'totalCashExpensesAmount' => $totalCashExpensesAmount,
             'totalBankExpensesAmount' => $totalBankExpensesAmount,
+            'totalCashRefunds' => $totalCashRefunds,
+            'totalBankRefunds' => $totalBankRefunds,
             // Net Results
             'netCashPosition' => $netCashPosition,
             'netBankPosition' => $netBankPosition,

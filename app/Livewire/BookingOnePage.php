@@ -174,11 +174,16 @@ class BookingOnePage extends Component
             }
         }
 
-        // Load dynamic tax rate from selected branch
+        // Load dynamic tax rate & default security deposit from selected branch
         if ($this->selectedBranchId) {
             $branch = \App\Models\Branch::find($this->selectedBranchId);
-            if ($branch && $branch->tax_rate !== null) {
-                $this->taxRate = (float) $branch->tax_rate;
+            if ($branch) {
+                if ($branch->tax_rate !== null) {
+                    $this->taxRate = (float) $branch->tax_rate;
+                }
+                if ($branch->default_security_deposit !== null) {
+                    $this->securityDeposit = (float) $branch->default_security_deposit;
+                }
             }
         }
 
@@ -227,8 +232,13 @@ class BookingOnePage extends Component
 
         if (!empty($value)) {
             $branch = \App\Models\Branch::find($value);
-            if ($branch && $branch->tax_rate !== null) {
-                $this->taxRate = (float) $branch->tax_rate;
+            if ($branch) {
+                if ($branch->tax_rate !== null) {
+                    $this->taxRate = (float) $branch->tax_rate;
+                }
+                if ($branch->default_security_deposit !== null) {
+                    $this->securityDeposit = (float) $branch->default_security_deposit;
+                }
             }
 
             $this->hallsList = Hall::where('marquee_id', $marqueeId)
@@ -624,7 +634,11 @@ class BookingOnePage extends Component
         $package = Package::with('menuItems')->findOrFail($this->selectedPackageId);
         $this->perPlatePrice = $package->per_plate_price;
         $this->guestCount = $package->minimum_guests ?: 100;
-        $this->securityDeposit = 15000.00;
+        // Auto default security deposit from selected branch configuration
+        $branch = $this->selectedBranchId ? \App\Models\Branch::find($this->selectedBranchId) : null;
+        $this->securityDeposit = $branch && $branch->default_security_deposit !== null
+            ? (float) $branch->default_security_deposit
+            : 15000.00;
 
         $this->bookingMenuItems = [];
         foreach ($package->menuItems as $item) {
