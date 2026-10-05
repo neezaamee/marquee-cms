@@ -104,12 +104,17 @@
 
         <!-- Metrics Overview -->
         @php
-            $totalBookings = $bookings->count();
-            $totalGuests = $bookings->sum(fn($b) => $b->effective_guest_count);
-            $tentativeGuestsSum = $bookings->sum(fn($b) => $b->tentative_guests ?? $b->guest_count);
-            $confirmedGuestsSum = $bookings->sum(fn($b) => $b->confirmed_guests ?? 0);
-            $totalAmount = $bookings->sum('grand_total');
-            $receivedAmount = $bookings->sum(fn($b) => $b->payments->sum('amount'));
+            // Cancelled, Rejected, and Soft-deleted bookings must NEVER be counted in summary metrics
+            $activeBookings = $bookings->filter(function($b) {
+                return !in_array($b->booking_status, ['Cancelled', 'Rejected']) && !$b->trashed();
+            });
+
+            $totalBookings = $activeBookings->count();
+            $totalGuests = $activeBookings->sum(fn($b) => $b->effective_guest_count);
+            $tentativeGuestsSum = $activeBookings->sum(fn($b) => $b->tentative_guests ?? $b->guest_count);
+            $confirmedGuestsSum = $activeBookings->sum(fn($b) => $b->confirmed_guests ?? 0);
+            $totalAmount = $activeBookings->sum('grand_total');
+            $receivedAmount = $activeBookings->sum(fn($b) => $b->payments->sum('amount'));
             $balanceAmount = max(0.00, $totalAmount - $receivedAmount);
         @endphp
         <div class="row g-3 mb-4">
@@ -174,11 +179,17 @@
             <tbody>
                 @forelse($bookings as $booking)
                     @php
+                        $isCancelledOrRejected = in_array($booking->booking_status, ['Cancelled', 'Rejected']) || $booking->trashed();
                         $received = $booking->payments->sum('amount');
                         $balance = max(0.00, $booking->grand_total - $received);
                     @endphp
-                    <tr>
-                        <td class="font-monospace fw-semi-bold">{{ $booking->booking_number }}</td>
+                    <tr class="{{ $isCancelledOrRejected ? 'text-muted bg-light' : '' }}" style="{{ $isCancelledOrRejected ? 'opacity: 0.75;' : '' }}">
+                        <td class="font-monospace fw-semi-bold">
+                            {{ $booking->booking_number }}
+                            @if($isCancelledOrRejected)
+                                <span class="badge bg-secondary text-white ms-1" style="font-size: 8px;">Not Counted</span>
+                            @endif
+                        </td>
                         <td>{{ $booking->customer->full_name ?? '—' }}</td>
                         <td class="font-monospace fs-11">{{ $booking->customer->phone_number ?? '—' }}</td>
                         <td>{{ $booking->eventType->event_type_name ?? '—' }}</td>
@@ -195,7 +206,7 @@
                         <td>{{ $booking->slot->slot_name ?? 'Custom Time' }}</td>
                         <td>{{ $booking->booking_date->format('d-M-Y') }}</td>
                         <td class="text-end">
-                            <div>{{ number_format($booking->effective_guest_count) }}</div>
+                            <div class="{{ $isCancelledOrRejected ? 'text-decoration-line-through text-muted' : '' }}">{{ number_format($booking->effective_guest_count) }}</div>
                             <small class="text-muted fs-12">T: {{ $booking->tentative_guests ?? $booking->guest_count }} | C: {{ $booking->confirmed_guests ?? '—' }}</small>
                         </td>
                         <td class="text-end font-monospace">
@@ -205,11 +216,11 @@
                                 Rs. {{ number_format($booking->per_plate_price, 2) }}
                             @endif
                         </td>
-                        <td class="text-end fw-semi-bold font-monospace">Rs. {{ number_format($booking->grand_total, 2) }}</td>
+                        <td class="text-end fw-semi-bold font-monospace {{ $isCancelledOrRejected ? 'text-decoration-line-through text-muted' : '' }}">Rs. {{ number_format($booking->grand_total, 2) }}</td>
                         <td class="text-end font-monospace">Rs. {{ number_format($received, 2) }}</td>
-                        <td class="text-end font-monospace fw-bold text-{{ $balance > 0 ? 'danger' : 'dark' }}">Rs. {{ number_format($balance, 2) }}</td>
+                        <td class="text-end font-monospace fw-bold text-{{ $isCancelledOrRejected ? 'muted' : ($balance > 0 ? 'danger' : 'dark') }}">Rs. {{ number_format($balance, 2) }}</td>
                         <td class="text-center">
-                            <span class="badge border border-{{ $booking->booking_status === 'Confirmed' ? 'success' : ($booking->booking_status === 'Cancelled' ? 'danger' : 'secondary') }} text-dark px-2 py-0.5 rounded-pill fs-11">
+                            <span class="badge border border-{{ $booking->booking_status === 'Confirmed' ? 'success' : ($booking->booking_status === 'Cancelled' ? 'danger' : ($booking->booking_status === 'Rejected' ? 'dark' : 'secondary')) }} text-dark px-2 py-0.5 rounded-pill fs-11">
                                 {{ $booking->booking_status }}
                             </span>
                         </td>
@@ -225,6 +236,19 @@
                     </tr>
                 @endforelse
             </tbody>
+            @if($bookings->isNotEmpty())
+                <tfoot class="bg-200 fw-bold font-sans-serif border-top border-dark">
+                    <tr>
+                        <td colspan="7" class="text-end text-uppercase">Total (Excluding Cancelled & Rejected):</td>
+                        <td class="text-end font-monospace">{{ number_format($totalGuests) }}</td>
+                        <td class="text-end">—</td>
+                        <td class="text-end font-monospace">Rs. {{ number_format($totalAmount, 2) }}</td>
+                        <td class="text-end font-monospace">Rs. {{ number_format($receivedAmount, 2) }}</td>
+                        <td class="text-end font-monospace text-{{ $balanceAmount > 0 ? 'danger' : 'dark' }}">Rs. {{ number_format($balanceAmount, 2) }}</td>
+                        <td colspan="2" class="text-center text-muted fs-11">({{ $totalBookings }} Active)</td>
+                    </tr>
+                </tfoot>
+            @endif
         </table>
     </div>
 

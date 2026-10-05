@@ -5,6 +5,24 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2026-10-05
+
+### Added
+- **Booking List Care Of / Referral & Per Head Price Columns**:
+  - Added dedicated "Care Of / Referral" column displaying referred customer contact information.
+  - Added dedicated "Per Head Price" column displaying plate pricing or rent-only status.
+  - Added live page summary footer calculating active guests, grand total, paid receipts, and balance strictly excluding Cancelled and Rejected bookings.
+- **Cancelled & Rejected Booking Exclusion Test Suite**:
+  - Added `tests/Feature/CancelledRejectedBookingExclusionTest.php` testing balance zeroing, customer aggregate counts, and dashboard scopes.
+
+### Fixed & Improved
+- **Cancelled and Rejected Booking Operational Scoping**:
+  - Zeroed out `remaining_customer_balance` for Cancelled and Rejected bookings in `Booking` model to prevent inaccurate outstanding receivables.
+  - Scoped `Customer::getTotalBookingsAttribute()` and `Customer::getTotalGuestCountAttribute()` to exclude Cancelled and Rejected bookings.
+  - Updated `Booking::scopeUpcoming()` and `Booking::scopeNext7Days()` to filter out Rejected bookings.
+  - Added mutators in `Customer` model to sanitize empty `cnic_national_id`, `email`, and `ntn_number` inputs to `null`.
+  - Polished booking receipt, report, slip, and wizard views with visual strike-throughs and status tags for cancelled/rejected bookings.
+
 ## [1.18.0] - 2026-10-03
 
 ### Added

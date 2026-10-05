@@ -322,9 +322,11 @@
                         <tr>
                             <th class="px-3">Booking #</th>
                             <th>Customer Name</th>
+                            <th>Care of</th>
                             <th>Venue & Hall</th>
                             <th>Event Details</th>
                             <th>No. Of Guests</th>
+                            <th>Per Head</th>
                             <th>Booking Status</th>
                             <th>Payment & Balance</th>
                             <th class="text-end px-3">Actions</th>
@@ -336,8 +338,9 @@
                                 $received = $booking->paid_amount ?? 0.00;
                                 $balance = max(0.00, $booking->grand_total - $received);
                                 $isToday = $booking->booking_date->isToday();
+                                $isCancelledOrRejected = in_array($booking->booking_status, ['Cancelled', 'Rejected']) || $booking->trashed();
                             @endphp
-                            <tr class="{{ $isToday ? 'table-warning' : '' }}">
+                            <tr class="{{ $isToday ? 'table-warning' : ($isCancelledOrRejected ? 'table-light opacity-75' : '') }}">
                                 <!-- Booking # -->
                                 <td class="px-3">
                                     <a href="{{ route('bookings.show', $booking->id) }}" class="badge badge-subtle-primary fs-11 font-monospace text-decoration-none">
@@ -346,6 +349,9 @@
                                     @if($isToday)
                                         <span class="d-block badge bg-danger text-white fs-12 mt-1">TODAY</span>
                                     @endif
+                                    @if($isCancelledOrRejected)
+                                        <span class="d-block badge bg-secondary-subtle text-secondary fs-12 mt-1">Not Counted</span>
+                                    @endif
                                 </td>
 
                                 <!-- Customer Profile -->
@@ -353,6 +359,21 @@
                                     @if($booking->customer)
                                         <a href="{{ route('customers.show', $booking->customer->id) }}" class="text-900 fw-bold">{{ $booking->customer->full_name }}</a>
                                         <div class="text-muted fs-11"><span class="fas fa-phone me-1"></span>{{ $booking->customer->phone_number }}</div>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+
+                                <!-- Care Of / Referral -->
+                                <td>
+                                    @php
+                                        $careOfName = trim($booking->customer?->referred_by_name ?? '');
+                                    @endphp
+                                    @if(!empty($careOfName))
+                                        <div class="fw-bold text-800">{{ $careOfName }}</div>
+                                        @if(!empty($booking->customer?->referred_by_contact))
+                                            <div class="text-muted fs-12"><span class="fas fa-phone me-1"></span>{{ $booking->customer->referred_by_contact }}</div>
+                                        @endif
                                     @else
                                         <span class="text-muted">—</span>
                                     @endif
@@ -390,7 +411,7 @@
 
                                 <!-- Headcount & Confirmation -->
                                 <td>
-                                    <div class="fw-bold font-monospace fs-10 text-800">
+                                    <div class="fw-bold font-monospace fs-10 {{ $isCancelledOrRejected ? 'text-muted text-decoration-line-through' : 'text-800' }}">
                                         {{ number_format($booking->effective_guest_count) }} Guests
                                     </div>
                                     <div class="mt-1">
@@ -406,6 +427,19 @@
                                             | Conf: {{ number_format($booking->confirmed_guests) }}
                                         @endif
                                     </div>
+                                </td>
+
+                                <!-- Per Head Price -->
+                                <td>
+                                    @if($booking->per_plate_price && $booking->per_plate_price > 0)
+                                        <div class="fw-bold font-monospace fs-10 text-800">
+                                            Rs. {{ number_format($booking->per_plate_price, 0) }}
+                                        </div>
+                                    @elseif($booking->no_food)
+                                        <span class="badge bg-secondary-subtle text-secondary fs-12">Rent Only</span>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
                                 </td>
 
                                 <!-- Booking Status -->
@@ -443,7 +477,7 @@
 
                                 <!-- Payment & Balance -->
                                 <td>
-                                    <div class="font-monospace fw-bold text-800">Rs. {{ number_format($booking->grand_total, 0) }}</div>
+                                    <div class="font-monospace fw-bold {{ $isCancelledOrRejected ? 'text-muted text-decoration-line-through' : 'text-800' }}">Rs. {{ number_format($booking->grand_total, 0) }}</div>
                                     <div class="fs-11 font-monospace text-success">Paid: Rs. {{ number_format($received, 0) }}</div>
                                     <div class="fs-11 font-monospace fw-bold text-{{ $balance > 0 ? 'danger' : 'success' }}">
                                         Bal: Rs. {{ number_format($balance, 0) }}
@@ -469,7 +503,7 @@
                                             $fc = $finColors[$booking->financial_status] ?? 'secondary';
                                         @endphp
                                         <span class="badge badge-subtle-{{ $pc }} fs-12">{{ $booking->payment_status }}</span>
-                                        @if($booking->financial_status && $booking->financial_status !== 'Pending')
+                                        @if($booking->financial_status && !in_array($booking->financial_status, ['Pending', $booking->payment_status]))
                                             <span class="badge badge-subtle-{{ $fc }} fs-12">{{ $booking->financial_status }}</span>
                                         @endif
                                     </div>
@@ -531,7 +565,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center py-5 text-muted">
+                                <td colspan="10" class="text-center py-5 text-muted">
                                     <span class="fas fa-calendar-times fa-3x mb-2 d-block text-400"></span>
                                     <h6 class="fw-bold text-700">No bookings match the selected criteria.</h6>
                                     <p class="fs-11 mb-2">Try clearing search terms or resetting operational filters.</p>
@@ -542,6 +576,37 @@
                             </tr>
                         @endforelse
                     </tbody>
+                    @if($bookings->isNotEmpty())
+                        @php
+                            $pageActiveBookings = $bookings->filter(fn($b) => !in_array($b->booking_status, ['Cancelled', 'Rejected']) && !$b->trashed());
+                            $pageActiveCount = $pageActiveBookings->count();
+                            $pageTotalGuests = $pageActiveBookings->sum(fn($b) => $b->effective_guest_count);
+                            $pageTotalAmount = $pageActiveBookings->sum('grand_total');
+                            $pageTotalPaid = $pageActiveBookings->sum(fn($b) => $b->paid_amount ?? 0);
+                            $pageTotalBalance = max(0, $pageTotalAmount - $pageTotalPaid);
+                        @endphp
+                        <tfoot class="bg-light fw-bold fs-11 border-top border-200">
+                            <tr>
+                                <td colspan="5" class="text-end text-uppercase text-600 px-3">
+                                    <span class="fas fa-calculator me-1 text-primary"></span>Page Totals (Excl. Cancelled & Rejected):
+                                </td>
+                                <td>
+                                    <div class="font-monospace text-primary fw-bold">{{ number_format($pageTotalGuests) }} Guests</div>
+                                    <div class="text-muted fs-12">{{ $pageActiveCount }} Active</div>
+                                </td>
+                                <td>—</td>
+                                <td>
+                                    <span class="badge bg-success-subtle text-success fs-12">{{ $pageActiveCount }} Active</span>
+                                </td>
+                                <td>
+                                    <div class="font-monospace text-dark fw-bold">Rs. {{ number_format($pageTotalAmount, 0) }}</div>
+                                    <div class="fs-12 font-monospace text-success">Paid: Rs. {{ number_format($pageTotalPaid, 0) }}</div>
+                                    <div class="fs-12 font-monospace text-{{ $pageTotalBalance > 0 ? 'danger' : 'success' }}">Bal: Rs. {{ number_format($pageTotalBalance, 0) }}</div>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    @endif
                 </table>
             </div>
         </div>

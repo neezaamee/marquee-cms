@@ -104,7 +104,15 @@ class Customer extends Model
 
     public function getTotalBookingsAttribute(): int
     {
-        return $this->bookings_count ?? $this->bookings()->count();
+        return $this->bookings_count ?? $this->bookings()->whereNotIn('booking_status', ['Cancelled', 'Rejected'])->count();
+    }
+
+    public function getTotalGuestCountAttribute(): int
+    {
+        return (int) $this->bookings()
+            ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+            ->get()
+            ->sum('effective_guest_count');
     }
 
     public function getUpcomingEventsAttribute(): int
@@ -265,5 +273,20 @@ class Customer extends Model
     public function getAlternatePhoneAttribute($value)
     {
         return \App\Services\PhoneNumberService::formatForDisplay($value);
+    }
+
+    public function setCnicNationalIdAttribute($value): void
+    {
+        $this->attributes['cnic_national_id'] = filled($value) ? trim($value) : null;
+    }
+
+    public function setEmailAttribute($value): void
+    {
+        $this->attributes['email'] = filled($value) ? trim($value) : null;
+    }
+
+    public function setNtnNumberAttribute($value): void
+    {
+        $this->attributes['ntn_number'] = filled($value) ? trim($value) : null;
     }
 }

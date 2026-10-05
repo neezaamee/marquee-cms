@@ -269,21 +269,23 @@ class BookingList extends Component
         // ----------------------------------------------------
         // Real Database Summary Metrics (Tenant-scoped)
         // ----------------------------------------------------
-        $baseQuery = Booking::withTrashed()->where('marquee_id', $marqueeId);
+        $baseQuery = Booking::where('marquee_id', $marqueeId);
         if (!empty($this->filterBranch)) {
             $baseQuery->where('branch_id', $this->filterBranch);
         }
 
-        $totalBookingsCount = (clone $baseQuery)->count();
+        $activeQuery = (clone $baseQuery)->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+
+        $totalBookingsCount = (clone $activeQuery)->count();
         $confirmedBookingsCount = (clone $baseQuery)->where('booking_status', 'Confirmed')->count();
         $tentativeBookingsCount = (clone $baseQuery)->whereIn('booking_status', ['Reserved', 'Draft'])->count();
-        $todaysEventsCount = (clone $baseQuery)->whereDate('booking_date', Carbon::today())->where('booking_status', '!=', 'Cancelled')->count();
-        $upcomingEventsCount = (clone $baseQuery)->whereDate('booking_date', '>=', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Completed'])->count();
-        $thisMonthCount = (clone $baseQuery)->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->count();
+        $todaysEventsCount = (clone $activeQuery)->whereDate('booking_date', Carbon::today())->count();
+        $upcomingEventsCount = (clone $activeQuery)->whereDate('booking_date', '>=', Carbon::today())->whereNotIn('booking_status', ['Completed'])->count();
+        $thisMonthCount = (clone $activeQuery)->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->count();
         $pendingApprovalsCount = (clone $baseQuery)->whereIn('booking_status', ['Draft', 'Pending'])->count();
 
-        // Dynamic Payment Outstanding query
-        $outstandingQuery = (clone $baseQuery)->whereNotIn('booking_status', ['Cancelled'])
+        // Dynamic Payment Outstanding query (strictly for active non-cancelled/non-rejected bookings)
+        $outstandingQuery = (clone $activeQuery)
             ->withSum('payments as paid_amount', 'amount');
         
         $allBookingsForFinances = $outstandingQuery->get();
@@ -320,7 +322,8 @@ class BookingList extends Component
                         ->orWhere('last_name', 'like', $searchTerm)
                         ->orWhereRaw("{$fullNameSql} LIKE ?", [$searchTerm])
                         ->orWhere('company_name', 'like', $searchTerm)
-                        ->orWhere('customer_code', 'like', $searchTerm);
+                        ->orWhere('customer_code', 'like', $searchTerm)
+                        ->orWhere('referred_by_name', 'like', $searchTerm);
 
                       if (!empty($cleanDigits)) {
                           $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%')
@@ -369,13 +372,13 @@ class BookingList extends Component
 
         // Apply Quick Shortcuts
         if ($this->filterQuickShortcut === 'today') {
-            $query->whereDate('booking_date', Carbon::today());
+            $query->whereDate('booking_date', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
         } elseif ($this->filterQuickShortcut === 'upcoming') {
-            $query->whereDate('booking_date', '>=', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Completed']);
+            $query->whereDate('booking_date', '>=', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Rejected', 'Completed']);
         } elseif ($this->filterQuickShortcut === 'next_7_days') {
-            $query->whereBetween('booking_date', [Carbon::today(), Carbon::today()->addDays(7)]);
+            $query->whereBetween('booking_date', [Carbon::today(), Carbon::today()->addDays(7)])->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
         } elseif ($this->filterQuickShortcut === 'this_month') {
-            $query->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()]);
+            $query->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
         }
 
         $bookings = $query->orderBy('booking_date', 'desc')

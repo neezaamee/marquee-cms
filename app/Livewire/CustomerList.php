@@ -122,7 +122,9 @@ class CustomerList extends Component
             });
         }
 
-        $customers = $query->withCount('bookings')->latest()->paginate(10);
+        $customers = $query->withCount(['bookings' => function ($bq) {
+            $bq->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+        }])->latest()->paginate(10);
 
         return view('livewire.customer-list', compact('customers'));
     }

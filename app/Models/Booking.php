@@ -391,6 +391,10 @@ class Booking extends Model
      */
     public function getRemainingCustomerBalanceAttribute(): float
     {
+        if (in_array($this->booking_status, ['Cancelled', 'Rejected'])) {
+            return 0.00;
+        }
+
         return max(0.00, (float) $this->effective_invoice_amount - (float) $this->total_paid);
     }
 
@@ -494,7 +498,7 @@ class Booking extends Model
     public function scopeUpcoming($query)
     {
         return $query->whereDate('booking_date', '>=', Carbon::today())
-                     ->whereNotIn('booking_status', ['Cancelled', 'Completed']);
+                     ->whereNotIn('booking_status', ['Cancelled', 'Rejected', 'Completed']);
     }
 
     /**
@@ -503,7 +507,7 @@ class Booking extends Model
     public function scopeNext7Days($query)
     {
         return $query->whereBetween('booking_date', [Carbon::today(), Carbon::today()->addDays(7)])
-                     ->whereNotIn('booking_status', ['Cancelled']);
+                     ->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
     }
 
     /**

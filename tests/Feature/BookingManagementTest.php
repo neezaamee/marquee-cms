@@ -1009,7 +1009,9 @@ class BookingManagementTest extends TestCase
             'payment_status' => 'Unpaid',
         ]);
 
-        $this->assertEquals(3, $customer->total_bookings);
+        // Cancelled / rejected bookings must NOT be counted in total_bookings, guest count, or total revenue
+        $this->assertEquals(2, $customer->total_bookings);
+        $this->assertEquals(200, $customer->total_guest_count);
         $this->assertEquals(1, $customer->upcoming_events);
         $this->assertEquals(1, $customer->completed_events);
         $this->assertEquals(1, $customer->cancelled_events);

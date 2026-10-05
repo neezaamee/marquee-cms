@@ -169,4 +169,12 @@ class BookingPayment extends Model
     {
         return $this->status === 'cancelled';
     }
+
+    /**
+     * Get the payment amount in words (e.g. Rupees Fifty Thousand Only).
+     */
+    public function getAmountInWordsAttribute(): string
+    {
+        return app(\App\Services\PaymentVoucherService::class)->numberToWords((float) $this->amount);
+    }
 }

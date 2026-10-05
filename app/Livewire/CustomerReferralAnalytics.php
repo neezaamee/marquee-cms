@@ -26,7 +26,7 @@ class CustomerReferralAnalytics extends Component
         $referrals = $query->select(
                 'customers.referred_by_name as referrer_name',
                 DB::raw('COUNT(DISTINCT customers.id) as referred_customers_count'),
-                DB::raw('COUNT(bookings.id) as bookings_count'),
+                DB::raw('COUNT(CASE WHEN bookings.booking_status NOT IN ("Cancelled", "Rejected") AND bookings.deleted_at IS NULL THEN bookings.id ELSE NULL END) as bookings_count'),
                 DB::raw('SUM(CASE WHEN bookings.booking_status IN ("Reserved", "Confirmed") THEN bookings.grand_total ELSE 0 END) as total_revenue')
             )
             ->groupBy('customers.referred_by_name')

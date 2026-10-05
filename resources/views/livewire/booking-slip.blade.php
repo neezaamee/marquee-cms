@@ -96,7 +96,15 @@
             <div class="col-6">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
                 <table class="table table-sm table-borderless fs-12 mb-0">
-                    <tr>
+                <tr>
+                        <td class="text-600 px-0 py-1">Event Date:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
+                </tr>
+                <tr>
+                        <td class="text-600 px-0 py-1">Event Time:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->slot->slot_name ?? 'Custom Schedule' }}<small class="text-danger-800 font-monospace fw-bold px-0 py-1">({{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }})<small> </td>
+                </tr> 
+                <tr>
                         <td class="text-600 px-0 py-1" style="width: 120px;">Event Type:</td>
                         <td class="text-800 fw-bold px-0 py-1">
                             {{ $booking->eventType->event_type_name ?? '—' }}
@@ -106,14 +114,6 @@
                                 / {{ $booking->hall->hall_name ?? '—' }}
                             @endif
                         </td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Event Date:</td>
-                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Event Time:</td>
-                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->slot->slot_name ?? 'Custom Schedule' }}<small class="text-danger-800 font-monospace fw-bold px-0 py-1">({{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }})<small> </td>
                     </tr>
                     <tr>
                         <td class="text-600 px-0 py-1">Guests Count:</td>

@@ -202,7 +202,7 @@ class BusinessOwnerDashboard extends Component
             : ($totalBookingsPeriod > 0 ? (int) round($totalGuests / $totalBookingsPeriod) : 0);
 
         // All-time operational counts
-        $totalBookings = (clone $bookingQuery)->count();
+        $totalBookings = (clone $bookingQuery)->whereNotIn('booking_status', ['Cancelled', 'Rejected'])->count();
         $confirmedBookings = (clone $bookingQuery)->where('booking_status', 'Confirmed')->count();
         $completedBookings = (clone $bookingQuery)->where('booking_status', 'Completed')->count();
         $draftBookings = (clone $bookingQuery)->where('booking_status', 'Draft')->count();

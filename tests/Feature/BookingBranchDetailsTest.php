@@ -340,5 +340,7 @@ class BookingBranchDetailsTest extends TestCase
         $responseReceipt->assertSee('DHA Phase 5 Branch');
         $responseReceipt->assertSee('Sector C, Commercial Area, DHA Phase 5');
         $responseReceipt->assertSee('0300-3333333');
+        $responseReceipt->assertSee('Amount in Words');
+        $responseReceipt->assertSee('Rupees Two Lakh Only');
     }
 }

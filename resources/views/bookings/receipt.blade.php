@@ -59,9 +59,9 @@
                 <h4 class="text-success fw-bold mb-1">PAYMENT RECEIPT</h4>
                 <div class="fs-11 font-monospace text-secondary">RECEIPT VOUCHER: #REC-{{ str_pad($payment->id, 6, '0', STR_PAD_LEFT) }}</div>
                 <div class="fs-11 font-monospace text-secondary">BOOKING REFERENCE: #{{ $booking->booking_number }}</div>
-                @if($branch)
+                {{--@if($branch)
                     <div class="fs-12 text-600 font-monospace">Branch: {{ $branch->name }}</div>
-                @endif
+                @endif--}}
             </div>
         </div>
 
@@ -103,12 +103,17 @@
             <div class="col-sm-6">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Booking & Event Details</span>
                 <table class="table table-sm table-borderless fs-11 mb-0">
-                    @if($branch)
+                   <tr>
+                        <td class="text-600 px-0 py-1">Event Date:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
+                    </tr>  
+                
+               {{-- @if($branch)
                         <tr>
                             <td class="text-600 px-0 py-1" style="width: 120px;">Branch:</td>
                             <td class="text-800 fw-bold px-0 py-1">{{ $branch->name }}</td>
                         </tr>
-                    @endif
+                    @endif--}}
                     <tr>
                         <td class="text-600 px-0 py-1" style="width: 120px;">Booking Hall(s):</td>
                         <td class="text-800 fw-bold px-0 py-1">
@@ -118,10 +123,6 @@
                                 {{ $booking->hall->hall_name ?? '—' }}
                             @endif
                         </td>
-                    </tr>
-                    <tr>
-                        <td class="text-600 px-0 py-1">Event Date:</td>
-                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
                     </tr>
                     <tr>
                         <td class="text-600 px-0 py-1">Event Type:</td>
@@ -159,19 +160,31 @@
                             <td class="font-monospace text-700">{{ $payment->transaction_reference ?? '—' }}</td>
                             <td>{{ $payment->recorder->name ?? 'Staff User' }}</td>
                             <td class="text-muted">{{ $payment->notes ?? '—' }}</td>
-                            <td class="text-end pe-3 font-monospace fw-black text-success fs-10">Rs. {{ number_format($payment->amount, 2) }}</td>
+                            <td class="text-end pe-3 font-monospace fw-black text-success fs-10">Rs. {{ number_format($payment->amount, 0) }}</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- Ledger Financial Summary (Account Balances) -->
-        <div class="row justify-content-end mb-4">
-            <div class="col-sm-5 text-end fs-11">
-                <div class="d-flex justify-content-between fs-10 fw-black text-success mt-2">
-                    <span>Paid Amount:</span>
-                    <span class="font-monospace">Rs. {{ number_format($payment->amount, 2) }}</span>
+        <!-- Amount in Words & Financial Summary -->
+        <div class="row align-items-center g-3 my-3">
+            <div class="col-sm-7">
+                <div class="p-3 border rounded bg-light">
+                    <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">
+                        <span class="fas fa-quote-left me-1 text-primary"></span>Amount in Words
+                    </span>
+                    <div class="fs-11 fw-bold text-900 font-monospace">
+                        {{ $payment->amount_in_words }}
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-5">
+                <div class="p-3 border rounded bg-light text-end">
+                    <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Total Paid Amount</span>
+                    <div class="fs-10 fw-black text-success font-monospace">
+                        Rs. {{ number_format($payment->amount,) }}
+                    </div>
                 </div>
             </div>
         </div>
@@ -182,11 +195,11 @@
         <div class="row justify-content-between align-items-end mt-5 pt-4">
             <div class="col-sm-5 text-center">
                 <hr class="mb-1" />
-                <span class="fs-12 text-600">Payer / Customer Signature</span>
+                <span class="fs-12 text-600">Accountant/Cashier Signature</span>
             </div>
             <div class="col-sm-5 text-center">
                 <hr class="mb-1" />
-                <span class="fs-12 text-600">Received By (Authorized Officer)</span>
+                <span class="fs-12 text-600">Received By (Booking Officer)</span>
             </div>
         </div>
     </div>

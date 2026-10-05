@@ -949,7 +949,7 @@
                     <div class="d-flex flex-column gap-2">
                         <!-- Booking Slip Printing -->
                         <a class="btn btn-falcon-primary btn-sm w-100" href="{{ route('bookings.slip', $booking->id) }}" target="_blank">
-                            <span class="fas fa-print me-1"></span> Print Booking Slip
+                            <span class="fas fa-print me-1"></span> Print Booking Sheet
                         </a>
                         <a class="btn btn-falcon-danger btn-sm w-100 mt-2" href="{{ route('bookings.pdf', $booking->id) }}" target="_blank">
                             <span class="fas fa-file-pdf me-1"></span> Download Invoice PDF
