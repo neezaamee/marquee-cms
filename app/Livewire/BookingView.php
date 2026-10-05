@@ -140,7 +140,7 @@ class BookingView extends Component
         abort_unless($user && $user->can('view', $booking), 403, 'Unauthorized access to this booking.');
 
         $this->booking = $booking;
-        $this->paymentDate = date('Y-m-d');
+        $this->paymentDate = date('d.m.Y');
         $this->vpPaymentDate = date('Y-m-d');
         $this->cpPaymentDate = date('Y-m-d');
     }
@@ -469,7 +469,7 @@ class BookingView extends Component
         abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->isBookingOfficer() || $user->hasRole('booking_officer') || $user->hasPermission('create_payments') || $user->hasPermission('manage_bookings')), 403, 'Unauthorized to record payments.');
         abort_unless($user->can('update', $this->booking), 403, 'Unauthorized access to update this booking.');
 
-        $this->paymentDate = date('Y-m-d');
+        $this->paymentDate = date('d.m.Y');
         $this->paymentMethod = 'Cash';
         $this->paymentAccountId = null;
         $this->transactionReference = '';
@@ -501,7 +501,7 @@ class BookingView extends Component
 
         $this->validate([
             'amountPaid' => 'required|numeric|min:1',
-            'paymentDate' => 'required|date',
+            'paymentDate' => 'required|string',
             'paymentMethod' => 'required|string',
             'paymentAccountId' => 'nullable|exists:accounts,id',
             'transactionReference' => 'nullable|string|max:255',
@@ -510,11 +510,24 @@ class BookingView extends Component
             'paymentNote' => 'nullable|string|max:255',
         ]);
 
+        $formattedDate = date('Y-m-d');
+        if (!empty($this->paymentDate)) {
+            try {
+                if (preg_match('/^\d{1,2}\.\d{1,2}\.\d{4}$/', trim($this->paymentDate))) {
+                    $formattedDate = \Carbon\Carbon::createFromFormat('d.m.Y', trim($this->paymentDate))->format('Y-m-d');
+                } else {
+                    $formattedDate = \Carbon\Carbon::parse($this->paymentDate)->format('Y-m-d');
+                }
+            } catch (\Exception $e) {
+                $formattedDate = date('Y-m-d');
+            }
+        }
+
         $financialService = app(\App\Services\BookingFinancialService::class);
 
         $payment = $financialService->recordPayment($this->booking, [
             'amount' => floatval($this->amountPaid),
-            'payment_date' => $this->paymentDate,
+            'payment_date' => $formattedDate,
             'payment_method' => $this->paymentMethod,
             'account_id' => $this->paymentAccountId ?: null,
             'payment_type' => $this->booking->is_revenue_recognized ? 'receivable_payment' : 'advance',
@@ -531,7 +544,7 @@ class BookingView extends Component
         $this->transactionReference = '';
         $this->chequeNumber = '';
         $this->bankReference = '';
-        $this->paymentDate = date('Y-m-d');
+        $this->paymentDate = date('d.m.Y');
         $this->paymentAccountId = null;
         $this->showPaymentModal = false;
 

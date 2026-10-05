@@ -719,4 +719,52 @@ class TwoStagePaymentWorkflowTest extends TestCase
         $this->assertNull($payment->journal_voucher_id);
         $this->assertEquals($initialJvCount, JournalVoucher::count());
     }
+
+    public function test_record_payment_with_dd_mm_yyyy_date_format_in_booking_view_and_booking_list(): void
+    {
+        $booking = $this->createTestBooking(400000);
+
+        // 1. BookingView with dd.mm.yyyy date format (e.g. 15.08.2026)
+        Livewire::actingAs($this->bookingManager)
+            ->test(BookingView::class, ['booking' => $booking])
+            ->call('openPaymentModal')
+            ->assertSet('showPaymentModal', true)
+            ->assertSet('paymentDate', date('d.m.Y'))
+            ->set('amountPaid', 80000)
+            ->set('paymentMethod', 'Cash')
+            ->set('paymentDate', '15.08.2026')
+            ->set('paymentNote', 'Payment with dd.mm.yyyy date')
+            ->call('recordPayment')
+            ->assertHasNoErrors()
+            ->assertSet('showPaymentModal', false);
+
+        $this->assertDatabaseHas('booking_payments', [
+            'booking_id' => $booking->id,
+            'amount' => 80000,
+            'payment_date' => '2026-08-15 00:00:00',
+            'status' => 'pending_posting',
+        ]);
+
+        // 2. BookingList with dd.mm.yyyy date format (e.g. 28.11.2026)
+        Livewire::actingAs($this->bookingManager)
+            ->test(BookingList::class)
+            ->call('openPaymentModal', $booking->id)
+            ->assertSet('showPaymentModal', true)
+            ->assertSet('paymentDate', date('d.m.Y'))
+            ->set('paymentAmount', 50000)
+            ->set('paymentMethod', 'Bank Transfer')
+            ->set('paymentDate', '28.11.2026')
+            ->set('paymentType', 'advance')
+            ->call('postPayment')
+            ->assertHasNoErrors()
+            ->assertSet('showPaymentModal', false);
+
+        $this->assertDatabaseHas('booking_payments', [
+            'booking_id' => $booking->id,
+            'amount' => 50000,
+            'payment_date' => '2026-11-28 00:00:00',
+            'status' => 'pending_posting',
+        ]);
+    }
 }
+

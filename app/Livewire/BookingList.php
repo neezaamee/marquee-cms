@@ -432,7 +432,7 @@ class BookingList extends Component
 
         $this->paymentBookingId = $booking->id;
         $this->paymentBooking = $booking;
-        $this->paymentDate = date('Y-m-d');
+        $this->paymentDate = date('d.m.Y');
         $this->paymentMethod = 'Cash';
         $this->paymentNotes = '';
         $this->transactionReference = '';
@@ -526,13 +526,26 @@ class BookingList extends Component
 
         $this->validate([
             'paymentAmount' => 'required|numeric|min:1',
-            'paymentDate' => 'required|date',
+            'paymentDate' => 'required|string',
             'paymentMethod' => 'required|string',
             'paymentAccountId' => 'nullable|exists:accounts,id',
             'paymentType' => 'required|in:advance,receivable_payment,refund',
             'transactionReference' => 'nullable|string|max:255',
             'paymentNotes' => 'nullable|string|max:500',
         ]);
+
+        $formattedDate = date('Y-m-d');
+        if (!empty($this->paymentDate)) {
+            try {
+                if (preg_match('/^\d{1,2}\.\d{1,2}\.\d{4}$/', trim($this->paymentDate))) {
+                    $formattedDate = \Carbon\Carbon::createFromFormat('d.m.Y', trim($this->paymentDate))->format('Y-m-d');
+                } else {
+                    $formattedDate = \Carbon\Carbon::parse($this->paymentDate)->format('Y-m-d');
+                }
+            } catch (\Exception $e) {
+                $formattedDate = date('Y-m-d');
+            }
+        }
 
         $user = auth()->user();
         abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->isBookingOfficer() || $user->hasRole('booking_officer') || $user->hasPermission('create_payments') || $user->hasPermission('manage_bookings')), 403, 'Unauthorized to record payments.');
@@ -574,7 +587,7 @@ class BookingList extends Component
             if ($this->paymentType === 'refund') {
                 $payment = $financialService->recordRefund($booking, [
                     'amount' => $amount,
-                    'payment_date' => $this->paymentDate,
+                    'payment_date' => $formattedDate,
                     'payment_method' => $this->paymentMethod,
                     'account_id' => $this->paymentAccountId ?: null,
                     'transaction_reference' => $this->transactionReference ?: null,
@@ -585,7 +598,7 @@ class BookingList extends Component
             } else {
                 $payment = $financialService->recordPayment($booking, [
                     'amount' => $amount,
-                    'payment_date' => $this->paymentDate,
+                    'payment_date' => $formattedDate,
                     'payment_method' => $this->paymentMethod,
                     'account_id' => $this->paymentAccountId ?: null,
                     'payment_type' => $this->paymentType,

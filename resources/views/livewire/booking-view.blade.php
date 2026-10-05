@@ -1093,8 +1093,19 @@
                                     @error('amountPaid') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                 </div>
                                 <div class="mb-2">
-                                    <label class="form-label fs-11 mb-1">Payment Date *</label>
-                                    <input wire:model="paymentDate" type="date" class="form-control form-control-sm fs-12" />
+                                    <label class="form-label fs-11 mb-1">Payment Date (DD.MM.YYYY) *</label>
+                                    <div wire:ignore x-data x-init="
+                                        flatpickr($refs.paymentDatePicker, {
+                                            dateFormat: 'd.m.Y',
+                                            allowInput: true,
+                                            defaultDate: '{{ $paymentDate }}',
+                                            onChange: function(selectedDates, dateStr) {
+                                                $wire.set('paymentDate', dateStr);
+                                            }
+                                        });
+                                    ">
+                                        <input x-ref="paymentDatePicker" wire:model.live="paymentDate" type="text" class="form-control form-control-sm fs-12 font-monospace @error('paymentDate') is-invalid @enderror" placeholder="DD.MM.YYYY" />
+                                    </div>
                                     @error('paymentDate') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                 </div>
                                 <div class="mb-2">

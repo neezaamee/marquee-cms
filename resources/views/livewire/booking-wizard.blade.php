@@ -116,15 +116,11 @@
                                     </div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <label class="form-label" for="newFirstName">First Name *</label>
-                                    <input wire:model="newFirstName" class="form-control form-control-sm" id="newFirstName" type="text" placeholder="e.g. Ajmal" />
+                                <div class="col-12">
+                                    <label class="form-label" for="newCustomerName">Customer Name *</label>
+                                    <input wire:model="newCustomerName" class="form-control form-control-sm" id="newCustomerName" type="text" placeholder="e.g. Muhammad Ajmal Khan" />
+                                    @error('newCustomerName') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                     @error('newFirstName') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="newLastName">Last Name *</label>
-                                    <input wire:model="newLastName" class="form-control form-control-sm" id="newLastName" type="text" placeholder="e.g. Khan" />
-                                    @error('newLastName') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                 </div>
 
                                 @if($newCustomerType === 'Corporate')
@@ -137,7 +133,7 @@
 
                                 <div class="col-md-6">
                                     <label class="form-label" for="newPhone">Phone Number *</label>
-                                    <input type="text" id="newPhone" class="form-control form-control-sm" placeholder="e.g. +923001234567" x-data x-init="IMask($el, { mask: '+920000000000' })" wire:model.blur="newPhone" />
+                                    <input type="text" id="newPhone" class="form-control form-control-sm" placeholder="e.g. 0322-1234567" x-data x-init="IMask($el, { mask: '0000-0000000' })" wire:model.blur="newPhone" />
                                     @error('newPhone') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                                 </div>
 

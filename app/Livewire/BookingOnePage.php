@@ -36,6 +36,7 @@ class BookingOnePage extends Component
     
     // Quick Customer Form Fields
     public $newCustomerType = 'Individual';
+    public $newCustomerName = '';
     public $newFirstName = '';
     public $newLastName = '';
     public $newCompanyName = '';
@@ -359,12 +360,23 @@ class BookingOnePage extends Component
             $this->newReferralContact = str_replace(['-', ' '], '', $this->newReferralContact);
         }
 
+        if (empty($this->newCustomerName) && (!empty($this->newFirstName) || !empty($this->newLastName))) {
+            $this->newCustomerName = trim($this->newFirstName . ' ' . $this->newLastName);
+        }
+
+        $trimmedName = trim($this->newCustomerName);
+        $nameParts = preg_split('/\s+/', $trimmedName, 2);
+        $firstName = $nameParts[0] ?? $trimmedName;
+        $lastName = $nameParts[1] ?? '';
+
+        $this->newFirstName = $firstName;
+        $this->newLastName = $lastName;
+
         $user = auth()->user();
         $marqueeId = $this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
 
         $this->validate([
-            'newFirstName' => 'required|string|max:255',
-            'newLastName' => 'required|string|max:255',
+            'newCustomerName' => 'required|string|max:255',
             'newCustomerType' => 'required|in:Individual,Corporate',
             'newCompanyName' => 'required_if:newCustomerType,Corporate|nullable|string|max:255',
             'newPhone' => 'required|string|max:20',
@@ -391,6 +403,7 @@ class BookingOnePage extends Component
             'newReferralName' => 'nullable|string|max:255',
             'newReferralContact' => 'nullable|string|max:50',
         ], [
+            'newCustomerName.required' => 'The customer name field is required.',
             'newCNIC.regex' => 'The CNIC format must be XXXXX-XXXXXXX-X.',
             'newCNIC.unique' => 'This CNIC is already registered.',
             'newEmail.unique' => 'This email is already registered.',
@@ -399,8 +412,8 @@ class BookingOnePage extends Component
         $customer = Customer::create([
             'marquee_id' => $marqueeId,
             'customer_type' => $this->newCustomerType,
-            'first_name' => $this->newFirstName,
-            'last_name' => $this->newLastName,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
             'company_name' => $this->newCustomerType === 'Corporate' ? $this->newCompanyName : null,
             'gender' => $this->newGender ?: null,
             'email' => $this->newEmail ?: null,
@@ -427,6 +440,7 @@ class BookingOnePage extends Component
     private function resetQuickCustomerForm()
     {
         $this->newCustomerType = 'Individual';
+        $this->newCustomerName = '';
         $this->newFirstName = '';
         $this->newLastName = '';
         $this->newCompanyName = '';

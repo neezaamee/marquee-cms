@@ -1631,5 +1631,50 @@ class BookingManagementTest extends TestCase
         $this->assertTrue($posB < $posA, '2nd Mutton Roast must appear before 1st Starter Soup after reordering');
         $this->assertTrue($posA < $posC, '1st Starter Soup must appear before 3rd Kulfa Dessert');
     }
+
+    public function test_quick_create_customer_with_combined_name_and_referral_format_in_wizard_and_one_page()
+    {
+        // 1. Test in BookingWizard
+        Livewire::actingAs($this->userOwnerA)
+            ->test(\App\Livewire\BookingWizard::class)
+            ->set('showQuickCustomerModal', true)
+            ->set('newCustomerType', 'Individual')
+            ->set('newCustomerName', 'Muhammad Ajmal Khan')
+            ->set('newPhone', '0322-1234567')
+            ->set('newCNIC', '35201-1234567-1')
+            ->set('newEmail', 'ajmalkhan@example.com')
+            ->set('newCity', 'Lahore')
+            ->set('newProvince', 'Punjab')
+            ->call('createCustomer')
+            ->assertHasNoErrors()
+            ->assertSet('showQuickCustomerModal', false);
+
+        $createdCustomerA = Customer::where('email', 'ajmalkhan@example.com')->first();
+        $this->assertNotNull($createdCustomerA);
+        $this->assertEquals('Muhammad', $createdCustomerA->first_name);
+        $this->assertEquals('Ajmal Khan', $createdCustomerA->last_name);
+        $this->assertEquals('Muhammad Ajmal Khan', $createdCustomerA->full_name);
+        // Customer model mutator normalizes phone to 03221234567, and accessor displays 0322-1234567
+        $this->assertEquals('0322-1234567', $createdCustomerA->phone_number);
+
+        // 2. Test in BookingOnePage
+        Livewire::actingAs($this->userOwnerA)
+            ->test(\App\Livewire\BookingOnePage::class)
+            ->set('showQuickCustomerModal', true)
+            ->set('newCustomerType', 'Individual')
+            ->set('newCustomerName', 'Tariq Mehmood')
+            ->set('newPhone', '0300-9876543')
+            ->set('newCity', 'Lahore')
+            ->set('newProvince', 'Punjab')
+            ->call('createCustomer')
+            ->assertHasNoErrors()
+            ->assertSet('showQuickCustomerModal', false);
+
+        $createdCustomerB = Customer::where('first_name', 'Tariq')->where('last_name', 'Mehmood')->first();
+        $this->assertNotNull($createdCustomerB);
+        $this->assertEquals('Tariq Mehmood', $createdCustomerB->full_name);
+        $this->assertEquals('0300-9876543', $createdCustomerB->phone_number);
+    }
 }
+
 

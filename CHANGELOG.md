@@ -5,6 +5,18 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.0] - 2026-10-06
+
+### Added & Improved
+- **Booking Creation Single Customer Name Field**:
+  - Combined separate 'First Name' and 'Last Name' inputs into a unified 'Customer Name' field in both Booking Wizard and One-Page Booking quick customer modal.
+  - Automatically splits full names into first and last name database attributes while maintaining full backwards compatibility.
+- **Customer Phone Masking Standardization**:
+  - Replaced the `+92` prefix input masking with standard local referral contact format (`0000-0000000`) and placeholder `e.g. 0322-1234567`.
+- **Payment Recording Date Format Standard (DD.MM.YYYY)**:
+  - Updated payment date inputs in Booking View and Booking List modals to `dd.mm.yyyy` using Flatpickr (`d.m.Y`).
+  - Added robust server-side date parsing for `d.m.Y` strings to ensure flawless database persistence and ledger reconciliation.
+
 ## [1.19.0] - 2026-10-05
 
 ### Added

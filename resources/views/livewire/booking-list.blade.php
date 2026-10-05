@@ -735,8 +735,19 @@
 
                                 <!-- Payment Date -->
                                 <div class="col-md-4">
-                                    <label class="form-label fs-11 fw-bold text-700 mb-1">Payment Date <span class="text-danger">*</span></label>
-                                    <input wire:model="paymentDate" type="date" class="form-control @error('paymentDate') is-invalid @enderror" />
+                                    <label class="form-label fs-11 fw-bold text-700 mb-1">Payment Date (DD.MM.YYYY) <span class="text-danger">*</span></label>
+                                    <div wire:ignore x-data x-init="
+                                        flatpickr($refs.bookingListPaymentDatePicker, {
+                                            dateFormat: 'd.m.Y',
+                                            allowInput: true,
+                                            defaultDate: '{{ $paymentDate }}',
+                                            onChange: function(selectedDates, dateStr) {
+                                                $wire.set('paymentDate', dateStr);
+                                            }
+                                        });
+                                    ">
+                                        <input x-ref="bookingListPaymentDatePicker" wire:model.live="paymentDate" type="text" class="form-control font-monospace @error('paymentDate') is-invalid @enderror" placeholder="DD.MM.YYYY" />
+                                    </div>
                                     @error('paymentDate') <span class="text-danger fs-11 d-block mt-1">{{ $message }}</span> @enderror
                                 </div>
 
