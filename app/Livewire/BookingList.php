@@ -34,6 +34,9 @@ class BookingList extends Component
     public $filterBalanceStatus = ''; // 'all', 'outstanding', 'fully_paid'
     public $filterQuickShortcut = ''; // 'all', 'today', 'upcoming', 'next_7_days', 'this_month', 'pending', 'outstanding', 'confirmed', 'tentative'
     public $filterCreatedBy = '';
+    public $filterCareOf = '';
+    public $filterPerHead = '';
+    public $filterPerHeadAmount = '';
     public $showAdvancedFilters = false;
 
     // Action State
@@ -65,7 +68,46 @@ class BookingList extends Component
         'filterDateStart' => ['except' => ''],
         'filterDateEnd' => ['except' => ''],
         'filterCreatedBy' => ['except' => ''],
+        'filterCareOf' => ['except' => ''],
+        'filterPerHead' => ['except' => ''],
+        'filterPerHeadAmount' => ['except' => ''],
     ];
+
+    public function mount()
+    {
+        foreach ([
+            'search', 'filterStatus', 'filterPaymentStatus', 'filterHall',
+            'filterBranch', 'filterEventType', 'filterGuestStatus',
+            'filterBalanceStatus', 'filterQuickShortcut', 'filterDateStart',
+            'filterDateEnd', 'filterCreatedBy', 'filterCareOf', 'filterPerHead',
+            'filterPerHeadAmount'
+        ] as $property) {
+            if (request()->has($property)) {
+                $this->{$property} = request()->query($property, '');
+            }
+        }
+
+        if (!empty($this->filterCareOf) || !empty($this->filterPerHead) || !empty($this->filterBranch) || !empty($this->filterEventType)) {
+            $this->showAdvancedFilters = true;
+        }
+    }
+
+    private function normalizeDateForDb(?string $date): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+        try {
+            $trimmed = trim($date);
+            if (preg_match('/^\d{2}[-\/]\d{2}[-\/]\d{4}$/', $trimmed)) {
+                $parts = preg_split('/[-\/]/', $trimmed);
+                return Carbon::createFromDate((int) $parts[2], (int) $parts[1], (int) $parts[0])->format('Y-m-d');
+            }
+            return Carbon::parse($trimmed)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return $date;
+        }
+    }
 
     public function updatedSearch() { $this->resetPage(); }
     public function updatedFilterStatus() { $this->resetPage(); }
@@ -75,9 +117,12 @@ class BookingList extends Component
     public function updatedFilterEventType() { $this->resetPage(); }
     public function updatedFilterGuestStatus() { $this->resetPage(); }
     public function updatedFilterBalanceStatus() { $this->resetPage(); }
-    public function updatedFilterDateStart() { $this->resetPage(); }
-    public function updatedFilterDateEnd() { $this->resetPage(); }
+    public function updatedFilterDateStart() { $this->filterQuickShortcut = ''; $this->resetPage(); }
+    public function updatedFilterDateEnd() { $this->filterQuickShortcut = ''; $this->resetPage(); }
     public function updatedFilterCreatedBy() { $this->resetPage(); }
+    public function updatedFilterCareOf() { $this->resetPage(); }
+    public function updatedFilterPerHead() { $this->resetPage(); }
+    public function updatedFilterPerHeadAmount() { $this->resetPage(); }
 
     public function toggleAdvancedFilters()
     {
@@ -122,7 +167,11 @@ class BookingList extends Component
         $this->filterDateStart = '';
         $this->filterDateEnd = '';
         $this->filterCreatedBy = '';
+        $this->filterCareOf = '';
+        $this->filterPerHead = '';
+        $this->filterPerHeadAmount = '';
         $this->resetPage();
+        $this->dispatch('filters-reset');
     }
 
     /**
@@ -267,22 +316,34 @@ class BookingList extends Component
         $operators = User::where('marquee_id', $marqueeId)->orderBy('name')->get();
 
         // ----------------------------------------------------
-        // Real Database Summary Metrics (Tenant-scoped)
+        // Real Database Summary Metrics (Tenant-scoped & Date-filtered)
         // ----------------------------------------------------
+        $startDate = $this->normalizeDateForDb($this->filterDateStart);
+        $endDate = $this->normalizeDateForDb($this->filterDateEnd);
+
         $baseQuery = Booking::where('marquee_id', $marqueeId);
         if (!empty($this->filterBranch)) {
             $baseQuery->where('branch_id', $this->filterBranch);
         }
 
-        $activeQuery = (clone $baseQuery)->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+        // Clone base query and apply date filters to summary cards
+        $metricsQuery = clone $baseQuery;
+        if (!empty($startDate)) {
+            $metricsQuery->where('booking_date', '>=', $startDate);
+        }
+        if (!empty($endDate)) {
+            $metricsQuery->where('booking_date', '<=', $endDate);
+        }
+
+        $activeQuery = (clone $metricsQuery)->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
 
         $totalBookingsCount = (clone $activeQuery)->count();
-        $confirmedBookingsCount = (clone $baseQuery)->where('booking_status', 'Confirmed')->count();
-        $tentativeBookingsCount = (clone $baseQuery)->whereIn('booking_status', ['Reserved', 'Draft'])->count();
+        $confirmedBookingsCount = (clone $metricsQuery)->where('booking_status', 'Confirmed')->count();
+        $tentativeBookingsCount = (clone $metricsQuery)->whereIn('booking_status', ['Reserved', 'Draft'])->count();
         $todaysEventsCount = (clone $activeQuery)->whereDate('booking_date', Carbon::today())->count();
         $upcomingEventsCount = (clone $activeQuery)->whereDate('booking_date', '>=', Carbon::today())->whereNotIn('booking_status', ['Completed'])->count();
         $thisMonthCount = (clone $activeQuery)->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->count();
-        $pendingApprovalsCount = (clone $baseQuery)->whereIn('booking_status', ['Draft', 'Pending'])->count();
+        $pendingApprovalsCount = (clone $metricsQuery)->whereIn('booking_status', ['Draft', 'Pending'])->count();
 
         // Dynamic Payment Outstanding query (strictly for active non-cancelled/non-rejected bookings)
         $outstandingQuery = (clone $activeQuery)
@@ -362,12 +423,34 @@ class BookingList extends Component
             $query->where('created_by', $this->filterCreatedBy);
         }
 
-        if (!empty($this->filterDateStart)) {
-            $query->where('booking_date', '>=', $this->filterDateStart);
+        if (!empty($startDate)) {
+            $query->where('booking_date', '>=', $startDate);
         }
 
-        if (!empty($this->filterDateEnd)) {
-            $query->where('booking_date', '<=', $this->filterDateEnd);
+        if (!empty($endDate)) {
+            $query->where('booking_date', '<=', $endDate);
+        }
+
+        // Apply Care Of Filter
+        if (!empty($this->filterCareOf)) {
+            $query->whereHas('customer', function ($cq) {
+                $cq->where('referred_by_name', $this->filterCareOf);
+            });
+        }
+
+        // Apply Per Head Filter
+        if ($this->filterPerHead === 'zero') {
+            $query->where(function ($q) {
+                $q->whereNull('per_plate_price')
+                  ->orWhere('per_plate_price', '<=', 0)
+                  ->orWhere('no_food', true);
+            });
+        } elseif ($this->filterPerHead === 'has_rate') {
+            $query->where('per_plate_price', '>', 0);
+        } elseif ($this->filterPerHead === 'specific' && is_numeric($this->filterPerHeadAmount)) {
+            $query->where('per_plate_price', (float) $this->filterPerHeadAmount);
+        } elseif (is_numeric($this->filterPerHead)) {
+            $query->where('per_plate_price', (float) $this->filterPerHead);
         }
 
         // Apply Quick Shortcuts
@@ -390,6 +473,20 @@ class BookingList extends Component
             // Re-filter collection or use having
         }
 
+        $careOfContacts = \App\Models\Customer::where('marquee_id', $marqueeId)
+            ->whereNotNull('referred_by_name')
+            ->where('referred_by_name', '!=', '')
+            ->distinct()
+            ->orderBy('referred_by_name')
+            ->pluck('referred_by_name');
+
+        $commonPerHeadRates = Booking::where('marquee_id', $marqueeId)
+            ->whereNotNull('per_plate_price')
+            ->where('per_plate_price', '>', 0)
+            ->distinct()
+            ->orderBy('per_plate_price')
+            ->pluck('per_plate_price');
+
         $cashBankAccounts = \App\Models\CashBankAccount::withoutGlobalScope('tenant')
             ->where('marquee_id', $marqueeId)
             ->where('status', 'active')
@@ -402,6 +499,8 @@ class BookingList extends Component
             'branches' => $branches,
             'eventTypes' => $eventTypes,
             'operators' => $operators,
+            'careOfContacts' => $careOfContacts,
+            'commonPerHeadRates' => $commonPerHeadRates,
             'cashBankAccounts' => $cashBankAccounts,
             'totalBookingsCount' => $totalBookingsCount,
             'confirmedBookingsCount' => $confirmedBookingsCount,

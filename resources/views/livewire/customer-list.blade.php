@@ -30,6 +30,20 @@
                     <option value="outstanding">Outstanding (> 0)</option>
                 </select>
 
+                <!-- Total Bookings Filter -->
+                <select wire:model.live="filterBookings" class="form-select form-select-sm" style="min-width: 145px; max-width: 165px;">
+                    <option value="">All Bookings</option>
+                    <option value="single">Single Booking (1)</option>
+                    <option value="multiple">Multiple Bookings (2+)</option>
+                    <option value="zero">No Bookings (0)</option>
+                </select>
+
+                @if(!empty($search) || !empty($filterType) || !empty($filterStatus) || !empty($filterBalance) || !empty($filterBookings))
+                    <button wire:click="resetFilters" class="btn btn-falcon-default btn-sm text-secondary" type="button" title="Reset all filters">
+                        <span class="fas fa-undo me-1"></span>Reset
+                    </button>
+                @endif
+
                 @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('create_bookings'))
                     <a class="btn btn-falcon-primary btn-sm text-nowrap" href="{{ route('customers.create') }}">
                         <span class="fas fa-plus me-1" data-fa-transform="shrink-3"></span> Add Customer
@@ -134,6 +148,13 @@
                                 <td colspan="12" class="text-center py-5 text-muted">
                                     <span class="fas fa-users fa-2x mb-2 d-block"></span>
                                     No customers found.
+                                    @if(!empty($search) || !empty($filterType) || !empty($filterStatus) || !empty($filterBalance) || !empty($filterBookings))
+                                        <div class="mt-2">
+                                            <button wire:click="resetFilters" class="btn btn-falcon-default btn-sm text-secondary" type="button">
+                                                <span class="fas fa-undo me-1"></span>Reset all filters
+                                            </button>
+                                        </div>
+                                    @endif
                                 </td>
                             </tr>
                         @endforelse

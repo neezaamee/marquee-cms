@@ -5,6 +5,25 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.0] - 2026-10-09
+
+### Added
+- **Customer List Total Bookings Filtering**:
+  - Added filter dropdown (`filterBookings`) for customer booking history: Single Booking (1), Multiple Bookings (2+), No Bookings (0).
+  - Strictly scopes out Cancelled and Rejected bookings to guarantee accurate customer engagement metrics.
+  - Added one-click filter reset action (`resetFilters`) clearing search terms and active dropdowns.
+- **Booking List Care Of & Per-Plate Pricing Filters**:
+  - Dynamic filtering by referral contact / Care Of name (`filterCareOf`).
+  - Pricing filters by per-head rates (`zero`, `has_rate`, or custom specific rates).
+- **Searchable Event Types & Hall Selectors**:
+  - Added searchable, live-filtered dropdowns for Hall selection and Event Types in both Booking Wizard and One-Page Booking forms.
+- **Customer List Bookings Filter Test Suite**:
+  - Added `tests/Feature/CustomerListBookingsFilterTest.php` with 5 automated test cases validating single, multiple, and zero booking filters, status exclusions, and reset functionality.
+
+### Security & Hardening
+- **Public Self-Registration Route Deactivation**:
+  - Deactivated unauthenticated public registration routes (`/register`) to enforce controlled tenant onboarding and invite-only enterprise multi-tenancy.
+
 ## [1.20.0] - 2026-10-06
 
 ### Added & Improved

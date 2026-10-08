@@ -11,7 +11,7 @@
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                <button wire:click="$refresh" class="btn btn-falcon-default btn-sm" type="button" data-bs-toggle="tooltip" title="Refresh Dashboard">
+                <button wire:click="resetFilters" class="btn btn-falcon-default btn-sm" type="button" data-bs-toggle="tooltip" title="Refresh Dashboard & Reset All Filters">
                     <span class="fas fa-sync-alt me-1"></span>Refresh
                 </button>
                 <button wire:click="exportExcel" class="btn btn-falcon-default btn-sm text-nowrap" type="button">
@@ -168,12 +168,25 @@
                 <div>
                     <button wire:click="toggleAdvancedFilters" class="btn btn-falcon-default btn-xs" type="button">
                         <span class="fas fa-sliders-h me-1"></span>{{ $showAdvancedFilters ? 'Hide Advanced Filters' : 'Advanced Filters' }}
+                        @php
+                            $activeAdvCount = 0;
+                            if (!empty($filterBranch)) $activeAdvCount++;
+                            if (!empty($filterEventType)) $activeAdvCount++;
+                            if (!empty($filterCareOf)) $activeAdvCount++;
+                            if (!empty($filterPerHead)) $activeAdvCount++;
+                            if (!empty($filterGuestStatus)) $activeAdvCount++;
+                            if (!empty($filterBalanceStatus)) $activeAdvCount++;
+                            if (!empty($filterCreatedBy)) $activeAdvCount++;
+                        @endphp
+                        @if($activeAdvCount > 0)
+                            <span class="badge bg-primary rounded-pill ms-1">{{ $activeAdvCount }}</span>
+                        @endif
                     </button>
                 </div>
             </div>
 
             <!-- Primary Filters Row -->
-            <div class="row g-2">
+            <div class="row g-2 align-items-center">
                 <!-- Search Box -->
                 <div class="col-lg-3 col-md-4 col-12">
                     <div class="input-group input-group-sm">
@@ -206,9 +219,9 @@
                 </div>
 
                 <!-- Payment Status Filter -->
-                <div class="col-lg-2 col-md-4 col-6">
+                <div class="col-lg-1 col-md-4 col-6">
                     <select wire:model.live="filterPaymentStatus" class="form-select form-select-sm">
-                        <option value="">All Payment Statuses</option>
+                        <option value="">All Payments</option>
                         <option value="Unpaid">Unpaid</option>
                         <option value="Partially Paid">Partially Paid</option>
                         <option value="Paid">Paid</option>
@@ -216,14 +229,56 @@
                     </select>
                 </div>
 
-                <!-- Start Date Filter -->
-                <div class="col-lg-1.5 col-md-4 col-6">
-                    <input wire:model.live="filterDateStart" type="date" class="form-control form-control-sm font-monospace" placeholder="From Date" title="From Date" />
+                <!-- Start Date Filter (DD-MM-YYYY) -->
+                <div class="col-lg-2 col-md-4 col-6">
+                    <div wire:ignore x-data x-init="
+                        let fpStart = flatpickr($refs.dateStartPicker, {
+                            dateFormat: 'd-m-Y',
+                            allowInput: true,
+                            defaultDate: '{{ $filterDateStart }}',
+                            onChange: function(selectedDates, dateStr) {
+                                $wire.set('filterDateStart', dateStr);
+                            }
+                        });
+                        $watch('$wire.filterDateStart', val => {
+                            if (!val && fpStart) { fpStart.clear(); }
+                            else if (val && fpStart && fpStart.input.value !== val) { fpStart.setDate(val, false); }
+                        });
+                        window.addEventListener('filters-reset', () => {
+                            if (fpStart) fpStart.clear();
+                        });
+                    ">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text px-2"><span class="fas fa-calendar-alt text-500"></span></span>
+                            <input x-ref="dateStartPicker" wire:model.live="filterDateStart" type="text" class="form-control font-monospace" placeholder="From (DD-MM-YYYY)" title="From Date (DD-MM-YYYY)" />
+                        </div>
+                    </div>
                 </div>
 
-                <!-- End Date Filter -->
-                <div class="col-lg-1.5 col-md-4 col-6">
-                    <input wire:model.live="filterDateEnd" type="date" class="form-control form-control-sm font-monospace" placeholder="To Date" title="To Date" />
+                <!-- End Date Filter (DD-MM-YYYY) -->
+                <div class="col-lg-2 col-md-4 col-6">
+                    <div wire:ignore x-data x-init="
+                        let fpEnd = flatpickr($refs.dateEndPicker, {
+                            dateFormat: 'd-m-Y',
+                            allowInput: true,
+                            defaultDate: '{{ $filterDateEnd }}',
+                            onChange: function(selectedDates, dateStr) {
+                                $wire.set('filterDateEnd', dateStr);
+                            }
+                        });
+                        $watch('$wire.filterDateEnd', val => {
+                            if (!val && fpEnd) { fpEnd.clear(); }
+                            else if (val && fpEnd && fpEnd.input.value !== val) { fpEnd.setDate(val, false); }
+                        });
+                        window.addEventListener('filters-reset', () => {
+                            if (fpEnd) fpEnd.clear();
+                        });
+                    ">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text px-2"><span class="fas fa-calendar-alt text-500"></span></span>
+                            <input x-ref="dateEndPicker" wire:model.live="filterDateEnd" type="text" class="form-control font-monospace" placeholder="To (DD-MM-YYYY)" title="To Date (DD-MM-YYYY)" />
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -231,7 +286,7 @@
             @if($showAdvancedFilters)
                 <div class="row g-2 mt-2 border-top pt-2">
                     <!-- Branch Filter -->
-                    <div class="col-md-3 col-6">
+                    <div class="col-md-2 col-6">
                         <label class="form-label fs-11 text-700 mb-1">Branch</label>
                         <select wire:model.live="filterBranch" class="form-select form-select-sm">
                             <option value="">All Branches</option>
@@ -242,7 +297,7 @@
                     </div>
 
                     <!-- Event Type Filter -->
-                    <div class="col-md-3 col-6">
+                    <div class="col-md-2 col-6">
                         <label class="form-label fs-11 text-700 mb-1">Event Type</label>
                         <select wire:model.live="filterEventType" class="form-select form-select-sm">
                             <option value="">All Event Types</option>
@@ -251,6 +306,42 @@
                             @endforeach
                         </select>
                     </div>
+
+                    <!-- Care Of Filter -->
+                    <div class="col-md-2 col-6">
+                        <label class="form-label fs-11 text-700 mb-1"><span class="fas fa-user-friends me-1 text-primary"></span>Care Of</label>
+                        <select wire:model.live="filterCareOf" class="form-select form-select-sm">
+                            <option value="">All Care Of</option>
+                            @foreach($careOfContacts as $careOf)
+                                <option value="{{ $careOf }}">{{ $careOf }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Per Head Filter -->
+                    <div class="col-md-2 col-6">
+                        <label class="form-label fs-11 text-700 mb-1"><span class="fas fa-utensils me-1 text-primary"></span>Per Head</label>
+                        <select wire:model.live="filterPerHead" class="form-select form-select-sm">
+                            <option value="">All Rates</option>
+                            <option value="zero">Zero-Rated (Rs. 0 / Rent Only)</option>
+                            <option value="has_rate">With Rate (> Rs. 0)</option>
+                            @if(isset($commonPerHeadRates) && $commonPerHeadRates->isNotEmpty())
+                                <optgroup label="Common Rates">
+                                    @foreach($commonPerHeadRates as $rate)
+                                        <option value="{{ $rate }}">Rs. {{ number_format($rate) }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
+                            <option value="specific">Specific Amount...</option>
+                        </select>
+                    </div>
+
+                    @if($filterPerHead === 'specific')
+                        <div class="col-md-2 col-6">
+                            <label class="form-label fs-11 text-700 mb-1">Specific Rate (Rs.)</label>
+                            <input wire:model.live.debounce.300ms="filterPerHeadAmount" type="number" step="1" class="form-control form-control-sm" placeholder="e.g. 1500" />
+                        </div>
+                    @endif
 
                     <!-- Guest Confirmation Filter -->
                     <div class="col-md-2 col-6">
@@ -396,7 +487,7 @@
                                 <!-- Event Details -->
                                 <td>
                                     <div class="fw-bold text-primary">{{ $booking->eventType->event_type_name ?? '—' }}</div>
-                                    <div><span class="fas fa-calendar-alt me-1 text-500"></span>{{ $booking->booking_date->format('M d, Y') }}</div>
+                                    <div><span class="fas fa-calendar-alt me-1 text-500"></span>{{ $booking->booking_date->format('d-m-Y') }}</div>
                                     @if($booking->slot)
                                         <div class="mt-1">
                                             <span class="badge badge-subtle-info rounded-pill fs-12">

@@ -15,6 +15,7 @@ class CustomerList extends Component
     public $filterType = '';
     public $filterStatus = '';
     public $filterBalance = '';
+    public $filterBookings = '';
 
     // Pagination styling
     protected $paginationTheme = 'bootstrap';
@@ -25,12 +26,16 @@ class CustomerList extends Component
         'filterType' => ['except' => ''],
         'filterStatus' => ['except' => ''],
         'filterBalance' => ['except' => ''],
+        'filterBookings' => ['except' => ''],
     ];
 
     public function mount()
     {
         if (request()->has('filterBalance')) {
             $this->filterBalance = request()->query('filterBalance', '');
+        }
+        if (request()->has('filterBookings')) {
+            $this->filterBookings = request()->query('filterBookings', '');
         }
     }
 
@@ -41,6 +46,16 @@ class CustomerList extends Component
     public function updatingFilterType() { $this->resetPage(); }
     public function updatingFilterStatus() { $this->resetPage(); }
     public function updatingFilterBalance() { $this->resetPage(); }
+    public function updatingFilterBookings() { $this->resetPage(); }
+
+    /**
+     * Reset all active filters and search.
+     */
+    public function resetFilters()
+    {
+        $this->reset(['search', 'filterType', 'filterStatus', 'filterBalance', 'filterBookings']);
+        $this->resetPage();
+    }
 
     public $confirmingDeletionId = null;
 
@@ -119,6 +134,21 @@ class CustomerList extends Component
                        $q->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
                          ->whereRaw('(grand_total - advance_received) > 0');
                    });
+            });
+        }
+
+        // Apply Total Bookings Filter
+        if ($this->filterBookings === 'single') {
+            $query->whereHas('bookings', function ($bq) {
+                $bq->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+            }, '=', 1);
+        } elseif ($this->filterBookings === 'multiple') {
+            $query->whereHas('bookings', function ($bq) {
+                $bq->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+            }, '>', 1);
+        } elseif ($this->filterBookings === 'zero') {
+            $query->whereDoesntHave('bookings', function ($bq) {
+                $bq->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
             });
         }
 

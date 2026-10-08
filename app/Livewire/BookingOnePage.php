@@ -52,7 +52,11 @@ class BookingOnePage extends Component
 
     // Event Details
     public $selectedEventTypeId = '';
+    public $eventTypeSearch = '';
+    public $filteredEventTypes = [];
     public $selectedHallId = '';
+    public $hallSearch = '';
+    public $filteredHalls = [];
     public $selectedDate = '';
     public $selectedHallIds = [];
 
@@ -255,8 +259,10 @@ class BookingOnePage extends Component
             } else {
                 $this->hallCharges = 0.00;
             }
+            $this->filteredHalls = $this->hallsList->toArray();
         } else {
             $this->hallsList = collect();
+            $this->filteredHalls = [];
             $this->hallCharges = 0.00;
         }
 
@@ -272,6 +278,14 @@ class BookingOnePage extends Component
             ->whereIn('status', ['active', 'Active'])
             ->orderBy('sort_order')
             ->get();
+        $this->filteredEventTypes = $this->eventTypesList ? $this->eventTypesList->toArray() : [];
+
+        if (!empty($this->selectedEventTypeId)) {
+            $curType = $this->eventTypesList->firstWhere('id', $this->selectedEventTypeId);
+            if ($curType) {
+                $this->eventTypeSearch = $curType->event_type_name;
+            }
+        }
 
         if (!empty($this->selectedBranchId)) {
             $this->hallsList = Hall::where('marquee_id', $marqueeId)
@@ -282,6 +296,7 @@ class BookingOnePage extends Component
         } else {
             $this->hallsList = collect();
         }
+        $this->filteredHalls = $this->hallsList ? $this->hallsList->toArray() : [];
 
         $this->packagesList = Package::where('marquee_id', $marqueeId)
             ->whereIn('status', ['active', 'Active'])
@@ -453,6 +468,51 @@ class BookingOnePage extends Component
         $this->newReferralName = '';
         $this->newReferralContact = '';
         $this->newProvince = 'Punjab';
+    }
+
+    public function updatedEventTypeSearch()
+    {
+        $user = auth()->user();
+        $marqueeId = $this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
+
+        if (empty($this->eventTypeSearch)) {
+            $this->filteredEventTypes = $this->eventTypesList ? $this->eventTypesList->toArray() : [];
+        } else {
+            $term = '%' . $this->eventTypeSearch . '%';
+            $this->filteredEventTypes = EventType::where('marquee_id', $marqueeId)
+                ->whereIn('status', ['active', 'Active'])
+                ->where('event_type_name', 'like', $term)
+                ->orderBy('sort_order')
+                ->get()
+                ->toArray();
+        }
+    }
+
+    public function selectEventType($id, $name)
+    {
+        $this->selectedEventTypeId = $id;
+        $this->eventTypeSearch = $name;
+    }
+
+    public function updatedHallSearch()
+    {
+        $user = auth()->user();
+        $marqueeId = $this->marquee_id ?: ($user ? $user->getActiveMarqueeId() : null);
+
+        $query = Hall::where('marquee_id', $marqueeId)->whereIn('status', ['active', 'Active']);
+        if (!empty($this->selectedBranchId)) {
+            $query->where('branch_id', $this->selectedBranchId);
+        }
+
+        if (empty($this->hallSearch)) {
+            $this->filteredHalls = $query->orderBy('hall_name')->get()->toArray();
+        } else {
+            $term = '%' . $this->hallSearch . '%';
+            $this->filteredHalls = $query->where('hall_name', 'like', $term)
+                ->orderBy('hall_name')
+                ->get()
+                ->toArray();
+        }
     }
 
     public function toggleHall($id)

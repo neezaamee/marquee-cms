@@ -279,11 +279,60 @@
                     <!-- Event Type (Searchable) -->
                     <div class="col-md-4">
                         <label class="form-label font-sans-serif fw-bold text-700">Event Type *</label>
-                        <div class="position-relative" x-data="{ open: false }" @click.outside="open = false">
-                            <input wire:model.live.debounce.250ms="eventTypeSearch" class="form-control" type="text" placeholder="Search event types..." @focus="open = true" @click="open = true" />
-                            <div x-show="open" class="position-absolute bg-white border rounded shadow w-100 z-3 mt-1 overflow-hidden" style="display: none;">
-                                @forelse($filteredEventTypes as $ev)
-                                    <button wire:click="selectEventType({{ $ev['id'] }}, '{{ addslashes($ev['event_type_name']) }}'); open = false;" class="btn btn-link w-100 text-start text-decoration-none text-900 py-2 px-3 hover-bg-light border-bottom border-translucent" type="button">
+                        <div class="position-relative" 
+                             x-data="{ 
+                                 open: false, 
+                                 activeIndex: -1,
+                                 handleKey(e) {
+                                     let items = this.$refs.itemsList ? this.$refs.itemsList.querySelectorAll('[data-item-btn]') : [];
+                                     let count = items.length;
+                                     if (!this.open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                                         this.open = true;
+                                         this.activeIndex = 0;
+                                         this.scrollToActive();
+                                         e.preventDefault();
+                                         return;
+                                     }
+                                     if (!this.open || count === 0) return;
+                                     if (e.key === 'ArrowDown') {
+                                         e.preventDefault();
+                                         this.activeIndex = (this.activeIndex + 1) % count;
+                                         this.scrollToActive();
+                                     } else if (e.key === 'ArrowUp') {
+                                         e.preventDefault();
+                                         this.activeIndex = (this.activeIndex - 1 + count) % count;
+                                         this.scrollToActive();
+                                     } else if (e.key === 'Enter') {
+                                         e.preventDefault();
+                                         if (this.activeIndex >= 0 && items[this.activeIndex]) {
+                                             items[this.activeIndex].click();
+                                         }
+                                     } else if (e.key === 'Escape') {
+                                         this.open = false;
+                                         this.activeIndex = -1;
+                                     }
+                                 },
+                                 scrollToActive() {
+                                     this.$nextTick(() => {
+                                         if (this.$refs.itemsList) {
+                                             let el = this.$refs.itemsList.querySelector(`[data-item-index='${this.activeIndex}']`);
+                                             if (el) el.scrollIntoView({ block: 'nearest' });
+                                         }
+                                     });
+                                 }
+                             }" 
+                             @click.outside="open = false; activeIndex = -1">
+                            <input wire:model.live.debounce.250ms="eventTypeSearch" 
+                                   @keydown="handleKey($event)"
+                                   class="form-control" type="text" placeholder="Search event types (use arrow keys)..." 
+                                   @focus="open = true" @click="open = true" />
+                            <div x-show="open" x-ref="itemsList" class="position-absolute bg-white border rounded shadow w-100 z-3 mt-1 overflow-hidden" style="max-height: 220px; overflow-y: auto; display: none;">
+                                @forelse($filteredEventTypes as $idx => $ev)
+                                    <button data-item-btn data-item-index="{{ $idx }}"
+                                            @mouseenter="activeIndex = {{ $idx }}"
+                                            :class="activeIndex === {{ $idx }} ? 'bg-primary text-white' : 'hover-bg-light text-900'"
+                                            wire:click="selectEventType({{ $ev['id'] }}, '{{ addslashes($ev['event_type_name']) }}'); open = false; activeIndex = -1;" 
+                                            class="btn btn-link w-100 text-start text-decoration-none py-2 px-3 border-bottom border-translucent" type="button">
                                         <span class="fw-bold">{{ $ev['event_type_name'] }}</span>
                                     </button>
                                 @empty
@@ -295,7 +344,7 @@
                             <div class="mt-2">
                                 <span class="badge badge-subtle-success fs-11">
                                     Selected: {{ \App\Models\EventType::find($selectedEventTypeId)->event_type_name ?? '' }}
-                                    <span wire:click="$set('selectedEventTypeId', ''); $set('eventTypeSearch', '')" class="fas fa-times ms-2 cursor-pointer text-danger"></span>
+                                    <span wire:click="$set('selectedEventTypeId', ''); $set('eventTypeSearch', '')" class="fas fa-times ms-2 cursor-pointer text-danger" title="Clear selection"></span>
                                 </span>
                             </div>
                         @endif
@@ -314,11 +363,60 @@
                                 <span class="fas fa-info-circle me-1"></span>No active halls for this branch.
                             </div>
                         @else
-                            <div class="position-relative" x-data="{ open: false }" @click.outside="open = false">
-                                <input wire:model.live.debounce.250ms="hallSearch" class="form-control" type="text" placeholder="Search and select halls..." @focus="open = true" @click="open = true" />
-                                <div x-show="open" class="position-absolute bg-white border rounded shadow w-100 z-3 mt-1 overflow-hidden" style="max-height: 200px; overflow-y: auto; display: none;">
-                                    @forelse($filteredHalls as $hall)
-                                        <button wire:click="toggleHall({{ $hall['id'] }})" class="btn btn-link w-100 text-start text-decoration-none text-900 py-2 px-3 hover-bg-light border-bottom border-translucent" type="button">
+                            <div class="position-relative" 
+                                 x-data="{ 
+                                     open: false, 
+                                     activeIndex: -1,
+                                     handleKey(e) {
+                                         let items = this.$refs.itemsList ? this.$refs.itemsList.querySelectorAll('[data-item-btn]') : [];
+                                         let count = items.length;
+                                         if (!this.open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                                             this.open = true;
+                                             this.activeIndex = 0;
+                                             this.scrollToActive();
+                                             e.preventDefault();
+                                             return;
+                                         }
+                                         if (!this.open || count === 0) return;
+                                         if (e.key === 'ArrowDown') {
+                                             e.preventDefault();
+                                             this.activeIndex = (this.activeIndex + 1) % count;
+                                             this.scrollToActive();
+                                         } else if (e.key === 'ArrowUp') {
+                                             e.preventDefault();
+                                             this.activeIndex = (this.activeIndex - 1 + count) % count;
+                                             this.scrollToActive();
+                                         } else if (e.key === 'Enter') {
+                                             e.preventDefault();
+                                             if (this.activeIndex >= 0 && items[this.activeIndex]) {
+                                                 items[this.activeIndex].click();
+                                             }
+                                         } else if (e.key === 'Escape') {
+                                             this.open = false;
+                                             this.activeIndex = -1;
+                                         }
+                                     },
+                                     scrollToActive() {
+                                         this.$nextTick(() => {
+                                             if (this.$refs.itemsList) {
+                                                 let el = this.$refs.itemsList.querySelector(`[data-item-index='${this.activeIndex}']`);
+                                                 if (el) el.scrollIntoView({ block: 'nearest' });
+                                             }
+                                         });
+                                     }
+                                 }" 
+                                 @click.outside="open = false; activeIndex = -1">
+                                <input wire:model.live.debounce.250ms="hallSearch" 
+                                       @keydown="handleKey($event)"
+                                       class="form-control" type="text" placeholder="Search and select halls (use arrow keys)..." 
+                                       @focus="open = true" @click="open = true" />
+                                <div x-show="open" x-ref="itemsList" class="position-absolute bg-white border rounded shadow w-100 z-3 mt-1 overflow-hidden" style="max-height: 200px; overflow-y: auto; display: none;">
+                                    @forelse($filteredHalls as $idx => $hall)
+                                        <button data-item-btn data-item-index="{{ $idx }}"
+                                                @mouseenter="activeIndex = {{ $idx }}"
+                                                :class="activeIndex === {{ $idx }} ? 'bg-primary text-white' : 'hover-bg-light text-900'"
+                                                wire:click="toggleHall({{ $hall['id'] }})" 
+                                                class="btn btn-link w-100 text-start text-decoration-none py-2 px-3 border-bottom border-translucent" type="button">
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <div>
                                                     <span class="fw-bold">{{ $hall['hall_name'] }}</span>
@@ -716,14 +814,63 @@
                                 <div class="card bg-light border p-3">
                                     <div class="row g-2 align-items-center mb-3">
                                         <div class="col-12">
-                                            <div class="position-relative" x-data="{ open: false }" @click.outside="open = false">
-                                                <input wire:model.live.debounce.250ms="menuItemSearch" class="form-control form-control-sm" type="text" placeholder="Search and add a dish..." @focus="open = true" @click="open = true" />
-                                                <div x-show="open" class="position-absolute bg-white border rounded shadow w-100 z-3 mt-1 overflow-hidden" style="max-height: 200px; overflow-y: auto; display: none;">
-                                                    @forelse($menuItemsAutocomplete as $mi)
-                                                        <button wire:click="selectMenuItem({{ $mi->id }}); open = false;" class="btn btn-link w-100 text-start text-decoration-none text-900 py-1.5 px-3 hover-bg-light border-bottom border-translucent" type="button">
+                                            <div class="position-relative" 
+                                                 x-data="{ 
+                                                     open: false, 
+                                                     activeIndex: -1,
+                                                     handleKey(e) {
+                                                         let items = this.$refs.itemsList ? this.$refs.itemsList.querySelectorAll('[data-item-btn]') : [];
+                                                         let count = items.length;
+                                                         if (!this.open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                                                             this.open = true;
+                                                             this.activeIndex = 0;
+                                                             this.scrollToActive();
+                                                             e.preventDefault();
+                                                             return;
+                                                         }
+                                                         if (!this.open || count === 0) return;
+                                                         if (e.key === 'ArrowDown') {
+                                                             e.preventDefault();
+                                                             this.activeIndex = (this.activeIndex + 1) % count;
+                                                             this.scrollToActive();
+                                                         } else if (e.key === 'ArrowUp') {
+                                                             e.preventDefault();
+                                                             this.activeIndex = (this.activeIndex - 1 + count) % count;
+                                                             this.scrollToActive();
+                                                         } else if (e.key === 'Enter') {
+                                                             e.preventDefault();
+                                                             if (this.activeIndex >= 0 && items[this.activeIndex]) {
+                                                                 items[this.activeIndex].click();
+                                                             }
+                                                         } else if (e.key === 'Escape') {
+                                                             this.open = false;
+                                                             this.activeIndex = -1;
+                                                         }
+                                                     },
+                                                     scrollToActive() {
+                                                         this.$nextTick(() => {
+                                                             if (this.$refs.itemsList) {
+                                                                 let el = this.$refs.itemsList.querySelector(`[data-item-index='${this.activeIndex}']`);
+                                                                 if (el) el.scrollIntoView({ block: 'nearest' });
+                                                             }
+                                                         });
+                                                     }
+                                                 }" 
+                                                 @click.outside="open = false; activeIndex = -1">
+                                                <input wire:model.live.debounce.250ms="menuItemSearch" 
+                                                       @keydown="handleKey($event)"
+                                                       class="form-control form-control-sm" type="text" placeholder="Search and add a dish (use arrow keys)..." 
+                                                       @focus="open = true" @click="open = true" />
+                                                <div x-show="open" x-ref="itemsList" class="position-absolute bg-white border rounded shadow w-100 z-3 mt-1 overflow-hidden" style="max-height: 200px; overflow-y: auto; display: none;">
+                                                    @forelse($menuItemsAutocomplete as $idx => $mi)
+                                                        <button data-item-btn data-item-index="{{ $idx }}"
+                                                                @mouseenter="activeIndex = {{ $idx }}"
+                                                                :class="activeIndex === {{ $idx }} ? 'bg-primary text-white' : 'hover-bg-light text-900'"
+                                                                wire:click="selectMenuItem({{ $mi->id }}); open = false; activeIndex = -1;" 
+                                                                class="btn btn-link w-100 text-start text-decoration-none py-1.5 px-3 border-bottom border-translucent" type="button">
                                                             <span class="fw-bold">{{ $mi->item_name }}</span>
                                                             @if($mi->urdu_name)
-                                                                <span class="text-muted fs-11 ms-1">({{ $mi->urdu_name }})</span>
+                                                                <span class="fs-11 ms-1 opacity-75">({{ $mi->urdu_name }})</span>
                                                             @endif
                                                             <span class="badge badge-subtle-secondary ms-1 fs-12">{{ $mi->category->category_name ?? 'N/A' }}</span>
                                                         </button>
