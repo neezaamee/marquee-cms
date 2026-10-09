@@ -368,4 +368,152 @@ class KitchenMenuSlipTest extends TestCase
         $response->assertSee('Instruction note for dish 2');
         $response->assertDontSee('Standard Preparation');
     }
+
+    public function test_kitchen_slip_v2_renders_without_dish_categories_and_excludes_financials()
+    {
+        $response = $this->actingAs($this->owner)
+            ->get(route('bookings.kitchen-slip-v2', ['booking' => $this->booking->id, 'lang' => 'bilingual']));
+
+        $response->assertStatus(200);
+        $response->assertSee('KITCHEN MENU SLIP');
+        $response->assertSee('BK-2026-9901');
+        $response->assertSee('Muhammad Tariq');
+        $response->assertSee('450 Persons');
+        $response->assertSee('Chicken Tikka Boti');
+        $response->assertSee('Roghni Naan');
+
+        // Assert dish category headers are completely removed
+        $response->assertDontSee('BBQ STATION');
+        $response->assertDontSee('TANDOOR');
+        $response->assertDontSee('dept-header');
+
+        // Assert financial figures are excluded
+        $response->assertDontSee('675,000');
+        $response->assertDontSee('Grand Total');
+        $response->assertDontSee('Advance Payment');
+        $response->assertDontSee('Outstanding Balance');
+    }
+
+    public function test_kitchen_slip_v2_preserves_exact_reservation_sheet_sort_order()
+    {
+        $branchId = $this->booking->hall->branch_id;
+
+        // Category 1: Starters / Soup
+        $deptSoup = Department::create(['marquee_id' => $this->marquee->id, 'branch_id' => $branchId, 'department_code' => 'DEP-SOUP', 'name' => 'Soup Section', 'department_type' => 'Kitchen Production']);
+        $catSoup = MenuCategory::create(['marquee_id' => $this->marquee->id, 'department_id' => $deptSoup->id, 'category_name' => 'Soup', 'category_code' => 'CAT-SOUP']);
+        $dishSoup = MenuItem::create([
+            'marquee_id' => $this->marquee->id,
+            'category_id' => $catSoup->id,
+            'item_name' => '1st Hot and Sour Soup',
+            'item_code' => 'ITEM-SOUP-01',
+            'base_cost' => 150,
+            'selling_price' => 250,
+            'unit' => 'Bowl',
+            'status' => 'active',
+        ]);
+
+        // Category 2: BBQ
+        $dishBbq = MenuItem::create([
+            'marquee_id' => $this->marquee->id,
+            'category_id' => $this->chickenTikka->category_id,
+            'item_name' => '2nd Mutton Seekh Kabab',
+            'item_code' => 'ITEM-BBQ-02',
+            'base_cost' => 300,
+            'selling_price' => 450,
+            'unit' => 'Plate',
+            'status' => 'active',
+        ]);
+
+        // Category 3: Rice / Pakistani
+        $deptMain = Department::create(['marquee_id' => $this->marquee->id, 'branch_id' => $branchId, 'department_code' => 'DEP-MAIN', 'name' => 'Main Kitchen', 'department_type' => 'Kitchen Production']);
+        $catRice = MenuCategory::create(['marquee_id' => $this->marquee->id, 'department_id' => $deptMain->id, 'category_name' => 'Rice', 'category_code' => 'CAT-RICE']);
+        $dishRice = MenuItem::create([
+            'marquee_id' => $this->marquee->id,
+            'category_id' => $catRice->id,
+            'item_name' => '3rd Sindhi Biryani',
+            'item_code' => 'ITEM-RICE-03',
+            'base_cost' => 250,
+            'selling_price' => 400,
+            'unit' => 'Plate',
+            'status' => 'active',
+        ]);
+
+        // Attach with specific interleaved sort_order matching customer reservation sheet:
+        // Soup (sort_order 0) -> BBQ (sort_order 1) -> Rice (sort_order 2)
+        $this->booking->menuItems()->sync([
+            $dishSoup->id => ['sort_order' => 0, 'custom_note' => 'Spicy'],
+            $dishBbq->id => ['sort_order' => 1, 'custom_note' => 'Charcoal grilled'],
+            $dishRice->id => ['sort_order' => 2, 'custom_note' => 'Fragrant basmati'],
+        ]);
+
+        $response = $this->actingAs($this->owner)
+            ->get(route('bookings.kitchen-slip-v2', ['booking' => $this->booking->id, 'lang' => 'bilingual']));
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $soupPos = strpos($content, '1st Hot and Sour Soup');
+        $bbqPos = strpos($content, '2nd Mutton Seekh Kabab');
+        $ricePos = strpos($content, '3rd Sindhi Biryani');
+
+        $this->assertNotFalse($soupPos);
+        $this->assertNotFalse($bbqPos);
+        $this->assertNotFalse($ricePos);
+
+        // Verify exact sequential order as saved on the reservation sheet
+        $this->assertTrue($soupPos < $bbqPos, 'Soup should precede BBQ in V2 kitchen slip.');
+        $this->assertTrue($bbqPos < $ricePos, 'BBQ should precede Rice in V2 kitchen slip.');
+    }
+
+    public function test_kitchen_slip_v2_supports_paper_sizes_languages_and_version_audit()
+    {
+        // 1. Test A4 Paper & Urdu Language
+        $responseUrdu = $this->actingAs($this->owner)
+            ->get(route('bookings.kitchen-slip-v2', ['booking' => $this->booking->id, 'lang' => 'urdu', 'paper' => 'a4']));
+
+        $responseUrdu->assertStatus(200);
+        $responseUrdu->assertSee('paper-a4');
+        $responseUrdu->assertSee('size: A4 portrait', false);
+        $responseUrdu->assertSee('dir="rtl"', false);
+        $responseUrdu->assertSee('کچن مینو آرڈر سلپ');
+
+        // 2. Test A5 Paper & English Language
+        $responseEnglish = $this->actingAs($this->owner)
+            ->get(route('bookings.kitchen-slip-v2', ['booking' => $this->booking->id, 'lang' => 'english', 'paper' => 'a5']));
+
+        $responseEnglish->assertStatus(200);
+        $responseEnglish->assertSee('paper-a5');
+        $responseEnglish->assertSee('size: A5 portrait', false);
+        $responseEnglish->assertSee('dir="ltr"', false);
+        $responseEnglish->assertSee('Dish / Item Name');
+
+        // 3. Test Audit Log was recorded
+        $this->assertDatabaseHas('kitchen_print_logs', [
+            'booking_id' => $this->booking->id,
+            'marquee_id' => $this->marquee->id,
+            'printed_by' => $this->owner->id,
+            'language' => 'english',
+        ]);
+    }
+
+    public function test_booking_view_modal_can_select_and_dispatch_kitchen_slip_v2()
+    {
+        Livewire::actingAs($this->owner)
+            ->test(BookingView::class, ['booking' => $this->booking])
+            ->set('kitchenSlipVersion', 'v2')
+            ->set('kitchenLang', 'bilingual')
+            ->call('saveKitchenInstructionsAndPrint')
+            ->assertDispatched('open-print-window', function ($eventName, $params) {
+                return str_contains($params['url'], 'kitchen-slip-v2');
+            });
+
+        Livewire::actingAs($this->owner)
+            ->test(BookingView::class, ['booking' => $this->booking])
+            ->set('kitchenSlipVersion', 'v1')
+            ->set('kitchenLang', 'bilingual')
+            ->call('saveKitchenInstructionsAndPrint')
+            ->assertDispatched('open-print-window', function ($eventName, $params) {
+                return str_contains($params['url'], 'kitchen-slip') && !str_contains($params['url'], 'kitchen-slip-v2');
+            });
+    }
 }

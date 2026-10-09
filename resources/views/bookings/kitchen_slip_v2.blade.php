@@ -135,27 +135,6 @@
             line-height: 1.25;
         }
 
-        .dept-header {
-            background-color: #1e293b;
-            color: #ffffff;
-            padding: 5px 12px;
-            font-size: 13px;
-            font-weight: 700;
-            border-radius: 4px;
-            margin-top: 12px;
-            margin-bottom: 6px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            line-height: 1.25;
-        }
-
-        .dept-count {
-            font-size: 11px;
-            opacity: 0.85;
-            font-family: monospace;
-        }
-
         .table-kitchen {
             border: 1px solid #cbd5e1;
             margin-bottom: 0;
@@ -167,8 +146,8 @@
             color: #1e293b;
             font-weight: 700;
             border-bottom: 2px solid #94a3b8;
-            padding: 5px 8px !important;
-            font-size: 11px;
+            padding: 6px 8px !important;
+            font-size: 11.5px;
             line-height: 1.2;
         }
 
@@ -242,9 +221,7 @@
                 margin: 0 !important;
                 width: 100% !important;
                 max-width: 100% !important;
-            }
-
-            /* A5 Print Overrides: Single Page Calibration */
+            }            /* A5 Print Overrides: Single Page Calibration */
             .slip-container.paper-a5 {
                 font-size: 9.5px !important;
                 line-height: 1.15 !important;
@@ -324,27 +301,8 @@
 
             .slip-container.paper-a5 .info-value {
                 font-size: 10px !important;
-                line-height: 1.1 !important;
+                line-height: 1 !important;
                 color: #000000 !important;
-            }
-
-            .slip-container.paper-a5 .dept-header {
-                background-color: #1e293b !important;
-                color: #ffffff !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-                margin-top: 3px !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-                margin-bottom: 2px !important;
-                padding: 2px 5px !important;
-                font-size: 10.5px !important;
-                line-height: 1.15 !important;
-                page-break-after: avoid !important;
-            }
-
-            .slip-container.paper-a5 .dept-count {
-                font-size: 9px !important;
             }
 
             .slip-container.paper-a5 .table-kitchen {
@@ -453,18 +411,6 @@
                 page-break-inside: avoid !important;
             }
 
-            .slip-container.paper-a4 .dept-header {
-                background-color: #1e293b !important;
-                color: #ffffff !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-                page-break-after: avoid !important;
-                padding: 4px 8px !important;
-                font-size: 12px !important;
-                margin-top: 6px !important;
-                margin-bottom: 3px !important;
-            }
-
             .slip-container.paper-a4 .table-kitchen th {
                 background-color: #f1f5f9 !important;
                 color: #000000 !important;
@@ -502,16 +448,16 @@
 
                 <!-- Language Quick Switcher -->
                 <div class="btn-group btn-group-sm ms-2" role="group" aria-label="Language">
-                    <a href="{{ route('bookings.kitchen-slip', array_merge(request()->query(), ['booking' => $booking->id, 'lang' => 'bilingual', 'paper' => $activePaper])) }}" class="btn {{ $lang === 'bilingual' ? 'btn-dark' : 'btn-outline-secondary' }} fw-bold" title="Bilingual English + Urdu">Dual (EN/UR)</a>
-                    <a href="{{ route('bookings.kitchen-slip', array_merge(request()->query(), ['booking' => $booking->id, 'lang' => 'english', 'paper' => $activePaper])) }}" class="btn {{ $lang === 'english' ? 'btn-dark' : 'btn-outline-secondary' }}" title="English Only">English</a>
-                    <a href="{{ route('bookings.kitchen-slip', array_merge(request()->query(), ['booking' => $booking->id, 'lang' => 'urdu', 'paper' => $activePaper])) }}" class="btn {{ $lang === 'urdu' ? 'btn-dark' : 'btn-outline-secondary' }}" title="اردو">اردو</a>
+                    <a href="{{ route('bookings.kitchen-slip-v2', array_merge(request()->query(), ['booking' => $booking->id, 'lang' => 'bilingual', 'paper' => $activePaper])) }}" class="btn {{ $lang === 'bilingual' ? 'btn-dark' : 'btn-outline-secondary' }} fw-bold" title="Bilingual English + Urdu">Dual (EN/UR)</a>
+                    <a href="{{ route('bookings.kitchen-slip-v2', array_merge(request()->query(), ['booking' => $booking->id, 'lang' => 'english', 'paper' => $activePaper])) }}" class="btn {{ $lang === 'english' ? 'btn-dark' : 'btn-outline-secondary' }}" title="English Only">English</a>
+                    <a href="{{ route('bookings.kitchen-slip-v2', array_merge(request()->query(), ['booking' => $booking->id, 'lang' => 'urdu', 'paper' => $activePaper])) }}" class="btn {{ $lang === 'urdu' ? 'btn-dark' : 'btn-outline-secondary' }}" title="اردو">اردو</a>
                 </div>
             </div>
 
             <div class="d-flex align-items-center gap-2 mt-1 mt-md-0">
-                <!-- Switch to Sequential Version -->
-                <a href="{{ route('bookings.kitchen-slip-v2', array_merge(request()->query(), ['booking' => $booking->id, 'lang' => $lang, 'paper' => $activePaper])) }}" class="btn btn-outline-primary btn-sm px-2 fw-semibold" title="View sequential version (ordered as customer reservation sheet, without category groups)">
-                    <i class="fas fa-list-ol me-1"></i> Sequential Slip (No Categories)
+                <!-- Switch to Categorized Version -->
+                <a href="{{ route('bookings.kitchen-slip', array_merge(request()->query(), ['booking' => $booking->id, 'lang' => $lang, 'paper' => $activePaper])) }}" class="btn btn-outline-secondary btn-sm px-2 fw-semibold" title="View categorized version grouped by departments">
+                    <i class="fas fa-layer-group me-1 text-warning"></i> Categorized Slip
                 </a>
                 <button onclick="window.print()" class="btn btn-success btn-sm px-3 fw-bold shadow-sm">
                     <i class="fas fa-print me-1"></i> Print Kitchen Slip
@@ -531,9 +477,9 @@
             <div class="d-flex align-items-center">
                 @if(!empty($marquee->logo))
                     @php
-                        $marqueeLogoUrl = Str::startsWith($marquee->logo, ['http://', 'https://']) 
+                        $marqueeLogoUrl = \Illuminate\Support\Str::startsWith($marquee->logo, ['http://', 'https://']) 
                             ? $marquee->logo 
-                            : (Str::startsWith($marquee->logo, 'storage/') ? asset($marquee->logo) : asset('storage/' . $marquee->logo));
+                            : (\Illuminate\Support\Str::startsWith($marquee->logo, 'storage/') ? asset($marquee->logo) : asset('storage/' . $marquee->logo));
                     @endphp
                     <img src="{{ $marqueeLogoUrl }}" alt="Logo" class="header-logo me-3">
                 @endif
@@ -653,77 +599,64 @@
             </div>
         </div>
 
-        <!-- Operational Department-Wise Menu Tables -->
-        @forelse($groupedMenuItems as $deptName => $deptData)
-            <div class="dept-header">
-                <div>
-                    @if($lang === 'english' || $lang === 'bilingual')
-                        <span>{{ strtoupper($deptData['title_en']) }}</span>
-                    @endif
-                    @if($lang === 'bilingual' && !empty($deptData['title_ur']))
-                        <span class="ms-1">/ {{ $deptData['title_ur'] }}</span>
-                    @endif
-                    @if($lang === 'urdu')
-                        <span class="urdu-font fw-bold">{{ $deptData['title_ur'] ?: $deptData['title_en'] }}</span>
-                    @endif
-                </div>
-                <div class="dept-count">
-                    {{ count($deptData['items']) }} {{ count($deptData['items']) === 1 ? 'Dish' : 'Dishes' }}
-                </div>
-            </div>
-
-            <table class="table table-bordered table-sm table-kitchen align-middle">
-               {{-- <thead>
+        <!-- Menu Items Table (Ordered as in Customer Reservation Sheet, No Categories) -->
+        <table class="table table-bordered table-sm table-kitchen align-middle">
+            <thead>
+                <tr>
+                    <th style="width: 7%;" class="text-center">#</th>
+                    <th style="width: 53%;">
+                        @if($lang === 'english') Dish / Item Name @endif
+                        @if($lang === 'urdu') <span class="urdu-font">ڈش / مینو ائٹم</span> @endif
+                        @if($lang === 'bilingual') Dish Name / ڈش کا نام @endif
+                        <span class="badge bg-secondary-subtle text-dark ms-1" style="font-size: 9.5px;">{{ $booking->menuItems->count() }} {{ $booking->menuItems->count() === 1 ? 'Dish' : 'Dishes' }}</span>
+                    </th>
+                    <th style="width: 40%;">
+                        @if($lang === 'english') Serving Notes / Instructions @endif
+                        @if($lang === 'urdu') <span class="urdu-font">خصوصی ہدایت</span> @endif
+                        @if($lang === 'bilingual') Instructions / خصوصی ہدایت @endif
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($booking->menuItems as $index => $item)
+                    @php
+                        $instructionNote = trim($item->pivot->custom_note ?? '');
+                        if (strcasecmp($instructionNote, 'Standard Preparation') === 0) {
+                            $instructionNote = '';
+                        }
+                    @endphp
                     <tr>
-                        <th style="width: 7%;" class="text-center">#</th>
-                        <th style="width: 53%;">
-                            @if($lang === 'english') Dish / Item Name @endif
-                            @if($lang === 'urdu') <span class="urdu-font">ڈش / مینو ائٹم</span> @endif
-                            @if($lang === 'bilingual') Dish Name / ڈش کا نام @endif
-                        </th>
-                        <th style="width: 40%;">
-                            @if($lang === 'english') Serving Notes / Instructions @endif
-                            @if($lang === 'urdu') <span class="urdu-font">خصوصی ہدایت</span> @endif
-                            @if($lang === 'bilingual') Instructions / خصوصی ہدایت @endif
-                        </th>
+                        <td class="text-center fw-bold text-secondary">{{ $index + 1 }}</td>
+                        <td>
+                            @if($lang === 'english')
+                                <span class="dish-name-en">{{ $item->item_name }}</span>
+                            @elseif($lang === 'urdu')
+                                <span class="urdu-font dish-name-ur">{{ $item->urdu_name ?: $item->item_name }}</span>
+                            @else
+                                <span class="dish-name-en">{{ $item->item_name }}</span>
+                                @if(!empty($item->urdu_name))
+                                    <span class="urdu-font dish-name-ur text-secondary">({{ $item->urdu_name }})</span>
+                                @endif
+                            @endif
+                            @if(!empty($item->pivot->managed_by_host))
+                                <span class="badge bg-warning text-dark ms-1" style="font-size: 8.5px;">By Host</span>
+                            @endif
+                        </td>
+                        <td class="instruction-cell">
+                            @if(!empty($instructionNote))
+                                <span>{{ $instructionNote }}</span>
+                            @endif
+                        </td>
                     </tr>
-                </thead>--}}
-                <tbody>
-                    @foreach($deptData['items'] as $index => $item)
-                        @php
-                            $instructionNote = trim($item->pivot->custom_note ?? '');
-                            if (strcasecmp($instructionNote, 'Standard Preparation') === 0) {
-                                $instructionNote = '';
-                            }
-                        @endphp
-                        <tr>
-                            <td class="text-center fw-bold text-secondary">{{ $index + 1 }}</td>
-                            <td>
-                                @if($lang === 'english')
-                                    <span class="dish-name-en">{{ $item->item_name }}</span>
-                                @elseif($lang === 'urdu')
-                                    <span class="urdu-font dish-name-ur">{{ $item->urdu_name ?: $item->item_name }}</span>
-                                @else
-                                    <span class="dish-name-en">{{ $item->item_name }}</span>
-                                    @if(!empty($item->urdu_name))
-                                        <span class="urdu-font dish-name-ur text-secondary">({{ $item->urdu_name }})</span>
-                                    @endif
-                                @endif
-                            </td>
-                            <td class="instruction-cell">
-                                @if(!empty($instructionNote))
-                                    <span>{{ $instructionNote }}</span>
-                                @endif
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @empty
-            <div class="text-center py-3 border rounded text-muted">
-                No finalized menu items attached to this booking.
-            </div>
-        @endforelse
+                @empty
+                    <tr>
+                        <td colspan="3" class="text-center py-3 text-muted">
+                            No finalized menu items attached to this booking.
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
 
         <!-- Special Kitchen Instructions -->
         @if(!empty($booking->kitchen_special_instructions) || !empty($booking->special_instructions))

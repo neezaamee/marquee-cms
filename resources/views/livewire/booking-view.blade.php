@@ -1397,6 +1397,30 @@
                     </div>
                     <div class="modal-body p-3">
                         <div class="mb-3">
+                            <label class="form-label fw-bold text-700 fs-12">Kitchen Slip Format / فارمیٹ کا انتخاب:</label>
+                            <div class="row g-2 fs-12">
+                                <div class="col-6">
+                                    <div class="form-check p-2 ps-4 border rounded h-100 bg-light">
+                                        <input wire:model="kitchenSlipVersion" class="form-check-input" type="radio" name="kitchenSlipVersion" id="slipVerV2" value="v2">
+                                        <label class="form-check-label fw-bold text-primary" for="slipVerV2">
+                                            <i class="fas fa-list-ol me-1"></i> Sequential (No Categories)
+                                            <div class="text-muted fs-11 fw-normal">Matches customer reservation sheet order without dish category groupings.</div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check p-2 ps-4 border rounded h-100">
+                                        <input wire:model="kitchenSlipVersion" class="form-check-input" type="radio" name="kitchenSlipVersion" id="slipVerV1" value="v1">
+                                        <label class="form-check-label fw-bold text-dark" for="slipVerV1">
+                                            <i class="fas fa-layer-group me-1"></i> Categorized (By Dept)
+                                            <div class="text-muted fs-11 fw-normal">Grouped into department sections (Pakistani, BBQ, Tandoor, etc.).</div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label fw-bold text-700 fs-12">Select Print Language Mode / زبان کا انتخاب:</label>
                             <div class="d-flex flex-column gap-2 fs-12">
                                 <div class="form-check p-2 ps-4 border rounded bg-light">

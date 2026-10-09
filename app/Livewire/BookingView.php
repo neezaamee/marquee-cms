@@ -69,6 +69,7 @@ class BookingView extends Component
     public $showKitchenSlipModal = false;
     public $kitchenLang = 'bilingual';
     public $kitchenInstructions = '';
+    public $kitchenSlipVersion = 'v2';
 
     // Vendor Service Sale Modal State (Create)
     public $showVendorSaleModal = false;
@@ -1295,7 +1296,9 @@ class BookingView extends Component
         ]);
 
         $this->showKitchenSlipModal = false;
-        $url = route('bookings.kitchen-slip', [
+        $routeName = ($this->kitchenSlipVersion === 'v1') ? 'bookings.kitchen-slip' : 'bookings.kitchen-slip-v2';
+
+        $url = route($routeName, [
             'booking' => $this->booking->id,
             'lang' => $this->kitchenLang,
             'kitchen_special_instructions' => $this->kitchenInstructions

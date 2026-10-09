@@ -628,8 +628,11 @@
                                                     <a class="dropdown-item" href="{{ route('bookings.slip', $booking->id) }}" target="_blank">
                                                         <span class="text-success fas fa-print me-2"></span>Print Booking Slip
                                                     </a>
+                                                    <a class="dropdown-item" href="{{ route('bookings.kitchen-slip-v2', ['booking' => $booking->id, 'lang' => 'bilingual']) }}" target="_blank">
+                                                        <span class="text-primary fas fa-list-ol me-2"></span>Kitchen Slip (Sequential)
+                                                    </a>
                                                     <a class="dropdown-item" href="{{ route('bookings.kitchen-slip', ['booking' => $booking->id, 'lang' => 'bilingual']) }}" target="_blank">
-                                                        <span class="text-warning fas fa-utensils me-2"></span>Kitchen Slip
+                                                        <span class="text-warning fas fa-utensils me-2"></span>Kitchen Slip (Categorized)
                                                     </a>
 
                                                     @if(!$booking->trashed() && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('edit_bookings')))

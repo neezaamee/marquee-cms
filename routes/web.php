@@ -109,6 +109,7 @@ Route::middleware(['auth', 'user.active'])->group(function () {
             Route::get('bookings/{booking}/final-bill-v2', [BookingController::class, 'finalBillV2'])->name('bookings.final-bill-v2')->withTrashed();
             Route::get('bookings/{booking}/final-bill', [BookingController::class, 'finalBillV2'])->name('bookings.final-bill')->withTrashed();
             Route::get('bookings/{booking}/kitchen-slip', [BookingController::class, 'kitchenSlip'])->name('bookings.kitchen-slip')->withTrashed();
+            Route::get('bookings/{booking}/kitchen-slip-v2', [BookingController::class, 'kitchenSlipV2'])->name('bookings.kitchen-slip-v2')->withTrashed();
             Route::get('bookings/{booking}/pdf', [BookingController::class, 'downloadPdf'])->name('bookings.pdf')->withTrashed();
             Route::get('bookings/payments/{payment}/receipt', [BookingController::class, 'paymentReceipt'])->name('bookings.payment-receipt');
             Route::resource('bookings', BookingController::class)->withTrashed();

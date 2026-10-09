@@ -209,6 +209,10 @@ class BookingController extends Controller
     {
         abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this kitchen slip.');
 
+        if ($request->input('version') === 'v2' || $request->input('layout') === 'sequential') {
+            return $this->kitchenSlipV2($request, $booking);
+        }
+
         // Language selection (bilingual, english, urdu)
         $lang = $request->input('lang', 'bilingual');
         if (!in_array($lang, ['bilingual', 'english', 'urdu'])) {
@@ -307,6 +311,74 @@ class BookingController extends Controller
         return view('bookings.kitchen_slip', compact(
             'booking',
             'groupedMenuItems',
+            'lang',
+            'paper',
+            'marquee',
+            'branch'
+        ));
+    }
+
+    /**
+     * Renders a printable Kitchen Menu Slip (Version 2 - Sequential / No Categories) layout for a booking.
+     * Retains exact customer reservation sheet sort order without dish categories.
+     */
+    public function kitchenSlipV2(Request $request, Booking $booking)
+    {
+        abort_unless(auth()->user()->can('view', $booking), 403, 'Unauthorized access to this kitchen slip.');
+
+        // Language selection (bilingual, english, urdu)
+        $lang = $request->input('lang', 'bilingual');
+        if (!in_array($lang, ['bilingual', 'english', 'urdu'])) {
+            $lang = 'bilingual';
+        }
+
+        // Paper size selection (a5, a4) - defaults to a5 for single-page 20-dish kitchen slip
+        $paper = $request->input('paper', 'a5');
+        if (!in_array($paper, ['a5', 'a4'])) {
+            $paper = 'a5';
+        }
+
+        // Update special kitchen instructions if provided
+        if ($request->filled('kitchen_special_instructions')) {
+            $booking->kitchen_special_instructions = $request->input('kitchen_special_instructions');
+        }
+
+        // Eager load menu items & relations (menuItems ordered by pivot sort_order, then id)
+        $booking->load([
+            'menuItems',
+            'halls',
+            'hall.branch',
+            'customer',
+            'eventType',
+            'slot',
+            'package',
+            'kitchenPrintLogs.printer'
+        ]);
+
+        // Calculate menu hash and manage versioning
+        $currentHash = $booking->computeMenuHash();
+        if (empty($booking->kitchen_printed_at) || $booking->kitchen_menu_hash !== $currentHash) {
+            $booking->kitchen_print_version = ($booking->kitchen_print_version ?? 0) + 1;
+            $booking->kitchen_printed_at = now();
+            $booking->kitchen_menu_hash = $currentHash;
+            $booking->save();
+        }
+
+        // Audit log print history
+        \App\Models\KitchenPrintLog::create([
+            'booking_id' => $booking->id,
+            'marquee_id' => $booking->marquee_id,
+            'printed_by' => auth()->id(),
+            'language' => $lang,
+            'version_number' => $booking->kitchen_print_version,
+            'printed_at' => now(),
+        ]);
+
+        $marquee = $booking->marquee ?? (auth()->user()->marquee ?? null);
+        $branch = $booking->branch ?? ($booking->hall?->branch ?? null);
+
+        return view('bookings.kitchen_slip_v2', compact(
+            'booking',
             'lang',
             'paper',
             'marquee',

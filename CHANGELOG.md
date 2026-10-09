@@ -5,6 +5,22 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.0] - 2026-10-09
+
+### Added
+- **Kitchen Menu Slip V2 (Sequential No-Category Format)**:
+  - Added dedicated route `bookings.kitchen-slip-v2` and controller action `BookingController::kitchenSlipV2()`.
+  - Implemented `kitchen_slip_v2.blade.php` rendering menu items sequentially with continuous 1-to-N numbering matching reservation sheet order while removing dish categories.
+  - Added format switcher ("Sequential (No Categories)" vs "Categorized (By Dept)") in Booking View modal, Booking List actions, and floating slip toolbars.
+  - Retained all existing features: paper size toggles (A4/A5), multi-language modes (`bilingual`, `english`, `urdu`), PWA/offline badge synchronization, and audit logging (`KitchenPrintLog`).
+- **Kitchen Slip Feature Test Suite Expansion**:
+  - Added 4 automated test cases in `tests/Feature/KitchenMenuSlipTest.php` covering V2 rendering without dish departments, reservation sheet sort order preservation, paper sizes/languages/audit logging, and Livewire print modal dispatch.
+
+### Fixed & Calibrated
+- **A5 Paper Print Margin Alignment**:
+  - Calibrated `@page` print margin for A5 format to `0mm 2mm 1.5mm 2mm` (tightened top, right, and left margins).
+  - Normalized horizontal element margins in `.paper-a5` print layout to eliminate misalignment and edge-clipping on physical A5 printers while leaving A4 margins untouched.
+
 ## [1.21.0] - 2026-10-09
 
 ### Added
