@@ -721,6 +721,188 @@ class BookingFinancialService
     }
 
     /**
+     * Process refundable security deposit release or damage deductions.
+     * Generates a balanced Journal Voucher, updates Customer Ledger, and issues a refund BookingPayment if applicable.
+     */
+    public function processSecurityDeposit(Booking $booking, array $params): array
+    {
+        return DB::transaction(function () use ($booking, $params) {
+            $booking = Booking::where('id', $booking->id)->lockForUpdate()->firstOrFail();
+
+            $depositHeld = (float) $booking->security_deposit;
+            if ($depositHeld <= 0) {
+                throw new InvalidArgumentException("No security deposit is defined for Booking #{$booking->booking_number}.");
+            }
+
+            if ($booking->deposit_status !== 'Held') {
+                throw new InvalidArgumentException("Security deposit has already been processed for Booking #{$booking->booking_number}.");
+            }
+
+            $refundAmount = isset($params['refund_amount']) ? floatval($params['refund_amount']) : 0.00;
+            $deductedAmount = isset($params['deducted_amount']) ? floatval($params['deducted_amount']) : 0.00;
+            $notes = $params['notes'] ?? '';
+            $paymentMethod = $params['payment_method'] ?? 'Cash';
+            $recordedBy = $params['recorded_by'] ?? auth()->id();
+            $processDate = $params['process_date'] ?? date('Y-m-d');
+            $marqueeId = $booking->marquee_id ?? (auth()->check() ? auth()->user()->getActiveMarqueeId() : null);
+            $branchId = $booking->branch_id;
+
+            if (abs(($refundAmount + $deductedAmount) - $depositHeld) > 0.01) {
+                throw new InvalidArgumentException("Refund (Rs. {$refundAmount}) + Deducted (Rs. {$deductedAmount}) must equal total deposit held (Rs. {$depositHeld}).");
+            }
+
+            // Accounts
+            $depositLiabilityAccount = $this->resolveCoaAccount($marqueeId, '2003', 'Customer Advances / Contract Liabilities', 'Liability', 'CURRENT_LIABILITIES');
+            $damageIncomeAccount = $this->resolveCoaAccount($marqueeId, '4005', 'Security Deposit Forfeiture & Damage Income', 'Income', 'OPERATING_REVENUE');
+
+            $disbursingAccount = null;
+            if ($refundAmount > 0) {
+                $disbursingAccountId = $params['account_id'] ?? null;
+                if (!$disbursingAccountId) {
+                    $targetCode = (strtolower($paymentMethod) === 'cash') ? '1001' : '1002';
+                    $defaultAcc = $this->resolveCoaAccount($marqueeId, $targetCode, strtolower($paymentMethod) === 'cash' ? 'Cash' : 'Bank', 'Asset', 'CURRENT_ASSETS');
+                    $disbursingAccountId = $defaultAcc->id;
+                }
+                $disbursingAccount = Account::withoutGlobalScope('tenant')->findOrFail($disbursingAccountId);
+            }
+
+            // Create Double-Entry Journal Voucher
+            $header = [
+                'marquee_id' => $marqueeId,
+                'branch_id' => $branchId,
+                'voucher_date' => $processDate,
+                'reference' => "DEP-BK-{$booking->id}-" . time(),
+                'notes' => "Security deposit release for Booking #{$booking->booking_number}: Refund Rs. " . number_format($refundAmount, 2) . ", Deducted Rs. " . number_format($deductedAmount, 2) . ($notes ? " - {$notes}" : ""),
+                'status' => 'posted',
+            ];
+
+            $items = [];
+
+            // 1. Debit Deposit / Advance Liability (releases liability)
+            $items[] = [
+                'account_id' => $depositLiabilityAccount->id,
+                'debit' => $depositHeld,
+                'credit' => 0.00,
+                'narration' => "Release security deposit liability for Booking #{$booking->booking_number}",
+            ];
+
+            // 2. Credit Disbursing Cash/Bank (if refunded)
+            if ($refundAmount > 0 && $disbursingAccount) {
+                $items[] = [
+                    'account_id' => $disbursingAccount->id,
+                    'debit' => 0.00,
+                    'credit' => $refundAmount,
+                    'narration' => "Security deposit refund disbursed via {$paymentMethod} from {$disbursingAccount->name}",
+                ];
+            }
+
+            // 3. Credit Damage/Forfeiture Income (if deducted)
+            if ($deductedAmount > 0) {
+                $items[] = [
+                    'account_id' => $damageIncomeAccount->id,
+                    'debit' => 0.00,
+                    'credit' => $deductedAmount,
+                    'narration' => "Security deposit deduction/damages retained for Booking #{$booking->booking_number}",
+                ];
+            }
+
+            $jv = $this->accountingService->createJournalVoucher($header, $items);
+
+            // Record refund payment if refund amount > 0
+            $refundPayment = null;
+            if ($refundAmount > 0 && $disbursingAccount) {
+                $paymentNumber = $this->generateNextPaymentNumber($marqueeId);
+                $refundPayment = BookingPayment::create([
+                    'payment_number' => $paymentNumber,
+                    'booking_id' => $booking->id,
+                    'account_id' => $disbursingAccount->id,
+                    'amount' => $refundAmount,
+                    'status' => 'posted',
+                    'payment_date' => $processDate,
+                    'payment_method' => $paymentMethod,
+                    'payment_type' => 'refund',
+                    'transaction_reference' => "DEP-REF-{$booking->id}",
+                    'journal_voucher_id' => $jv->id,
+                    'recorded_by' => $recordedBy,
+                    'posted_by' => $recordedBy,
+                    'posted_at' => Carbon::parse($processDate),
+                    'notes' => "Security deposit refund: {$notes}",
+                ]);
+            }
+
+            // Update Customer Ledger
+            $lastCustomerBalance = (float) CustomerLedger::where('customer_id', $booking->customer_id)
+                ->orderBy('transaction_date', 'desc')
+                ->orderBy('id', 'desc')
+                ->value('running_balance') ?? 0.00;
+
+            if ($refundAmount > 0) {
+                $lastCustomerBalance += $refundAmount;
+                CustomerLedger::create([
+                    'marquee_id' => $marqueeId,
+                    'branch_id' => $branchId,
+                    'customer_id' => $booking->customer_id,
+                    'booking_id' => $booking->id,
+                    'booking_payment_id' => $refundPayment?->id,
+                    'journal_voucher_id' => $jv->id,
+                    'transaction_date' => $processDate,
+                    'transaction_type' => 'refund',
+                    'reference_number' => "DEP-REF-{$booking->id}",
+                    'description' => "Security deposit refund of Rs. " . number_format($refundAmount, 2) . " via {$paymentMethod}" . ($notes ? " ({$notes})" : ""),
+                    'debit' => $refundAmount,
+                    'credit' => 0.00,
+                    'running_balance' => $lastCustomerBalance,
+                    'created_by' => $recordedBy,
+                ]);
+            }
+
+            if ($deductedAmount > 0) {
+                $lastCustomerBalance += $deductedAmount;
+                CustomerLedger::create([
+                    'marquee_id' => $marqueeId,
+                    'branch_id' => $branchId,
+                    'customer_id' => $booking->customer_id,
+                    'booking_id' => $booking->id,
+                    'journal_voucher_id' => $jv->id,
+                    'transaction_date' => $processDate,
+                    'transaction_type' => 'damage_charge',
+                    'reference_number' => "DEP-DED-{$booking->id}",
+                    'description' => "Security deposit deduction/damages retained for Booking #{$booking->booking_number}" . ($notes ? " ({$notes})" : ""),
+                    'debit' => $deductedAmount,
+                    'credit' => 0.00,
+                    'running_balance' => $lastCustomerBalance,
+                    'created_by' => $recordedBy,
+                ]);
+            }
+
+            $status = $deductedAmount > 0 ? 'Deducted' : 'Refunded';
+
+            $booking->updateQuietly([
+                'deposit_status' => $status,
+                'deposit_refunded_amount' => $refundAmount,
+                'deposit_deducted_amount' => $deductedAmount,
+                'deposit_notes' => $notes ?: null,
+            ]);
+
+            BookingHistory::create([
+                'booking_id' => $booking->id,
+                'user_id' => $recordedBy,
+                'status_from' => $booking->booking_status,
+                'status_to' => $booking->booking_status,
+                'notes' => "Security deposit processed: {$status}. Refunded: Rs. " . number_format($refundAmount, 2) . ", Deducted: Rs. " . number_format($deductedAmount, 2) . ". Voucher: {$jv->voucher_no}." . ($notes ? " Notes: {$notes}" : ""),
+            ]);
+
+            $this->recalculateBookingFinancials($booking);
+
+            return [
+                'booking' => $booking,
+                'journal_voucher' => $jv,
+                'refund_payment' => $refundPayment,
+            ];
+        });
+    }
+
+    /**
      * Recalculate and synchronize booking financial totals.
      * Only POSTED payments are credited toward advance_received and total_paid.
      */
@@ -730,7 +912,7 @@ class BookingFinancialService
 
         $totalAdvance = (float) $booking->payments()
             ->where('status', 'posted')
-            ->where('payment_type', 'advance')
+            ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])
             ->sum('amount');
 
         $totalReceivablePayments = (float) $booking->payments()
@@ -784,5 +966,74 @@ class BookingFinancialService
             'payment_status' => $paymentStatus,
             'financial_status' => $financialStatus,
         ]);
+    }
+
+    /**
+     * Synchronize and recalculate booking commercial figures (subtotal, tax, grand_total, vendor charges),
+     * updating both the Booking and any existing BookingFinalBill.
+     */
+    public function syncBookingCommercialTotals(Booking $booking): void
+    {
+        $vendorCharges = (float) $booking->vendorSales()
+            ->whereIn('status', ['confirmed', 'settled'])
+            ->where('include_in_invoice', true)
+            ->sum('sale_amount');
+
+        if ($booking->finalBill) {
+            $fb = $booking->finalBill;
+            $packageAmount = $booking->no_food ? 0.00 : ((int) $fb->guest_count * (float) $fb->per_plate_price);
+            
+            // Marquee event sales subtotal (strictly catering, hall, and extra services minus discount)
+            $eventSubtotal = max(0, $packageAmount + (float) $fb->hall_charges + (float) $fb->extra_charges - (float) $fb->discount_amount);
+            
+            $taxRate = 13.00;
+            if ($eventSubtotal > 0 && (float) $fb->tax_amount > 0) {
+                $taxRate = ((float) $fb->tax_amount / $eventSubtotal) * 100;
+            } elseif ($booking->branch && $booking->branch->tax_rate !== null) {
+                $taxRate = (float) $booking->branch->tax_rate;
+            }
+            
+            // Tax is applied strictly to event catering and hall charges (service providers are non-taxable)
+            $taxAmount = round(($eventSubtotal * $taxRate) / 100, 2);
+            $eventGrandTotal = $eventSubtotal + $taxAmount + (float) $booking->security_deposit;
+
+            $fb->updateQuietly([
+                'package_amount' => $packageAmount,
+                'vendor_charges' => $vendorCharges,
+                'subtotal' => $eventSubtotal,
+                'tax_amount' => $taxAmount,
+                'grand_total' => $eventGrandTotal,
+            ]);
+
+            $booking->updateQuietly([
+                'package_amount' => $packageAmount,
+                'subtotal' => $eventSubtotal,
+                'tax_amount' => $taxAmount,
+                'grand_total' => $eventGrandTotal,
+            ]);
+        } else {
+            $packageAmount = $booking->no_food ? 0.00 : ((int) $booking->guest_count * (float) $booking->per_plate_price);
+            $eventSubtotal = max(0, $packageAmount + (float) $booking->hall_charges + (float) $booking->extra_charges - (float) $booking->discount_amount);
+            
+            $taxRate = 13.00;
+            if ($eventSubtotal > 0 && (float) $booking->tax_amount > 0) {
+                $taxRate = ((float) $booking->tax_amount / $eventSubtotal) * 100;
+            } elseif ($booking->branch && $booking->branch->tax_rate !== null) {
+                $taxRate = (float) $booking->branch->tax_rate;
+            }
+
+            // Tax is applied strictly to event catering and hall charges (service providers are non-taxable)
+            $taxAmount = round(($eventSubtotal * $taxRate) / 100, 2);
+            $eventGrandTotal = $eventSubtotal + $taxAmount + (float) $booking->security_deposit;
+
+            $booking->updateQuietly([
+                'package_amount' => $packageAmount,
+                'subtotal' => $eventSubtotal,
+                'tax_amount' => $taxAmount,
+                'grand_total' => $eventGrandTotal,
+            ]);
+        }
+
+        $this->recalculateBookingFinancials($booking);
     }
 }

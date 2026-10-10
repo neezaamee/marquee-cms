@@ -379,6 +379,17 @@
                                 {{ number_format($billing->tax_amount, 2) }}
                             </td>
                         </tr>
+                        @php
+                            $invoicedVendorTotal = (float) $vendorSalesList->sum('sale_amount');
+                        @endphp
+                        @if($invoicedVendorTotal > 0)
+                            <tr>
+                                <th class="text-700 px-0">Service Providers (Facilitated):</th>
+                                <td class="fw-semi-bold font-monospace px-0 text-dark">
+                                    Rs. {{ number_format($invoicedVendorTotal, 2) }}
+                                </td>
+                            </tr>
+                        @endif
                         @if($booking->security_deposit > 0)
                             <tr class="text-info">
                                 <th class="px-0">Refundable Security Deposit:</th>

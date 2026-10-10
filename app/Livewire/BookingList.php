@@ -345,26 +345,40 @@ class BookingList extends Component
         $thisMonthCount = (clone $activeQuery)->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->count();
         $pendingApprovalsCount = (clone $metricsQuery)->whereIn('booking_status', ['Draft', 'Pending'])->count();
 
+        $paymentsSubqueries = [
+            'payments as posted_received' => function ($q) {
+                $q->where('status', 'posted')
+                  ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit']);
+            },
+            'payments as posted_refunds' => function ($q) {
+                $q->where('status', 'posted')
+                  ->where('payment_type', 'refund');
+            }
+        ];
+
         // Dynamic Payment Outstanding query (strictly for active non-cancelled/non-rejected bookings)
         $outstandingQuery = (clone $activeQuery)
-            ->withSum('payments as paid_amount', 'amount');
+            ->with(['finalBill'])
+            ->withSum($paymentsSubqueries, 'amount');
         
         $allBookingsForFinances = $outstandingQuery->get();
         $outstandingPaymentsCount = $allBookingsForFinances->filter(function($b) {
-            $received = $b->paid_amount ?? 0.00;
-            return ($b->grand_total - $received) > 0.01;
+            $received = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
+            $grandTotal = $b->finalBill ? $b->finalBill->grand_total : $b->grand_total;
+            return ($grandTotal - $received) > 0.01;
         })->count();
 
         $outstandingAmountSum = $allBookingsForFinances->sum(function($b) {
-            $received = $b->paid_amount ?? 0.00;
-            return max(0.00, $b->grand_total - $received);
+            $received = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
+            $grandTotal = $b->finalBill ? $b->finalBill->grand_total : $b->grand_total;
+            return max(0.00, $grandTotal - $received);
         });
 
         // ----------------------------------------------------
         // Main Filtered Table Query
         // ----------------------------------------------------
         $query = Booking::withTrashed()->with(['customer', 'hall', 'hall.branch', 'halls', 'slot', 'package', 'payments', 'eventType', 'creator', 'finalBill'])
-            ->withSum('payments as paid_amount', 'amount')
+            ->withSum($paymentsSubqueries, 'amount')
             ->where('marquee_id', $marqueeId);
 
         // Apply Search
@@ -723,8 +737,19 @@ class BookingList extends Component
     {
         $marqueeId = auth()->user()->getActiveMarqueeId();
 
+        $paymentsSubqueries = [
+            'payments as posted_received' => function ($q) {
+                $q->where('status', 'posted')
+                  ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit']);
+            },
+            'payments as posted_refunds' => function ($q) {
+                $q->where('status', 'posted')
+                  ->where('payment_type', 'refund');
+            }
+        ];
+
         $query = Booking::withTrashed()->with(['customer', 'hall', 'hall.branch', 'halls', 'slot', 'package', 'payments', 'eventType', 'creator', 'finalBill'])
-            ->withSum('payments as paid_amount', 'amount')
+            ->withSum($paymentsSubqueries, 'amount')
             ->where('marquee_id', $marqueeId);
 
         if (!empty($this->search)) {
@@ -808,8 +833,10 @@ class BookingList extends Component
             ]);
 
             foreach ($bookings as $b) {
-                $received = $b->paid_amount ?? 0.00;
-                $balance = max(0.00, $b->grand_total - $received);
+                $received = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
+                $effectiveGrandTotal = $b->finalBill ? $b->finalBill->grand_total : $b->grand_total;
+                $effectivePerPlate = $b->finalBill ? $b->finalBill->per_plate_price : $b->per_plate_price;
+                $balance = max(0.00, $effectiveGrandTotal - $received);
 
                 fputcsv($file, [
                     $b->booking_number,
@@ -822,8 +849,8 @@ class BookingList extends Component
                     $b->tentative_guests ?? $b->guest_count,
                     $b->confirmed_guests ?? '—',
                     $b->effective_guest_count,
-                    $b->per_plate_price,
-                    $b->grand_total,
+                    $effectivePerPlate,
+                    $effectiveGrandTotal,
                     $received,
                     $balance,
                     $b->booking_status,

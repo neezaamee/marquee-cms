@@ -111,6 +111,9 @@ class Booking extends Model
      */
     public function getEffectiveGuestCountAttribute(): int
     {
+        if ($this->finalBill) {
+            return (int) $this->finalBill->guest_count;
+        }
         return $this->confirmed_guests ?? $this->tentative_guests ?? $this->guest_count ?? 0;
     }
 
@@ -328,7 +331,16 @@ class Booking extends Model
      */
     public function getEffectiveInvoiceAmountAttribute(): float
     {
-        return (float) ($this->finalBill ? $this->finalBill->grand_total : $this->grand_total);
+        $eventGrandTotal = (float) ($this->finalBill ? $this->finalBill->grand_total : $this->grand_total);
+        $vendorCharges = (float) ($this->finalBill && $this->finalBill->vendor_charges !== null 
+            ? $this->finalBill->vendor_charges 
+            : ($this->relationLoaded('vendorSales') 
+                ? $this->vendorSales->where('include_in_invoice', true)->whereIn('status', ['confirmed', 'settled'])->sum('sale_amount') 
+                : $this->vendorSales()->whereIn('status', ['confirmed', 'settled'])->where('include_in_invoice', true)->sum('sale_amount')
+            )
+        );
+
+        return $eventGrandTotal + $vendorCharges;
     }
 
     /**

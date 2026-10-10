@@ -114,31 +114,31 @@
             background-color: #f8fafc;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
-            padding: 10px 14px;
-            margin-bottom: 12px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
         }
 
         .info-label {
-            font-size: 9.5px;
+            font-size: 12.5px;
             text-transform: uppercase;
             color: #64748b;
             font-weight: 700;
             letter-spacing: 0.3px;
-            line-height: 1.1;
-            margin-bottom: 3px;
+            line-height: 1.25;
+            margin-bottom: 4px;
         }
 
         .info-value {
-            font-size: 12.5px;
-            font-weight: 700;
+            font-size: 16.5px;
+            font-weight: 800;
             color: #0f172a;
-            line-height: 1.25;
+            line-height: 1.35;
         }
 
         .table-kitchen {
             border: 1px solid #cbd5e1;
             margin-bottom: 0;
-            font-size: 12px;
+            font-size: 15px;
         }
 
         .table-kitchen th {
@@ -146,27 +146,27 @@
             color: #1e293b;
             font-weight: 700;
             border-bottom: 2px solid #94a3b8;
-            padding: 6px 8px !important;
-            font-size: 11.5px;
-            line-height: 1.2;
-        }
-
-        .table-kitchen td {
-            padding: 5px 8px !important;
-            font-size: 12px;
-            border-color: #e2e8f0;
+            padding: 10px 12px !important;
+            font-size: 13.5px;
             line-height: 1.25;
         }
 
+        .table-kitchen td {
+            padding: 12px 12px !important;
+            font-size: 15px;
+            border-color: #e2e8f0;
+            line-height: 1.45;
+        }
+
         .dish-name-en {
-            font-size: 12.5px;
+            font-size: 16.5px;
             font-weight: 700;
             color: #0f172a;
             display: inline-block;
         }
 
         .dish-name-ur {
-            font-size: 12.5px;
+            font-size: 17px;
             font-weight: 700;
             color: #334155;
             display: inline-block;
@@ -174,10 +174,10 @@
         }
 
         .instruction-cell {
-            font-size: 11.5px;
+            font-size: 14px;
             font-weight: 600;
             color: #1e293b;
-            line-height: 1.2;
+            line-height: 1.3;
         }
 
         .instructions-box {
@@ -277,10 +277,10 @@
             }
 
             .slip-container.paper-a5 .info-card {
-                padding: 2px 5px !important;
+                padding: 4px 7px !important;
                 margin-left: 0 !important;
                 margin-right: 0 !important;
-                margin-bottom: 3px !important;
+                margin-bottom: 5px !important;
                 background-color: #f8fafc !important;
                 border: 1px solid #000000 !important;
                 -webkit-print-color-adjust: exact;
@@ -293,15 +293,16 @@
             }
 
             .slip-container.paper-a5 .info-label {
-                font-size: 7.5px !important;
-                line-height: 1 !important;
-                margin-bottom: 1px !important;
+                font-size: 10px !important;
+                line-height: 1.15 !important;
+                margin-bottom: 2px !important;
                 color: #000000 !important;
             }
 
             .slip-container.paper-a5 .info-value {
-                font-size: 10px !important;
-                line-height: 1 !important;
+                font-size: 13.5px !important;
+                font-weight: 800 !important;
+                line-height: 1.2 !important;
                 color: #000000 !important;
             }
 
@@ -323,46 +324,46 @@
                 color: #000000 !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
-                padding: 2px 4px !important;
-                font-size: 9px !important;
-                line-height: 1.1 !important;
+                padding: 4px 6px !important;
+                font-size: 11px !important;
+                line-height: 1.2 !important;
                 border: 1px solid #000000 !important;
             }
 
             .slip-container.paper-a5 .table-kitchen td {
-                padding: 2px 4px !important;
-                font-size: 9.5px !important;
+                padding: 6px 7px !important;
+                font-size: 12px !important;
                 color: #000000 !important;
-                line-height: 1.15 !important;
+                line-height: 1.35 !important;
                 border: 1px solid #cbd5e1 !important;
             }
 
             .slip-container.paper-a5 .dish-name-en {
-                font-size: 10px !important;
+                font-size: 13.5px !important;
                 font-weight: 700 !important;
                 color: #000000 !important;
             }
 
             .slip-container.paper-a5 .dish-name-ur {
-                font-size: 10.5px !important;
+                font-size: 14px !important;
                 font-weight: 700 !important;
                 color: #000000 !important;
             }
 
             .slip-container.paper-a5 .instruction-cell {
-                font-size: 9px !important;
+                font-size: 11.5px !important;
                 font-weight: 600 !important;
                 color: #000000 !important;
             }
 
             .slip-container.paper-a5 .instructions-box {
-                padding: 2px 5px !important;
+                padding: 3px 6px !important;
                 margin-left: 0 !important;
                 margin-right: 0 !important;
                 margin-top: 3px !important;
                 border: 1px dashed #000000 !important;
-                font-size: 9px !important;
-                line-height: 1.2 !important;
+                font-size: 10px !important;
+                line-height: 1.25 !important;
             }
 
             .slip-container.paper-a5 .print-footer {
@@ -370,15 +371,15 @@
                 margin-right: 0 !important;
                 margin-top: 3px !important;
                 padding-top: 2px !important;
-                font-size: 8px !important;
+                font-size: 8.5px !important;
                 line-height: 1.15 !important;
                 border-top: 1px solid #000000 !important;
             }
 
             /* A4 Print Overrides */
             .slip-container.paper-a4 {
-                font-size: 11.5px !important;
-                line-height: 1.3 !important;
+                font-size: 13px !important;
+                line-height: 1.4 !important;
             }
 
             .slip-container.paper-a4 .header-border {
@@ -407,6 +408,19 @@
                 font-size: 12px !important;
             }
 
+            .slip-container.paper-a4 .info-label {
+                font-size: 12px !important;
+                line-height: 1.2 !important;
+                color: #000000 !important;
+            }
+
+            .slip-container.paper-a4 .info-value {
+                font-size: 16px !important;
+                font-weight: 800 !important;
+                line-height: 1.3 !important;
+                color: #000000 !important;
+            }
+
             .slip-container.paper-a4 .table-kitchen tr {
                 page-break-inside: avoid !important;
             }
@@ -416,16 +430,35 @@
                 color: #000000 !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
-                padding: 4px 6px !important;
-                font-size: 11px !important;
+                padding: 8px 10px !important;
+                font-size: 13.5px !important;
                 border: 1px solid #000000 !important;
             }
 
             .slip-container.paper-a4 .table-kitchen td {
-                padding: 4px 6px !important;
-                font-size: 11.5px !important;
+                padding: 10px 10px !important;
+                font-size: 15px !important;
                 color: #000000 !important;
+                line-height: 1.45 !important;
                 border: 1px solid #cbd5e1 !important;
+            }
+
+            .slip-container.paper-a4 .dish-name-en {
+                font-size: 16px !important;
+                font-weight: 700 !important;
+                color: #000000 !important;
+            }
+
+            .slip-container.paper-a4 .dish-name-ur {
+                font-size: 16.5px !important;
+                font-weight: 700 !important;
+                color: #000000 !important;
+            }
+
+            .slip-container.paper-a4 .instruction-cell {
+                font-size: 13.5px !important;
+                font-weight: 600 !important;
+                color: #000000 !important;
             }
         }
     </style>
@@ -572,7 +605,7 @@
                             {{ $booking->hall->hall_name ?? 'Main Hall' }}
                         @endif
                         @if($branch)
-                            <span class="text-muted fw-normal" style="font-size: 10px;">({{ $branch->name }})</span>
+                            <span class="text-muted fw-normal" style="font-size: 12.5px;">({{ $branch->name }})</span>
                         @endif
                     </div>
                 </div>

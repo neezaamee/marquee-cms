@@ -180,7 +180,9 @@ class BusinessOwnerDashboard extends Component
         $totalGuests = (int) (clone $bookingQuery)
             ->whereBetween('booking_date', [$startDateStr, $endDateStr])
             ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
-            ->sum('guest_count');
+            ->leftJoin('booking_final_bills', 'bookings.id', '=', 'booking_final_bills.booking_id')
+            ->selectRaw('COALESCE(SUM(COALESCE(booking_final_bills.guest_count, bookings.guest_count)), 0) as total_guests')
+            ->value('total_guests');
 
         $totalBookingsPeriod = (clone $bookingQuery)
             ->whereBetween('booking_date', [$startDateStr, $endDateStr])
@@ -236,11 +238,13 @@ class BusinessOwnerDashboard extends Component
         $payableVendors = collect();
 
         if ($canViewFinancials) {
-            // Total Booked Sales in Period
+            // Total Booked Sales in Period (prioritizing finalized actual billing if final bill is prepared)
             $totalSales = (float) (clone $bookingQuery)
                 ->whereBetween('booking_date', [$startDateStr, $endDateStr])
                 ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
-                ->sum('grand_total');
+                ->leftJoin('booking_final_bills', 'bookings.id', '=', 'booking_final_bills.booking_id')
+                ->selectRaw('COALESCE(SUM(COALESCE(booking_final_bills.grand_total, bookings.grand_total)), 0) as total_sales')
+                ->value('total_sales');
 
             // Total Purchases in Period
             $purchaseQuery = PurchaseInvoice::where('marquee_id', $marqueeId)
@@ -482,6 +486,7 @@ class BusinessOwnerDashboard extends Component
         // Event Type Analytics Breakdown
         $eventTypeBreakdown = DB::table('bookings')
             ->join('event_types', 'event_types.id', '=', 'bookings.event_type_id')
+            ->leftJoin('booking_final_bills', 'bookings.id', '=', 'booking_final_bills.booking_id')
             ->where('bookings.marquee_id', $marqueeId)
             ->whereBetween('bookings.booking_date', [$startDateStr, $endDateStr])
             ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
@@ -490,8 +495,8 @@ class BusinessOwnerDashboard extends Component
                 'event_types.id',
                 'event_types.event_type_name',
                 DB::raw('COUNT(bookings.id) as booking_count'),
-                DB::raw('SUM(bookings.guest_count) as total_guests'),
-                DB::raw('SUM(bookings.grand_total) as total_revenue')
+                DB::raw('SUM(COALESCE(booking_final_bills.guest_count, bookings.guest_count)) as total_guests'),
+                DB::raw('SUM(COALESCE(booking_final_bills.grand_total, bookings.grand_total)) as total_revenue')
             )
             ->groupBy('event_types.id', 'event_types.event_type_name')
             ->orderByDesc('total_revenue')
@@ -501,6 +506,7 @@ class BusinessOwnerDashboard extends Component
         // Hall Venue Distribution
         $hallBreakdown = DB::table('bookings')
             ->leftJoin('halls', 'halls.id', '=', 'bookings.hall_id')
+            ->leftJoin('booking_final_bills', 'bookings.id', '=', 'booking_final_bills.booking_id')
             ->where('bookings.marquee_id', $marqueeId)
             ->whereBetween('bookings.booking_date', [$startDateStr, $endDateStr])
             ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
@@ -508,8 +514,8 @@ class BusinessOwnerDashboard extends Component
             ->select(
                 DB::raw("COALESCE(halls.hall_name, 'Main Hall') as hall_name"),
                 DB::raw('COUNT(bookings.id) as booking_count'),
-                DB::raw('SUM(bookings.guest_count) as total_guests'),
-                DB::raw('SUM(bookings.grand_total) as total_revenue')
+                DB::raw('SUM(COALESCE(booking_final_bills.guest_count, bookings.guest_count)) as total_guests'),
+                DB::raw('SUM(COALESCE(booking_final_bills.grand_total, bookings.grand_total)) as total_revenue')
             )
             ->groupBy(DB::raw("COALESCE(halls.hall_name, 'Main Hall')"))
             ->orderByDesc('total_revenue')
@@ -519,6 +525,7 @@ class BusinessOwnerDashboard extends Component
         // Shift Slot Utilization
         $slotBreakdown = DB::table('bookings')
             ->leftJoin('slots', 'slots.id', '=', 'bookings.slot_id')
+            ->leftJoin('booking_final_bills', 'bookings.id', '=', 'booking_final_bills.booking_id')
             ->where('bookings.marquee_id', $marqueeId)
             ->whereBetween('bookings.booking_date', [$startDateStr, $endDateStr])
             ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
@@ -526,8 +533,8 @@ class BusinessOwnerDashboard extends Component
             ->select(
                 DB::raw("COALESCE(slots.slot_name, 'Standard Shift') as slot_name"),
                 DB::raw('COUNT(bookings.id) as booking_count'),
-                DB::raw('SUM(bookings.guest_count) as total_guests'),
-                DB::raw('SUM(bookings.grand_total) as total_revenue')
+                DB::raw('SUM(COALESCE(booking_final_bills.guest_count, bookings.guest_count)) as total_guests'),
+                DB::raw('SUM(COALESCE(booking_final_bills.grand_total, bookings.grand_total)) as total_revenue')
             )
             ->groupBy(DB::raw("COALESCE(slots.slot_name, 'Standard Shift')"))
             ->orderByDesc('booking_count')
@@ -544,7 +551,9 @@ class BusinessOwnerDashboard extends Component
                 ->whereBetween('booking_date', [$mStart, $mEnd])
                 ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
                 ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
-                ->sum('grand_total');
+                ->leftJoin('booking_final_bills', 'bookings.id', '=', 'booking_final_bills.booking_id')
+                ->selectRaw('COALESCE(SUM(COALESCE(booking_final_bills.grand_total, bookings.grand_total)), 0) as total')
+                ->value('total');
 
             $mRealized = (float) Booking::where('marquee_id', $marqueeId)
                 ->where('is_revenue_recognized', true)

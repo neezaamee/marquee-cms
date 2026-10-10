@@ -544,14 +544,14 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label font-sans-serif fw-bold text-700" for="paymentStatus">Payment Status *</label>
-                        <select wire:model="paymentStatus" class="form-select" id="paymentStatus">
-                            <option value="Unpaid">Unpaid</option>
-                            <option value="Partially Paid">Partially Paid</option>
-                            <option value="Paid">Paid</option>
-                            <option value="Refunded">Refunded</option>
-                        </select>
-                        @error('paymentStatus') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+                        <label class="form-label font-sans-serif fw-bold text-700">Payment Status</label>
+                        <div class="form-control bg-light d-flex align-items-center justify-content-between">
+                            <span class="badge badge-subtle-{{ match($booking->payment_status) { 'Paid' => 'success', 'Partially Paid' => 'warning', 'Refunded' => 'secondary', default => 'danger' } }} fs-11">
+                                {{ $booking->payment_status ?? 'Unpaid' }}
+                            </span>
+                            <small class="text-muted fs-11"><span class="fas fa-lock me-1"></span>Ledger-managed</small>
+                        </div>
+                        <div class="text-muted fs-11 mt-1">Reconciles automatically with verified payment receipts.</div>
                     </div>
 
                     <div class="col-12">

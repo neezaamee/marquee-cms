@@ -426,8 +426,18 @@
                     <tbody>
                         @forelse($bookings as $booking)
                             @php
-                                $received = $booking->paid_amount ?? 0.00;
-                                $balance = max(0.00, $booking->grand_total - $received);
+                                $received = max(0.00, floatval($booking->posted_received ?? $booking->total_paid) - floatval($booking->posted_refunds ?? 0));
+                                $effectiveEventSales = (float) ($booking->finalBill ? $booking->finalBill->grand_total : $booking->grand_total);
+                                $invoicedVendorTotal = (float) ($booking->finalBill && $booking->finalBill->vendor_charges !== null 
+                                    ? $booking->finalBill->vendor_charges 
+                                    : ($booking->relationLoaded('vendorSales') 
+                                        ? $booking->vendorSales->where('include_in_invoice', true)->whereIn('status', ['confirmed', 'settled'])->sum('sale_amount') 
+                                        : 0
+                                    )
+                                );
+                                $effectiveTotalInvoice = $effectiveEventSales + $invoicedVendorTotal;
+                                $effectivePerPlate = $booking->finalBill ? $booking->finalBill->per_plate_price : $booking->per_plate_price;
+                                $balance = max(0.00, $effectiveTotalInvoice - $received);
                                 $isToday = $booking->booking_date->isToday();
                                 $isCancelledOrRejected = in_array($booking->booking_status, ['Cancelled', 'Rejected']) || $booking->trashed();
                             @endphp
@@ -505,26 +515,35 @@
                                     <div class="fw-bold font-monospace fs-10 {{ $isCancelledOrRejected ? 'text-muted text-decoration-line-through' : 'text-800' }}">
                                         {{ number_format($booking->effective_guest_count) }} Guests
                                     </div>
-                                    <div class="mt-1">
-                                        @if($booking->is_guest_confirmed)
+                                    <div class="mt-1 d-flex flex-wrap gap-1 align-items-center">
+                                        @if($booking->finalBill)
+                                            <span class="badge bg-primary-subtle text-primary fs-12"><span class="fas fa-file-invoice-dollar me-1"></span>Finalized</span>
+                                        @elseif($booking->is_guest_confirmed)
                                             <span class="badge bg-success-subtle text-success fs-12"><span class="fas fa-check-circle me-1"></span>Confirmed</span>
                                         @else
                                             <span class="badge bg-warning-subtle text-warning fs-12"><span class="fas fa-clock me-1"></span>Tentative</span>
                                         @endif
                                     </div>
                                     <div class="text-muted fs-12 mt-1">
-                                        Est: {{ number_format($booking->tentative_guests ?? $booking->guest_count) }}
-                                        @if($booking->confirmed_guests)
-                                            | Conf: {{ number_format($booking->confirmed_guests) }}
+                                        @if($booking->finalBill)
+                                            Final: {{ number_format($booking->finalBill->guest_count) }}
+                                            @if($booking->tentative_guests && $booking->tentative_guests != $booking->finalBill->guest_count)
+                                                <span class="text-secondary">(Orig: {{ number_format($booking->tentative_guests) }})</span>
+                                            @endif
+                                        @else
+                                            Est: {{ number_format($booking->tentative_guests ?? $booking->guest_count) }}
+                                            @if($booking->confirmed_guests)
+                                                | Conf: {{ number_format($booking->confirmed_guests) }}
+                                            @endif
                                         @endif
                                     </div>
                                 </td>
 
                                 <!-- Per Head Price -->
                                 <td>
-                                    @if($booking->per_plate_price && $booking->per_plate_price > 0)
+                                    @if($effectivePerPlate && $effectivePerPlate > 0)
                                         <div class="fw-bold font-monospace fs-10 text-800">
-                                            Rs. {{ number_format($booking->per_plate_price, 0) }}
+                                            Rs. {{ number_format($effectivePerPlate, 0) }}
                                         </div>
                                     @elseif($booking->no_food)
                                         <span class="badge bg-secondary-subtle text-secondary fs-12">Rent Only</span>
@@ -568,7 +587,17 @@
 
                                 <!-- Payment & Balance -->
                                 <td>
-                                    <div class="font-monospace fw-bold {{ $isCancelledOrRejected ? 'text-muted text-decoration-line-through' : 'text-800' }}">Rs. {{ number_format($booking->grand_total, 0) }}</div>
+                                    <div class="font-monospace fw-bold {{ $isCancelledOrRejected ? 'text-muted text-decoration-line-through' : 'text-800' }}">
+                                        Rs. {{ number_format($effectiveEventSales, 0) }}
+                                        @if($booking->finalBill)
+                                            <span class="badge bg-primary-subtle text-primary fs-12 ms-1" title="Finalized Event Sales">Final</span>
+                                        @endif
+                                    </div>
+                                    @if($invoicedVendorTotal > 0)
+                                        <div class="fs-11 text-muted font-monospace" title="Service Provider charges billed for collection">
+                                            + Rs. {{ number_format($invoicedVendorTotal, 0) }} <span class="badge bg-secondary-subtle text-secondary fs-12">Services</span>
+                                        </div>
+                                    @endif
                                     <div class="fs-11 font-monospace text-success">Paid: Rs. {{ number_format($received, 0) }}</div>
                                     <div class="fs-11 font-monospace fw-bold text-{{ $balance > 0 ? 'danger' : 'success' }}">
                                         Bal: Rs. {{ number_format($balance, 0) }}

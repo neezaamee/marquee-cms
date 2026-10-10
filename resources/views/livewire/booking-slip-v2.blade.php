@@ -191,6 +191,27 @@
                 </ul>
             </div>
         @endif
+
+        @php
+            $slipVendorSales = $booking->vendorSales ? $booking->vendorSales->whereIn('status', ['confirmed', 'settled']) : collect();
+        @endphp
+        @if($slipVendorSales->isNotEmpty())
+            <div class="mb-2" id="vendor-services-block">
+                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Service Providers & External Services</span>
+                <ul class="ps-3 mb-0 fs-12 text-800">
+                    @foreach($slipVendorSales as $vs)
+                        <li class="mb-1">
+                            <span class="fw-bold">{{ $vs->service->service_name ?? 'Service' }}</span>
+                            <span class="text-muted">({{ $vs->vendor->name ?? 'Provider' }} - Rs. {{ number_format($vs->sale_amount) }})</span>
+                            @if(!$vs->include_in_invoice)
+                                <span class="badge badge-subtle-warning fs-10 ms-1 d-print-none">Direct Client Payment</span>
+                                <span class="text-danger fw-bold fs-10 ms-1 d-none d-print-inline-block">(Direct Pay)</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
             <div id="instructions-block">
                 <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Special Setup / Instructions</span>
                 <div class="mb-2 fs-12 text-800">

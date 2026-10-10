@@ -251,6 +251,11 @@ class VendorCommissionService
             // 5. Post Financial Journal Voucher to Accounting Module for the sale
             $this->postVendorSaleToAccounting($sale);
 
+            // 6. Synchronize booking commercial totals if attached to a booking
+            if ($sale->booking_id && $sale->booking) {
+                app(\App\Services\BookingFinancialService::class)->syncBookingCommercialTotals($sale->booking);
+            }
+
             return $sale;
         });
     }
@@ -326,6 +331,11 @@ class VendorCommissionService
                 ]);
             }
 
+            // Synchronize booking commercial totals if attached to a booking
+            if ($sale->booking_id && $sale->booking) {
+                app(\App\Services\BookingFinancialService::class)->syncBookingCommercialTotals($sale->booking);
+            }
+
             return $sale;
         });
     }
@@ -372,6 +382,11 @@ class VendorCommissionService
                 ]);
             }
 
+            // Synchronize booking commercial totals if attached to a booking
+            if ($sale->booking_id && $sale->booking) {
+                app(\App\Services\BookingFinancialService::class)->syncBookingCommercialTotals($sale->booking);
+            }
+
             return true;
         });
     }
@@ -389,11 +404,17 @@ class VendorCommissionService
 
             $vendor = $sale->vendor;
             $vendorCost = (float) $sale->vendor_net_amount;
+            $booking = $sale->booking;
 
             // Remove ledger entries associated with this sale
             VendorLedger::where('vendor_sale_id', $sale->id)->delete();
 
             $sale->delete();
+
+            // Synchronize booking commercial totals if attached to a booking
+            if ($booking) {
+                app(\App\Services\BookingFinancialService::class)->syncBookingCommercialTotals($booking);
+            }
 
             return true;
         });

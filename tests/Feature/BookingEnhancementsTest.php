@@ -246,10 +246,10 @@ class BookingEnhancementsTest extends TestCase
         // Reload booking
         $booking->refresh();
 
-        // 1. Assert original booking fields are completely unmodified
-        $this->assertEquals(100, $booking->guest_count);
-        $this->assertEquals(150000.00, $booking->package_amount);
-        $this->assertEquals(207100.00, $booking->grand_total);
+        // 1. Assert booking fields now reflect the finalized figures
+        $this->assertEquals(125, $booking->guest_count);
+        $this->assertEquals(187500.00, $booking->package_amount);
+        $this->assertEquals(255125.00, $booking->grand_total);
 
         // 2. Assert final bill details are correctly captured
         $this->assertNotNull($booking->finalBill);
@@ -612,4 +612,79 @@ class BookingEnhancementsTest extends TestCase
         $response2->assertDontSee('Required Quantity');
         $response2->assertDontSee('Quantity / مقدار');
     }
+
+    public function test_security_deposit_financial_accounting_and_audit()
+    {
+        Livewire::actingAs($this->userOwner);
+
+        $booking = Booking::create([
+            'marquee_id' => $this->marquee->id,
+            'customer_id' => $this->customer->id,
+            'event_type_id' => $this->eventType->id,
+            'hall_id' => $this->hall->id,
+            'slot_id' => $this->slot->id,
+            'package_id' => $this->package->id,
+            'booking_date' => '2026-07-15',
+            'start_time' => '2026-07-15 18:00:00',
+            'end_time' => '2026-07-15 23:30:00',
+            'guest_count' => 100,
+            'per_plate_price' => 1500.00,
+            'package_amount' => 150000.00,
+            'hall_charges' => 20000.00,
+            'security_deposit' => 25000.00,
+            'subtotal' => 170000.00,
+            'tax_amount' => 22100.00,
+            'grand_total' => 217100.00,
+            'booking_status' => 'Confirmed',
+            'payment_status' => 'Unpaid',
+            'deposit_status' => 'Held',
+        ]);
+
+        // Process partial refund & damage deduction via BookingView
+        $component = Livewire::test('booking-view', ['booking' => $booking])
+            ->set('depositAction', 'partial_refund')
+            ->set('depositRefundedAmount', 20000.00)
+            ->set('depositDeductedAmount', 5000.00)
+            ->set('depositPaymentMethod', 'Cash')
+            ->set('depositNotes', 'Deducted Rs. 5000 for hall flower vase breakage.')
+            ->call('processDeposit')
+            ->assertHasNoErrors();
+
+        $booking->refresh();
+
+        // 1. Assert deposit status and amounts
+        $this->assertEquals('Deducted', $booking->deposit_status);
+        $this->assertEquals(20000.00, $booking->deposit_refunded_amount);
+        $this->assertEquals(5000.00, $booking->deposit_deducted_amount);
+
+        // 2. Assert refund BookingPayment record created
+        $refundPayment = \App\Models\BookingPayment::where('booking_id', $booking->id)
+            ->where('payment_type', 'refund')
+            ->first();
+        $this->assertNotNull($refundPayment);
+        $this->assertEquals(20000.00, (float)$refundPayment->amount);
+        $this->assertEquals('posted', $refundPayment->status);
+
+        // 3. Assert Journal Voucher created and balanced
+        $jv = \App\Models\JournalVoucher::where('id', $refundPayment->journal_voucher_id)->first();
+        $this->assertNotNull($jv);
+        $totalDebit = (float) $jv->items()->sum('debit');
+        $totalCredit = (float) $jv->items()->sum('credit');
+        $this->assertEquals(25000.00, $totalDebit);
+        $this->assertEquals(25000.00, $totalCredit);
+
+        // 4. Assert Customer Ledger has entries
+        $refundLedger = \App\Models\CustomerLedger::where('booking_id', $booking->id)
+            ->where('transaction_type', 'refund')
+            ->first();
+        $this->assertNotNull($refundLedger);
+        $this->assertEquals(20000.00, (float)$refundLedger->debit);
+
+        $damageLedger = \App\Models\CustomerLedger::where('booking_id', $booking->id)
+            ->where('transaction_type', 'damage_charge')
+            ->first();
+        $this->assertNotNull($damageLedger);
+        $this->assertEquals(5000.00, (float)$damageLedger->debit);
+    }
 }
+

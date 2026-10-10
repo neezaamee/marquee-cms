@@ -82,7 +82,6 @@ class SecurityDepositLedger extends Component
         if ($this->depositAction === 'refund_full') {
             $this->depositRefundedAmount = $booking->security_deposit;
             $this->depositDeductedAmount = 0.00;
-            $status = 'Refunded';
         } else {
             $this->validate([
                 'depositRefundedAmount' => 'required|numeric|min:0',
@@ -96,29 +95,19 @@ class SecurityDepositLedger extends Component
                 $this->addError('depositSum', 'Refunded + Deducted amount must equal security deposit (Rs. ' . number_format($booking->security_deposit, 2) . ').');
                 return;
             }
-
-            $status = floatval($this->depositDeductedAmount) > 0 ? 'Deducted' : 'Refunded';
         }
 
-        // Update database columns
-        $booking->update([
-            'deposit_status' => $status,
-            'deposit_refunded_amount' => $this->depositRefundedAmount,
-            'deposit_deducted_amount' => $this->depositDeductedAmount,
-            'deposit_notes' => $this->depositNotes ?: null,
-        ]);
-
-        // Audit logging
-        BookingHistory::create([
-            'booking_id' => $booking->id,
-            'user_id' => auth()->id(),
-            'status_from' => $booking->booking_status,
-            'status_to' => $booking->booking_status,
-            'notes' => 'Security deposit processed via global ledger: ' . $status . '. Refunded: Rs. ' . number_format($this->depositRefundedAmount, 2) . ', Deducted: Rs. ' . number_format($this->depositDeductedAmount, 2) . '. Notes: ' . $this->depositNotes,
+        app(\App\Services\BookingFinancialService::class)->processSecurityDeposit($booking, [
+            'refund_amount' => (float) $this->depositRefundedAmount,
+            'deducted_amount' => (float) $this->depositDeductedAmount,
+            'notes' => $this->depositNotes ?: 'Full security deposit refunded via global ledger.',
+            'payment_method' => 'Cash',
+            'account_id' => null,
+            'recorded_by' => auth()->id(),
         ]);
 
         $this->closeModal();
-        session()->flash('success', 'Security deposit release processed successfully.');
+        session()->flash('success', 'Security deposit release processed successfully with accounting entries.');
     }
 
     public function render()

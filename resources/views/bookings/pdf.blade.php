@@ -215,10 +215,28 @@
         $isFinal = !empty($booking->finalBill);
         $billing = $isFinal ? $booking->finalBill : $booking;
         $addonsList = $isFinal ? $booking->finalBill->extraServices : $booking->extraServices;
-        $totalPaid = $booking->payments->sum('amount');
-        $balanceDue = max(0, $billing->grand_total - $totalPaid);
+        
+        // Vendor / Service Provider charges invoiced through the booking
+        $invoicedVendorTotal = (float) ($booking->finalBill && $booking->finalBill->vendor_charges !== null 
+            ? $booking->finalBill->vendor_charges 
+            : ($booking->vendorSales 
+                ? $booking->vendorSales->where('include_in_invoice', true)->whereIn('status', ['confirmed', 'settled'])->sum('sale_amount') 
+                : 0)
+        );
+
+        $taxableSubtotal = max(0, (float) ($billing->subtotal ?? 0));
+        $taxRate = ($taxableSubtotal > 0 && !empty($billing->tax_amount))
+            ? round(($billing->tax_amount / $taxableSubtotal) * 100, 1)
+            : 0;
+
+        $grandTotalInvoiced = (float) ($billing->grand_total ?? 0) + $invoicedVendorTotal;
+        $totalPaid = (float) $booking->total_paid;
+        $balanceDue = max(0, $grandTotalInvoiced - $totalPaid);
+
         $marquee = $booking->effective_marquee ?? $booking->marquee ?? null;
         $branch = $booking->effective_branch ?? $booking->branch ?? ($booking->hall?->branch ?? null);
+        $invoicePrefix = ($branch && !empty($branch->invoice_prefix)) ? $branch->invoice_prefix : 'INV-';
+        $projectInvoiceNumber = $invoicePrefix . str_pad($isFinal ? $billing->id : $booking->id, 6, '0', STR_PAD_LEFT);
     @endphp
     <div class="invoice-box">
         <!-- Header Info -->
@@ -245,7 +263,7 @@
                 <td>
                     <div class="title-invoice">{{ $isFinal ? 'Final Invoice' : 'Invoice' }}</div>
                     <div class="ref-text">
-                        <strong>Invoice Ref:</strong> #INV-{{ str_pad($booking->id, 6, '0', STR_PAD_LEFT) }}<br>
+                        <strong>Invoice Ref:</strong> #{{ $projectInvoiceNumber }}<br>
                         <strong>Booking Number:</strong> #{{ $booking->booking_number }}<br>
                         @if($branch)
                             <strong>Branch:</strong> {{ $branch->name }}<br>
@@ -454,15 +472,6 @@
                                 <td class="summary-value">Rs. {{ number_format($billing->extra_charges, 2) }}</td>
                             </tr>
                         @endif
-                        @php
-                            $invoicedVendorSalesSum = $booking->vendorSales->where('status', '!=', 'cancelled')->where('include_in_invoice', true)->sum('sale_amount');
-                        @endphp
-                        @if($invoicedVendorSalesSum > 0)
-                            <tr>
-                                <td class="summary-label">Service Providers (Billed):</td>
-                                <td class="summary-value">Rs. {{ number_format($invoicedVendorSalesSum, 2) }}</td>
-                            </tr>
-                        @endif
                         @if($billing->discount_amount > 0)
                             <tr style="color: red;">
                                 <td class="summary-label">Discount Applied:</td>
@@ -470,13 +479,19 @@
                             </tr>
                         @endif
                         <tr>
-                            <td class="summary-label" style="font-weight: bold; border-top: 1px solid #dee2e6;">Subtotal:</td>
+                            <td class="summary-label" style="font-weight: bold; border-top: 1px solid #dee2e6;">Net Event Subtotal:</td>
                             <td class="summary-value" style="border-top: 1px solid #dee2e6;">Rs. {{ number_format($billing->subtotal, 2) }}</td>
                         </tr>
                         @if($billing->tax_amount > 0)
                             <tr>
-                                <td class="summary-label">Tax Amount:</td>
+                                <td class="summary-label">Applicable Tax ({{ $taxRate }}%):</td>
                                 <td class="summary-value">Rs. {{ number_format($billing->tax_amount, 2) }}</td>
+                            </tr>
+                        @endif
+                        @if($invoicedVendorTotal > 0)
+                            <tr>
+                                <td class="summary-label">Service Providers (Facilitated):</td>
+                                <td class="summary-value">Rs. {{ number_format($invoicedVendorTotal, 2) }}</td>
                             </tr>
                         @endif
                         @if($booking->security_deposit > 0)
@@ -486,8 +501,16 @@
                             </tr>
                         @endif
                         <tr class="total-row">
-                            <td class="summary-label">Grand Total:</td>
-                            <td class="summary-value">Rs. {{ number_format($billing->grand_total, 2) }}</td>
+                            <td class="summary-label">Grand Total Invoiced:</td>
+                            <td class="summary-value">Rs. {{ number_format($grandTotalInvoiced, 2) }}</td>
+                        </tr>
+                        <tr style="color: #155724;">
+                            <td class="summary-label">Total Payments Received:</td>
+                            <td class="summary-value">Rs. {{ number_format($totalPaid, 2) }}</td>
+                        </tr>
+                        <tr style="background-color: {{ $balanceDue > 0 ? '#fff3cd' : '#d4edda' }}; font-weight: bold;">
+                            <td class="summary-label" style="color: {{ $balanceDue > 0 ? '#856404' : '#155724' }};">Net Outstanding Balance Due:</td>
+                            <td class="summary-value" style="color: {{ $balanceDue > 0 ? '#856404' : '#155724' }};">Rs. {{ number_format($balanceDue, 2) }}</td>
                         </tr>
                     </table>
                 </td>
@@ -507,14 +530,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @php $totalPaid = 0; @endphp
                     @forelse($booking->payments as $payment)
-                        @php $totalPaid += $payment->amount; @endphp
                         <tr>
-                            <td>{{ $payment->payment_date->format('Y-m-d') }}</td>
+                            <td>{{ $payment->payment_date ? $payment->payment_date->format('Y-m-d') : '—' }}</td>
                             <td><span class="badge badge-info">{{ $payment->payment_method }}</span></td>
-                            <td style="font-family: monospace;">{{ $payment->transaction_reference ?? '—' }}</td>
-                            <td class="text-right font-monospace fw-bold" style="color: green;">Rs. {{ number_format($payment->amount, 2) }}</td>
+                            <td style="font-family: monospace;">{{ $payment->transaction_reference ?? ($payment->cheque_number ?? '—') }}</td>
+                            <td class="text-right font-monospace fw-bold" style="color: {{ $payment->payment_type === 'refund' ? '#721c24' : '#155724' }};">
+                                {{ $payment->payment_type === 'refund' ? '- ' : '' }}Rs. {{ number_format($payment->amount, 2) }}
+                            </td>
                         </tr>
                     @empty
                         <tr>
@@ -524,11 +547,11 @@
                     
                     <tr style="background-color: #f1f8f5; font-weight: bold;">
                         <td colspan="3" class="text-right">Total Payments Collected:</td>
-                        <td class="text-right font-monospace" style="color: green;">Rs. {{ number_format($totalPaid, 2) }}</td>
+                        <td class="text-right font-monospace" style="color: #155724;">Rs. {{ number_format($totalPaid, 2) }}</td>
                     </tr>
-                    <tr style="background-color: #fff3cd; font-weight: bold;">
+                    <tr style="background-color: {{ $balanceDue > 0 ? '#fff3cd' : '#d4edda' }}; font-weight: bold;">
                         <td colspan="3" class="text-right">Remaining Balance Outstanding:</td>
-                        <td class="text-right font-monospace" style="color: #856404;">
+                        <td class="text-right font-monospace" style="color: {{ $balanceDue > 0 ? '#856404' : '#155724' }};">
                             Rs. {{ number_format($balanceDue, 2) }}
                         </td>
                     </tr>
@@ -537,9 +560,9 @@
             
             <div style="margin-top: 5px; font-size: 10px;">
                 <strong>Payment Status:</strong> 
-                @if($booking->payment_status === 'Paid')
-                    <span class="badge badge-success" style="font-size: 9px; padding: 2px 6px;">Paid</span>
-                @elseif($booking->payment_status === 'Partially Paid')
+                @if($balanceDue <= 0.01)
+                    <span class="badge badge-success" style="font-size: 9px; padding: 2px 6px;">Paid in Full</span>
+                @elseif($totalPaid > 0)
                     <span class="badge badge-warning" style="font-size: 9px; padding: 2px 6px;">Partially Paid</span>
                 @else
                     <span class="badge badge-danger" style="font-size: 9px; padding: 2px 6px;">Unpaid</span>

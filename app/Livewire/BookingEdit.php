@@ -1050,7 +1050,6 @@ class BookingEdit extends Component
             'securityDeposit' => 'required|numeric|min:0',
             'taxRate' => 'required|numeric|min:0',
             'bookingStatus' => 'required|in:Draft,Reserved,Confirmed,Completed,Cancelled,Rejected',
-            'paymentStatus' => 'required|in:Unpaid,Partially Paid,Paid,Refunded',
         ];
 
         if (!$this->noFood) {
@@ -1172,12 +1171,15 @@ class BookingEdit extends Component
                     'grand_total' => $this->grandTotal,
                     'special_instructions' => $this->specialInstructions ?: null,
                     'booking_status' => $this->bookingStatus,
-                    'payment_status' => $this->paymentStatus,
                     'no_food' => $this->noFood,
                     'privacy_required' => $this->privacyRequired,
                     'privacy_ladies_percentage' => $this->privacyRequired ? intval($this->privacyLadiesPercentage) : null,
                     'privacy_gents_percentage' => $this->privacyRequired ? intval($this->privacyGentsPercentage) : null,
                 ]);
+
+                // Automatically reconcile payment status and receivables with updated grand total
+                app(\App\Services\BookingFinancialService::class)->recalculateBookingFinancials($this->booking);
+                $this->booking->refresh();
 
                 // Sync allocated halls pivot table
                 $this->booking->halls()->sync($this->selectedHallIds);
@@ -1212,15 +1214,15 @@ class BookingEdit extends Component
                 }
 
                 // Create history record if anything changed
-                if ($oldStatus !== $this->bookingStatus || $oldPaymentStatus !== $this->paymentStatus) {
+                if ($oldStatus !== $this->bookingStatus || $oldPaymentStatus !== $this->booking->payment_status) {
                     BookingHistory::create([
                         'booking_id' => $this->booking->id,
                         'user_id' => $userId,
                         'status_from' => $oldStatus,
                         'status_to' => $this->bookingStatus,
                         'payment_status_from' => $oldPaymentStatus,
-                        'payment_status_to' => $this->paymentStatus,
-                        'notes' => 'Booking details updated by staff.',
+                        'payment_status_to' => $this->booking->payment_status,
+                        'notes' => 'Booking details updated by staff. Financial balances reconciled.',
                     ]);
                 }
             });

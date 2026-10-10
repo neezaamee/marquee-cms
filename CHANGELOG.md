@@ -5,6 +5,19 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.23.0] - 2026-10-11
+
+### Added & Improved
+- **Vendor & Service Provider Pass-Through Billing Alignment**:
+  - Added dedicated `vendor_charges` column to `booking_final_bills` table via database migration `2026_10_10_215818_add_vendor_charges_to_booking_final_bills_table.php`.
+  - Updated `BookingFinancialService::syncBookingCommercialTotals()` to strictly distinguish core marquee event revenue from pass-through vendor services (facilitated collections) so vendor revenues do not inflate marquee event sales metrics.
+  - Aligned `Booking::getEffectiveInvoiceAmountAttribute()` and `Booking::getRemainingCustomerBalanceAttribute()` to account for pass-through vendor charges while isolating pure event sales in the dashboard.
+- **Invoice PDF Calculation Synchronization**:
+  - Aligned calculation engine in `bookings/pdf.blade.php` to match `FinalBillInvoiceV2` exactly across all lines: Net Event Subtotal, Non-Taxable Service Provider Collections, Tax Amount, Grand Total Invoiced, Payments Collected, and Remaining Balance Due.
+  - Eliminated variable collisions in PDF payment transaction history ledger.
+- **Kitchen Slip UI & Typography Refinement**:
+  - Enhanced dish typography, row spacing, and customer/event detail hierarchy on sequential kitchen slips (`kitchen_slip_v2.blade.php` and `kitchen_slip.blade.php`).
+
 ## [1.22.0] - 2026-10-09
 
 ### Added

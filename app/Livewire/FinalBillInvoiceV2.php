@@ -45,17 +45,17 @@ class FinalBillInvoiceV2 extends Component
             ? $this->booking->vendorSales->where('include_in_invoice', true)->whereIn('status', ['confirmed', 'settled'])
             : collect();
 
-        // Payments total
-        $totalPaid = $this->booking->payments
-            ? $this->booking->payments->whereIn('status', ['posted', 'received'])->sum('amount')
-            : 0;
+        // Payments total (net posted payments excluding refunds)
+        $totalPaid = (float) $this->booking->total_paid;
 
-        $grandTotal = (float) ($billing->grand_total ?? 0);
+        $invoicedVendorTotal = (float) $vendorSalesList->sum('sale_amount');
+        $grandTotal = (float) ($billing->grand_total ?? 0) + $invoicedVendorTotal;
         $remainingBalance = max(0, $grandTotal - $totalPaid);
 
-        // Effective tax rate calculation
-        $taxRate = ($billing->subtotal > 0 && ! empty($billing->tax_amount))
-            ? round(($billing->tax_amount / $billing->subtotal) * 100, 1)
+        // Effective tax rate calculation (service provider amounts are non-taxable)
+        $taxableSubtotal = max(0, (float) ($billing->subtotal ?? 0));
+        $taxRate = ($taxableSubtotal > 0 && ! empty($billing->tax_amount))
+            ? round(($billing->tax_amount / $taxableSubtotal) * 100, 1)
             : 0;
 
         // Retrieve active bank accounts for customer direct transfer instructions

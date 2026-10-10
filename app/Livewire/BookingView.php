@@ -43,6 +43,8 @@ class BookingView extends Component
     public $depositRefundedAmount = 0.00;
     public $depositDeductedAmount = 0.00;
     public $depositNotes = '';
+    public $depositPaymentMethod = 'Cash';
+    public $depositAccountId = null;
 
     // Guest Confirmation Modal State
     public $showGuestModal = false;
@@ -807,11 +809,39 @@ class BookingView extends Component
 
         $subtotal = $packageAmount + $this->fbHallCharges + $this->fbExtraCharges + $this->fbVendorCharges - $this->fbDiscountAmount;
         
-        // Calculate tax based on original tax rate
-        $origSubtotal = $this->booking->subtotal;
-        $taxRate = $origSubtotal > 0 ? ($this->booking->tax_amount / $origSubtotal) * 100 : 13.00;
+        // Taxable base excludes vendor charges (tax is NOT applied on service providers)
+        $taxableAmount = max(0, $packageAmount + $this->fbHallCharges + $this->fbExtraCharges - $this->fbDiscountAmount);
+
+        // Calculate tax based on original booking tax rate on its taxable base
+        $origBookingTaxable = max(0, (float) $this->booking->package_amount + (float) $this->booking->hall_charges + (float) $this->booking->extra_charges - (float) $this->booking->discount_amount);
+        $taxRate = 13.00;
+        if ($origBookingTaxable > 0 && (float) $this->booking->tax_amount > 0) {
+            $taxRate = ((float) $this->booking->tax_amount / $origBookingTaxable) * 100;
+        } elseif ($this->booking->branch && $this->booking->branch->tax_rate !== null) {
+            $taxRate = (float) $this->booking->branch->tax_rate;
+        }
         
-        $this->fbTaxAmount = round(($subtotal * $taxRate) / 100, 2);
+        $this->fbTaxAmount = round(($taxableAmount * $taxRate) / 100, 2);
+    }
+
+    public function updatedFbGuestCount()
+    {
+        $this->recalculateFinalBill();
+    }
+
+    public function updatedFbPerPlatePrice()
+    {
+        $this->recalculateFinalBill();
+    }
+
+    public function updatedFbHallCharges()
+    {
+        $this->recalculateFinalBill();
+    }
+
+    public function updatedFbDiscountAmount()
+    {
+        $this->recalculateFinalBill();
     }
 
     /**
@@ -901,6 +931,7 @@ class BookingView extends Component
                 'package_amount' => $packageAmount,
                 'hall_charges' => $this->fbHallCharges,
                 'extra_charges' => $this->fbExtraCharges,
+                'vendor_charges' => $this->fbVendorCharges,
                 'discount_amount' => $this->fbDiscountAmount,
                 'tax_amount' => $this->fbTaxAmount,
                 'subtotal' => $subtotal,
@@ -919,6 +950,24 @@ class BookingView extends Component
                     'total_price' => $addon['total_price'],
                 ]);
             }
+
+            // Synchronize the booking record with finalized headcount and commercial figures
+            $this->booking->update([
+                'guest_count' => $this->fbGuestCount,
+                'confirmed_guests' => $this->fbGuestCount,
+                'guest_status' => 'Confirmed',
+                'per_plate_price' => $this->fbPerPlatePrice,
+                'package_amount' => $packageAmount,
+                'hall_charges' => $this->fbHallCharges,
+                'extra_charges' => $this->fbExtraCharges,
+                'discount_amount' => $this->fbDiscountAmount,
+                'tax_amount' => $this->fbTaxAmount,
+                'subtotal' => $subtotal,
+                'grand_total' => $grandTotal,
+            ]);
+
+            // Recalculate financial balances, revenue recognition, and payment status
+            app(\App\Services\BookingFinancialService::class)->recalculateBookingFinancials($this->booking);
 
             // Log history
             $auditNote = $lockAndPostToPra
@@ -1005,25 +1054,11 @@ class BookingView extends Component
     }
 
     /**
-     * Recalculate and update booking's payment status.
+     * Recalculate and update booking's payment status based on final bill.
      */
     public function updatePaymentStatusBasedOnFinalBill()
     {
-        $totalPaid = $this->booking->payments()->sum('amount');
-        $billingAmount = $this->booking->finalBill ? $this->booking->finalBill->grand_total : $this->booking->grand_total;
-
-        $newPaymentStatus = 'Unpaid';
-        if ($totalPaid > 0) {
-            if ($totalPaid >= $billingAmount) {
-                $newPaymentStatus = 'Paid';
-            } else {
-                $newPaymentStatus = 'Partially Paid';
-            }
-        }
-
-        $this->booking->update([
-            'payment_status' => $newPaymentStatus
-        ]);
+        app(\App\Services\BookingFinancialService::class)->recalculateBookingFinancials($this->booking);
     }
 
     /**
@@ -1038,7 +1073,6 @@ class BookingView extends Component
         if ($this->depositAction === 'refund_full') {
             $this->depositRefundedAmount = $this->booking->security_deposit;
             $this->depositDeductedAmount = 0.00;
-            $status = 'Refunded';
         } else {
             $this->validate([
                 'depositRefundedAmount' => 'required|numeric|min:0',
@@ -1052,23 +1086,15 @@ class BookingView extends Component
                 $this->addError('depositSum', 'Refunded + Deducted amount must equal security deposit (Rs. ' . number_format($this->booking->security_deposit, 2) . ').');
                 return;
             }
-
-            $status = floatval($this->depositDeductedAmount) > 0 ? 'Deducted' : 'Refunded';
         }
 
-        $this->booking->update([
-            'deposit_status' => $status,
-            'deposit_refunded_amount' => $this->depositRefundedAmount,
-            'deposit_deducted_amount' => $this->depositDeductedAmount,
-            'deposit_notes' => $this->depositNotes ?: null,
-        ]);
-
-        BookingHistory::create([
-            'booking_id' => $this->booking->id,
-            'user_id' => auth()->id(),
-            'status_from' => $this->booking->booking_status,
-            'status_to' => $this->booking->booking_status,
-            'notes' => 'Security deposit processed: ' . $status . '. Refunded: Rs. ' . number_format($this->depositRefundedAmount, 2) . ', Deducted: Rs. ' . number_format($this->depositDeductedAmount, 2) . '. Notes: ' . $this->depositNotes,
+        app(\App\Services\BookingFinancialService::class)->processSecurityDeposit($this->booking, [
+            'refund_amount' => (float) $this->depositRefundedAmount,
+            'deducted_amount' => (float) $this->depositDeductedAmount,
+            'notes' => $this->depositNotes ?: 'Full security deposit refunded.',
+            'payment_method' => $this->depositPaymentMethod ?: 'Cash',
+            'account_id' => $this->depositAccountId ?: null,
+            'recorded_by' => auth()->id(),
         ]);
 
         $this->booking->refresh();
@@ -1076,8 +1102,10 @@ class BookingView extends Component
         $this->depositNotes = '';
         $this->depositRefundedAmount = 0.00;
         $this->depositDeductedAmount = 0.00;
+        $this->depositPaymentMethod = 'Cash';
+        $this->depositAccountId = null;
 
-        session()->flash('success', 'Refundable security deposit updated.');
+        session()->flash('success', 'Refundable security deposit processed with accounting entries.');
     }
 
     /**
