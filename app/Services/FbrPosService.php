@@ -180,9 +180,28 @@ class FbrPosService
             'Items' => $items,
         ];
 
+        $curlOptions = [
+            CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
+        ];
+
+        $httpRequest = Http::timeout(15)
+            ->withoutVerifying()
+            ->withOptions([
+                'curl' => $curlOptions,
+            ]);
+
+        if ($proxy = env('PRAL_PROXY_URL')) {
+            $httpRequest = $httpRequest->withOptions(['proxy' => $proxy]);
+        }
+
+        $headers = array_merge([
+            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        ], $headers);
+
         try {
-            $response = Http::timeout(10)
-                ->withoutVerifying()
+            $response = $httpRequest
                 ->withHeaders($headers)
                 ->post($endpoint, $payload);
 
@@ -314,11 +333,33 @@ class FbrPosService
             'Items' => $items,
         ];
 
+        $curlOptions = [
+            CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
+        ];
+
+        $httpRequest = Http::timeout(15)
+            ->withoutVerifying()
+            ->withOptions([
+                'curl' => $curlOptions,
+            ]);
+
+        if ($proxy = env('PRAL_PROXY_URL')) {
+            $httpRequest = $httpRequest->withOptions(['proxy' => $proxy]);
+        }
+
+        $headers = [
+            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Authorization' => 'Bearer ' . $branch->fbr_pos_key,
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ];
+
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $branch->fbr_pos_key,
-                'Content-Type' => 'application/json',
-            ])->post($endpoint, $payload);
+            $response = $httpRequest
+                ->withHeaders($headers)
+                ->post($endpoint, $payload);
 
             $data = $response->json();
 
