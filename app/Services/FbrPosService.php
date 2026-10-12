@@ -180,21 +180,7 @@ class FbrPosService
             'Items' => $items,
         ];
 
-        $curlOptions = [
-            CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
-        ];
-
-        $httpRequest = Http::timeout(15)
-            ->withoutVerifying()
-            ->withOptions([
-                'curl' => $curlOptions,
-            ]);
-
-        if ($proxy = env('PRAL_PROXY_URL')) {
-            $httpRequest = $httpRequest->withOptions(['proxy' => $proxy]);
-        }
+        $httpRequest = $this->buildHttpClient();
 
         $headers = array_merge([
             'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -333,21 +319,7 @@ class FbrPosService
             'Items' => $items,
         ];
 
-        $curlOptions = [
-            CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
-        ];
-
-        $httpRequest = Http::timeout(15)
-            ->withoutVerifying()
-            ->withOptions([
-                'curl' => $curlOptions,
-            ]);
-
-        if ($proxy = env('PRAL_PROXY_URL')) {
-            $httpRequest = $httpRequest->withOptions(['proxy' => $proxy]);
-        }
+        $httpRequest = $this->buildHttpClient();
 
         $headers = [
             'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -411,5 +383,33 @@ class FbrPosService
                 'message' => 'Network connection failed.'
             ];
         }
+    }
+
+    /**
+     * Build the base HTTP client with appropriate TLS, HTTP version, and cipher settings.
+     */
+    protected function buildHttpClient(): \Illuminate\Http\Client\PendingRequest
+    {
+        $options = [
+            'version' => 1.1,
+        ];
+
+        if (defined('STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT')) {
+            $options['crypto_method'] = STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
+        }
+
+        if (defined('CURLOPT_SSL_CIPHER_LIST')) {
+            $options['curl'] = [
+                CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1',
+            ];
+        }
+
+        if ($proxy = env('PRAL_PROXY_URL')) {
+            $options['proxy'] = $proxy;
+        }
+
+        return Http::timeout(15)
+            ->withoutVerifying()
+            ->withOptions($options);
     }
 }
