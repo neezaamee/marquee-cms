@@ -17,14 +17,23 @@
                 <button wire:click="exportExcel" class="btn btn-falcon-default btn-sm text-nowrap" type="button">
                     <span class="fas fa-file-excel me-1 text-success"></span>Export CSV
                 </button>
-                <a href="{{ route('bookings.report', [
+                <a href="{{ route('bookings.report', array_filter([
                     'search' => $search,
                     'filterStatus' => $filterStatus,
                     'filterPaymentStatus' => $filterPaymentStatus,
                     'filterHall' => $filterHall,
+                    'filterBranch' => $filterBranch,
+                    'filterEventType' => $filterEventType,
+                    'filterGuestStatus' => $filterGuestStatus,
+                    'filterBalanceStatus' => $filterBalanceStatus,
+                    'filterQuickShortcut' => $filterQuickShortcut,
+                    'filterCreatedBy' => $filterCreatedBy,
+                    'filterCareOf' => $filterCareOf,
+                    'filterPerHead' => $filterPerHead,
+                    'filterPerHeadAmount' => $filterPerHeadAmount,
                     'filterDateStart' => $filterDateStart,
                     'filterDateEnd' => $filterDateEnd
-                ]) }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap">
+                ], fn($v) => $v !== '' && $v !== null)) }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap">
                     <span class="fas fa-print me-1 text-primary"></span>Print / PDF
                 </a>
                 @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('create_bookings'))

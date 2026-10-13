@@ -5,6 +5,25 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.24.0] - 2026-10-14
+
+### Added & Enhanced
+- **Booking List Custom Filter Export Synchronization**:
+  - Unified CSV export with active UI filters (search, stage, shift, hall, date range, care-of, per-plate pricing, menu status) by dynamically forwarding query parameters from `BookingList` Livewire component to `BookingController::exportCsv()`.
+  - Added automated test coverage in `BookingManagementTest` ensuring exported datasets adhere strictly to filtered queries.
+- **Purchase Invoice Searchable Item Catalog**:
+  - Enhanced item catalog selector in `PurchaseInvoiceForm` with real-time text search and full keyboard arrow navigation (Arrow Up/Down to navigate, Enter to select, Escape to close).
+  - Added automated feature tests in `InventoryPurchaseTest` for catalog search, keyboard selection, and line item addition.
+- **Department Stock Issue Valuation & Analytical Metrics**:
+  - Integrated real-time monetary valuation tracking for department inventory dispatches using inventory item `default_purchase_rate`.
+  - Added daily monetary value summary cards and `Unit Rate (Rs.)` / `Total Value (Rs.)` columns to Department Stock Movement Audit Report, Ledger Balance Summary, and CSV export.
+  - Added line-item unit rate and dynamic estimated dispatch total in Warehouse Stock Dispatch interface.
+- **Searchable Department & Items in Stock Requisition**:
+  - Implemented keyboard-navigable searchable selectors for Department and Inventory Items within the Stock Requisition creation workflow.
+  - Added a debounced multi-field search bar in the Requisitions Register supporting request numbers, departments, requester staff, and line items.
+- **Branch Scope Resolution in Stock Adjustments**:
+  - Calibrated `StockTakeManager::getBranchId()` helper ensuring seamless multi-tenant branch resolution for Business Owners and Area Managers during stock takes and inventory adjustments.
+
 ## [1.23.0] - 2026-10-11
 
 ### Added & Improved

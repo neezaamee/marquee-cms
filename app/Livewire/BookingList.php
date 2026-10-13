@@ -375,117 +375,13 @@ class BookingList extends Component
         });
 
         // ----------------------------------------------------
-        // Main Filtered Table Query
+        // Main Filtered Table Query (using unified query builder)
         // ----------------------------------------------------
-        $query = Booking::withTrashed()->with(['customer', 'hall', 'hall.branch', 'halls', 'slot', 'package', 'payments', 'eventType', 'creator', 'finalBill'])
-            ->withSum($paymentsSubqueries, 'amount')
-            ->where('marquee_id', $marqueeId);
-
-        // Apply Search
-        if (!empty($this->search)) {
-            $searchTerm = '%' . trim($this->search) . '%';
-            $cleanDigits = preg_replace('/[^0-9]/', '', $this->search);
-            $isSqlite = DB::connection()->getDriverName() === 'sqlite';
-            $fullNameSql = $isSqlite
-                ? "(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))"
-                : "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))";
-
-            $query->where(function ($q) use ($searchTerm, $cleanDigits, $fullNameSql) {
-                $q->where('booking_number', 'like', $searchTerm)
-                  ->orWhereHas('customer', function ($cq) use ($searchTerm, $cleanDigits, $fullNameSql) {
-                      $cq->where('first_name', 'like', $searchTerm)
-                        ->orWhere('last_name', 'like', $searchTerm)
-                        ->orWhereRaw("{$fullNameSql} LIKE ?", [$searchTerm])
-                        ->orWhere('company_name', 'like', $searchTerm)
-                        ->orWhere('customer_code', 'like', $searchTerm)
-                        ->orWhere('referred_by_name', 'like', $searchTerm);
-
-                      if (!empty($cleanDigits)) {
-                          $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%')
-                            ->orWhere('alternate_phone', 'like', '%' . $cleanDigits . '%');
-                      }
-                  });
-            });
-        }
-
-        // Apply Filters
-        if (!empty($this->filterStatus)) {
-            $query->where('booking_status', $this->filterStatus);
-        }
-
-        if (!empty($this->filterPaymentStatus)) {
-            $query->where('payment_status', $this->filterPaymentStatus);
-        }
-
-        if (!empty($this->filterHall)) {
-            $query->where('hall_id', $this->filterHall);
-        }
-
-        if (!empty($this->filterBranch)) {
-            $query->whereHas('hall', fn($q) => $q->where('branch_id', $this->filterBranch));
-        }
-
-        if (!empty($this->filterEventType)) {
-            $query->where('event_type_id', $this->filterEventType);
-        }
-
-        if (!empty($this->filterGuestStatus)) {
-            $query->where('guest_status', $this->filterGuestStatus);
-        }
-
-        if (!empty($this->filterCreatedBy)) {
-            $query->where('created_by', $this->filterCreatedBy);
-        }
-
-        if (!empty($startDate)) {
-            $query->where('booking_date', '>=', $startDate);
-        }
-
-        if (!empty($endDate)) {
-            $query->where('booking_date', '<=', $endDate);
-        }
-
-        // Apply Care Of Filter
-        if (!empty($this->filterCareOf)) {
-            $query->whereHas('customer', function ($cq) {
-                $cq->where('referred_by_name', $this->filterCareOf);
-            });
-        }
-
-        // Apply Per Head Filter
-        if ($this->filterPerHead === 'zero') {
-            $query->where(function ($q) {
-                $q->whereNull('per_plate_price')
-                  ->orWhere('per_plate_price', '<=', 0)
-                  ->orWhere('no_food', true);
-            });
-        } elseif ($this->filterPerHead === 'has_rate') {
-            $query->where('per_plate_price', '>', 0);
-        } elseif ($this->filterPerHead === 'specific' && is_numeric($this->filterPerHeadAmount)) {
-            $query->where('per_plate_price', (float) $this->filterPerHeadAmount);
-        } elseif (is_numeric($this->filterPerHead)) {
-            $query->where('per_plate_price', (float) $this->filterPerHead);
-        }
-
-        // Apply Quick Shortcuts
-        if ($this->filterQuickShortcut === 'today') {
-            $query->whereDate('booking_date', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
-        } elseif ($this->filterQuickShortcut === 'upcoming') {
-            $query->whereDate('booking_date', '>=', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Rejected', 'Completed']);
-        } elseif ($this->filterQuickShortcut === 'next_7_days') {
-            $query->whereBetween('booking_date', [Carbon::today(), Carbon::today()->addDays(7)])->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
-        } elseif ($this->filterQuickShortcut === 'this_month') {
-            $query->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
-        }
-
-        $bookings = $query->orderBy('booking_date', 'desc')
+        $bookings = $this->getFilteredBookingsQuery()
+            ->orderBy('booking_date', 'desc')
             ->orderBy('id', 'desc')
             ->paginate(15);
 
-        // Filter balance status after collection retrieval if selected
-        if ($this->filterBalanceStatus === 'outstanding') {
-            // Re-filter collection or use having
-        }
 
         $careOfContacts = \App\Models\Customer::where('marquee_id', $marqueeId)
             ->whereNotNull('referred_by_name')
@@ -731,11 +627,17 @@ class BookingList extends Component
     }
 
     /**
-     * Export the filtered list of bookings to Excel (CSV format).
+     * Build the query for bookings based on all active filters and permissions.
      */
-    public function exportExcel()
+    public function getFilteredBookingsQuery()
     {
-        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId();
+
+        // Lock filterBranch only if user is restricted to a branch (staff/branch manager)
+        if ($user->branch_id && !$user->isBusinessOwner() && !$user->isSuperAdmin()) {
+            $this->filterBranch = $user->branch_id;
+        }
 
         $paymentsSubqueries = [
             'payments as posted_received' => function ($q) {
@@ -748,10 +650,27 @@ class BookingList extends Component
             }
         ];
 
-        $query = Booking::withTrashed()->with(['customer', 'hall', 'hall.branch', 'halls', 'slot', 'package', 'payments', 'eventType', 'creator', 'finalBill'])
-            ->withSum($paymentsSubqueries, 'amount')
-            ->where('marquee_id', $marqueeId);
+        $startDate = $this->normalizeDateForDb($this->filterDateStart);
+        $endDate = $this->normalizeDateForDb($this->filterDateEnd);
 
+        $query = Booking::withTrashed()->with([
+            'customer',
+            'hall',
+            'hall.branch',
+            'branch',
+            'halls',
+            'slot',
+            'package',
+            'payments',
+            'eventType',
+            'creator',
+            'finalBill',
+            'vendorSales',
+        ])
+        ->withSum($paymentsSubqueries, 'amount')
+        ->where('marquee_id', $marqueeId);
+
+        // Apply Search
         if (!empty($this->search)) {
             $searchTerm = '%' . trim($this->search) . '%';
             $cleanDigits = preg_replace('/[^0-9]/', '', $this->search);
@@ -767,7 +686,8 @@ class BookingList extends Component
                         ->orWhere('last_name', 'like', $searchTerm)
                         ->orWhereRaw("{$fullNameSql} LIKE ?", [$searchTerm])
                         ->orWhere('company_name', 'like', $searchTerm)
-                        ->orWhere('customer_code', 'like', $searchTerm);
+                        ->orWhere('customer_code', 'like', $searchTerm)
+                        ->orWhere('referred_by_name', 'like', $searchTerm);
 
                       if (!empty($cleanDigits)) {
                           $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%')
@@ -777,6 +697,7 @@ class BookingList extends Component
             });
         }
 
+        // Apply Filters
         if (!empty($this->filterStatus)) {
             $query->where('booking_status', $this->filterStatus);
         }
@@ -789,15 +710,90 @@ class BookingList extends Component
             $query->where('hall_id', $this->filterHall);
         }
 
-        if (!empty($this->filterDateStart)) {
-            $query->where('booking_date', '>=', $this->filterDateStart);
+        if (!empty($this->filterBranch)) {
+            $query->where(function ($q) {
+                $q->where('branch_id', $this->filterBranch)
+                  ->orWhereHas('hall', fn($hq) => $hq->where('branch_id', $this->filterBranch));
+            });
         }
 
-        if (!empty($this->filterDateEnd)) {
-            $query->where('booking_date', '<=', $this->filterDateEnd);
+        if (!empty($this->filterEventType)) {
+            $query->where('event_type_id', $this->filterEventType);
         }
 
-        $bookings = $query->orderBy('booking_date', 'desc')
+        if (!empty($this->filterGuestStatus)) {
+            $query->where('guest_status', $this->filterGuestStatus);
+        }
+
+        if (!empty($this->filterCreatedBy)) {
+            $query->where('created_by', $this->filterCreatedBy);
+        }
+
+        if (!empty($startDate)) {
+            $query->where('booking_date', '>=', $startDate);
+        }
+
+        if (!empty($endDate)) {
+            $query->where('booking_date', '<=', $endDate);
+        }
+
+        // Apply Care Of Filter
+        if (!empty($this->filterCareOf)) {
+            $query->whereHas('customer', function ($cq) {
+                $cq->where('referred_by_name', $this->filterCareOf);
+            });
+        }
+
+        // Apply Per Head Filter
+        if ($this->filterPerHead === 'zero') {
+            $query->where(function ($q) {
+                $q->whereNull('per_plate_price')
+                  ->orWhere('per_plate_price', '<=', 0)
+                  ->orWhere('no_food', true);
+            });
+        } elseif ($this->filterPerHead === 'has_rate') {
+            $query->where('per_plate_price', '>', 0);
+        } elseif ($this->filterPerHead === 'specific' && is_numeric($this->filterPerHeadAmount)) {
+            $query->where('per_plate_price', (float) $this->filterPerHeadAmount);
+        } elseif (is_numeric($this->filterPerHead)) {
+            $query->where('per_plate_price', (float) $this->filterPerHead);
+        }
+
+        // Apply Balance Status Filter
+        if ($this->filterBalanceStatus === 'outstanding' || $this->filterQuickShortcut === 'outstanding') {
+            $query->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                  ->where('payment_status', '!=', 'Paid');
+        } elseif ($this->filterBalanceStatus === 'fully_paid') {
+            $query->where('payment_status', 'Paid');
+        }
+
+        // Apply Quick Shortcuts
+        if ($this->filterQuickShortcut === 'today') {
+            $query->whereDate('booking_date', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+        } elseif ($this->filterQuickShortcut === 'upcoming') {
+            $query->whereDate('booking_date', '>=', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Rejected', 'Completed']);
+        } elseif ($this->filterQuickShortcut === 'next_7_days') {
+            $query->whereBetween('booking_date', [Carbon::today(), Carbon::today()->addDays(7)])->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+        } elseif ($this->filterQuickShortcut === 'this_month') {
+            $query->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+        } elseif ($this->filterQuickShortcut === 'pending') {
+            $query->whereIn('booking_status', ['Draft', 'Pending']);
+        } elseif ($this->filterQuickShortcut === 'confirmed') {
+            $query->where('booking_status', 'Confirmed');
+        } elseif ($this->filterQuickShortcut === 'tentative') {
+            $query->whereIn('booking_status', ['Reserved', 'Draft']);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Export the filtered list of bookings to Excel (CSV format).
+     */
+    public function exportExcel()
+    {
+        $bookings = $this->getFilteredBookingsQuery()
+            ->orderBy('booking_date', 'desc')
             ->orderBy('id', 'desc')
             ->get();
 
@@ -816,46 +812,83 @@ class BookingList extends Component
                 'Booking #',
                 'Customer Name',
                 'Phone Number',
-                'Event Type',
+                'Care Of / Reference',
+                'Care Of Contact',
+                'Branch',
                 'Hall / Venue',
-                'Shift/Slot',
+                'Event Type',
+                'Shift / Slot',
+                'Event Timing',
                 'Event Date',
                 'Tentative Guests',
                 'Confirmed Guests',
                 'Effective Headcount',
                 'Per Plate Rate',
+                'Event Sales Amount',
+                'Vendor / Service Charges',
                 'Total Amount',
                 'Paid Amount',
                 'Balance Amount',
                 'Booking Status',
                 'Guest Status',
-                'Payment Status'
+                'Payment Status',
+                'Special Instructions'
             ]);
 
             foreach ($bookings as $b) {
-                $received = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
-                $effectiveGrandTotal = $b->finalBill ? $b->finalBill->grand_total : $b->grand_total;
+                $received = max(0.00, floatval($b->posted_received ?? $b->total_paid ?? 0) - floatval($b->posted_refunds ?? 0));
+                $effectiveEventSales = (float) ($b->finalBill ? $b->finalBill->grand_total : $b->grand_total);
+                $invoicedVendorTotal = (float) ($b->finalBill && $b->finalBill->vendor_charges !== null 
+                    ? $b->finalBill->vendor_charges 
+                    : ($b->relationLoaded('vendorSales') 
+                        ? $b->vendorSales->where('include_in_invoice', true)->whereIn('status', ['confirmed', 'settled'])->sum('sale_amount') 
+                        : 0
+                    )
+                );
+                $effectiveGrandTotal = $effectiveEventSales + $invoicedVendorTotal;
                 $effectivePerPlate = $b->finalBill ? $b->finalBill->per_plate_price : $b->per_plate_price;
                 $balance = max(0.00, $effectiveGrandTotal - $received);
+
+                $hallsList = $b->halls->isNotEmpty() 
+                    ? $b->halls->pluck('hall_name')->implode(', ') 
+                    : ($b->hall->hall_name ?? '—');
+
+                $branchName = $b->hall->branch->name ?? ($b->branch->name ?? 'Main Branch');
+
+                $eventTiming = '';
+                if ($b->start_time && $b->end_time) {
+                    $eventTiming = $b->start_time->format('h:i A') . ' - ' . $b->end_time->format('h:i A');
+                }
+
+                $perPlateText = ($effectivePerPlate && $effectivePerPlate > 0)
+                    ? number_format($effectivePerPlate, 2, '.', '')
+                    : ($b->no_food ? 'Rent Only' : '0');
 
                 fputcsv($file, [
                     $b->booking_number,
                     $b->customer->full_name ?? '—',
                     $b->customer->phone_number ?? '—',
+                    $b->customer->referred_by_name ?? '—',
+                    $b->customer->referred_by_contact ?? '—',
+                    $branchName,
+                    $hallsList,
                     $b->eventType->event_type_name ?? '—',
-                    $b->hall->hall_name ?? '—',
                     $b->slot->slot_name ?? 'Custom Time',
-                    $b->booking_date->format('Y-m-d'),
+                    $eventTiming,
+                    $b->booking_date ? $b->booking_date->format('Y-m-d') : '—',
                     $b->tentative_guests ?? $b->guest_count,
                     $b->confirmed_guests ?? '—',
                     $b->effective_guest_count,
-                    $effectivePerPlate,
-                    $effectiveGrandTotal,
-                    $received,
-                    $balance,
+                    $perPlateText,
+                    number_format($effectiveEventSales, 2, '.', ''),
+                    number_format($invoicedVendorTotal, 2, '.', ''),
+                    number_format($effectiveGrandTotal, 2, '.', ''),
+                    number_format($received, 2, '.', ''),
+                    number_format($balance, 2, '.', ''),
                     $b->booking_status,
                     $b->guest_status ?? ($b->is_guest_confirmed ? 'Confirmed' : 'Tentative'),
-                    $b->payment_status
+                    $b->payment_status,
+                    $b->special_instructions ?? ''
                 ]);
             }
 

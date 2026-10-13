@@ -1,7 +1,22 @@
 <div class="container-fluid p-0">
-    <div class="row mb-3">
-        <div class="col-12">
+    <div class="row mb-3 align-items-center justify-content-between">
+        <div class="col-auto">
             <h4 class="mb-0 text-secondary"><span class="fas fa-shipping-fast me-2 text-primary"></span>Warehouse Stock Dispatch / Issue</h4>
+            <p class="text-600 fs-10 mb-0">Issue approved stock to departments and log central warehouse dispatch</p>
+        </div>
+        <div class="col-auto">
+            <div class="d-flex align-items-center bg-white border border-200 rounded px-3 py-2 shadow-none">
+                <div class="avatar avatar-m bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-2">
+                    <span class="fas fa-coins fs-9"></span>
+                </div>
+                <div>
+                    <div class="fs-11 text-muted text-uppercase fw-semi-bold">Today's Total Stock Issued</div>
+                    <div class="fs-9 font-monospace fw-bold text-primary">
+                        Rs. {{ number_format($todayIssuedValue, 2) }}
+                        <span class="text-muted fs-11 fw-normal">({{ number_format($todayIssuedQty, 2) }} units)</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -91,29 +106,48 @@
                             <hr class="my-3">
                             <h6 class="mb-3 fw-semi-bold"><span class="fas fa-boxes me-1 text-secondary"></span>Item quantities to dispatch</h6>
 
-                            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                            <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
                                 <table class="table table-sm table-striped mb-0">
                                     <thead class="bg-light">
                                         <tr>
                                             <th>Item Name</th>
-                                            <th class="text-end" style="width: 70px;">Pending</th>
-                                            <th class="text-end" style="width: 80px;">Central Stock</th>
-                                            <th class="text-end" style="width: 100px;">Qty to Issue</th>
+                                            <th class="text-end" style="width: 55px;">Pending</th>
+                                            <th class="text-end" style="width: 65px;">Central</th>
+                                            <th class="text-end" style="width: 70px;">Rate</th>
+                                            <th class="text-end" style="width: 90px;">Qty to Issue</th>
+                                            <th class="text-end" style="width: 90px;">Est. Value</th>
                                         </tr>
                                     </thead>
                                     <tbody>
+                                        @php $currentDispatchTotal = 0; @endphp
                                         @foreach($issueQuantities as $itemId => $data)
+                                            @php
+                                                $lineQty = (float) ($data['quantity'] ?? 0);
+                                                $lineRate = (float) ($data['unit_price'] ?? 1);
+                                                $lineTotal = $lineQty * $lineRate;
+                                                $currentDispatchTotal += $lineTotal;
+                                            @endphp
                                             <tr>
                                                 <td class="fw-semi-bold">{{ $data['item_name'] }}</td>
                                                 <td class="text-end font-monospace">{{ number_format($data['approved_qty'] - $data['already_issued'], 2) }}</td>
                                                 <td class="text-end font-monospace text-muted">{{ number_format($data['central_stock'], 2) }}</td>
+                                                <td class="text-end font-monospace text-muted">{{ number_format($lineRate, 2) }}</td>
                                                 <td>
-                                                    <input type="number" step="0.01" wire:model="issueQuantities.{{ $itemId }}.quantity" class="form-control form-control-sm text-end py-0 @error('issueQuantities.'.$itemId.'.quantity') is-invalid @enderror">
+                                                    <input type="number" step="0.01" wire:model.live="issueQuantities.{{ $itemId }}.quantity" class="form-control form-control-sm text-end py-0 @error('issueQuantities.'.$itemId.'.quantity') is-invalid @enderror">
                                                     @error('issueQuantities.'.$itemId.'.quantity') <div class="invalid-feedback fs-11">{{ $message }}</div> @enderror
+                                                </td>
+                                                <td class="text-end font-monospace fw-bold text-primary">
+                                                    {{ number_format($lineTotal, 2) }}
                                                 </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
+                                    <tfoot class="bg-light">
+                                        <tr>
+                                            <th colspan="5" class="text-end text-uppercase fs-11 fw-bold">Est. Dispatch Total:</th>
+                                            <th class="text-end font-monospace fw-bold text-primary">Rs. {{ number_format($currentDispatchTotal, 2) }}</th>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
 

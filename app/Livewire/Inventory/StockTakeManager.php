@@ -84,6 +84,15 @@ class StockTakeManager extends Component
         return $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
     }
 
+    public function getBranchId(): ?int
+    {
+        $user = auth()->user();
+        if (!$user) return null;
+        if ($user->branch_id) return $user->branch_id;
+        $firstBranch = $user->getAccessibleBranches($this->getMarqueeId())->first();
+        return $firstBranch ? (int) $firstBranch->id : null;
+    }
+
     public function mount(): void
     {
         $user = auth()->user();
@@ -371,7 +380,7 @@ class StockTakeManager extends Component
     protected function checkExistingOpening(): void
     {
         $marqueeId = $this->getMarqueeId();
-        $branchId  = auth()->user()->branch_id;
+        $branchId  = $this->getBranchId();
 
         $this->adj_has_existing_opening = InventoryStockLedger::where('marquee_id', $marqueeId)
             ->where('branch_id', $branchId)
@@ -390,7 +399,7 @@ class StockTakeManager extends Component
         $this->validate();
 
         $marqueeId = $this->getMarqueeId();
-        $branchId  = $user->branch_id;
+        $branchId  = $this->getBranchId();
 
         if (!$branchId) {
             session()->flash('error', 'Please make sure you are logged in to a branch.');

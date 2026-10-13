@@ -163,15 +163,50 @@ class DepartmentRequestManager extends Component
         session()->flash('message', 'Request cancelled successfully.');
     }
 
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterDepartment()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterStatus()
+    {
+        $this->resetPage();
+    }
+
     public function render()
     {
         $marqueeId = auth()->user()->marquee_id;
         $branchId = auth()->user()->branch_id;
 
-        $query = DepartmentStockRequest::where('marquee_id', $marqueeId)->with(['department', 'requester']);
+        $query = DepartmentStockRequest::where('marquee_id', $marqueeId)
+            ->with(['department', 'requester', 'items.inventoryItem']);
 
         if ($branchId) {
             $query->where('branch_id', $branchId);
+        }
+
+        if ($this->search) {
+            $term = trim($this->search);
+            $query->where(function ($q) use ($term) {
+                $q->where('request_number', 'like', "%{$term}%")
+                  ->orWhere('remarks', 'like', "%{$term}%")
+                  ->orWhereHas('department', function ($dq) use ($term) {
+                      $dq->where('name', 'like', "%{$term}%")
+                         ->orWhere('department_code', 'like', "%{$term}%");
+                  })
+                  ->orWhereHas('requester', function ($rq) use ($term) {
+                      $rq->where('name', 'like', "%{$term}%");
+                  })
+                  ->orWhereHas('items.inventoryItem', function ($iq) use ($term) {
+                      $iq->where('name', 'like', "%{$term}%")
+                         ->orWhere('item_code', 'like', "%{$term}%");
+                  });
+            });
         }
 
         if ($this->filterDepartment) {
@@ -190,7 +225,11 @@ class DepartmentRequestManager extends Component
         }
         $departments = $departments->orderBy('display_order', 'asc')->get();
 
-        $inventoryItems = InventoryItem::where('marquee_id', $marqueeId)->where('status', 'Active')->get();
+        $inventoryItems = InventoryItem::where('marquee_id', $marqueeId)
+            ->where('status', 'Active')
+            ->with('unit')
+            ->orderBy('name', 'asc')
+            ->get();
 
         return view('livewire.department-request-manager', [
             'requests' => $requests,

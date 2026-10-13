@@ -591,6 +591,46 @@ class InventoryPurchaseTest extends TestCase
             ->assertHasErrors(['items']);
     }
 
+    /** @test */
+    public function test_purchase_invoice_item_catalog_selection_and_line_addition()
+    {
+        $this->actingAs($this->user);
+
+        $category = InventoryCategory::create(['marquee_id' => $this->marquee->id, 'name' => 'Select Cat', 'status' => 'Active']);
+        $unit = InventoryUnit::create(['marquee_id' => $this->marquee->id, 'name' => 'Kgs', 'short_code' => 'Kg', 'status' => 'Active']);
+        $supplier = Supplier::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'Select Supplier',
+            'supplier_code' => 'SUP-SEL',
+            'mobile_number' => '03001234567',
+            'status' => 'Active',
+        ]);
+
+        $item = InventoryItem::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'Mutton Leg',
+            'item_code' => 'ITM-MUT-01',
+            'category_id' => $category->id,
+            'unit_id' => $unit->id,
+            'default_purchase_rate' => 250.00,
+            'status' => 'Active',
+        ]);
+
+        \Livewire\Livewire::test(\App\Livewire\Purchases\PurchaseInvoiceForm::class)
+            ->set('supplier_id', $supplier->id)
+            ->set('branch_id', $this->branch->id)
+            ->call('selectCatalogItem', $item->id)
+            ->assertSet('selectedItemId', $item->id)
+            ->assertSet('selectedRate', 250.00)
+            ->assertSet('selectedAmount', 250.00)
+            ->set('selectedQty', 4)
+            ->assertSet('selectedAmount', 1000.00)
+            ->call('addLine')
+            ->assertDispatched('item-catalog-reset')
+            ->assertSet('selectedItemId', '')
+            ->assertCount('items', 1);
+    }
+
     // ══════════════════════════════════════════════════════════════════════
     // TASK 8-9: New Tests — Duplicate Protection, Wastage, Opening, Isolation
     // ══════════════════════════════════════════════════════════════════════
@@ -993,6 +1033,7 @@ class InventoryPurchaseTest extends TestCase
     public function test_duplicate_opening_stock_is_blocked()
     {
         $this->user->update(['branch_id' => $this->branch->id]);
+        $this->user->refresh();
         $this->actingAs($this->user);
 
         $item = $this->createTestItem();

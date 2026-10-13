@@ -46,8 +46,11 @@ class DepartmentIssueManager extends Component
             $suggestedIssueQty = min($pendingToIssue, $currentCentralStock);
             $suggestedIssueQty = max($suggestedIssueQty, 0.0);
 
+            $unitPrice = (float) ($reqItem->item->default_purchase_rate ?: 1.0);
+
             $this->issueQuantities[$reqItem->item_id] = [
                 'item_name' => $reqItem->item->name,
+                'unit_price' => $unitPrice,
                 'requested_qty' => $reqItem->requested_qty,
                 'approved_qty' => $reqItem->approved_qty,
                 'already_issued' => $reqItem->issued_qty,
@@ -110,6 +113,16 @@ class DepartmentIssueManager extends Component
         $marqueeId = auth()->user()->marquee_id;
         $branchId = auth()->user()->branch_id;
 
+        // Calculate today's stock issued monetary summary
+        $todayQuery = \App\Models\DepartmentStockLedger::where('marquee_id', $marqueeId)
+            ->where('transaction_date', today()->toDateString())
+            ->where('transaction_type', 'Issue');
+        if ($branchId) {
+            $todayQuery->where('branch_id', $branchId);
+        }
+        $todayIssuedValue = (float) $todayQuery->sum('total_cost');
+        $todayIssuedQty = (float) $todayQuery->sum('qty_in');
+
         // Fetch requests waiting to be issued (Submitted, Partially Issued)
         $query = DepartmentStockRequest::where('marquee_id', $marqueeId)
             ->whereIn('status', ['Submitted', 'Partially Issued'])
@@ -137,6 +150,8 @@ class DepartmentIssueManager extends Component
         return view('livewire.department-issue-manager', [
             'requests' => $requests,
             'employees' => $employees,
+            'todayIssuedValue' => $todayIssuedValue,
+            'todayIssuedQty' => $todayIssuedQty,
         ])->layout('layouts.admin');
     }
 }

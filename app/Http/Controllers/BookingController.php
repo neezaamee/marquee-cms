@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -145,7 +146,25 @@ class BookingController extends Controller
         if ($user->branch_id) {
             $query->where('branch_id', $user->branch_id);
         } elseif ($request->filled('filterBranch')) {
-            $query->where('branch_id', $request->input('filterBranch'));
+            $branchId = $request->input('filterBranch');
+            $query->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->orWhereHas('hall', fn($hq) => $hq->where('branch_id', $branchId));
+            });
+        }
+
+        if ($request->filled('filterEventType')) {
+            $query->where('event_type_id', $request->input('filterEventType'));
+        }
+
+        if ($request->filled('filterGuestStatus')) {
+            $query->where('guest_status', $request->input('filterGuestStatus'));
+        }
+
+        if ($request->filled('filterCareOf')) {
+            $query->whereHas('customer', function ($cq) use ($request) {
+                $cq->where('referred_by_name', $request->input('filterCareOf'));
+            });
         }
 
         if ($request->filled('search')) {
@@ -163,7 +182,8 @@ class BookingController extends Controller
                         ->orWhere('last_name', 'like', $searchTerm)
                         ->orWhereRaw("{$fullNameSql} LIKE ?", [$searchTerm])
                         ->orWhere('company_name', 'like', $searchTerm)
-                        ->orWhere('customer_code', 'like', $searchTerm);
+                        ->orWhere('customer_code', 'like', $searchTerm)
+                        ->orWhere('referred_by_name', 'like', $searchTerm);
 
                       if (!empty($cleanDigits)) {
                           $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%')
@@ -186,11 +206,17 @@ class BookingController extends Controller
         }
 
         if ($request->filled('filterDateStart')) {
-            $query->where('booking_date', '>=', $request->input('filterDateStart'));
+            $startDate = $this->normalizeDateForDb($request->input('filterDateStart'));
+            if ($startDate) {
+                $query->where('booking_date', '>=', $startDate);
+            }
         }
 
         if ($request->filled('filterDateEnd')) {
-            $query->where('booking_date', '<=', $request->input('filterDateEnd'));
+            $endDate = $this->normalizeDateForDb($request->input('filterDateEnd'));
+            if ($endDate) {
+                $query->where('booking_date', '<=', $endDate);
+            }
         }
 
         $bookings = $query->orderBy('booking_date', 'desc')
@@ -200,6 +226,23 @@ class BookingController extends Controller
         $marquee = $activeMarqueeId ? \App\Models\Marquee::find($activeMarqueeId) : $user->marquee;
 
         return view('bookings.report', compact('bookings', 'marquee'));
+    }
+
+    private function normalizeDateForDb(?string $date): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+        try {
+            $trimmed = trim($date);
+            if (preg_match('/^\d{2}[-\/]\d{2}[-\/]\d{4}$/', $trimmed)) {
+                $parts = preg_split('/[-\/]/', $trimmed);
+                return Carbon::createFromDate((int) $parts[2], (int) $parts[1], (int) $parts[0])->format('Y-m-d');
+            }
+            return Carbon::parse($trimmed)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return $date;
+        }
     }
 
     /**

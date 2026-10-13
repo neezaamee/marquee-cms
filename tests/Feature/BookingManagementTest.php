@@ -1144,6 +1144,95 @@ class BookingManagementTest extends TestCase
         $response->assertFileDownloaded();
     }
 
+    public function test_excel_export_respects_applied_filters_and_includes_custom_data()
+    {
+        $customer1 = \App\Models\Customer::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_code' => 'CUST-EX-1',
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'phone_number' => '03001112233',
+            'referred_by_name' => 'Haji Iqbal',
+            'referred_by_contact' => '03009998877',
+        ]);
+
+        $customer2 = \App\Models\Customer::create([
+            'marquee_id' => $this->marqueeA->id,
+            'customer_code' => 'CUST-EX-2',
+            'first_name' => 'Alice',
+            'last_name' => 'Smith',
+            'phone_number' => '03004445566',
+            'referred_by_name' => 'Malik Tariq',
+            'referred_by_contact' => '03007776655',
+        ]);
+
+        $booking1 = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'booking_number' => 'BK-EXP-001',
+            'customer_id' => $customer1->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-07-15',
+            'start_time' => '2026-07-15 18:00:00',
+            'end_time' => '2026-07-15 23:30:00',
+            'guest_count' => 200,
+            'per_plate_price' => 1800.00,
+            'grand_total' => 360000.00,
+            'booking_status' => 'Confirmed',
+            'payment_status' => 'Partially Paid',
+        ]);
+
+        $booking2 = Booking::create([
+            'marquee_id' => $this->marqueeA->id,
+            'booking_number' => 'BK-EXP-002',
+            'customer_id' => $customer2->id,
+            'event_type_id' => $this->eventTypeA->id,
+            'hall_id' => $this->hallA->id,
+            'slot_id' => $this->slotA->id,
+            'package_id' => $this->packageA->id,
+            'booking_date' => '2026-08-20',
+            'start_time' => '2026-08-20 18:00:00',
+            'end_time' => '2026-08-20 23:30:00',
+            'guest_count' => 100,
+            'per_plate_price' => 1200.00,
+            'grand_total' => 120000.00,
+            'booking_status' => 'Draft',
+            'payment_status' => 'Unpaid',
+        ]);
+
+        Livewire::actingAs($this->userOwnerA);
+
+        // 1. Export with custom date filter in UI format (DD-MM-YYYY)
+        $component = Livewire::test('booking-list')
+            ->set('filterDateStart', '01-07-2026')
+            ->set('filterDateEnd', '31-07-2026');
+
+        $download = $component->call('exportExcel');
+        $download->assertFileDownloaded();
+
+        $content = base64_decode(data_get($download->effects, 'download.content'));
+
+        $this->assertStringContainsString('BK-EXP-001', $content);
+        $this->assertStringContainsString('Haji Iqbal', $content);
+        $this->assertStringContainsString('03009998877', $content);
+        $this->assertStringNotContainsString('BK-EXP-002', $content);
+
+        // 2. Export with Care Of filter
+        $componentCareOf = Livewire::test('booking-list')
+            ->set('filterCareOf', 'Malik Tariq');
+
+        $downloadCareOf = $componentCareOf->call('exportExcel');
+        $downloadCareOf->assertFileDownloaded();
+
+        $contentCareOf = base64_decode(data_get($downloadCareOf->effects, 'download.content'));
+
+        $this->assertStringContainsString('BK-EXP-002', $contentCareOf);
+        $this->assertStringContainsString('Malik Tariq', $contentCareOf);
+        $this->assertStringNotContainsString('BK-EXP-001', $contentCareOf);
+    }
+
     public function test_booking_privacy_partition_configuration_workflow()
     {
         Livewire::actingAs($this->userOwnerA);
