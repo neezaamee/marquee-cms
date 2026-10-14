@@ -5,6 +5,24 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.25.0] - 2026-10-15
+
+### Added & Enhanced
+- **Department Stock Requisition Full-Page View & Navigation**:
+  - Replaced split-column requisition window with a dedicated, spacious full-page creation screen.
+  - Implemented top and bottom "Back to Requisitions" navigation controls with form state reset.
+  - Added full-width requested items table with automatic unit detection, searchable department dropdown, and detailed validation error banners.
+- **Warehouse Stock Dispatch Full-Page Interface**:
+  - Converted two-window stock dispatch layout into a clean single-window full-page view.
+  - Added "Back to List" navigation in top and bottom action bars.
+  - Added multi-criteria search and department filter on the Pending Requisitions register.
+- **Stock Issue Valuation Based on Last Purchase Invoice Rate**:
+  - Implemented `getLastPurchaseRate()` in `DepartmentStockService` to look up actual cost from the most recent approved purchase invoice detail.
+  - Stock issues and ledger entries now use the exact last purchase rate instead of catalog default rates.
+  - Added collision-safe issue numbering (`ISS-XXXXX`) resilient to soft-deletions.
+- **Booking Slip Print Readability & Typography**:
+  - Calibrated print/PDF typography, font weights, and spacing on `booking-slip-v2` and `booking-slip` for enhanced readability on physical 1-page prints.
+
 ## [1.24.0] - 2026-10-14
 
 ### Added & Enhanced

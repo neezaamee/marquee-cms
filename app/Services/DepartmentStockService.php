@@ -49,22 +49,92 @@ class DepartmentStockService
     }
 
     /**
+     * Get the last purchase rate for an inventory item.
+     * Looks up the most recent PurchaseInvoiceDetail for the item,
+     * then recent InventoryStockLedger stock-in rates,
+     * falling back to default_purchase_rate if no prior purchase exists.
+     */
+    public function getLastPurchaseRate(int $marqueeId, ?int $branchId, int $itemId): float
+    {
+        // 1. Look for last purchase invoice detail for this item in this branch/marquee
+        $purchaseQuery = \App\Models\PurchaseInvoiceDetail::where('purchase_invoice_details.item_id', $itemId)
+            ->whereHas('purchaseInvoice', function ($q) use ($marqueeId, $branchId) {
+                $q->where('marquee_id', $marqueeId)
+                  ->where('status', '!=', 'Cancelled');
+                if ($branchId) {
+                    $q->where('branch_id', $branchId);
+                }
+            })
+            ->join('purchase_invoices', 'purchase_invoice_details.purchase_invoice_id', '=', 'purchase_invoices.id')
+            ->orderBy('purchase_invoices.purchase_date', 'desc')
+            ->orderBy('purchase_invoices.id', 'desc');
+
+        $lastDetail = $purchaseQuery->first(['purchase_invoice_details.unit_cost']);
+        if ($lastDetail && (float) $lastDetail->unit_cost > 0) {
+            return (float) $lastDetail->unit_cost;
+        }
+
+        // 1b. If branch-specific check had no result, check marquee-wide purchase invoices
+        if ($branchId) {
+            $lastDetailMarquee = \App\Models\PurchaseInvoiceDetail::where('purchase_invoice_details.item_id', $itemId)
+                ->whereHas('purchaseInvoice', function ($q) use ($marqueeId) {
+                    $q->where('marquee_id', $marqueeId)
+                      ->where('status', '!=', 'Cancelled');
+                })
+                ->join('purchase_invoices', 'purchase_invoice_details.purchase_invoice_id', '=', 'purchase_invoices.id')
+                ->orderBy('purchase_invoices.purchase_date', 'desc')
+                ->orderBy('purchase_invoices.id', 'desc')
+                ->first(['purchase_invoice_details.unit_cost']);
+
+            if ($lastDetailMarquee && (float) $lastDetailMarquee->unit_cost > 0) {
+                return (float) $lastDetailMarquee->unit_cost;
+            }
+        }
+
+        // 2. Look for last stock-in entry with rate in InventoryStockLedger
+        $ledgerQuery = \App\Models\InventoryStockLedger::where('marquee_id', $marqueeId)
+            ->where('item_id', $itemId)
+            ->where('qty_in', '>', 0)
+            ->where('unit_price', '>', 0);
+        if ($branchId) {
+            $ledgerQuery->where('branch_id', $branchId);
+        }
+        $lastLedger = $ledgerQuery->orderBy('transaction_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if ($lastLedger && (float) $lastLedger->unit_price > 0) {
+            return (float) $lastLedger->unit_price;
+        }
+
+        // 3. Fallback to catalog item default_purchase_rate
+        $item = InventoryItem::find($itemId);
+        return $item ? (float) ($item->default_purchase_rate ?: 1.0) : 1.0;
+    }
+
+    /**
      * Issue stock to a department based on a stock request.
      */
     public function issueStock(
         DepartmentStockRequest $request,
         array $issueItems, // [item_id => quantity]
         int $userId,
-        ?int $receiverEmployeeId = null
+        ?int $receiverEmployeeId = null,
+        array $customRates = []
     ): DepartmentStockIssue {
-        return DB::transaction(function () use ($request, $issueItems, $userId, $receiverEmployeeId) {
+        return DB::transaction(function () use ($request, $issueItems, $userId, $receiverEmployeeId, $customRates) {
             $marqueeId = $request->marquee_id;
             $branchId = $request->branch_id;
             $departmentId = $request->department_id;
 
-            // Generate Issue Number
-            $issueCount = DepartmentStockIssue::where('marquee_id', $marqueeId)->count();
-            $issueNumber = 'ISS-' . str_pad($issueCount + 1, 5, '0', STR_PAD_LEFT);
+            // Generate Issue Number safely
+            $maxId = DepartmentStockIssue::withTrashed()->where('marquee_id', $marqueeId)->max('id') ?? 0;
+            $nextNum = $maxId + 1;
+            $issueNumber = 'ISS-' . str_pad($nextNum, 5, '0', STR_PAD_LEFT);
+            while (DepartmentStockIssue::withTrashed()->where('marquee_id', $marqueeId)->where('issue_number', $issueNumber)->exists()) {
+                $nextNum++;
+                $issueNumber = 'ISS-' . str_pad($nextNum, 5, '0', STR_PAD_LEFT);
+            }
 
             // Create Issue Record
             $issue = DepartmentStockIssue::create([
@@ -86,7 +156,18 @@ class DepartmentStockService
                 }
 
                 $invItem = InventoryItem::findOrFail($itemId);
-                $unitPrice = $invItem->default_purchase_rate ?: 1.0;
+
+                // Use custom rate if passed, otherwise fetch the last purchase rate
+                $unitPrice = 0.0;
+                if (isset($customRates[$itemId]) && (float) $customRates[$itemId] > 0) {
+                    $unitPrice = (float) $customRates[$itemId];
+                }
+                if ($unitPrice <= 0) {
+                    $unitPrice = $this->getLastPurchaseRate($marqueeId, $branchId, $itemId);
+                }
+                if ($unitPrice <= 0) {
+                    $unitPrice = (float) ($invItem->default_purchase_rate ?: 1.0);
+                }
 
                 // Create Issue Item
                 DepartmentStockIssueItem::create([

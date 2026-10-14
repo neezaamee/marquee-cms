@@ -61,26 +61,26 @@
         </div>
 
         <!-- Meta Grid -->
-        <div class="row g-3 my-2" id="meta-grid">
+        <div class="row g-3 my-1" id="meta-grid">
             <div class="col-6">
-                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Customer Details</span>
+                <span class="meta-section-title text-800 fw-bold d-block text-uppercase fs-13 mb-1">Customer Details</span>
                 @if($booking->customer)
-                    <table class="table table-sm table-borderless fs-12 mb-0">
+                    <table class="table table-sm table-borderless fs-13 mb-0">
                         <tr>
-                            <td class="text-600 px-0 py-1" style="width: 120px;">Full Name:</td>
-                            <td class="text-800 fw-bold px-0 py-1">{{ $booking->customer->full_name }}</td>
+                            <td class="meta-label px-0 py-1" style="width: 120px;">Full Name:</td>
+                            <td class="meta-value px-0 py-1">{{ $booking->customer->full_name }}</td>
                         </tr>
                         <tr>
-                            <td class="text-600 px-0 py-1">Contact:</td>
-                            <td class="text-800 fw-bold px-0 py-1">{{ $booking->customer->phone_number }}</td>
+                            <td class="meta-label px-0 py-1">Contact:</td>
+                            <td class="meta-value px-0 py-1">{{ $booking->customer->phone_number }}</td>
                         </tr>
                         <tr>
-                            <td class="text-600 px-0 py-1">CNIC / NTN:</td>
-                            <td class="text-800 fw-bold px-0 py-1">{{ $booking->customer->cnic_national_id ?? $booking->customer->ntn_number ?? 'N/A' }}</td>
+                            <td class="meta-label px-0 py-1">CNIC / NTN:</td>
+                            <td class="meta-value px-0 py-1">{{ $booking->customer->cnic_national_id ?? $booking->customer->ntn_number ?? 'N/A' }}</td>
                         </tr>                
                         <tr>
-                            <td class="text-600 px-0 py-1">Referred By:</td>
-                            <td class="text-800 px-0 py-1">
+                            <td class="meta-label px-0 py-1">Referred By:</td>
+                            <td class="text-800 fw-semi-bold px-0 py-1">
                                 {{ $booking->customer->referred_by_name ?? '—' }}
                                 @if($booking->customer->referred_by_contact)
                                     ({{ $booking->customer->referred_by_contact }})
@@ -89,24 +89,24 @@
                         </tr>
                     </table>
                 @else
-                    <p class="text-muted fs-12 mb-0">No customer detail attached.</p>
+                    <p class="text-muted fs-13 mb-0">No customer detail attached.</p>
                 @endif
             </div>
 
             <div class="col-6">
-                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Event Venue & Timings</span>
-                <table class="table table-sm table-borderless fs-12 mb-0">
-                <tr>
-                        <td class="text-600 px-0 py-1">Event Date:</td>
-                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
-                </tr>
-                <tr>
-                        <td class="text-600 px-0 py-1">Event Time:</td>
-                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->slot->slot_name ?? 'Custom Schedule' }}<small class="text-danger-800 font-monospace fw-bold px-0 py-1">({{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }})<small> </td>
-                </tr> 
-                <tr>
-                        <td class="text-600 px-0 py-1" style="width: 120px;">Event Type:</td>
-                        <td class="text-800 fw-bold px-0 py-1">
+                <span class="meta-section-title text-800 fw-bold d-block text-uppercase fs-13 mb-1">Event Venue & Timings</span>
+                <table class="table table-sm table-borderless fs-13 mb-0">
+                    <tr>
+                        <td class="meta-label px-0 py-1">Event Date:</td>
+                        <td class="meta-value px-0 py-1">{{ $booking->booking_date->format('l, F d, Y') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="meta-label px-0 py-1">Event Time:</td>
+                        <td class="meta-value px-0 py-1">{{ $booking->slot->slot_name ?? 'Custom Schedule' }} <small class="text-danger-800 font-monospace fw-bold px-0 py-1">({{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }})</small></td>
+                    </tr> 
+                    <tr>
+                        <td class="meta-label px-0 py-1" style="width: 120px;">Event Type:</td>
+                        <td class="meta-value px-0 py-1">
                             {{ $booking->eventType->event_type_name ?? '—' }}
                             @if($booking->halls->isNotEmpty())
                                 / {{ $booking->halls->pluck('hall_name')->implode(', ') }}
@@ -116,12 +116,12 @@
                         </td>
                     </tr>
                     <tr>
-                        <td class="text-600 px-0 py-1">Guests Count:</td>
-                        <td class="text-800 fw-bold px-0 py-1"> T: {{ $booking->tentative_guests ?? $booking->guest_count }}, C: {{ $booking->confirmed_guests ?? 'Pending' }}</td>
+                        <td class="meta-label px-0 py-1">Guests Count:</td>
+                        <td class="meta-value px-0 py-1">T: {{ $booking->tentative_guests ?? $booking->guest_count }}, C: {{ $booking->confirmed_guests ?? 'Pending' }}</td>
                     </tr>
                     {{--<tr>
-                        <td class="text-600 px-0 py-1">Privacy:</td>
-                        <td class="text-800 fw-bold px-0 py-1">
+                        <td class="meta-label px-0 py-1">Privacy:</td>
+                        <td class="meta-value px-0 py-1">
                             @if($booking->privacy_required)
                                 Yes (Ladies: {{ $booking->privacy_ladies_percentage }}%, Gents: {{ $booking->privacy_gents_percentage }}%)
                             @else
@@ -134,18 +134,18 @@
         </div>
 
         <!-- Split Layout Body Components -->
-        <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-2" id="menu-details-title">Menu</span>
-        <ol class="ps-4 mb-0 responsive-print-font fs-12 text-800" id="menu-items-list">
+        <span class="section-component-title text-800 fw-bold d-block text-uppercase fs-13 mb-1" id="menu-details-title">Menu</span>
+        <ol class="ps-4 mb-0 responsive-print-font fs-13 text-800" id="menu-items-list">
             @if($booking->menuItems->isNotEmpty())
                 @foreach($booking->menuItems as $item)
                     <li class="mb-1 menu-item-li">
                         <span class="fw-bold">{{ $item->item_name }}</span>
                         @if(!empty($item->pivot->managed_by_host))
-                            <span class="badge badge-subtle-warning fs-11 ms-1 d-print-none">Managed by Host</span>
-                            <span class="text-danger fw-bold fs-11 ms-1 d-none d-print-inline-block">(By Host)</span>
+                            <span class="badge badge-subtle-warning fs-12 ms-1 d-print-none">Managed by Host</span>
+                            <span class="text-danger fw-bold fs-12 ms-1 d-none d-print-inline-block">(By Host)</span>
                         @endif
                         @if(!empty($item->pivot->custom_note))
-                            <span class="text-muted fs-11 ms-1 italic">— ({{ $item->pivot->custom_note }})</span>
+                            <span class="text-secondary fs-12 ms-1 fst-italic">— ({{ $item->pivot->custom_note }})</span>
                         @endif
                     </li>
                 @endforeach
@@ -176,15 +176,15 @@
 
         @if($booking->extraServices->isNotEmpty())
             <div class="mb-2" id="addons-block">
-                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Extra Add-ons / Services Details</span>
-                <ul class="ps-3 mb-0 fs-12 text-800">
+                <span class="section-component-title text-800 fw-bold d-block text-uppercase fs-13 mb-1">Extra Add-ons / Services Details</span>
+                <ul class="ps-3 mb-0 fs-13 text-800">
                     @foreach($booking->extraServices as $srv)
                         <li class="mb-1">
                             <span class="fw-bold">{{ $srv->service_name }}</span> 
                             @if($srv->total_price > 0)
-                                <span class="text-muted">({{ $srv->quantity }}x @ Rs. {{ number_format($srv->unit_price) }})</span>
+                                <span class="text-secondary fw-medium">({{ $srv->quantity }}x @ Rs. {{ number_format($srv->unit_price) }})</span>
                             @else
-                                <span class="text-muted">({{ $srv->quantity }}x)</span>
+                                <span class="text-secondary fw-medium">({{ $srv->quantity }}x)</span>
                             @endif
                         </li>
                     @endforeach
@@ -197,15 +197,15 @@
         @endphp
         @if($slipVendorSales->isNotEmpty())
             <div class="mb-2" id="vendor-services-block">
-                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Service Providers & External Services</span>
-                <ul class="ps-3 mb-0 fs-12 text-800">
+                <span class="section-component-title text-800 fw-bold d-block text-uppercase fs-13 mb-1">Service Providers & External Services</span>
+                <ul class="ps-3 mb-0 fs-13 text-800">
                     @foreach($slipVendorSales as $vs)
                         <li class="mb-1">
                             <span class="fw-bold">{{ $vs->service->service_name ?? 'Service' }}</span>
-                            <span class="text-muted">({{ $vs->vendor->name ?? 'Provider' }} - Rs. {{ number_format($vs->sale_amount) }})</span>
+                            <span class="text-secondary fw-medium">({{ $vs->vendor->name ?? 'Provider' }} - Rs. {{ number_format($vs->sale_amount) }})</span>
                             @if(!$vs->include_in_invoice)
-                                <span class="badge badge-subtle-warning fs-10 ms-1 d-print-none">Direct Client Payment</span>
-                                <span class="text-danger fw-bold fs-10 ms-1 d-none d-print-inline-block">(Direct Pay)</span>
+                                <span class="badge badge-subtle-warning fs-11 ms-1 d-print-none">Direct Client Payment</span>
+                                <span class="text-danger fw-bold fs-11 ms-1 d-none d-print-inline-block">(Direct Pay)</span>
                             @endif
                         </li>
                     @endforeach
@@ -213,10 +213,10 @@
             </div>
         @endif
             <div id="instructions-block">
-                <span class="text-500 fw-bold d-block text-uppercase fs-12 mb-1">Special Setup / Instructions</span>
-                <div class="mb-2 fs-12 text-800">
-                    <span class="text-600" data-test="Privacy / Partition:">Privacy:</span>
-                    <span class="fw-bold">
+                <span class="section-component-title text-800 fw-bold d-block text-uppercase fs-13 mb-1">Special Setup / Instructions</span>
+                <div class="mb-2 fs-13 text-800">
+                    <span class="text-700 fw-semibold" data-test="Privacy / Partition:">Privacy:</span>
+                    <span class="fw-bold text-900">
                         @if($booking->privacy_required)
                             Yes (Ladies: {{ $booking->privacy_ladies_percentage }}%, Gents: {{ $booking->privacy_gents_percentage }}%)
                         @else
@@ -224,8 +224,8 @@
                         @endif
                     </span>
                 </div>
-                    @if($booking->special_instructions)
-                <div class="p-2 border rounded bg-light fs-12 text-800 text-wrap" style="white-space: pre-wrap; word-break: break-word;">{{ $booking->special_instructions }}</div>
+                @if($booking->special_instructions)
+                    <div class="p-2 border rounded bg-light fs-13 text-800 text-wrap special-notes-box" style="white-space: pre-wrap; word-break: break-word;">{{ $booking->special_instructions }}</div>
                 @endif
             </div>
         
@@ -251,8 +251,8 @@
         @endphp
         <div class="row g-3 fs-13 mt-1" id="terms-and-conditions">
             <div class="col-12">
-                <h6 class="fw-bold text-800 mb-1">Terms & Conditions</h6>
-                <ol class="ps-3 text-600 mb-0 fs-11">
+                <h6 class="fw-bold text-900 mb-1" style="letter-spacing: 0.2px;">Terms & Conditions</h6>
+                <ol class="ps-3 text-800 mb-0 fs-12 terms-list">
                     @foreach($slipTermsList as $termItem)
                         <li>{{ $termItem }}</li>
                     @endforeach
@@ -292,7 +292,7 @@
         .print-page {
             width: 210mm;
             height: 297mm;
-            padding: 6mm 10mm;
+            padding: 4.5mm 8mm;
             box-sizing: border-box;
             background: white;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
@@ -315,7 +315,7 @@
             height: 20px;
             border-top: 1px solid #dee2e6;
             padding-top: 2px;
-            margin-top: 5px;
+            margin-top: 4px;
             font-size: 8pt;
             color: #555;
             display: flex;
@@ -324,46 +324,128 @@
             font-family: monospace;
         }
 
+        .compact-header {
+            border-bottom: 2px solid #0056b3;
+        }
+
+        /* Brand & Spacing overrides for print slip */
+        #brand-header {
+            margin-bottom: 4px !important;
+        }
+
+        /* Meta Grid Styling - Enhanced for Low Eye Vision Readability */
+        #meta-grid {
+            margin-top: 2px !important;
+            margin-bottom: 3px !important;
+        }
+
+        #meta-grid .meta-section-title {
+            font-size: 13.5px !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
+            letter-spacing: 0.3px;
+        }
+
+        #meta-grid table td {
+            padding: 1px 0 !important;
+            font-size: 13.5px !important;
+            line-height: 1.35 !important;
+        }
+
+        #meta-grid table td.meta-label {
+            color: #334155 !important;
+            font-weight: 600 !important;
+        }
+
+        #meta-grid table td.meta-value {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+
+        hr {
+            margin: 3px 0 !important;
+            opacity: 0.15;
+        }
+
+        /* Split Layout Body Components Styling */
+        .section-component-title {
+            font-size: 13.5px !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
+            letter-spacing: 0.3px;
+        }
+
+        .responsive-print-font, .menu-item-li {
+            font-size: 13.5px !important;
+            line-height: 1.35 !important;
+            color: #0f172a !important;
+        }
+
         .menu-item-li {
             break-inside: avoid;
             page-break-inside: avoid;
             margin-bottom: 2px !important;
         }
 
-        .compact-header {
-            border-bottom: 2px solid #0056b3;
+        .menu-item-li .fw-bold {
+            color: #0f172a !important;
+            font-weight: 700 !important;
         }
 
-        /* Spacing overrides for print slip */
-        #meta-grid table td {
-            padding: 1px 0 !important;
-        }
-
-        #brand-header {
-            margin-bottom: 5px !important;
-        }
-
-        #meta-grid {
-            margin-top: 4px !important;
-            margin-bottom: 4px !important;
-        }
-
-        hr {
-            margin: 4px 0 !important;
-            opacity: 0.15;
-        }
-
-        #terms-and-conditions {
-            margin-top: 4px !important;
-        }
-
-        #terms-and-conditions h6 {
+        #addons-block ul li, #vendor-services-block ul li {
+            font-size: 13px !important;
+            line-height: 1.35 !important;
+            color: #0f172a !important;
             margin-bottom: 2px !important;
         }
 
+        #instructions-block {
+            font-size: 13px !important;
+        }
+
+        #instructions-block .special-notes-box {
+            font-size: 12.5px !important;
+            line-height: 1.35 !important;
+            color: #1e293b !important;
+        }
+
+        /* Terms & Conditions Styling - Enhanced Visibility */
+        #terms-and-conditions {
+            margin-top: 3px !important;
+        }
+
+        #terms-and-conditions h6 {
+            font-size: 13px !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
+            margin-bottom: 2px !important;
+        }
+
+        #terms-and-conditions ol {
+            font-size: 12px !important;
+            line-height: 1.3 !important;
+            color: #334155 !important;
+            padding-left: 1.25rem !important;
+        }
+
+        #terms-and-conditions ol li {
+            margin-bottom: 1.5px !important;
+        }
+
+        /* Signature Layout */
         #signature-layout {
-            margin-top: 0.75rem !important;
-            padding-top: 0.1rem !important;
+            margin-top: 8px !important;
+            padding-top: 0 !important;
+        }
+
+        #signature-layout hr {
+            margin-bottom: 2px !important;
+        }
+
+        #signature-layout span {
+            font-size: 9.5pt !important;
+            font-weight: 600 !important;
+            color: #334155 !important;
         }
 
         @media print {
@@ -397,7 +479,7 @@
                 padding: 4mm 8mm !important;
                 border-radius: 0 !important;
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-                font-size: 9pt !important;
+                font-size: 9.8pt !important;
                 line-height: 1.25 !important;
             }
             /* Hide UI components */
@@ -405,23 +487,23 @@
                 display: none !important;
             }
             
-            /* Print Point Sizing Overrides */
+            /* Print Point Sizing Overrides for High Visibility */
             .fs-12 {
-                font-size: 9pt !important;
-            }
-            .fs-13 {
                 font-size: 9.5pt !important;
             }
+            .fs-13 {
+                font-size: 9.8pt !important;
+            }
             .fs-18 {
-                font-size: 13pt !important;
+                font-size: 13.5pt !important;
             }
             .fs-11 {
-                font-size: 8pt !important;
+                font-size: 8.8pt !important;
             }
             .text-500 {
-                color: #475569 !important;
+                color: #334155 !important;
                 font-weight: 700 !important;
-                letter-spacing: 0.5px;
+                letter-spacing: 0.3px;
             }
             #brand-name {
                 font-family: 'Outfit', 'Inter', sans-serif !important;
@@ -431,7 +513,60 @@
             }
             .font-monospace {
                 font-family: 'SFMono-Regular', Consolas, "Liberation Mono", Menlo, monospace !important;
-                font-size: 8.5pt !important;
+                font-size: 9pt !important;
+            }
+
+            /* Meta Grid Print Sizing */
+            #meta-grid table td {
+                font-size: 9.8pt !important;
+                line-height: 1.3 !important;
+            }
+            #meta-grid .meta-section-title {
+                font-size: 10pt !important;
+            }
+
+            /* Menu, Add-ons, Badges and Components Print Sizing (Enhanced for Low Eye Vision) */
+            .section-component-title {
+                font-size: 11pt !important;
+                font-weight: 700 !important;
+                color: #0f172a !important;
+                margin-bottom: 2px !important;
+            }
+            .responsive-print-font, .menu-item-li {
+                font-size: 11.5pt !important;
+                line-height: 1.25 !important;
+                color: #0f172a !important;
+            }
+            .menu-item-li .fw-bold {
+                font-size: 11.5pt !important;
+                font-weight: 700 !important;
+                color: #0f172a !important;
+            }
+            .menu-item-li .badge,
+            .menu-item-li span[class*="text-danger"],
+            .menu-item-li .fst-italic,
+            .menu-item-li .text-secondary {
+                font-size: 10.4pt !important;
+                line-height: 1.2 !important;
+            }
+            #addons-block ul li, #vendor-services-block ul li {
+                font-size: 11pt !important;
+                line-height: 1.25 !important;
+                color: #0f172a !important;
+            }
+            #addons-block ul li .fw-bold, #vendor-services-block ul li .fw-bold {
+                font-size: 11pt !important;
+            }
+            #addons-block ul li .text-secondary, #vendor-services-block ul li .text-secondary {
+                font-size: 10.4pt !important;
+            }
+            #instructions-block {
+                font-size: 10.5pt !important;
+            }
+            #instructions-block .special-notes-box {
+                font-size: 10pt !important;
+                line-height: 1.25 !important;
+                color: #1e293b !important;
             }
 
             /* Compact terms and signatures for optimal page-fitting */
@@ -439,22 +574,30 @@
                 margin-top: 2px !important;
             }
             #terms-and-conditions h6 {
-                font-size: 8.5pt !important;
+                font-size: 10.8pt !important;
+                margin-bottom: 1px !important;
+                color: #0f172a !important;
+                font-weight: 700 !important;
+            }
+            #terms-and-conditions ol, #terms-and-conditions ol.terms-list {
+                font-size: 10.2pt !important;
+                line-height: 1.22 !important;
+                color: #1e293b !important;
+            }
+            #terms-and-conditions ol li {
+                font-size: 10.2pt !important;
                 margin-bottom: 1px !important;
             }
-            #terms-and-conditions ol {
-                font-size: 7.5pt !important;
-                line-height: 1.2 !important;
-            }
             #signature-layout {
-                margin-top: 10px !important;
+                margin-top: 8px !important;
                 padding-top: 0 !important;
             }
             #signature-layout hr {
                 margin-bottom: 2px !important;
             }
             #signature-layout span {
-                font-size: 8.5pt !important;
+                font-size: 9.2pt !important;
+                color: #334155 !important;
             }
         }
         @page {
@@ -585,7 +728,7 @@
                     // Build Left Column with K items
                     if (menuTitle) leftCol.appendChild(menuTitle.cloneNode(true));
                     const leftList = document.createElement("ol");
-                    leftList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                    leftList.className = "ps-4 mb-0 responsive-print-font fs-13 text-800";
                     leftList.start = 1;
                     leftCol.appendChild(leftList);
                     for (let i = 0; i < K; i++) {
@@ -596,12 +739,12 @@
                     // Build Right Column with N - K items (if any)
                     if (K < N) {
                         const rightTitle = document.createElement("span");
-                        rightTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mt-3 mb-1";
+                        rightTitle.className = "section-component-title text-800 fw-bold d-block text-uppercase fs-13 mt-3 mb-1";
                         rightTitle.textContent = "Menu (Continued)";
                         rightCol.appendChild(rightTitle);
 
                         const rightList = document.createElement("ol");
-                        rightList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                        rightList.className = "ps-4 mb-0 responsive-print-font fs-13 text-800";
                         rightList.start = K + 1;
                         rightCol.appendChild(rightList);
                         for (let i = K; i < N; i++) {
@@ -609,16 +752,16 @@
                         }
                     }
 
-                    // Check if this distribution fits on Page 1 along with terms and signatures (allowing 15px layout tolerance)
+                    // Check if this distribution fits on Page 1 along with terms and signatures (allowing 20px layout tolerance)
                     let fitsWithTerms = false;
-                    if (activeContent.scrollHeight - activeContent.clientHeight <= 15) {
+                    if (activeContent.scrollHeight - activeContent.clientHeight <= 20) {
                         const tempTerms = termsBlock ? termsBlock.cloneNode(true) : null;
                         const tempSig = signatureBlock ? signatureBlock.cloneNode(true) : null;
 
                         if (tempTerms) activeContent.appendChild(tempTerms);
                         if (tempSig) activeContent.appendChild(tempSig);
 
-                        if (activeContent.scrollHeight - activeContent.clientHeight <= 15) {
+                        if (activeContent.scrollHeight - activeContent.clientHeight <= 20) {
                             fitsWithTerms = true;
                         }
 
@@ -638,7 +781,7 @@
                     
                     if (menuTitle) leftCol.appendChild(menuTitle.cloneNode(true));
                     const leftList = document.createElement("ol");
-                    leftList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                    leftList.className = "ps-4 mb-0 responsive-print-font fs-13 text-800";
                     leftList.start = 1;
                     leftCol.appendChild(leftList);
                     for (let i = 0; i < successPage1Distribution; i++) {
@@ -648,12 +791,12 @@
 
                     if (successPage1Distribution < N) {
                         const rightTitle = document.createElement("span");
-                        rightTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mt-3 mb-1";
+                        rightTitle.className = "section-component-title text-800 fw-bold d-block text-uppercase fs-13 mt-3 mb-1";
                         rightTitle.textContent = "Menu (Continued)";
                         rightCol.appendChild(rightTitle);
 
                         const rightList = document.createElement("ol");
-                        rightList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                        rightList.className = "ps-4 mb-0 responsive-print-font fs-13 text-800";
                         rightList.start = successPage1Distribution + 1;
                         rightCol.appendChild(rightList);
                         for (let i = successPage1Distribution; i < N; i++) {
@@ -666,7 +809,7 @@
 
                     if (menuTitle) leftCol.appendChild(menuTitle.cloneNode(true));
                     const menuList = document.createElement("ol");
-                    menuList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                    menuList.className = "ps-4 mb-0 responsive-print-font fs-13 text-800";
                     menuList.start = 1;
                     leftCol.appendChild(menuList);
 
@@ -681,8 +824,8 @@
                         const item = menuItems[i].cloneNode(true);
                         currentListTarget.appendChild(item);
 
-                        // Check if adding this item caused overflow on Page 1 (with 15px tolerance)
-                        if (activeContent.scrollHeight - activeContent.clientHeight > 15) {
+                        // Check if adding this item caused overflow on Page 1 (with 20px tolerance)
+                        if (activeContent.scrollHeight - activeContent.clientHeight > 20) {
                             // Rollback item
                             currentListTarget.removeChild(item);
 
@@ -691,12 +834,12 @@
                                 currentColumn = 'right';
 
                                 rightColTitle = document.createElement("span");
-                                rightColTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mt-3 mb-1";
+                                rightColTitle.className = "section-component-title text-800 fw-bold d-block text-uppercase fs-13 mt-3 mb-1";
                                 rightColTitle.textContent = "Menu (Continued)";
                                 rightCol.appendChild(rightColTitle);
 
                                 rightColContinuationList = document.createElement("ol");
-                                rightColContinuationList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                                rightColContinuationList.className = "ps-4 mb-0 responsive-print-font fs-13 text-800";
                                 rightColContinuationList.start = i + 1;
                                 rightCol.appendChild(rightColContinuationList);
 
@@ -705,8 +848,8 @@
                                 // Re-append rolled back item to right column list
                                 currentListTarget.appendChild(item);
 
-                                // Check if it immediately overflows the right column too (with 15px tolerance)
-                                if (activeContent.scrollHeight - activeContent.clientHeight > 15) {
+                                // Check if it immediately overflows the right column too (with 20px tolerance)
+                                if (activeContent.scrollHeight - activeContent.clientHeight > 20) {
                                     // Right column also overflows immediately! Rollback and create Page 2
                                     currentListTarget.removeChild(item);
                                     rightCol.removeChild(rightColTitle);
@@ -751,13 +894,13 @@
 
                     // Menu title
                     const nextMenuTitle = document.createElement("span");
-                    nextMenuTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mb-1";
+                    nextMenuTitle.className = "section-component-title text-800 fw-bold d-block text-uppercase fs-13 mb-1";
                     nextMenuTitle.textContent = "Event Menu Selection Details (Continued)";
                     activeContent.appendChild(nextMenuTitle);
 
                     // Full width menu ordered list on Page 2+
                     let activeContinuationList = document.createElement("ol");
-                    activeContinuationList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                    activeContinuationList.className = "ps-4 mb-0 responsive-print-font fs-13 text-800";
                     activeContinuationList.start = startIndex + 1;
                     activeContent.appendChild(activeContinuationList);
 
@@ -766,7 +909,7 @@
                         const nextItem = menuItems[j].cloneNode(true);
                         activeContinuationList.appendChild(nextItem);
 
-                        if (activeContent.scrollHeight - activeContent.clientHeight > 15) {
+                        if (activeContent.scrollHeight - activeContent.clientHeight > 20) {
                             // Rollback
                             activeContinuationList.removeChild(nextItem);
 
@@ -796,13 +939,13 @@
 
                             // Title
                             const pageNTitle = document.createElement("span");
-                            pageNTitle.className = "text-500 fw-bold d-block text-uppercase fs-12 mb-1";
+                            pageNTitle.className = "section-component-title text-800 fw-bold d-block text-uppercase fs-13 mb-1";
                             pageNTitle.textContent = "Event Menu Selection Details (Continued)";
                             activeContent.appendChild(pageNTitle);
 
                             // New continuation list
                             activeContinuationList = document.createElement("ol");
-                            activeContinuationList.className = "ps-4 mb-0 responsive-print-font fs-12 text-800";
+                            activeContinuationList.className = "ps-4 mb-0 responsive-print-font fs-13 text-800";
                             activeContinuationList.start = j + 1;
                             activeContent.appendChild(activeContinuationList);
 
@@ -818,7 +961,7 @@
                 if (!element) return;
                 activeContent.appendChild(element);
 
-                if (activeContent.scrollHeight - activeContent.clientHeight > 15) {
+                if (activeContent.scrollHeight - activeContent.clientHeight > 20) {
                     // Rollback
                     activeContent.removeChild(element);
 

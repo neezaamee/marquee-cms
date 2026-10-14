@@ -43,9 +43,15 @@ class DepartmentRequestManager extends Component
     ];
 
     protected $messages = [
+        'department_id.required' => 'Please select a department.',
+        'department_id.exists' => 'The selected department is invalid.',
+        'request_date.required' => 'Please select a request date.',
         'formItems.required' => 'You must add at least one item to request.',
-        'formItems.*.item_id.required' => 'Select an item.',
-        'formItems.*.requested_qty.required' => 'Specify quantity.',
+        'formItems.min' => 'You must add at least one item to request.',
+        'formItems.*.item_id.required' => 'Please select an item for each row.',
+        'formItems.*.item_id.exists' => 'The selected item is invalid.',
+        'formItems.*.requested_qty.required' => 'Specify quantity for each item.',
+        'formItems.*.requested_qty.min' => 'Quantity must be at least 0.01.',
     ];
 
     public function mount()
@@ -72,11 +78,19 @@ class DepartmentRequestManager extends Component
         $this->isFormOpen = true;
     }
 
+    public function closeCreateForm()
+    {
+        $this->isFormOpen = false;
+        $this->resetForm();
+    }
+
     public function generateNextRequestNumber()
     {
         $marqueeId = auth()->user()->marquee_id;
-        $count = DepartmentStockRequest::where('marquee_id', $marqueeId)->count();
-        return 'REQ-' . str_pad($count + 1, 5, '0', STR_PAD_LEFT);
+        $maxId = DepartmentStockRequest::withTrashed()
+            ->where('marquee_id', $marqueeId)
+            ->max('id') ?? 0;
+        return 'REQ-' . str_pad($maxId + 1, 5, '0', STR_PAD_LEFT);
     }
 
     public function resetForm()
@@ -110,42 +124,69 @@ class DepartmentRequestManager extends Component
         $branchId = auth()->user()->branch_id;
 
         if (!$branchId) {
-            $this->addError('branch_id', 'Please make sure you are logged in to a branch.');
+            $dept = Department::find($this->department_id);
+            if ($dept && $dept->branch_id) {
+                $branchId = $dept->branch_id;
+            } else {
+                $branchId = \App\Models\Branch::where('marquee_id', $marqueeId)->value('id');
+            }
+        }
+
+        if (!$branchId) {
+            $this->addError('branch_id', 'Please make sure a branch is configured for this department or marquee.');
             return;
         }
 
         $employee = auth()->user()->employee;
-        $requestedBy = $employee ? $employee->id : 1; // Fallback to ID 1 if not linked
+        $requestedBy = $employee ? $employee->id : (\App\Models\Employee::where('marquee_id', $marqueeId)->value('id') ?? auth()->id());
 
-        DepartmentStockRequest::updateOrCreate(
-            ['id' => $this->selectedRequestId],
-            [
-                'marquee_id' => $marqueeId,
-                'branch_id' => $branchId,
-                'department_id' => $this->department_id,
-                'request_number' => $this->request_number,
-                'request_date' => $this->request_date,
-                'requested_by' => $requestedBy,
-                'status' => 'Submitted',
-                'remarks' => $this->remarks,
-                'created_by' => auth()->id(),
-            ]
-        )->items()->delete();
-
-        $request = DepartmentStockRequest::where('request_number', $this->request_number)
-            ->where('marquee_id', $marqueeId)
-            ->first();
-
-        foreach ($this->formItems as $formItem) {
-            DepartmentStockRequestItem::create([
-                'department_stock_request_id' => $request->id,
-                'item_id' => $formItem['item_id'],
-                'requested_qty' => $formItem['requested_qty'],
-                'approved_qty' => $formItem['requested_qty'], // By default auto-approve for simplicity, store manager can alter
-            ]);
+        // Ensure request_number does not collide on create
+        if (!$this->selectedRequestId) {
+            $exists = DepartmentStockRequest::where('marquee_id', $marqueeId)
+                ->where('request_number', $this->request_number)
+                ->exists();
+            if ($exists) {
+                $this->request_number = $this->generateNextRequestNumber();
+            }
         }
 
-        session()->flash('message', 'Stock request submitted successfully.');
+        \DB::transaction(function () use ($marqueeId, $branchId, $requestedBy) {
+            if ($this->selectedRequestId) {
+                $request = DepartmentStockRequest::findOrFail($this->selectedRequestId);
+                $request->update([
+                    'department_id' => $this->department_id,
+                    'request_date' => $this->request_date,
+                    'remarks' => $this->remarks,
+                    'updated_by' => auth()->id(),
+                ]);
+                $request->items()->delete();
+            } else {
+                $request = DepartmentStockRequest::create([
+                    'marquee_id' => $marqueeId,
+                    'branch_id' => $branchId,
+                    'department_id' => $this->department_id,
+                    'request_number' => $this->request_number,
+                    'request_date' => $this->request_date,
+                    'requested_by' => $requestedBy,
+                    'status' => 'Submitted',
+                    'remarks' => $this->remarks,
+                    'created_by' => auth()->id(),
+                ]);
+            }
+
+            foreach ($this->formItems as $formItem) {
+                if (!empty($formItem['item_id'])) {
+                    DepartmentStockRequestItem::create([
+                        'department_stock_request_id' => $request->id,
+                        'item_id' => $formItem['item_id'],
+                        'requested_qty' => $formItem['requested_qty'] ?? 1,
+                        'approved_qty' => $formItem['requested_qty'] ?? 1,
+                    ]);
+                }
+            }
+        });
+
+        session()->flash('message', 'Stock request ' . $this->request_number . ' submitted successfully.');
         $this->isFormOpen = false;
         $this->resetForm();
     }
