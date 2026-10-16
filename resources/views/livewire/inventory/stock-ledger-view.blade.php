@@ -100,6 +100,23 @@
                     </button>
                 </div>
             </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top border-200">
+                <span class="text-muted fs-11">
+                    Showing filtered ledger activity: <strong>{{ $ledger->total() }}</strong> records
+                </span>
+                <div class="btn-group btn-group-sm">
+                    <button wire:click="exportExcel" class="btn btn-outline-success" title="Export Excel (CSV)">
+                        <span class="fas fa-file-excel me-1"></span>Excel
+                    </button>
+                    <a href="{{ route('inventory.stock-ledger.pdf', ['branch_id' => $filterBranch, 'item_id' => $filterItem, 'type' => $filterType, 'date_from' => $filterDateFrom, 'date_to' => $filterDateTo, 'search' => $search]) }}" target="_blank" class="btn btn-outline-danger" title="Export PDF">
+                        <span class="fas fa-file-pdf me-1"></span>PDF
+                    </a>
+                    <a href="{{ route('inventory.stock-ledger.print', ['branch_id' => $filterBranch, 'item_id' => $filterItem, 'type' => $filterType, 'date_from' => $filterDateFrom, 'date_to' => $filterDateTo, 'search' => $search]) }}" target="_blank" class="btn btn-outline-secondary" title="Print View">
+                        <span class="fas fa-print me-1"></span>Print
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 

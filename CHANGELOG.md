@@ -5,6 +5,24 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.26.0] - 2026-10-16
+
+### Added & Enhanced
+- **Central Warehouse Opening Stock & Stock Adjustment Reflection**:
+  - Resolved stock ledger and central warehouse inventory balance reflection during Opening Stock entries and manual stock adjustments.
+  - Linked central warehouse inventory records with `DepartmentStockService` transaction logs and movement calculations.
+  - Added full test coverage in `InventoryStockAdjustmentIntegrationTest`.
+- **Stock Valuation, Auditing & Multi-Format Reporting**:
+  - Integrated dynamic total valuation tracking into `StockView` and `StockLedgerView`.
+  - Added one-click PDF, Excel, and Print exports for both the Live Stock Matrix and Stock Movement Ledger.
+  - Added printable Stock-Take Count Sheets and Adjustment Audit Vouchers.
+- **Storekeeper & Inventory Manager Dashboard Hub**:
+  - Added dedicated Purchase Order and Purchase Invoice feature cards with direct creation shortcuts, active count badges, and recent records tables.
+  - Added Quick Action Ribbon tiles for one-click access to procurement and vendor billing.
+  - Added multi-role aliasing supporting `store_keeper`, `storekeeper`, and `inventory_manager` roles.
+- **Searchable Procurement Catalog Unification**:
+  - Standardized real-time searchable item catalogs across Purchase Orders, Purchase Invoices, and Purchase Returns with keyboard arrow navigation, automatic quantity focus, and live pricing.
+
 ## [1.25.0] - 2026-10-15
 
 ### Added & Enhanced

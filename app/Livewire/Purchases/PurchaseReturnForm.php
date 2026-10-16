@@ -73,7 +73,7 @@ class PurchaseReturnForm extends Component
 
         $this->suppliers = Supplier::where('marquee_id', $marqueeId)->where('status', 'Active')->orderBy('name')->get();
         $this->branches = Branch::where('marquee_id', $marqueeId)->where('status', 'active')->get();
-        $this->catalogItems = InventoryItem::where('marquee_id', $marqueeId)->where('status', 'Active')->orderBy('name')->get();
+        $this->catalogItems = InventoryItem::with('unit')->where('marquee_id', $marqueeId)->where('status', 'Active')->orderBy('name')->get();
 
         // Get posted invoices for reference
         $this->invoices = PurchaseInvoice::where('marquee_id', $marqueeId)->where('status', 'Posted')->orderBy('invoice_number')->get();
@@ -143,6 +143,12 @@ class PurchaseReturnForm extends Component
         }
     }
 
+    public function selectCatalogItem($itemId)
+    {
+        $this->selectedItemId = $itemId;
+        $this->updatedSelectedItemId();
+    }
+
     public function updatedSelectedItemId()
     {
         if ($this->selectedItemId) {
@@ -151,6 +157,9 @@ class PurchaseReturnForm extends Component
                 $this->selectedRate = (float) $catItem->default_purchase_rate;
                 $this->recalculateSelectedAmount();
             }
+        } else {
+            $this->selectedRate = 0.00;
+            $this->selectedAmount = 0.00;
         }
     }
 
@@ -265,6 +274,7 @@ class PurchaseReturnForm extends Component
         $this->selectedQty = 1;
         $this->selectedRate = 0.00;
         $this->selectedAmount = 0.00;
+        $this->dispatch('item-catalog-reset');
     }
 
     public function removeLine($index)
@@ -408,7 +418,18 @@ class PurchaseReturnForm extends Component
 
     public function render()
     {
-        return view('livewire.purchases.purchase-return-form')
-            ->layout('layouts.admin');
+        $catalogItemsData = collect($this->catalogItems)->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'item_code' => $item->item_code,
+                'name' => $item->name,
+                'unit' => $item->unit->short_code ?? ($item->unit->name ?? 'Pcs'),
+                'rate' => (float) ($item->default_purchase_rate ?? 0),
+            ];
+        })->values()->toArray();
+
+        return view('livewire.purchases.purchase-return-form', [
+            'catalogItemsData' => $catalogItemsData,
+        ])->layout('layouts.admin');
     }
 }

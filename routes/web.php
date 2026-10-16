@@ -170,8 +170,148 @@ Route::middleware(['auth', 'user.active'])->group(function () {
             Route::view('inventory/brands', 'inventory.brands')->name('inventory.brands');
             Route::view('inventory/items', 'inventory.items')->name('inventory.items');
             Route::view('inventory/stock', 'inventory.stock')->name('inventory.stock');
+
+            // Stock View PDF and Print Routes
+            Route::get('inventory/stock/pdf', function () {
+                $user = auth()->user();
+                $marquee = $user->marquee;
+                $marqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
+                $branchId = request('filterBranch') ?: ($user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : null);
+                $search = request('search');
+                $filterCategory = request('filterCategory');
+                $filterStatus = request('filterStatus');
+
+                $data = app(\App\Livewire\Inventory\StockView::class)->getStockReportData($marqueeId, $branchId, $search, $filterCategory, $filterStatus);
+                $items = $data['items'];
+                $stats = $data['stats'];
+                $branchName = $branchId ? \App\Models\Branch::find($branchId)?->name : 'All Branches';
+                $categoryName = $filterCategory ? \App\Models\InventoryCategory::find($filterCategory)?->name : 'All Categories';
+                $isPdf = true;
+
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.stock-pdf', compact('items', 'stats', 'marquee', 'branchName', 'categoryName', 'search', 'filterStatus', 'isPdf'))
+                    ->setPaper('a4', 'landscape');
+                return $pdf->stream('Stock_Valuation_Report_' . date('Ymd_His') . '.pdf');
+            })->name('inventory.stock.pdf');
+
+            Route::get('inventory/stock/print', function () {
+                $user = auth()->user();
+                $marquee = $user->marquee;
+                $marqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
+                $branchId = request('filterBranch') ?: ($user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : null);
+                $search = request('search');
+                $filterCategory = request('filterCategory');
+                $filterStatus = request('filterStatus');
+
+                $data = app(\App\Livewire\Inventory\StockView::class)->getStockReportData($marqueeId, $branchId, $search, $filterCategory, $filterStatus);
+                $items = $data['items'];
+                $stats = $data['stats'];
+                $branchName = $branchId ? \App\Models\Branch::find($branchId)?->name : 'All Branches';
+                $categoryName = $filterCategory ? \App\Models\InventoryCategory::find($filterCategory)?->name : 'All Categories';
+                $isPdf = false;
+
+                return view('inventory.stock-pdf', compact('items', 'stats', 'marquee', 'branchName', 'categoryName', 'search', 'filterStatus', 'isPdf'));
+            })->name('inventory.stock.print');
+
             Route::view('inventory/stock-takes', 'inventory.stock-takes')->name('inventory.stock-takes.index');
+
+            // Stock Take PDF & Print Routes
+            Route::get('inventory/stock-takes/count-sheet/print', function () {
+                $user = auth()->user();
+                $marquee = $user->marquee;
+                $marqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
+                $branchId = request('branch_id') ?: ($user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : null);
+                $categoryId = request('category_id');
+
+                $branch = $branchId ? \App\Models\Branch::find($branchId) : $user->getAccessibleBranches($marqueeId)->first();
+                $categoryName = $categoryId ? \App\Models\InventoryCategory::find($categoryId)?->name : 'All Categories';
+                $items = app(\App\Livewire\Inventory\StockTakeManager::class)->getCountSheetItems($marqueeId, $branch ? $branch->id : null, $categoryId);
+                $isPdf = false;
+
+                return view('inventory.stock-take-count-sheet-pdf', compact('marquee', 'branch', 'categoryName', 'items', 'isPdf'));
+            })->name('inventory.stock-takes.count-sheet.print');
+
+            Route::get('inventory/stock-takes/count-sheet/pdf', function () {
+                $user = auth()->user();
+                $marquee = $user->marquee;
+                $marqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
+                $branchId = request('branch_id') ?: ($user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : null);
+                $categoryId = request('category_id');
+
+                $branch = $branchId ? \App\Models\Branch::find($branchId) : $user->getAccessibleBranches($marqueeId)->first();
+                $categoryName = $categoryId ? \App\Models\InventoryCategory::find($categoryId)?->name : 'All Categories';
+                $items = app(\App\Livewire\Inventory\StockTakeManager::class)->getCountSheetItems($marqueeId, $branch ? $branch->id : null, $categoryId);
+                $isPdf = true;
+
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.stock-take-count-sheet-pdf', compact('marquee', 'branch', 'categoryName', 'items', 'isPdf'))
+                    ->setPaper('a4', 'portrait');
+                return $pdf->stream('Stock_Count_Sheet_' . date('Ymd_His') . '.pdf');
+            })->name('inventory.stock-takes.count-sheet.pdf');
+
+            Route::get('inventory/stock-takes/{id}/pdf', function ($id) {
+                $stockTake = \App\Models\InventoryStockTake::with(['items.item.unit', 'items.item.category', 'branch', 'marquee', 'creator', 'approver'])->findOrFail($id);
+                $isPdf = true;
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.stock-take-pdf', compact('stockTake', 'isPdf'))
+                    ->setPaper('a4', 'portrait');
+                return $pdf->stream('Stock_Take_' . $stockTake->stock_take_number . '.pdf');
+            })->name('inventory.stock-takes.pdf');
+
+            Route::get('inventory/stock-takes/{id}/print', function ($id) {
+                $stockTake = \App\Models\InventoryStockTake::with(['items.item.unit', 'items.item.category', 'branch', 'marquee', 'creator', 'approver'])->findOrFail($id);
+                $isPdf = false;
+                return view('inventory.stock-take-pdf', compact('stockTake', 'isPdf'));
+            })->name('inventory.stock-takes.print');
+
             Route::get('inventory/stock-ledger', \App\Livewire\Inventory\StockLedgerView::class)->name('inventory.stock-ledger');
+
+            // Stock Ledger PDF and Print Routes
+            Route::get('inventory/stock-ledger/pdf', function () {
+                $user = auth()->user();
+                $marquee = $user->marquee;
+                $marqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
+                $branchId = request('branch_id') ?: ($user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : null);
+                $itemId = request('item_id');
+                $filterType = request('type');
+                $dateFrom = request('date_from');
+                $dateTo = request('date_to');
+                $search = request('search');
+
+                $reportData = app(\App\Livewire\Inventory\StockLedgerView::class)->getLedgerReportData($marqueeId, $branchId, $itemId, $filterType, $dateFrom, $dateTo, $search);
+                $ledgers = $reportData['ledgers'];
+                $totalIn = $reportData['totalIn'];
+                $totalOut = $reportData['totalOut'];
+                $totalCost = $reportData['totalCost'];
+                $branchName = $branchId ? \App\Models\Branch::find($branchId)?->name : 'All Branches';
+                $itemName = $itemId ? \App\Models\InventoryItem::find($itemId)?->name : 'All Items';
+                $isPdf = true;
+
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.stock-ledger-pdf', compact('ledgers', 'totalIn', 'totalOut', 'totalCost', 'marquee', 'branchName', 'itemName', 'filterType', 'dateFrom', 'dateTo', 'search', 'isPdf'))
+                    ->setPaper('a4', 'portrait');
+                return $pdf->stream('Stock_Ledger_' . date('Ymd_His') . '.pdf');
+            })->name('inventory.stock-ledger.pdf');
+
+            Route::get('inventory/stock-ledger/print', function () {
+                $user = auth()->user();
+                $marquee = $user->marquee;
+                $marqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
+                $branchId = request('branch_id') ?: ($user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : null);
+                $itemId = request('item_id');
+                $filterType = request('type');
+                $dateFrom = request('date_from');
+                $dateTo = request('date_to');
+                $search = request('search');
+
+                $reportData = app(\App\Livewire\Inventory\StockLedgerView::class)->getLedgerReportData($marqueeId, $branchId, $itemId, $filterType, $dateFrom, $dateTo, $search);
+                $ledgers = $reportData['ledgers'];
+                $totalIn = $reportData['totalIn'];
+                $totalOut = $reportData['totalOut'];
+                $totalCost = $reportData['totalCost'];
+                $branchName = $branchId ? \App\Models\Branch::find($branchId)?->name : 'All Branches';
+                $itemName = $itemId ? \App\Models\InventoryItem::find($itemId)?->name : 'All Items';
+                $isPdf = false;
+
+                return view('inventory.stock-ledger-pdf', compact('ledgers', 'totalIn', 'totalOut', 'totalCost', 'marquee', 'branchName', 'itemName', 'filterType', 'dateFrom', 'dateTo', 'search', 'isPdf'));
+            })->name('inventory.stock-ledger.print');
+
             Route::view('inventory/settings', 'inventory.settings')->name('inventory.settings');
 
             // Supplier Directory & Categories Module

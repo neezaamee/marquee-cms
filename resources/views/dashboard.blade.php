@@ -237,7 +237,7 @@
       </div>
     </div>
     @else
-        @if($userRole === 'store_keeper')
+        @if(in_array($userRole, ['store_keeper', 'storekeeper', 'inventory_manager']))
             <!-- Storekeeper & Inventory Dashboard -->
             <livewire:inventory.storekeeper-dashboard />
         @elseif($userRole === 'accountant')

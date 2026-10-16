@@ -128,7 +128,36 @@ class RoleBasedDashboardTest extends TestCase
         $response->assertSee('Catalog Items');
         $response->assertSee('Pending Requisitions');
         $response->assertSee('Live Stock');
+        $response->assertSee('New Purchase');
+        $response->assertSee('Add New Purchase');
+        $response->assertSee(route('purchase-orders.create'));
+        $response->assertSee('New Purchase Invoice');
+        $response->assertSee('Add New Purchase Invoice');
+        $response->assertSee(route('purchase-invoices.create'));
         $response->assertDontSee('SaaS Command Center');
+    }
+
+    public function test_inventory_manager_role_also_lands_on_storekeeper_inventory_dashboard_with_new_purchase_card()
+    {
+        $invManagerRole = Role::create(['name' => 'inventory_manager', 'label' => 'Inventory Manager']);
+        $invManager = User::create([
+            'name' => 'Inventory Manager User',
+            'email' => 'invmgr@marquee.test',
+            'password' => bcrypt('Password123!'),
+            'role_id' => $invManagerRole->id,
+            'marquee_id' => $this->marquee->id,
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($invManager)->get('/dashboard');
+        $response->assertStatus(200);
+        $response->assertSee('Storekeeper Desk');
+        $response->assertSee('New Purchase');
+        $response->assertSee('Add New Purchase');
+        $response->assertSee(route('purchase-orders.create'));
+        $response->assertSee('New Purchase Invoice');
+        $response->assertSee('Add New Purchase Invoice');
+        $response->assertSee(route('purchase-invoices.create'));
     }
 
     public function test_accountant_lands_directly_on_finance_and_cashier_dashboard()

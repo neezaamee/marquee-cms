@@ -60,12 +60,8 @@ class StockLedgerView extends Component
         $this->resetPage();
     }
 
-    public function render()
+    public function buildLedgerQuery($marqueeId, $branchId = null, $itemId = null, $filterType = null, $dateFrom = null, $dateTo = null, $search = null)
     {
-        $marqueeId = auth()->user()->marquee_id;
-        $user      = auth()->user();
-
-        // ── Base query ─────────────────────────────────────────────────────────
         $query = InventoryStockLedger::where('inventory_stock_ledgers.marquee_id', $marqueeId)
             ->with(['item.unit', 'creator'])
             ->join('inventory_items', 'inventory_stock_ledgers.item_id', '=', 'inventory_items.id')
@@ -77,64 +73,175 @@ class StockLedgerView extends Component
                 'branches.name as branch_name'
             );
 
-        // ── Branch filter ──────────────────────────────────────────────────────
-        $branchId = $user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : $this->filterBranch;
         if ($branchId) {
             $query->where('inventory_stock_ledgers.branch_id', $branchId);
         }
 
-        // ── Item filter ────────────────────────────────────────────────────────
-        if ($this->filterItem) {
-            $query->where('inventory_stock_ledgers.item_id', $this->filterItem);
+        if ($itemId) {
+            $query->where('inventory_stock_ledgers.item_id', $itemId);
         }
 
-        // ── Type filter ────────────────────────────────────────────────────────
-        if ($this->filterType) {
-            $query->where('inventory_stock_ledgers.transaction_type', $this->filterType);
+        if ($filterType) {
+            $query->where('inventory_stock_ledgers.transaction_type', $filterType);
         }
 
-        // ── Date range filter ──────────────────────────────────────────────────
-        if ($this->filterDateFrom) {
-            $query->whereDate('inventory_stock_ledgers.transaction_date', '>=', $this->filterDateFrom);
+        if ($dateFrom) {
+            $query->whereDate('inventory_stock_ledgers.transaction_date', '>=', $dateFrom);
         }
-        if ($this->filterDateTo) {
-            $query->whereDate('inventory_stock_ledgers.transaction_date', '<=', $this->filterDateTo);
+        if ($dateTo) {
+            $query->whereDate('inventory_stock_ledgers.transaction_date', '<=', $dateTo);
         }
 
-        // ── Search (item name or item code) ────────────────────────────────────
-        if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('inventory_items.name', 'like', '%' . $this->search . '%')
-                  ->orWhere('inventory_items.item_code', 'like', '%' . $this->search . '%');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('inventory_items.name', 'like', '%' . $search . '%')
+                  ->orWhere('inventory_items.item_code', 'like', '%' . $search . '%');
             });
         }
 
-        $ledger = $query->orderBy('inventory_stock_ledgers.transaction_date', 'desc')
-            ->orderBy('inventory_stock_ledgers.id', 'desc')
-            ->paginate(25);
+        return $query;
+    }
 
-        // ── Summary stats ──────────────────────────────────────────────────────
+    public function calculateLedgerStats($marqueeId, $branchId = null, $itemId = null, $filterType = null, $dateFrom = null, $dateTo = null, $search = null): array
+    {
         $statsQuery = InventoryStockLedger::where('inventory_stock_ledgers.marquee_id', $marqueeId)
             ->join('inventory_items', 'inventory_stock_ledgers.item_id', '=', 'inventory_items.id');
 
         if ($branchId) {
             $statsQuery->where('inventory_stock_ledgers.branch_id', $branchId);
         }
-        if ($this->filterDateFrom) {
-            $statsQuery->whereDate('inventory_stock_ledgers.transaction_date', '>=', $this->filterDateFrom);
+        if ($itemId) {
+            $statsQuery->where('inventory_stock_ledgers.item_id', $itemId);
         }
-        if ($this->filterDateTo) {
-            $statsQuery->whereDate('inventory_stock_ledgers.transaction_date', '<=', $this->filterDateTo);
+        if ($dateFrom) {
+            $statsQuery->whereDate('inventory_stock_ledgers.transaction_date', '>=', $dateFrom);
         }
-        if ($this->filterType) {
-            $statsQuery->where('inventory_stock_ledgers.transaction_type', $this->filterType);
+        if ($dateTo) {
+            $statsQuery->whereDate('inventory_stock_ledgers.transaction_date', '<=', $dateTo);
+        }
+        if ($filterType) {
+            $statsQuery->where('inventory_stock_ledgers.transaction_type', $filterType);
+        }
+        if ($search) {
+            $statsQuery->where(function ($q) use ($search) {
+                $q->where('inventory_items.name', 'like', '%' . $search . '%')
+                  ->orWhere('inventory_items.item_code', 'like', '%' . $search . '%');
+            });
         }
 
-        $totalIn  = (float) (clone $statsQuery)->sum('inventory_stock_ledgers.qty_in');
-        $totalOut = (float) (clone $statsQuery)->sum('inventory_stock_ledgers.qty_out');
-        $totalCost = (float) (clone $statsQuery)->sum('inventory_stock_ledgers.total_cost');
+        return [
+            'totalIn'   => (float) (clone $statsQuery)->sum('inventory_stock_ledgers.qty_in'),
+            'totalOut'  => (float) (clone $statsQuery)->sum('inventory_stock_ledgers.qty_out'),
+            'totalCost' => (float) (clone $statsQuery)->sum('inventory_stock_ledgers.total_cost'),
+        ];
+    }
 
-        // ── Filter dropdowns ───────────────────────────────────────────────────
+    public function getLedgerReportData($marqueeId, $branchId = null, $itemId = null, $filterType = null, $dateFrom = null, $dateTo = null, $search = null): array
+    {
+        $ledgers = $this->buildLedgerQuery($marqueeId, $branchId, $itemId, $filterType, $dateFrom, $dateTo, $search)
+            ->orderBy('inventory_stock_ledgers.transaction_date', 'desc')
+            ->orderBy('inventory_stock_ledgers.id', 'desc')
+            ->get();
+
+        $stats = $this->calculateLedgerStats($marqueeId, $branchId, $itemId, $filterType, $dateFrom, $dateTo, $search);
+
+        return array_merge(['ledgers' => $ledgers], $stats);
+    }
+
+    public function exportExcel()
+    {
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
+        $branchId = $user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : $this->filterBranch;
+
+        $ledgers = $this->buildLedgerQuery(
+            $marqueeId,
+            $branchId,
+            $this->filterItem,
+            $this->filterType,
+            $this->filterDateFrom,
+            $this->filterDateTo,
+            $this->search
+        )
+            ->orderBy('inventory_stock_ledgers.transaction_date', 'desc')
+            ->orderBy('inventory_stock_ledgers.id', 'desc')
+            ->get();
+
+        $filename = "Inventory_Stock_Ledger_" . date('Ymd_His') . ".csv";
+
+        $headers = [
+            "Content-type"        => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=\"{$filename}\"",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        return response()->stream(function () use ($ledgers) {
+            $handle = fopen('php://output', 'w');
+            fputs($handle, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel
+
+            fputcsv($handle, ['INVENTORY STOCK LEDGER AUDIT REPORT']);
+            fputcsv($handle, ['Generated At', date('Y-m-d H:i:s')]);
+            fputcsv($handle, ['Generated By', auth()->user()->name ?? 'System']);
+            fputcsv($handle, []);
+
+            fputcsv($handle, [
+                'Date', 'Voucher / Ref', 'Branch', 'Item Code', 'Item Description',
+                'Transaction Type', 'Qty In', 'Qty Out', 'Unit Price (PKR)', 'Total Cost (PKR)', 'Running Balance', 'Remarks', 'Logged By'
+            ]);
+
+            foreach ($ledgers as $l) {
+                fputcsv($handle, [
+                    $l->transaction_date ? \Carbon\Carbon::parse($l->transaction_date)->format('Y-m-d') : '—',
+                    $l->reference_type ?? ($l->voucher_no ?? '—'),
+                    $l->branch_name ?? '—',
+                    $l->item_code,
+                    $l->item_name,
+                    $l->transaction_type,
+                    $l->qty_in > 0 ? $l->qty_in : '0.00',
+                    $l->qty_out > 0 ? $l->qty_out : '0.00',
+                    number_format($l->unit_price, 2, '.', ''),
+                    number_format($l->total_cost, 2, '.', ''),
+                    $l->running_balance,
+                    $l->reason ?: ($l->reference_type ?? ''),
+                    $l->creator->name ?? 'System',
+                ]);
+            }
+
+            fclose($handle);
+        }, 200, $headers);
+    }
+
+    public function render()
+    {
+        $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
+        $branchId = $user->branch_id && !$user->isSuperAdmin() ? $user->branch_id : $this->filterBranch;
+
+        $ledger = $this->buildLedgerQuery(
+            $marqueeId,
+            $branchId,
+            $this->filterItem,
+            $this->filterType,
+            $this->filterDateFrom,
+            $this->filterDateTo,
+            $this->search
+        )
+            ->orderBy('inventory_stock_ledgers.transaction_date', 'desc')
+            ->orderBy('inventory_stock_ledgers.id', 'desc')
+            ->paginate(25);
+
+        $stats = $this->calculateLedgerStats(
+            $marqueeId,
+            $branchId,
+            $this->filterItem,
+            $this->filterType,
+            $this->filterDateFrom,
+            $this->filterDateTo,
+            $this->search
+        );
+
         $branches = Branch::where('marquee_id', $marqueeId)->orderBy('name')->get();
         $items    = InventoryItem::where('marquee_id', $marqueeId)
             ->where('status', 'Active')
@@ -151,9 +258,9 @@ class StockLedgerView extends Component
             'branches'         => $branches,
             'items'            => $items,
             'transactionTypes' => $transactionTypes,
-            'totalIn'          => $totalIn,
-            'totalOut'         => $totalOut,
-            'totalCost'        => $totalCost,
+            'totalIn'          => $stats['totalIn'],
+            'totalOut'         => $stats['totalOut'],
+            'totalCost'        => $stats['totalCost'],
         ])->layout('layouts.admin');
     }
 }

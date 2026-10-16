@@ -565,7 +565,7 @@
         <!-- ========================================== -->
         <!-- PROCUREMENT & INVENTORY SECTION -->
         <!-- ========================================== -->
-        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_inventory') || auth()->user()->hasPermission('manage_inventory') || auth()->user()->hasPermission('inventory.stock-take') || auth()->user()->hasPermission('inventory.adjust') || auth()->user()->hasPermission('view_supplier_categories') || auth()->user()->hasPermission('purchase.approve-po') || auth()->user()->hasRole('store_keeper'))
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_inventory') || auth()->user()->hasPermission('manage_inventory') || auth()->user()->hasPermission('inventory.stock-take') || auth()->user()->hasPermission('inventory.adjust') || auth()->user()->hasPermission('view_supplier_categories') || auth()->user()->hasPermission('purchase.approve-po') || auth()->user()->hasRole(['store_keeper', 'storekeeper', 'inventory_manager']))
         <div class="row navbar-vertical-label-wrapper mt-3 mb-2">
           <div class="col-auto navbar-vertical-label">Procurement & Inventory</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>

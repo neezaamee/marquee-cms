@@ -73,19 +73,19 @@ class Phase4FinancialAndOperationalSecurityTest extends TestCase
         parent::setUp();
 
         // 1. Roles
-        $this->superAdminRole = Role::create(['name' => 'super_admin', 'label' => 'Super Admin']);
-        $this->ownerRole = Role::create(['name' => 'business_owner', 'label' => 'Business Owner']);
-        $this->branchManagerRole = Role::create(['name' => 'branch_manager', 'label' => 'Branch Manager']);
-        $this->accountantRole = Role::create(['name' => 'accountant', 'label' => 'Accountant']);
-        $this->staffRole = Role::create(['name' => 'staff', 'label' => 'Staff Member']);
+        $this->superAdminRole = Role::firstOrCreate(['name' => 'super_admin'], ['label' => 'Super Admin']);
+        $this->ownerRole = Role::firstOrCreate(['name' => 'business_owner'], ['label' => 'Business Owner']);
+        $this->branchManagerRole = Role::firstOrCreate(['name' => 'branch_manager'], ['label' => 'Branch Manager']);
+        $this->accountantRole = Role::firstOrCreate(['name' => 'accountant'], ['label' => 'Accountant']);
+        $this->staffRole = Role::firstOrCreate(['name' => 'staff'], ['label' => 'Staff Member']);
 
         // 2. Permissions
-        $this->postPaymentsPermission = Permission::create(['name' => 'post_payments', 'label' => 'Post Payments']);
-        $this->viewPaymentsPermission = Permission::create(['name' => 'view_payments', 'label' => 'View Payments']);
-        $this->manageAccountingPermission = Permission::create(['name' => 'manage_accounting', 'label' => 'Manage Accounting']);
-        $this->inventoryAdjustPermission = Permission::create(['name' => 'inventory.adjust', 'label' => 'Adjust Inventory']);
-        $this->viewInventoryPermission = Permission::create(['name' => 'view_inventory', 'label' => 'View Inventory']);
-        $this->viewMenusPermission = Permission::create(['name' => 'view_menus', 'label' => 'View Menus']);
+        $this->postPaymentsPermission = Permission::firstOrCreate(['name' => 'post_payments'], ['label' => 'Post Payments']);
+        $this->viewPaymentsPermission = Permission::firstOrCreate(['name' => 'view_payments'], ['label' => 'View Payments']);
+        $this->manageAccountingPermission = Permission::firstOrCreate(['name' => 'manage_accounting'], ['label' => 'Manage Accounting']);
+        $this->inventoryAdjustPermission = Permission::firstOrCreate(['name' => 'inventory.adjust'], ['label' => 'Adjust Inventory']);
+        $this->viewInventoryPermission = Permission::firstOrCreate(['name' => 'view_inventory'], ['label' => 'View Inventory']);
+        $this->viewMenusPermission = Permission::firstOrCreate(['name' => 'view_menus'], ['label' => 'View Menus']);
 
         // 3. Marquees
         $this->marqueeA = Marquee::create([
@@ -163,7 +163,7 @@ class Phase4FinancialAndOperationalSecurityTest extends TestCase
             $this->manageAccountingPermission->id,
         ]);
 
-        $this->storeKeeperRole = Role::create(['name' => 'store_keeper', 'label' => 'Store Keeper']);
+        $this->storeKeeperRole = Role::firstOrCreate(['name' => 'store_keeper'], ['label' => 'Store Keeper']);
         $this->storeKeeperRole->permissions()->attach([
             $this->viewInventoryPermission->id,
         ]);

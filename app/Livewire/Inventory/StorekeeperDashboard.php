@@ -8,6 +8,8 @@ use App\Models\GoodsReceivingNote;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\Marquee;
+use App\Models\PurchaseInvoice;
+use App\Models\PurchaseOrder;
 use Livewire\Component;
 
 class StorekeeperDashboard extends Component
@@ -36,6 +38,26 @@ class StorekeeperDashboard extends Component
         $todayIssuesCount = DepartmentStockIssue::where('marquee_id', $marqueeId)
             ->whereDate('issue_date', today())
             ->count();
+
+        $pendingPurchaseOrdersCount = PurchaseOrder::where('marquee_id', $marqueeId)
+            ->whereIn('status', ['Draft', 'PendingApproval', 'Approved'])
+            ->count();
+
+        $recentPurchaseOrders = PurchaseOrder::with(['supplier', 'branch'])
+            ->where('marquee_id', $marqueeId)
+            ->latest()
+            ->take(5)
+            ->get();
+
+        $pendingInvoicesCount = PurchaseInvoice::where('marquee_id', $marqueeId)
+            ->where('status', 'Draft')
+            ->count();
+
+        $recentPurchaseInvoices = PurchaseInvoice::with(['supplier', 'branch'])
+            ->where('marquee_id', $marqueeId)
+            ->latest()
+            ->take(5)
+            ->get();
 
         // Pending department requests awaiting dispatch
         $pendingRequests = DepartmentStockRequest::with('department')
@@ -74,6 +96,10 @@ class StorekeeperDashboard extends Component
             'totalCategories' => $totalCategories,
             'pendingRequisitionsCount' => $pendingRequisitionsCount,
             'todayIssuesCount' => $todayIssuesCount,
+            'pendingPurchaseOrdersCount' => $pendingPurchaseOrdersCount,
+            'recentPurchaseOrders' => $recentPurchaseOrders,
+            'pendingInvoicesCount' => $pendingInvoicesCount,
+            'recentPurchaseInvoices' => $recentPurchaseInvoices,
             'pendingRequests' => $pendingRequests,
             'recentIssues' => $recentIssues,
             'recentGrns' => $recentGrns,

@@ -1058,4 +1058,43 @@ class InventoryPurchaseTest extends TestCase
             ->call('saveAdjustment')
             ->assertHasErrors(['adj_type']);
     }
+
+    /** @test */
+    public function test_purchase_order_and_invoice_item_catalogs_are_consistent_and_searchable()
+    {
+        $this->user->update(['branch_id' => $this->branch->id]);
+        $this->actingAs($this->user);
+
+        $item = $this->createTestItem();
+
+        // 1. Verify Purchase Order Form (associated with "Add New Purchase") has searchable catalog
+        \Livewire\Livewire::test(\App\Livewire\Purchases\PurchaseOrderForm::class)
+            ->assertStatus(200)
+            ->assertSee('item-search-input')
+            ->assertSee('Search code or name')
+            ->assertViewHas('catalogItemsData', function ($data) use ($item) {
+                return count($data) > 0 && $data[0]['id'] === $item->id && $data[0]['item_code'] === $item->item_code;
+            })
+            ->call('selectCatalogItem', $item->id)
+            ->assertSet('selectedItemId', $item->id)
+            ->assertSet('selectedRate', (float)$item->default_purchase_rate)
+            ->call('resetLineForm')
+            ->assertSet('selectedItemId', '')
+            ->assertDispatched('item-catalog-reset');
+
+        // 2. Verify Purchase Invoice Form (sidebar Purchase Invoice) has consistent searchable catalog
+        \Livewire\Livewire::test(\App\Livewire\Purchases\PurchaseInvoiceForm::class)
+            ->assertStatus(200)
+            ->assertSee('item-search-input')
+            ->assertSee('Search code or name')
+            ->assertViewHas('catalogItemsData', function ($data) use ($item) {
+                return count($data) > 0 && $data[0]['id'] === $item->id && $data[0]['item_code'] === $item->item_code;
+            })
+            ->call('selectCatalogItem', $item->id)
+            ->assertSet('selectedItemId', $item->id)
+            ->call('resetLineForm')
+            ->assertSet('selectedItemId', '')
+            ->assertDispatched('item-catalog-reset');
+    }
 }
+

@@ -41,11 +41,7 @@ class DepartmentStockService
             $query->where('branch_id', $branchId);
         }
 
-        $lastLedger = $query->orderBy('transaction_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->first();
-
-        return $lastLedger ? (float) $lastLedger->running_balance : 0.0;
+        return (float) ($query->sum('qty_in') - $query->sum('qty_out'));
     }
 
     /**

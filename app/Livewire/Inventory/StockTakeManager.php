@@ -19,6 +19,8 @@ class StockTakeManager extends Component
     // ── List filters ────────────────────────────────────────────────────────
     public $search = '';
     public $filterStatus = '';
+    public $selected_branch_id = '';
+    public $activeTab = 'counts'; // 'counts' | 'adjustments'
 
     // ── View mode: 'list' | 'stock-take' | 'adjustment' ────────────────────
     public $mode = 'list';
@@ -27,8 +29,10 @@ class StockTakeManager extends Component
     public $stock_take_number;
     public $count_date;
     public $notes;
-    public $categoryId = '';
-    public $formItems  = [];
+    public $categoryId   = '';
+    public $itemSearch   = '';
+    public $stockFilter  = 'all'; // 'all' or 'in_stock'
+    public $formItems    = [];
 
     // ── Direct Adjustment form fields (TASK 6 & 7) ──────────────────────────
     public $adj_item_id      = '';
@@ -48,8 +52,10 @@ class StockTakeManager extends Component
     protected $paginationTheme = 'bootstrap';
 
     protected $queryString = [
-        'search'       => ['except' => ''],
-        'filterStatus' => ['except' => ''],
+        'search'             => ['except' => ''],
+        'filterStatus'       => ['except' => ''],
+        'selected_branch_id' => ['except' => ''],
+        'activeTab'          => ['except' => 'counts'],
     ];
 
     // ── Validation rules ─────────────────────────────────────────────────────
@@ -86,9 +92,12 @@ class StockTakeManager extends Component
 
     public function getBranchId(): ?int
     {
+        if (!empty($this->selected_branch_id)) {
+            return (int) $this->selected_branch_id;
+        }
         $user = auth()->user();
         if (!$user) return null;
-        if ($user->branch_id) return $user->branch_id;
+        if ($user->branch_id) return (int) $user->branch_id;
         $firstBranch = $user->getAccessibleBranches($this->getMarqueeId())->first();
         return $firstBranch ? (int) $firstBranch->id : null;
     }
@@ -100,6 +109,24 @@ class StockTakeManager extends Component
 
         $this->count_date = now()->format('Y-m-d');
         $this->adj_date   = now()->format('Y-m-d');
+
+        $marqueeId = $this->getMarqueeId();
+        if ($user->branch_id) {
+            $this->selected_branch_id = (string) $user->branch_id;
+        } else {
+            $firstBranch = $user->getAccessibleBranches($marqueeId)->first();
+            $this->selected_branch_id = $firstBranch ? (string) $firstBranch->id : '';
+        }
+    }
+
+    public function updatedSelectedBranchId(): void
+    {
+        if ($this->mode === 'stock-take') {
+            $this->loadInventoryItemsForCounting();
+        } elseif ($this->mode === 'adjustment' && $this->adj_item_id) {
+            $this->checkExistingOpening();
+        }
+        $this->resetPage();
     }
 
     // ── Stock-Take methods ────────────────────────────────────────────────────
@@ -110,6 +137,16 @@ class StockTakeManager extends Component
         $this->stock_take_number = $this->generateNextStockTakeNumber();
         $this->loadInventoryItemsForCounting();
         $this->mode = 'stock-take';
+    }
+
+    public function startMonthlyStockTake(): void
+    {
+        $this->resetForm();
+        $this->stock_take_number = $this->generateNextStockTakeNumber();
+        $this->count_date        = now()->format('Y-m-d');
+        $this->notes             = 'Monthly Stock Take - ' . now()->format('F Y');
+        $this->loadInventoryItemsForCounting();
+        $this->mode              = 'stock-take';
     }
 
     public function generateNextStockTakeNumber(): string
@@ -125,6 +162,8 @@ class StockTakeManager extends Component
         $this->count_date    = now()->format('Y-m-d');
         $this->notes         = '';
         $this->categoryId    = '';
+        $this->itemSearch    = '';
+        $this->stockFilter   = 'all';
         $this->formItems     = [];
         $this->resetErrorBag();
     }
@@ -134,17 +173,35 @@ class StockTakeManager extends Component
         $this->loadInventoryItemsForCounting();
     }
 
+    public function updatedItemSearch(): void
+    {
+        $this->loadInventoryItemsForCounting();
+    }
+
+    public function updatedStockFilter(): void
+    {
+        $this->loadInventoryItemsForCounting();
+    }
+
     public function loadInventoryItemsForCounting(): void
     {
-        $marqueeId    = auth()->user()->marquee_id;
-        $branchId     = auth()->user()->branch_id;
+        $marqueeId    = $this->getMarqueeId();
+        $branchId     = $this->getBranchId();
         $stockService = app(DepartmentStockService::class);
 
         $query = InventoryItem::where('marquee_id', $marqueeId)
+            ->with(['unit', 'category'])
             ->where('status', 'Active');
 
         if ($this->categoryId) {
             $query->where('category_id', $this->categoryId);
+        }
+
+        if ($this->itemSearch) {
+            $query->where(function ($q) {
+                $q->where('name', 'like', '%' . $this->itemSearch . '%')
+                  ->orWhere('item_code', 'like', '%' . $this->itemSearch . '%');
+            });
         }
 
         $items = $query->orderBy('name')->get();
@@ -152,15 +209,113 @@ class StockTakeManager extends Component
         $this->formItems = [];
         foreach ($items as $item) {
             $sysQty = $stockService->getCentralWarehouseStock($marqueeId, $branchId, $item->id);
+
+            if ($this->stockFilter === 'in_stock' && $sysQty <= 0) {
+                continue;
+            }
+
+            $unitCost = (float)($item->average_cost > 0 ? $item->average_cost : ($item->last_purchase_cost > 0 ? $item->last_purchase_cost : $item->default_purchase_rate));
+
             $this->formItems[] = [
-                'item_id'     => $item->id,
-                'name'        => $item->name,
-                'item_code'   => $item->item_code,
-                'system_qty'  => $sysQty,
-                'physical_qty'=> $sysQty,
-                'reason'      => '',
+                'item_id'       => $item->id,
+                'name'          => $item->name,
+                'item_code'     => $item->item_code,
+                'category_name' => $item->category->name ?? '—',
+                'unit_name'     => $item->unit->short_code ?? 'Pcs',
+                'system_qty'    => $sysQty,
+                'physical_qty'  => $sysQty,
+                'unit_cost'     => $unitCost,
+                'reason'        => '',
             ];
         }
+    }
+
+    public function getCountSheetItems($marqueeId, $branchId, $categoryId = null): array
+    {
+        $stockService = app(DepartmentStockService::class);
+        $query = InventoryItem::where('marquee_id', $marqueeId)
+            ->with(['unit', 'category'])
+            ->where('status', 'Active');
+
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+
+        $items = $query->orderBy('name')->get();
+        $result = [];
+        foreach ($items as $item) {
+            $sysQty = $stockService->getCentralWarehouseStock($marqueeId, $branchId, $item->id);
+            $result[] = [
+                'item_id'       => $item->id,
+                'item_code'     => $item->item_code,
+                'name'          => $item->name,
+                'category_name' => $item->category->name ?? '—',
+                'unit_name'     => $item->unit->short_code ?? 'Pcs',
+                'system_qty'    => $sysQty,
+            ];
+        }
+        return $result;
+    }
+
+    public function exportStockTakeExcel(int $id)
+    {
+        $stockTake = InventoryStockTake::with(['items.item.unit', 'items.item.category', 'branch', 'marquee', 'creator', 'approver'])->findOrFail($id);
+        $filename = "Stock_Take_{$stockTake->stock_take_number}_" . date('Ymd_His') . ".csv";
+
+        $headers = [
+            "Content-type"        => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=\"{$filename}\"",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        return response()->stream(function () use ($stockTake) {
+            $handle = fopen('php://output', 'w');
+            fputs($handle, "\xEF\xBB\xBF"); // UTF-8 BOM
+
+            fputcsv($handle, ['PHYSICAL STOCK TAKE AUDIT & VALUATION REPORT']);
+            fputcsv($handle, ['Stock Take #', $stockTake->stock_take_number]);
+            fputcsv($handle, ['Branch', $stockTake->branch->name ?? 'All Branches']);
+            fputcsv($handle, ['Count Date', $stockTake->count_date->format('Y-m-d')]);
+            fputcsv($handle, ['Status', $stockTake->status]);
+            fputcsv($handle, ['Created By', $stockTake->creator->name ?? 'System']);
+            fputcsv($handle, ['Approved By', $stockTake->approver->name ?? '—']);
+            fputcsv($handle, ['Notes', $stockTake->notes ?: '—']);
+            fputcsv($handle, []);
+
+            fputcsv($handle, [
+                'Item Code', 'Item Name', 'Category', 'Unit',
+                'System Qty', 'Physical Qty', 'Difference',
+                'Unit Cost (PKR)', 'System Value (PKR)', 'Physical Value (PKR)', 'Difference Value (PKR)',
+                'Reason / Explanation'
+            ]);
+
+            foreach ($stockTake->items as $row) {
+                $item = $row->item;
+                $unitCost = (float)($item->average_cost > 0 ? $item->average_cost : ($item->last_purchase_cost > 0 ? $item->last_purchase_cost : $item->default_purchase_rate));
+                $sysVal = (float)$row->system_qty * $unitCost;
+                $physVal = (float)$row->physical_qty * $unitCost;
+                $diffVal = (float)$row->difference * $unitCost;
+
+                fputcsv($handle, [
+                    $item->item_code ?? '—',
+                    $item->name ?? '—',
+                    $item->category->name ?? '—',
+                    $item->unit->short_code ?? 'Pcs',
+                    $row->system_qty,
+                    $row->physical_qty,
+                    $row->difference,
+                    number_format($unitCost, 2, '.', ''),
+                    number_format($sysVal, 2, '.', ''),
+                    number_format($physVal, 2, '.', ''),
+                    number_format($diffVal, 2, '.', ''),
+                    $row->reason ?: '',
+                ]);
+            }
+
+            fclose($handle);
+        }, 200, $headers);
     }
 
     public function save(): void
@@ -172,11 +327,11 @@ class StockTakeManager extends Component
 
         $this->validate();
 
-        $marqueeId = auth()->user()->marquee_id;
-        $branchId  = auth()->user()->branch_id;
+        $marqueeId = $this->getMarqueeId();
+        $branchId  = $this->getBranchId();
 
         if (!$branchId) {
-            session()->flash('error', 'Please make sure you are logged in to a branch.');
+            session()->flash('error', 'Please select or assign a branch for the stock count.');
             return;
         }
 
@@ -205,12 +360,13 @@ class StockTakeManager extends Component
         });
 
         session()->flash('success', 'Physical stock take saved as Draft.');
+        $this->activeTab = 'counts';
         $this->resetForm();
     }
 
     public function viewDetails(int $id): void
     {
-        $this->viewStockTake  = InventoryStockTake::with(['items.item.unit', 'creator', 'approver'])->findOrFail($id);
+        $this->viewStockTake  = InventoryStockTake::with(['items.item.unit', 'creator', 'approver', 'branch'])->findOrFail($id);
         $this->isViewModalOpen = true;
     }
 
@@ -222,15 +378,15 @@ class StockTakeManager extends Component
         }
 
         $marqueeId = $this->getMarqueeId();
-        $branchId  = $user->branch_id;
 
-        DB::transaction(function () use ($id, $marqueeId, $branchId, $user) {
+        DB::transaction(function () use ($id, $marqueeId, $user) {
             $stockTake = InventoryStockTake::with('items.item')->where('marquee_id', $marqueeId)->findOrFail($id);
 
             if ($stockTake->status !== 'Draft') {
                 throw new \InvalidArgumentException('Only Draft counts can be approved.');
             }
 
+            $branchId = $stockTake->branch_id ?: ($user->branch_id ?: $this->getBranchId());
             $stockService = app(DepartmentStockService::class);
 
             foreach ($stockTake->items as $stItem) {
@@ -445,7 +601,7 @@ class StockTakeManager extends Component
                 'item_id'          => (int)$this->adj_item_id,
                 'transaction_date' => $this->adj_date,
                 'transaction_type' => $this->adj_type,
-                'reference_type'   => $this->adj_reference ? 'Manual' : null,
+                'reference_type'   => $this->adj_reference ? ($this->adj_reason ? "{$this->adj_reference} - {$this->adj_reason}" : $this->adj_reference) : ($this->adj_reason ?: 'Manual'),
                 'reference_id'     => null,
                 'qty_in'           => $isOut ? 0.00 : $qty,
                 'qty_out'          => $isOut ? $qty : 0.00,
@@ -454,6 +610,26 @@ class StockTakeManager extends Component
                 'total_cost'       => $qty * $unitCost,
                 'created_by'       => $user->id,
             ]);
+
+            // If Opening stock or unitCost provided, initialize item cost metrics if they were unset
+            if ($this->adj_type === 'Opening' && $unitCost > 0) {
+                $invItem = InventoryItem::find($this->adj_item_id);
+                if ($invItem) {
+                    $updates = [];
+                    if ((float)$invItem->average_cost <= 0) {
+                        $updates['average_cost'] = $unitCost;
+                    }
+                    if ((float)$invItem->last_purchase_cost <= 0) {
+                        $updates['last_purchase_cost'] = $unitCost;
+                    }
+                    if ((float)$invItem->default_purchase_rate <= 0) {
+                        $updates['default_purchase_rate'] = $unitCost;
+                    }
+                    if (!empty($updates)) {
+                        $invItem->update($updates);
+                    }
+                }
+            }
 
             \App\Models\ActivityLog::create([
                 'user_id' => $user->id,
@@ -468,6 +644,7 @@ class StockTakeManager extends Component
         $typeLabel = $this->adj_type;
         session()->flash('success', "{$typeLabel} adjustment recorded successfully. Ledger updated.");
         $this->resetAdjustmentForm();
+        $this->activeTab = 'adjustments';
         $this->mode = 'list';
     }
 
@@ -475,11 +652,11 @@ class StockTakeManager extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
-        $branchId  = auth()->user()->branch_id;
+        $marqueeId = $this->getMarqueeId();
+        $branchId  = $this->getBranchId();
 
         $query = InventoryStockTake::where('marquee_id', $marqueeId)
-            ->with(['creator', 'approver']);
+            ->with(['creator', 'approver', 'branch']);
 
         if ($branchId) {
             $query->where('branch_id', $branchId);
@@ -493,7 +670,36 @@ class StockTakeManager extends Component
             $query->where('status', $this->filterStatus);
         }
 
-        $stockTakes = $query->orderBy('count_date', 'desc')->orderBy('id', 'desc')->paginate(10);
+        $stockTakes = $query->orderBy('count_date', 'desc')->orderBy('id', 'desc')->paginate(10, ['*'], 'countsPage');
+
+        // Adjustments query for the Adjustments Log tab
+        $adjQuery = InventoryStockLedger::where('inventory_stock_ledgers.marquee_id', $marqueeId)
+            ->whereIn('inventory_stock_ledgers.transaction_type', ['Opening', 'Adjustment', 'Wastage', 'Damage', 'Expiry'])
+            ->with(['item.unit', 'creator'])
+            ->join('inventory_items', 'inventory_stock_ledgers.item_id', '=', 'inventory_items.id')
+            ->leftJoin('branches', 'inventory_stock_ledgers.branch_id', '=', 'branches.id')
+            ->select(
+                'inventory_stock_ledgers.*',
+                'inventory_items.name as item_name',
+                'inventory_items.item_code',
+                'branches.name as branch_name'
+            );
+
+        if ($branchId) {
+            $adjQuery->where('inventory_stock_ledgers.branch_id', $branchId);
+        }
+
+        if ($this->search) {
+            $adjQuery->where(function ($q) {
+                $q->where('inventory_items.name', 'like', '%' . $this->search . '%')
+                  ->orWhere('inventory_items.item_code', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        $adjustments = $adjQuery->orderBy('inventory_stock_ledgers.transaction_date', 'desc')
+            ->orderBy('inventory_stock_ledgers.id', 'desc')
+            ->paginate(15, ['*'], 'adjustmentsPage');
+
         $categories = InventoryCategory::where('marquee_id', $marqueeId)
             ->where('status', 'Active')
             ->orderBy('name')
@@ -504,10 +710,17 @@ class StockTakeManager extends Component
             ->orderBy('name')
             ->get();
 
+        $branches = \App\Models\Branch::where('marquee_id', $marqueeId)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get();
+
         return view('livewire.inventory.stock-take-manager', [
             'stockTakes'     => $stockTakes,
+            'adjustments'    => $adjustments,
             'categories'     => $categories,
             'inventoryItems' => $inventoryItems,
+            'branches'       => $branches,
         ])->layout('layouts.admin');
     }
 }

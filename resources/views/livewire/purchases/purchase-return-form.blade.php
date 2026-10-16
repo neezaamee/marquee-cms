@@ -152,14 +152,181 @@
                     </h6>
                     @if(!$purchase_invoice_id)
                         <div class="row g-2 align-items-end">
-                            <div class="col-md-4">
-                                <label class="form-label fs-11" for="item-select">Item Catalog *</label>
-                                <select wire:model.live="selectedItemId" class="form-select form-select-sm" id="item-select">
-                                    <option value="">Select Item</option>
-                                    @foreach($catalogItems as $item)
-                                        <option value="{{ $item->id }}">{{ $item->item_code }} - {{ $item->name }}</option>
-                                    @endforeach
-                                </select>
+                            <div class="col-md-4 position-relative" 
+                                 x-data="{
+                                    open: false,
+                                    search: '',
+                                    activeIndex: -1,
+                                    items: {{ json_encode($catalogItemsData ?? []) }},
+                                    get filteredItems() {
+                                        if (!this.search.trim()) return this.items;
+                                        const q = this.search.toLowerCase();
+                                        return this.items.filter(i => 
+                                            (i.item_code && i.item_code.toLowerCase().includes(q)) || 
+                                            (i.name && i.name.toLowerCase().includes(q))
+                                        );
+                                    },
+                                    init() {
+                                        const selId = $wire.selectedItemId;
+                                        if (selId) {
+                                            const found = this.items.find(i => i.id == selId);
+                                            if (found) {
+                                                this.search = found.item_code + ' - ' + found.name;
+                                            }
+                                        }
+                                        this.$watch('$wire.selectedItemId', val => {
+                                            if (!val) {
+                                                this.search = '';
+                                                this.activeIndex = -1;
+                                            } else {
+                                                const found = this.items.find(i => i.id == val);
+                                                if (found && !this.search.includes(found.name)) {
+                                                    this.search = found.item_code + ' - ' + found.name;
+                                                }
+                                            }
+                                        });
+                                    },
+                                    selectItem(item) {
+                                        this.search = item.item_code + ' - ' + item.name;
+                                        this.open = false;
+                                        this.activeIndex = -1;
+                                        $wire.selectCatalogItem(item.id);
+                                        this.$nextTick(() => {
+                                            const qtyEl = document.getElementById('item-qty');
+                                            if (qtyEl) {
+                                                qtyEl.focus();
+                                                qtyEl.select();
+                                            }
+                                        });
+                                    },
+                                    clearSelection() {
+                                        this.search = '';
+                                        this.open = true;
+                                        this.activeIndex = -1;
+                                        $wire.selectCatalogItem('');
+                                        this.$nextTick(() => {
+                                            this.$refs.itemSearchInput.focus();
+                                        });
+                                    },
+                                    handleKeydown(e) {
+                                        const count = this.filteredItems.length;
+                                        if (!this.open) {
+                                            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                                                e.preventDefault();
+                                                this.open = true;
+                                                this.activeIndex = 0;
+                                                this.scrollToActive();
+                                                return;
+                                            }
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                this.open = true;
+                                                return;
+                                            }
+                                            return;
+                                        }
+                                        if (e.key === 'ArrowDown') {
+                                            e.preventDefault();
+                                            if (count > 0) {
+                                                this.activeIndex = (this.activeIndex + 1) % count;
+                                                this.scrollToActive();
+                                            }
+                                        } else if (e.key === 'ArrowUp') {
+                                            e.preventDefault();
+                                            if (count > 0) {
+                                                this.activeIndex = (this.activeIndex - 1 + count) % count;
+                                                this.scrollToActive();
+                                            }
+                                        } else if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            if (this.activeIndex >= 0 && this.activeIndex < count) {
+                                                this.selectItem(this.filteredItems[this.activeIndex]);
+                                            } else if (count === 1) {
+                                                this.selectItem(this.filteredItems[0]);
+                                            }
+                                        } else if (e.key === 'Escape') {
+                                            e.preventDefault();
+                                            this.open = false;
+                                            this.activeIndex = -1;
+                                        } else if (e.key === 'Tab') {
+                                            this.open = false;
+                                        }
+                                    },
+                                    scrollToActive() {
+                                        this.$nextTick(() => {
+                                            if (this.$refs.dropdownList) {
+                                                const el = this.$refs.dropdownList.querySelector(`[data-index='${this.activeIndex}']`);
+                                                if (el) el.scrollIntoView({ block: 'nearest' });
+                                            }
+                                        });
+                                    }
+                                 }"
+                                 @item-catalog-reset.window="search = ''; open = false; activeIndex = -1;"
+                                 @click.outside="open = false; activeIndex = -1;">
+                                <label class="form-label fs-11" for="item-search-input">Item Catalog *</label>
+                                <div class="position-relative">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text px-2 bg-white border-end-0">
+                                            <span class="fas fa-search text-400 fs-12"></span>
+                                        </span>
+                                        <input x-ref="itemSearchInput"
+                                               id="item-search-input"
+                                               type="text"
+                                               class="form-control form-control-sm border-start-0 @error('selectedItemId') is-invalid @enderror"
+                                               placeholder="Search code or name (use ↑ / ↓)..."
+                                               autocomplete="off"
+                                               x-model="search"
+                                               @focus="open = true"
+                                               @click="open = true"
+                                               @keydown="handleKeydown($event)" />
+                                        <template x-if="search">
+                                            <button type="button" 
+                                                    class="btn btn-outline-secondary btn-sm border-start-0 px-2 text-muted" 
+                                                    @click="clearSelection()"
+                                                    title="Clear selection">
+                                                <span class="fas fa-times fs-12"></span>
+                                            </button>
+                                        </template>
+                                    </div>
+
+                                    <!-- Hidden input for form fallback -->
+                                    <input type="hidden" wire:model="selectedItemId" />
+
+                                    <!-- Searchable items dropdown -->
+                                    <div x-show="open" 
+                                         x-transition:enter="transition ease-out duration-100"
+                                         x-transition:enter-start="opacity-0 transform scale-95"
+                                         x-transition:enter-end="opacity-100 transform scale-100"
+                                         x-transition:leave="transition ease-in duration-75"
+                                         x-transition:leave-start="opacity-100 transform scale-100"
+                                         x-transition:leave-end="opacity-0 transform scale-95"
+                                         x-ref="dropdownList"
+                                         class="position-absolute bg-white border rounded shadow-lg w-100 z-3 mt-1 overflow-hidden" 
+                                         style="max-height: 250px; overflow-y: auto; z-index: 1050; display: none;">
+                                        <template x-for="(item, idx) in filteredItems" :key="item.id">
+                                            <div :data-index="idx"
+                                                 @mouseenter="activeIndex = idx"
+                                                 @click="selectItem(item)"
+                                                 :class="activeIndex === idx ? 'bg-primary text-white' : 'hover-bg-light text-900'"
+                                                 class="d-flex justify-content-between align-items-center py-2 px-3 border-bottom border-translucent cursor-pointer text-start"
+                                                 style="user-select: none;">
+                                                <div>
+                                                    <span class="font-monospace fw-bold me-1" :class="activeIndex === idx ? 'text-white' : 'text-primary'" x-text="'[' + item.item_code + ']'"></span>
+                                                    <span class="fw-semi-bold" x-text="item.name"></span>
+                                                </div>
+                                                <div class="text-end ps-2 text-nowrap">
+                                                    <span class="badge" :class="activeIndex === idx ? 'bg-white text-primary' : 'bg-light text-dark'" x-text="item.unit"></span>
+                                                    <span class="font-monospace fs-11 ms-1" :class="activeIndex === idx ? 'text-white' : 'text-muted'" x-text="'Rs. ' + Number(item.rate).toFixed(2)"></span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <template x-if="filteredItems.length === 0">
+                                            <div class="text-center py-3 text-muted fs-11">
+                                                <span class="fas fa-exclamation-circle me-1"></span>No items match "<span class="fw-bold" x-text="search"></span>"
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
                                 @error('selectedItemId') <div class="text-danger fs-12 mt-1">{{ $message }}</div> @enderror
                             </div>
 
