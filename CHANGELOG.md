@@ -5,6 +5,22 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.27.0] - 2026-10-16
+
+### Added & Enhanced
+- **Booking Prepare Final Bill Tax Control & Zero-Tax Preservation**:
+  - Added `tax_rate` column to `bookings` and `booking_final_bills` tables via database migration.
+  - Preserved explicit zero-tax rate through `BookingFinancialService::syncBookingCommercialTotals()`, preventing accidental fallback to branch default tax rate when adding vendor services or booking add-ons.
+  - Enhanced Prepare Final Bill modal with a dedicated Sales Tax Configuration card (`fbApplyTax` switch and `fbTaxRate` input) allowing users to toggle default or custom tax rates for customer invoices.
+  - Updated "Save" and "Lock & Post to PRA" actions to store chosen tax rates and amounts.
+  - Added automated test coverage in `PrepareFinalBillTaxTest`.
+- **Supplier Directory Ledger Manual Payment & Cash/Bank Balances**:
+  - Enhanced `CashBankAccount` model with `account_name`, `display_name`, and real-time GL `current_balance` accessors computed from opening balances and posted journal items.
+  - Implemented `CashBankAccount::getAccountsWithBalances()` and automatic synchronization for default Cash (`1001`), Bank (`1002`), and custom COA asset accounts.
+  - Restructured Disbursing Account selector in `SupplierLedgerView` into categorized optgroups (Cash in Hand / Cash Drawers, Bank Accounts) with live balances formatted in PKR.
+  - Reinforced double-entry journal voucher creation for manual supplier payments (debit Accounts Payable `2001`, credit selected Cash/Bank asset ledger).
+  - Added automated test coverage in `SupplierDirectoryLedgerPaymentTest`.
+
 ## [1.26.0] - 2026-10-16
 
 ### Added & Enhanced

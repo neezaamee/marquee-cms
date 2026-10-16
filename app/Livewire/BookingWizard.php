@@ -1458,6 +1458,7 @@ class BookingWizard extends Component
                     'discount_amount' => $this->discountAmount,
                     'security_deposit' => $this->securityDeposit,
                     'tax_amount' => $this->taxAmount,
+                    'tax_rate' => $this->taxRate !== null ? (float) $this->taxRate : 0.00,
                     'subtotal' => $this->subtotal,
                     'grand_total' => $this->grandTotal,
                     'special_instructions' => $this->specialInstructions ?: null,

@@ -23,8 +23,6 @@ class SupplierLedgerView extends Component
     public $reference_no = '';
     public $description = '';
 
-    public $cashAccounts = [];
-
     protected $paginationTheme = 'bootstrap';
 
     protected $rules = [
@@ -40,14 +38,25 @@ class SupplierLedgerView extends Component
         $this->supplier = $supplier;
         $this->payment_date = date('Y-m-d');
         
-        $marqueeId = auth()->user()->marquee_id;
-        $this->cashAccounts = CashBankAccount::where('marquee_id', $marqueeId)->where('status', 'active')->get();
+        $marqueeId = $this->supplier->marquee_id ?: (auth()->user()->marquee_id ?: auth()->user()->getActiveMarqueeId());
+        CashBankAccount::ensureDefaultAccountsForMarquee($marqueeId);
+    }
+
+    public function getCashAccountsProperty()
+    {
+        $marqueeId = $this->supplier->marquee_id ?: (auth()->user()->marquee_id ?: auth()->user()->getActiveMarqueeId());
+        return CashBankAccount::getAccountsWithBalances($marqueeId);
+    }
+
+    public function getCashAccounts()
+    {
+        return $this->cashAccounts;
     }
 
     public function recordPayment(InventoryService $inventoryService)
     {
         $this->validate();
-        $marqueeId = auth()->user()->marquee_id;
+        $marqueeId = $this->supplier->marquee_id ?: (auth()->user()->marquee_id ?: auth()->user()->getActiveMarqueeId());
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($inventoryService, $marqueeId) {
             // Find account for the ledger update
@@ -63,23 +72,30 @@ class SupplierLedgerView extends Component
                 'VendorPayment',
                 $account->id,
                 $this->reference_no ?: 'PAID',
-                "Manual Vendor Payment from: {$account->account_name}. " . $this->description
+                "Manual Vendor Payment from: {$account->display_name}. " . $this->description
             );
 
             // Double Entry mapping: In a full integration, you would also post a JV: Accounts Payable Dr / Cash-Bank Cr.
-            // Let's create an optional posted JV for the payment!
-            // First find accounts payable mapped account
             $settings = $inventoryService->getOrCreateSettings($marqueeId);
             $payableAccId = $settings->accounts_payable_account_id;
             
+            // Fallback to COA Accounts Payable (2001) if not explicitly mapped
+            if (!$payableAccId) {
+                $payableAccId = \App\Models\Account::withoutGlobalScope('tenant')
+                    ->where('marquee_id', $marqueeId)
+                    ->where('account_code', '2001')
+                    ->value('id');
+            }
+
             // Map the cash/bank account's COA account_id
             $cashCoaId = $account->account_id;
 
             if ($payableAccId && $cashCoaId) {
                 $accountingService = app(\App\Services\AccountingService::class);
+                $branchId = auth()->user()->branch_id;
                 $header = [
                     'marquee_id' => $marqueeId,
-                    'branch_id' => auth()->user()->branch_id,
+                    'branch_id' => $branchId,
                     'voucher_date' => $this->payment_date,
                     'reference' => $this->reference_no ?: 'PMT-' . rand(1000, 9999),
                     'notes' => "Auto-posted Supplier Payment to: {$this->supplier->name}. " . $this->description,
@@ -97,7 +113,7 @@ class SupplierLedgerView extends Component
                         'account_id' => $cashCoaId,
                         'debit' => 0.00,
                         'credit' => $this->payment_amount, // Cash/Bank Credit reduces assets
-                        'narration' => "Credit Asset - Paid via {$account->account_name}",
+                        'narration' => "Credit Asset - Paid via {$account->display_name}",
                     ]
                 ];
                 $accountingService->createJournalVoucher($header, $items);
@@ -176,7 +192,9 @@ class SupplierLedgerView extends Component
             ->orderBy('id', 'desc')
             ->paginate(15);
 
-        return view('livewire.inventory.supplier-ledger-view', compact('ledgers'))
+        $cashAccounts = $this->getCashAccounts();
+
+        return view('livewire.inventory.supplier-ledger-view', compact('ledgers', 'cashAccounts'))
             ->layout('layouts.admin');
     }
 }

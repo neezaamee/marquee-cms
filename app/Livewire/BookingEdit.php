@@ -203,7 +203,11 @@ class BookingEdit extends Component
         $this->taxAmount = $booking->tax_amount ?? 0.00;
         $this->grandTotal = $booking->grand_total ?? 0.00;
         
-        if ($this->subtotal > 0) {
+        if ($booking->tax_rate !== null) {
+            $this->taxRate = (float) $booking->tax_rate;
+        } elseif ($booking->tax_amount !== null && (float) $booking->tax_amount == 0.0) {
+            $this->taxRate = 0.00;
+        } elseif ($this->subtotal > 0) {
             $this->taxRate = round(($this->taxAmount * 100) / $this->subtotal, 2);
         } else {
             $this->taxRate = 13.00;
@@ -1167,6 +1171,7 @@ class BookingEdit extends Component
                     'discount_amount' => $this->discountAmount,
                     'security_deposit' => $this->securityDeposit,
                     'tax_amount' => $this->taxAmount,
+                    'tax_rate' => $this->taxRate !== null ? (float) $this->taxRate : 0.00,
                     'subtotal' => $this->subtotal,
                     'grand_total' => $this->grandTotal,
                     'special_instructions' => $this->specialInstructions ?: null,

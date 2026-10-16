@@ -1306,6 +1306,40 @@
                             </div>
                         </div>
 
+                        <!-- Sales Tax Option Switch -->
+                        <div class="card mb-3 bg-light border">
+                            <div class="card-header bg-200 py-2 d-flex justify-content-between align-items-center">
+                                <h7 class="mb-0 fw-bold fs-11 text-800">Sales Tax / Tax Invoice Configuration</h7>
+                                @if($fbApplyTax)
+                                    <span class="badge badge-subtle-success rounded-pill fs-11">Tax Applied ({{ number_format($fbTaxRate, 2) }}%)</span>
+                                @else
+                                    <span class="badge badge-subtle-secondary rounded-pill fs-11">Tax Exempt / 0% Tax</span>
+                                @endif
+                            </div>
+                            <div class="card-body p-2 fs-11">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" id="fbApplyTaxSwitch" wire:model.live="fbApplyTax">
+                                        <label class="form-check-label fw-bold fs-11 text-dark" for="fbApplyTaxSwitch">
+                                            Apply Sales Tax (Default Tax Rate) to Final Bill
+                                        </label>
+                                        <div class="text-muted fs-11">
+                                            Enable if you want to include sales tax on the customer invoice. Keep unchecked for 0% tax.
+                                        </div>
+                                    </div>
+                                    @if($fbApplyTax)
+                                        <div class="d-flex align-items-center gap-2">
+                                            <label class="form-label mb-0 fw-bold text-nowrap">Tax Rate:</label>
+                                            <div class="input-group input-group-sm" style="width: 130px;">
+                                                <input wire:model.live="fbTaxRate" type="number" step="0.01" min="0" max="100" class="form-control form-control-xs font-monospace text-end" placeholder="Tax Rate" />
+                                                <span class="input-group-text py-0 px-2 fs-11">%</span>
+                                            </div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Dynamic Live Calculation Result -->
                         @php
                             $cGuestCount = (int) ($fbGuestCount ?? 0);
@@ -1348,7 +1382,7 @@
                                 <span class="fw-bold font-monospace">Rs. {{ number_format($cAdjustedSubtotal, 2) }}</span>
                             </div>
                             <div class="d-flex justify-content-between mb-1">
-                                <span>Estimated Tax:</span>
+                                <span>Estimated Tax ({{ $fbApplyTax ? (number_format($fbTaxRate, 1) . '%') : '0%' }}):</span>
                                 <span class="fw-bold font-monospace">Rs. {{ number_format($cTaxAmount, 2) }}</span>
                             </div>
                             @if($cSecurityDeposit > 0)

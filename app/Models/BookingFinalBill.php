@@ -22,6 +22,7 @@ class BookingFinalBill extends Model
         'vendor_charges',
         'discount_amount',
         'tax_amount',
+        'tax_rate',
         'subtotal',
         'grand_total',
         'notes',
@@ -44,6 +45,7 @@ class BookingFinalBill extends Model
         'vendor_charges' => 'float',
         'discount_amount' => 'float',
         'tax_amount' => 'float',
+        'tax_rate' => 'float',
         'subtotal' => 'float',
         'grand_total' => 'float',
     ];

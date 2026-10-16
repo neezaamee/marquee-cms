@@ -986,21 +986,32 @@ class BookingFinancialService
             // Marquee event sales subtotal (strictly catering, hall, and extra services minus discount)
             $eventSubtotal = max(0, $packageAmount + (float) $fb->hall_charges + (float) $fb->extra_charges - (float) $fb->discount_amount);
             
-            $taxRate = 13.00;
-            if ($eventSubtotal > 0 && (float) $fb->tax_amount > 0) {
+            $taxRate = 0.00;
+            if ($fb->tax_rate !== null) {
+                $taxRate = (float) $fb->tax_rate;
+            } elseif ($fb->tax_amount !== null && (float) $fb->tax_amount == 0.0) {
+                $taxRate = 0.00;
+            } elseif ($eventSubtotal > 0 && (float) $fb->tax_amount > 0) {
                 $taxRate = ((float) $fb->tax_amount / $eventSubtotal) * 100;
+            } elseif ($booking->tax_rate !== null) {
+                $taxRate = (float) $booking->tax_rate;
+            } elseif ($booking->tax_amount !== null && (float) $booking->tax_amount == 0.0) {
+                $taxRate = 0.00;
             } elseif ($booking->branch && $booking->branch->tax_rate !== null) {
                 $taxRate = (float) $booking->branch->tax_rate;
+            } else {
+                $taxRate = 13.00;
             }
             
             // Tax is applied strictly to event catering and hall charges (service providers are non-taxable)
-            $taxAmount = round(($eventSubtotal * $taxRate) / 100, 2);
+            $taxAmount = ($taxRate > 0) ? round(($eventSubtotal * $taxRate) / 100, 2) : 0.00;
             $eventGrandTotal = $eventSubtotal + $taxAmount + (float) $booking->security_deposit;
 
             $fb->updateQuietly([
                 'package_amount' => $packageAmount,
                 'vendor_charges' => $vendorCharges,
                 'subtotal' => $eventSubtotal,
+                'tax_rate' => $taxRate,
                 'tax_amount' => $taxAmount,
                 'grand_total' => $eventGrandTotal,
             ]);
@@ -1008,6 +1019,7 @@ class BookingFinancialService
             $booking->updateQuietly([
                 'package_amount' => $packageAmount,
                 'subtotal' => $eventSubtotal,
+                'tax_rate' => $taxRate,
                 'tax_amount' => $taxAmount,
                 'grand_total' => $eventGrandTotal,
             ]);
@@ -1015,20 +1027,27 @@ class BookingFinancialService
             $packageAmount = $booking->no_food ? 0.00 : ((int) $booking->guest_count * (float) $booking->per_plate_price);
             $eventSubtotal = max(0, $packageAmount + (float) $booking->hall_charges + (float) $booking->extra_charges - (float) $booking->discount_amount);
             
-            $taxRate = 13.00;
-            if ($eventSubtotal > 0 && (float) $booking->tax_amount > 0) {
+            $taxRate = 0.00;
+            if ($booking->tax_rate !== null) {
+                $taxRate = (float) $booking->tax_rate;
+            } elseif ($booking->tax_amount !== null && (float) $booking->tax_amount == 0.0) {
+                $taxRate = 0.00;
+            } elseif ($eventSubtotal > 0 && (float) $booking->tax_amount > 0) {
                 $taxRate = ((float) $booking->tax_amount / $eventSubtotal) * 100;
             } elseif ($booking->branch && $booking->branch->tax_rate !== null) {
                 $taxRate = (float) $booking->branch->tax_rate;
+            } else {
+                $taxRate = 13.00;
             }
 
             // Tax is applied strictly to event catering and hall charges (service providers are non-taxable)
-            $taxAmount = round(($eventSubtotal * $taxRate) / 100, 2);
+            $taxAmount = ($taxRate > 0) ? round(($eventSubtotal * $taxRate) / 100, 2) : 0.00;
             $eventGrandTotal = $eventSubtotal + $taxAmount + (float) $booking->security_deposit;
 
             $booking->updateQuietly([
                 'package_amount' => $packageAmount,
                 'subtotal' => $eventSubtotal,
+                'tax_rate' => $taxRate,
                 'tax_amount' => $taxAmount,
                 'grand_total' => $eventGrandTotal,
             ]);

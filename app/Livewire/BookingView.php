@@ -59,6 +59,8 @@ class BookingView extends Component
     public $fbHallCharges = 0.00;
     public $fbExtraCharges = 0.00;
     public $fbDiscountAmount = 0.00;
+    public $fbApplyTax = false;
+    public $fbTaxRate = 13.00;
     public $fbTaxAmount = 0.00;
     public $fbVendorCharges = 0.00;
     public $fbNotes = '';
@@ -744,6 +746,8 @@ class BookingView extends Component
     {
         $booking = $this->booking;
         
+        $branchRate = ($booking->branch && $booking->branch->tax_rate !== null) ? (float) $booking->branch->tax_rate : 13.00;
+
         if ($booking->finalBill) {
             $this->fbGuestCount = $booking->finalBill->guest_count;
             $this->fbPerPlatePrice = $booking->finalBill->per_plate_price;
@@ -751,6 +755,21 @@ class BookingView extends Component
             $this->fbDiscountAmount = $booking->finalBill->discount_amount;
             $this->fbNotes = $booking->finalBill->notes;
             
+            if ($booking->finalBill->tax_rate !== null) {
+                $this->fbApplyTax = (float) $booking->finalBill->tax_rate > 0;
+                $this->fbTaxRate = (float) $booking->finalBill->tax_rate > 0 ? (float) $booking->finalBill->tax_rate : $branchRate;
+            } elseif ($booking->finalBill->tax_amount !== null && (float) $booking->finalBill->tax_amount == 0.0) {
+                $this->fbApplyTax = false;
+                $this->fbTaxRate = $branchRate;
+            } elseif ((float) $booking->finalBill->tax_amount > 0) {
+                $this->fbApplyTax = true;
+                $fbTaxable = max(0, (float) $booking->finalBill->package_amount + (float) $booking->finalBill->hall_charges + (float) $booking->finalBill->extra_charges - (float) $booking->finalBill->discount_amount);
+                $this->fbTaxRate = $fbTaxable > 0 ? round(((float) $booking->finalBill->tax_amount / $fbTaxable) * 100, 2) : $branchRate;
+            } else {
+                $this->fbApplyTax = false;
+                $this->fbTaxRate = $branchRate;
+            }
+
             $this->fbAddonsList = [];
             foreach ($booking->finalBill->extraServices as $addon) {
                 $this->fbAddonsList[] = [
@@ -766,6 +785,21 @@ class BookingView extends Component
             $this->fbHallCharges = $booking->hall_charges;
             $this->fbDiscountAmount = $booking->discount_amount;
             $this->fbNotes = '';
+
+            if ($booking->tax_rate !== null) {
+                $this->fbApplyTax = (float) $booking->tax_rate > 0;
+                $this->fbTaxRate = (float) $booking->tax_rate > 0 ? (float) $booking->tax_rate : $branchRate;
+            } elseif ($booking->tax_amount !== null && (float) $booking->tax_amount == 0.0) {
+                $this->fbApplyTax = false;
+                $this->fbTaxRate = $branchRate;
+            } elseif ((float) $booking->tax_amount > 0) {
+                $this->fbApplyTax = true;
+                $bTaxable = max(0, (float) $booking->package_amount + (float) $booking->hall_charges + (float) $booking->extra_charges - (float) $booking->discount_amount);
+                $this->fbTaxRate = $bTaxable > 0 ? round(((float) $booking->tax_amount / $bTaxable) * 100, 2) : $branchRate;
+            } else {
+                $this->fbApplyTax = false;
+                $this->fbTaxRate = $branchRate;
+            }
             
             $this->fbAddonsList = [];
             foreach ($booking->extraServices as $addon) {
@@ -791,6 +825,7 @@ class BookingView extends Component
         $this->fbPerPlatePrice = is_numeric($this->fbPerPlatePrice) ? floatval($this->fbPerPlatePrice) : 0.00;
         $this->fbHallCharges = is_numeric($this->fbHallCharges) ? floatval($this->fbHallCharges) : 0.00;
         $this->fbDiscountAmount = is_numeric($this->fbDiscountAmount) ? floatval($this->fbDiscountAmount) : 0.00;
+        $this->fbTaxRate = is_numeric($this->fbTaxRate) ? floatval($this->fbTaxRate) : 0.00;
 
         $packageAmount = $this->booking->no_food ? 0.00 : ($this->fbGuestCount * $this->fbPerPlatePrice);
         
@@ -812,16 +847,12 @@ class BookingView extends Component
         // Taxable base excludes vendor charges (tax is NOT applied on service providers)
         $taxableAmount = max(0, $packageAmount + $this->fbHallCharges + $this->fbExtraCharges - $this->fbDiscountAmount);
 
-        // Calculate tax based on original booking tax rate on its taxable base
-        $origBookingTaxable = max(0, (float) $this->booking->package_amount + (float) $this->booking->hall_charges + (float) $this->booking->extra_charges - (float) $this->booking->discount_amount);
-        $taxRate = 13.00;
-        if ($origBookingTaxable > 0 && (float) $this->booking->tax_amount > 0) {
-            $taxRate = ((float) $this->booking->tax_amount / $origBookingTaxable) * 100;
-        } elseif ($this->booking->branch && $this->booking->branch->tax_rate !== null) {
-            $taxRate = (float) $this->booking->branch->tax_rate;
+        if ($this->fbApplyTax) {
+            $effectiveRate = max(0, (float) $this->fbTaxRate);
+            $this->fbTaxAmount = round(($taxableAmount * $effectiveRate) / 100, 2);
+        } else {
+            $this->fbTaxAmount = 0.00;
         }
-        
-        $this->fbTaxAmount = round(($taxableAmount * $taxRate) / 100, 2);
     }
 
     public function updatedFbGuestCount()
@@ -840,6 +871,16 @@ class BookingView extends Component
     }
 
     public function updatedFbDiscountAmount()
+    {
+        $this->recalculateFinalBill();
+    }
+
+    public function updatedFbApplyTax()
+    {
+        $this->recalculateFinalBill();
+    }
+
+    public function updatedFbTaxRate()
     {
         $this->recalculateFinalBill();
     }
@@ -923,6 +964,8 @@ class BookingView extends Component
                 $this->booking->finalBill->delete();
             }
 
+            $effectiveTaxRate = $this->fbApplyTax ? max(0, (float) $this->fbTaxRate) : 0.00;
+
             // Create new final bill
             $finalBill = \App\Models\BookingFinalBill::create([
                 'booking_id' => $this->booking->id,
@@ -933,6 +976,7 @@ class BookingView extends Component
                 'extra_charges' => $this->fbExtraCharges,
                 'vendor_charges' => $this->fbVendorCharges,
                 'discount_amount' => $this->fbDiscountAmount,
+                'tax_rate' => $effectiveTaxRate,
                 'tax_amount' => $this->fbTaxAmount,
                 'subtotal' => $subtotal,
                 'grand_total' => $grandTotal,
@@ -961,6 +1005,7 @@ class BookingView extends Component
                 'hall_charges' => $this->fbHallCharges,
                 'extra_charges' => $this->fbExtraCharges,
                 'discount_amount' => $this->fbDiscountAmount,
+                'tax_rate' => $effectiveTaxRate,
                 'tax_amount' => $this->fbTaxAmount,
                 'subtotal' => $subtotal,
                 'grand_total' => $grandTotal,
@@ -1271,6 +1316,19 @@ class BookingView extends Component
         $perPlatePrice = $this->booking->per_plate_price ?? 0.00;
         $packageAmount = $this->booking->no_food ? 0.00 : ($effectiveCount * $perPlatePrice);
 
+        $headcountTaxRate = 0.00;
+        if ($this->booking->tax_rate !== null) {
+            $headcountTaxRate = (float) $this->booking->tax_rate;
+        } elseif ($this->booking->tax_amount !== null && (float) $this->booking->tax_amount == 0.0) {
+            $headcountTaxRate = 0.00;
+        } elseif ($this->booking->subtotal > 0) {
+            $headcountTaxRate = round(($this->booking->tax_amount * 100) / $this->booking->subtotal, 2);
+        } elseif ($this->booking->branch && $this->booking->branch->tax_rate !== null) {
+            $headcountTaxRate = (float) $this->booking->branch->tax_rate;
+        } else {
+            $headcountTaxRate = 13.00;
+        }
+
         $pricing = \App\Services\BookingPricingService::calculate([
             'guest_count' => $effectiveCount,
             'per_plate_price' => $perPlatePrice,
@@ -1278,7 +1336,7 @@ class BookingView extends Component
             'extra_charges' => $this->booking->extra_charges,
             'discount_amount' => $this->booking->discount_amount,
             'security_deposit' => $this->booking->security_deposit,
-            'tax_rate' => $this->booking->subtotal > 0 ? round(($this->booking->tax_amount * 100) / $this->booking->subtotal, 2) : 13.00,
+            'tax_rate' => $headcountTaxRate,
         ]);
 
         $this->booking->update([
@@ -1288,6 +1346,7 @@ class BookingView extends Component
             'guest_count' => $effectiveCount,
             'package_amount' => $pricing['package_amount'],
             'subtotal' => $pricing['subtotal'],
+            'tax_rate' => $headcountTaxRate,
             'tax_amount' => $pricing['tax_amount'],
             'grand_total' => $pricing['grand_total'],
         ]);

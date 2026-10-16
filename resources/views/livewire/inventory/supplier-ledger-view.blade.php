@@ -101,10 +101,30 @@
                         <div class="col-md-3">
                             <label class="form-label" for="pay-account">Cash/Bank Account *</label>
                             <select wire:model="cash_bank_account_id" class="form-select form-select-sm @error('cash_bank_account_id') is-invalid @enderror" id="pay-account">
-                                <option value="">Select Account</option>
-                                @foreach($cashAccounts as $acc)
-                                    <option value="{{ $acc->id }}">{{ $acc->account_name }} (Bal: {{ number_format($acc->current_balance) }})</option>
-                                @endforeach
+                                <option value="">Select Cash/Bank Account</option>
+                                @php
+                                    $cashGroup = $cashAccounts->where('type', 'cash');
+                                    $bankGroup = $cashAccounts->where('type', 'bank');
+                                @endphp
+                                @if($cashGroup->isNotEmpty())
+                                    <optgroup label="Cash in Hand / Cash Drawers">
+                                        @foreach($cashGroup as $acc)
+                                            <option value="{{ $acc->id }}">{{ $acc->display_name }} (Bal: Rs. {{ number_format($acc->current_balance, 2) }})</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if($bankGroup->isNotEmpty())
+                                    <optgroup label="Bank Accounts">
+                                        @foreach($bankGroup as $acc)
+                                            <option value="{{ $acc->id }}">{{ $acc->display_name }} (Bal: Rs. {{ number_format($acc->current_balance, 2) }})</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if($cashGroup->isEmpty() && $bankGroup->isEmpty())
+                                    @foreach($cashAccounts as $acc)
+                                        <option value="{{ $acc->id }}">{{ $acc->display_name }} (Bal: Rs. {{ number_format($acc->current_balance, 2) }})</option>
+                                    @endforeach
+                                @endif
                             </select>
                             @error('cash_bank_account_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
