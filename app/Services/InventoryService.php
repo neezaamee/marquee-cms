@@ -171,7 +171,8 @@ class InventoryService
         ?string $referenceType = null,
         ?int $referenceId = null,
         ?string $voucherNo = null,
-        ?string $description = null
+        ?string $description = null,
+        ?string $supplierInvoiceNo = null
     ): SupplierLedger {
         return DB::transaction(function () use (
             $marqueeId,
@@ -182,7 +183,8 @@ class InventoryService
             $referenceType,
             $referenceId,
             $voucherNo,
-            $description
+            $description,
+            $supplierInvoiceNo
         ) {
             // 1. Get supplier
             $supplier = Supplier::findOrFail($supplierId);
@@ -206,6 +208,7 @@ class InventoryService
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
                 'voucher_no' => $voucherNo,
+                'supplier_invoice_no' => $supplierInvoiceNo,
                 'debit' => $debit,
                 'credit' => $credit,
                 'running_balance' => $newBalance,

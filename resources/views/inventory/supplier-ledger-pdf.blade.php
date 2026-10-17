@@ -277,13 +277,14 @@
     <table class="ledger-table">
         <thead>
             <tr>
-                <th style="width: 12%;">Date</th>
-                <th style="width: 15%;">Voucher #</th>
-                <th style="width: 14%;">Type</th>
-                <th style="width: 27%;">Description</th>
-                <th style="width: 10%;" class="text-end">Debit (Paid)</th>
-                <th style="width: 10%;" class="text-end">Credit (Billed)</th>
-                <th style="width: 12%;" class="text-end">Balance</th>
+                <th style="width: 11%;">Date</th>
+                <th style="width: 12%;">Voucher #</th>
+                <th style="width: 14%;">Supplier Inv #</th>
+                <th style="width: 11%;">Type</th>
+                <th style="width: 24%;">Description</th>
+                <th style="width: 9%;" class="text-end">Debit (Paid)</th>
+                <th style="width: 9%;" class="text-end">Credit (Billed)</th>
+                <th style="width: 10%;" class="text-end">Balance</th>
             </tr>
         </thead>
         <tbody>
@@ -299,6 +300,7 @@
                 <tr>
                     <td class="font-mono text-center">{{ $row->transaction_date->format('Y-m-d') }}</td>
                     <td class="font-mono fw-bold">{{ $row->voucher_no ?: '—' }}</td>
+                    <td class="font-mono text-center fw-bold">{{ $row->resolved_supplier_invoice_number ?: '—' }}</td>
                     <td>
                         <span class="badge-type">{{ $row->reference_type }}</span>
                     </td>
@@ -315,7 +317,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="text-center" style="padding: 20px; color: #94a3b8;">No transaction history found in this supplier ledger.</td>
+                    <td colspan="8" class="text-center" style="padding: 20px; color: #94a3b8;">No transaction history found in this supplier ledger.</td>
                 </tr>
             @endforelse
         </tbody>

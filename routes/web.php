@@ -323,6 +323,7 @@ Route::middleware(['auth', 'user.active'])->group(function () {
             Route::get('inventory/suppliers/{supplier}/ledger/pdf', function (\App\Models\Supplier $supplier) {
                 $marquee = auth()->user()->marquee;
                 $ledgers = \App\Models\SupplierLedger::where('supplier_id', $supplier->id)
+                    ->with('purchaseInvoice')
                     ->orderBy('transaction_date', 'asc')
                     ->orderBy('id', 'asc')
                     ->get();
@@ -334,6 +335,7 @@ Route::middleware(['auth', 'user.active'])->group(function () {
             Route::get('inventory/suppliers/{supplier}/ledger/print', function (\App\Models\Supplier $supplier) {
                 $marquee = auth()->user()->marquee;
                 $ledgers = \App\Models\SupplierLedger::where('supplier_id', $supplier->id)
+                    ->with('purchaseInvoice')
                     ->orderBy('transaction_date', 'asc')
                     ->orderBy('id', 'asc')
                     ->get();

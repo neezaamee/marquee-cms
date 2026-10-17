@@ -236,6 +236,7 @@ class BusinessOwnerDashboard extends Component
         $vendorPayables = 0.0;
         $payableSuppliers = collect();
         $payableVendors = collect();
+        $todayDateStr = Carbon::today()->format('Y-m-d');
 
         if ($canViewFinancials) {
             // Total Booked Sales in Period (prioritizing finalized actual billing if final bill is prepared)
@@ -266,10 +267,24 @@ class BusinessOwnerDashboard extends Component
                 ->where('is_revenue_recognized', false)
                 ->sum('advance_received');
 
-            // Pending Receivables (Outstanding customer balances)
+            // Pending Receivables (Outstanding customer balances strictly for completed functions or functions passed before the current date)
+            $todayDateStr = Carbon::today()->format('Y-m-d');
             $pendingReceivables = (float) (clone $bookingQuery)
-                ->where('receivable_amount', '>', 0)
-                ->sum('receivable_amount');
+                ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
+                ->where(function ($q) use ($todayDateStr) {
+                    $q->where('bookings.booking_status', 'Completed')
+                      ->orWhere('bookings.is_revenue_recognized', true)
+                      ->orWhereDate('bookings.booking_date', '<', $todayDateStr);
+                })
+                ->leftJoin('booking_final_bills', 'bookings.id', '=', 'booking_final_bills.booking_id')
+                ->selectRaw('COALESCE(SUM(CASE 
+                    WHEN bookings.is_revenue_recognized = 1 THEN bookings.receivable_amount 
+                    WHEN bookings.receivable_amount > 0 THEN bookings.receivable_amount 
+                    WHEN (COALESCE(booking_final_bills.grand_total, bookings.grand_total) - bookings.advance_received) > 0 
+                        THEN (COALESCE(booking_final_bills.grand_total, bookings.grand_total) - bookings.advance_received) 
+                    ELSE 0 
+                END), 0) as total_receivables')
+                ->value('total_receivables');
 
             // Total Payables & Liabilities (Supplier dues, Vendor dues, Credit expenses, and GL Payables)
             // Total Payables & Liabilities (Supplier dues, Vendor dues, Credit expenses, and GL Payables)
@@ -450,8 +465,19 @@ class BusinessOwnerDashboard extends Component
             ->values();
 
         $overdueReceivablesCount = (clone $bookingQuery)
-            ->where('booking_date', '<', Carbon::today()->format('Y-m-d'))
-            ->where('receivable_amount', '>', 0)
+            ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
+            ->where(function ($q) use ($todayDateStr) {
+                $q->where('bookings.booking_status', 'Completed')
+                  ->orWhere('bookings.is_revenue_recognized', true)
+                  ->orWhereDate('bookings.booking_date', '<', $todayDateStr);
+            })
+            ->where(function ($q) {
+                $q->where('bookings.receivable_amount', '>', 0)
+                  ->orWhere(function ($balQ) {
+                      $balQ->where('bookings.is_revenue_recognized', false)
+                           ->whereRaw('(bookings.grand_total - bookings.advance_received) > 0');
+                  });
+            })
             ->count();
 
         $unprintedKitchenSlipsCount = (clone $bookingQuery)

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Livewire\Owner\BusinessOwnerDashboard;
 use App\Livewire\SuperAdmin\SuperAdminDashboard;
+use Carbon\Carbon;
 use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\Customer;
@@ -289,4 +290,53 @@ class DynamicDashboardTest extends TestCase
             ->assertSee('85.0k')
             ->assertSee('Supplier & vendor dues', false);
     }
+
+    /** @test */
+    public function test_owner_dashboard_receivables_due_only_includes_past_or_completed_events()
+    {
+        // 1. Future booking with dues (should NOT be included in Receivables Due)
+        $futureCust = Customer::factory()->create(['marquee_id' => $this->marquee->id, 'first_name' => 'Future', 'last_name' => 'Client']);
+        Booking::factory()->create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch1->id,
+            'customer_id' => $futureCust->id,
+            'booking_date' => Carbon::tomorrow()->format('Y-m-d'),
+            'grand_total' => 600000.00,
+            'advance_received' => 100000.00,
+            'receivable_amount' => 500000.00,
+            'is_revenue_recognized' => false,
+            'booking_status' => 'Confirmed',
+        ]);
+
+        // 2. Past booking with dues (SHOULD be included in Receivables Due)
+        $pastCust = Customer::factory()->create(['marquee_id' => $this->marquee->id, 'first_name' => 'Past', 'last_name' => 'Client']);
+        Booking::factory()->create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch1->id,
+            'customer_id' => $pastCust->id,
+            'booking_date' => Carbon::yesterday()->format('Y-m-d'),
+            'grand_total' => 200000.00,
+            'advance_received' => 50000.00,
+            'receivable_amount' => 150000.00,
+            'is_revenue_recognized' => false,
+            'booking_status' => 'Confirmed',
+        ]);
+
+        // Check BusinessOwnerDashboard Livewire view data
+        \Livewire\Livewire::actingAs($this->businessOwner)
+            ->test(BusinessOwnerDashboard::class)
+            ->assertViewHas('pendingReceivables', 150000.00);
+
+        // Check Customer model outstanding balance
+        $this->assertEquals(0.00, $futureCust->fresh()->outstanding_balance);
+        $this->assertEquals(150000.00, $pastCust->fresh()->outstanding_balance);
+
+        // Check CustomerList filter
+        \Livewire\Livewire::actingAs($this->businessOwner)
+            ->test(\App\Livewire\CustomerList::class)
+            ->set('filterBalance', 'outstanding')
+            ->assertSee('Past Client')
+            ->assertDontSee('Future Client');
+    }
 }
+

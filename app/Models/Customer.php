@@ -188,13 +188,30 @@ class Customer extends Model
 
     public function getOutstandingBalanceAttribute(): float
     {
-        if ($this->bookings()->where('is_revenue_recognized', true)->exists()) {
-            return (float) $this->bookings()
-                ->where('is_revenue_recognized', true)
-                ->sum('receivable_amount');
+        $todayStr = \Carbon\Carbon::today()->format('Y-m-d');
+
+        $pastOrCompletedBookings = $this->bookings()
+            ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+            ->where(function ($q) use ($todayStr) {
+                $q->where('booking_status', 'Completed')
+                  ->orWhere('is_revenue_recognized', true)
+                  ->orWhereDate('booking_date', '<', $todayStr);
+            })
+            ->get();
+
+        if ($pastOrCompletedBookings->isEmpty()) {
+            return 0.00;
         }
 
-        return max(0.00, $this->total_invoiced_amount - $this->total_paid_amount);
+        return (float) $pastOrCompletedBookings->sum(function ($booking) {
+            if ($booking->is_revenue_recognized) {
+                return (float) $booking->receivable_amount;
+            }
+            if ((float) $booking->receivable_amount > 0) {
+                return (float) $booking->receivable_amount;
+            }
+            return max(0.00, (float) $booking->effective_invoice_amount - (float) $booking->total_paid);
+        });
     }
 
     // ───────────────────── Relationships ─────────────────────

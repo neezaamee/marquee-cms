@@ -166,12 +166,13 @@
             @endif
 
             <div class="table-responsive scrollbar">
-                <table class="table table-sm table-striped fs-10 mb-0 align-middle">
+                <table class="table table-sm table-striped fs-9 mb-0 align-middle">
                     <thead class="bg-200 text-900">
                         <tr>
                             <th class="px-3" style="width: 100px;">Date</th>
                             <th style="width: 120px;">Voucher No</th>
-                            <th style="width: 150px;">Transaction Type</th>
+                            <th style="width: 150px;">Supplier Invoice #</th>
+                            <th style="width: 140px;">Transaction Type</th>
                             <th>Description</th>
                             <th class="text-end" style="width: 120px;">Debit (Paid/Ret)</th>
                             <th class="text-end" style="width: 120px;">Credit (Billed)</th>
@@ -181,8 +182,21 @@
                     <tbody>
                         @forelse($ledgers as $ledger)
                             <tr>
-                                <td class="px-3">{{ $ledger->transaction_date->format('Y-m-d') }}</td>
+                                <td class="px-3 text-nowrap">{{ $ledger->transaction_date->format('Y-m-d') }}</td>
                                 <td class="font-monospace fw-bold">{{ $ledger->voucher_no ?: '—' }}</td>
+                                <td class="font-monospace">
+                                    @php
+                                        $suppInv = $ledger->resolved_supplier_invoice_number;
+                                    @endphp
+                                    @if($suppInv)
+                                        <span class="badge badge-subtle-primary font-monospace fs-11 fw-bold">{{ $suppInv }}</span>
+                                        @if($ledger->purchaseInvoice && $ledger->purchaseInvoice->reference_number && $ledger->purchaseInvoice->invoice_number && $ledger->purchaseInvoice->reference_number !== $ledger->purchaseInvoice->invoice_number)
+                                            <div class="fs-11 text-muted" title="Internal System Invoice #">{{ $ledger->purchaseInvoice->invoice_number }}</div>
+                                        @endif
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
                                 <td>
                                     @php
                                         $badges = [
@@ -208,7 +222,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center py-4 text-muted">No transaction history recorded yet.</td>
+                                <td colspan="8" class="text-center py-4 text-muted">No transaction history recorded yet.</td>
                             </tr>
                         @endforelse
                     </tbody>

@@ -356,8 +356,14 @@ class BookingList extends Component
             }
         ];
 
-        // Dynamic Payment Outstanding query (strictly for active non-cancelled/non-rejected bookings)
+        // Dynamic Payment Outstanding query (strictly for active completed or past events before today)
+        $todayStr = Carbon::today()->format('Y-m-d');
         $outstandingQuery = (clone $activeQuery)
+            ->where(function ($q) use ($todayStr) {
+                $q->where('booking_status', 'Completed')
+                  ->orWhere('is_revenue_recognized', true)
+                  ->orWhereDate('booking_date', '<', $todayStr);
+            })
             ->with(['finalBill'])
             ->withSum($paymentsSubqueries, 'amount');
         
@@ -759,9 +765,15 @@ class BookingList extends Component
             $query->where('per_plate_price', (float) $this->filterPerHead);
         }
 
-        // Apply Balance Status Filter
+        // Apply Balance Status Filter (strictly for completed events or events that have passed before today)
         if ($this->filterBalanceStatus === 'outstanding' || $this->filterQuickShortcut === 'outstanding') {
+            $todayStr = Carbon::today()->format('Y-m-d');
             $query->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                  ->where(function ($q) use ($todayStr) {
+                      $q->where('booking_status', 'Completed')
+                        ->orWhere('is_revenue_recognized', true)
+                        ->orWhereDate('booking_date', '<', $todayStr);
+                  })
                   ->where('payment_status', '!=', 'Paid');
         } elseif ($this->filterBalanceStatus === 'fully_paid') {
             $query->where('payment_status', 'Paid');

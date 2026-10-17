@@ -74,7 +74,6 @@ class DepartmentRequestManager extends Component
     {
         $this->resetForm();
         $this->request_number = $this->generateNextRequestNumber();
-        $this->addItemRow();
         $this->isFormOpen = true;
     }
 
@@ -102,10 +101,39 @@ class DepartmentRequestManager extends Component
         $this->resetErrorBag();
     }
 
+    public function addQuickItem($itemId, $qty = 1)
+    {
+        $qty = max(0.01, floatval($qty));
+        $invItem = InventoryItem::with('unit')->find($itemId);
+        if (!$invItem) {
+            $this->addError('formItems', 'Please select a valid inventory item.');
+            return;
+        }
+
+        // If item already exists in formItems, increment its quantity
+        foreach ($this->formItems as $index => $item) {
+            if ($item['item_id'] == $itemId) {
+                $this->formItems[$index]['requested_qty'] = round(floatval($this->formItems[$index]['requested_qty']) + $qty, 2);
+                return;
+            }
+        }
+
+        $this->formItems[] = [
+            'item_id' => $invItem->id,
+            'item_name' => $invItem->name,
+            'item_code' => $invItem->item_code ?? '',
+            'unit' => $invItem->unit->name ?? ($invItem->unit->abbreviation ?? '—'),
+            'requested_qty' => $qty,
+        ];
+    }
+
     public function addItemRow()
     {
         $this->formItems[] = [
             'item_id' => '',
+            'item_name' => '',
+            'item_code' => '',
+            'unit' => '—',
             'requested_qty' => 1.0,
         ];
     }
@@ -118,6 +146,11 @@ class DepartmentRequestManager extends Component
 
     public function save()
     {
+        // Filter out empty rows if any
+        $this->formItems = array_values(array_filter($this->formItems, function ($item) {
+            return !empty($item['item_id']);
+        }));
+
         $this->validate();
 
         $marqueeId = auth()->user()->marquee_id;

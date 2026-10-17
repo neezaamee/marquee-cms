@@ -351,7 +351,7 @@
                                     @endif
                                 </h3>
                                 <div class="d-flex align-items-center gap-1 mt-1">
-                                    <span class="fs-11 text-muted">Customer balances</span>
+                                    <span class="fs-11 text-muted">Past & completed dues</span>
                                     <span class="fas fa-arrow-right fs-11 text-warning ms-auto"></span>
                                 </div>
                             </div>
@@ -360,7 +360,7 @@
                             </div>
                         </div>
                     </div>
-                    <a href="{{ route('customers.index', ['filterBalance' => 'outstanding']) }}" class="stretched-link" role="button" title="View Customers with Outstanding Balances"></a>
+                    <a href="{{ route('customers.index', ['filterBalance' => 'outstanding']) }}" class="stretched-link" role="button" title="View Customers with Past & Completed Outstanding Balances"></a>
                 </div>
             </div>
 

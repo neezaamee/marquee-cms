@@ -19,6 +19,7 @@ class SupplierLedger extends Model
         'reference_type',
         'reference_id',
         'voucher_no',
+        'supplier_invoice_no',
         'debit',
         'credit',
         'running_balance',
@@ -48,5 +49,32 @@ class SupplierLedger extends Model
     public function reference()
     {
         return $this->morphTo(null, 'reference_type', 'reference_id');
+    }
+
+    /**
+     * Get linked purchase invoice if applicable.
+     */
+    public function purchaseInvoice()
+    {
+        return $this->belongsTo(PurchaseInvoice::class, 'reference_id');
+    }
+
+    /**
+     * Get the resolved supplier invoice number.
+     */
+    public function getResolvedSupplierInvoiceNumberAttribute(): ?string
+    {
+        if (!empty($this->supplier_invoice_no)) {
+            return $this->supplier_invoice_no;
+        }
+
+        if ($this->reference_type === 'PurchaseInvoice') {
+            $inv = $this->purchaseInvoice;
+            if ($inv) {
+                return !empty($inv->reference_number) ? $inv->reference_number : $inv->invoice_number;
+            }
+        }
+
+        return null;
     }
 }

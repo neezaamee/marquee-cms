@@ -5,6 +5,30 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.28.0] - 2026-10-18
+
+### Added & Enhanced
+- **Business Owner Dashboard Past Due Receivables Scope**:
+  - Filtered receivable dues balance card and overdue receivables query on the Owner Role Dashboard strictly to events that have passed before the current date (`booking_date < today`) or are marked as `Completed` / `is_revenue_recognized`.
+  - Excluded future bookings and unrealized advances from receivables metrics, preventing future scheduled booking balances from artificially inflating current receivables dues.
+  - Aligned Customer List and Booking List balance filter queries to maintain financial synchronization.
+  - Added full test coverage in `DynamicDashboardTest`.
+- **High-Speed Department Stock Requisition Entry**:
+  - Replaced slow multi-roundtrip item row inputs with a dedicated Alpine.js client-side Quick Entry search bar.
+  - Implemented keyboard arrow navigation, automatic unit detection, focus transfer to quantity, and Enter-key instant addition with 0ms latency.
+  - Deferred Livewire network synchronization until final form submission, eliminating server overhead per keystroke.
+  - Added unit test coverage in `DepartmentManagementTest`.
+- **Purchase Invoices List Visibility & Falcon Post to Ledger Modal**:
+  - Upgraded Purchase Invoices table typography, spacing, and responsive layout from compressed text to high-readability styling (`fs-9` / 0.85rem) with spacious row padding (`py-2.5`).
+  - Added configurable pagination page-size selector (`10`, `15`, `25`, `50` per page).
+  - Added "Post to Ledger" action button in Actions column backed by a custom Falcon-themed Bootstrap confirmation modal showing target invoice number, vendor, net amount, and ledger impact.
+  - Automated Journal Voucher creation, stock cost valuation, and supplier balance credit upon posting.
+- **Supplier Directory Ledger Supplier Invoice Number Column**:
+  - Created migration `2026_10_18_000001_add_supplier_invoice_no_to_supplier_ledgers_table` adding `supplier_invoice_no` column to `supplier_ledgers` and backfilled historical records.
+  - Added `resolved_supplier_invoice_number` attribute on `SupplierLedger` model with automatic fallback to linked `PurchaseInvoice` reference or invoice numbers.
+  - Added **Supplier Invoice #** column across interactive Livewire ledger, printable statements, PDF downloads, and Excel exports.
+  - Added full test coverage in `SupplierDirectoryLedgerPaymentTest`.
+
 ## [1.27.0] - 2026-10-16
 
 ### Added & Enhanced

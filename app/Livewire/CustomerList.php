@@ -126,13 +126,38 @@ class CustomerList extends Component
             $query->where('status', $this->filterStatus);
         }
 
-        // Apply Balance Filter
+        // Apply Balance Filter (strictly for completed events or events that have passed before today)
+        $todayStr = \Carbon\Carbon::today()->format('Y-m-d');
         if ($this->filterBalance === 'outstanding') {
-            $query->whereHas('bookings', function ($bq) {
-                $bq->where('receivable_amount', '>', 0)
-                   ->orWhere(function ($q) {
-                       $q->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
-                         ->whereRaw('(grand_total - advance_received) > 0');
+            $query->whereHas('bookings', function ($bq) use ($todayStr) {
+                $bq->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                   ->where(function ($dateQ) use ($todayStr) {
+                       $dateQ->where('booking_status', 'Completed')
+                             ->orWhere('is_revenue_recognized', true)
+                             ->orWhereDate('booking_date', '<', $todayStr);
+                   })
+                   ->where(function ($dueQ) {
+                       $dueQ->where('receivable_amount', '>', 0)
+                            ->orWhere(function ($balQ) {
+                                $balQ->where('is_revenue_recognized', false)
+                                     ->whereRaw('(grand_total - advance_received) > 0');
+                            });
+                   });
+            });
+        } elseif ($this->filterBalance === 'zero') {
+            $query->whereDoesntHave('bookings', function ($bq) use ($todayStr) {
+                $bq->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                   ->where(function ($dateQ) use ($todayStr) {
+                       $dateQ->where('booking_status', 'Completed')
+                             ->orWhere('is_revenue_recognized', true)
+                             ->orWhereDate('booking_date', '<', $todayStr);
+                   })
+                   ->where(function ($dueQ) {
+                       $dueQ->where('receivable_amount', '>', 0)
+                            ->orWhere(function ($balQ) {
+                                $balQ->where('is_revenue_recognized', false)
+                                     ->whereRaw('(grand_total - advance_received) > 0');
+                            });
                    });
             });
         }

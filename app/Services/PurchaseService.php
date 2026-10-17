@@ -204,6 +204,7 @@ class PurchaseService
             $voucher = $this->accountingService->createJournalVoucher($header, $items);
 
             // 3. Post transaction to supplier's ledger
+            $supplierInvNo = !empty($invoice->reference_number) ? $invoice->reference_number : $invoice->invoice_number;
             $this->inventoryService->recordSupplierTransaction(
                 $marqueeId,
                 $invoice->supplier_id,
@@ -213,7 +214,8 @@ class PurchaseService
                 'PurchaseInvoice',
                 $invoice->id,
                 $voucher->voucher_no,
-                "Billed under Purchase Invoice: #{$invoice->invoice_number}"
+                "Billed under Purchase Invoice: #{$invoice->invoice_number}",
+                $supplierInvNo
             );
 
             // 4. Calculate and update Weighted Average Cost (WAC) and Stock Ledger for each item in the invoice
@@ -337,6 +339,8 @@ class PurchaseService
             $voucher = $this->accountingService->createJournalVoucher($header, $items);
 
             // 3. Post transaction to supplier's ledger
+            $return->loadMissing('purchaseInvoice');
+            $retSupplierInvNo = $return->purchaseInvoice ? (!empty($return->purchaseInvoice->reference_number) ? $return->purchaseInvoice->reference_number : $return->purchaseInvoice->invoice_number) : null;
             $this->inventoryService->recordSupplierTransaction(
                 $marqueeId,
                 $return->supplier_id,
@@ -346,7 +350,8 @@ class PurchaseService
                 'PurchaseReturn',
                 $return->id,
                 $voucher->voucher_no,
-                "Returned under Purchase Return: #{$return->return_number}"
+                "Returned under Purchase Return: #{$return->return_number}",
+                $retSupplierInvNo
             );
 
             // Update Central Store Stock Ledger for returned items (idempotency guarded)

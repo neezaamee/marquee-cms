@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\DepartmentAttendance;
 use App\Models\DepartmentStockRequest;
 use App\Models\Employee;
+use App\Models\InventoryItem;
 use App\Models\Marquee;
 use App\Models\User;
 use App\Services\DepartmentStockService;
@@ -324,4 +325,61 @@ class DepartmentManagementTest extends TestCase
 
         $this->assertEquals(0.0, $balance);
     }
+
+    public function test_department_request_manager_quick_add_and_submit()
+    {
+        $dept = Department::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'department_code' => 'DEPT-001',
+            'name' => 'Kitchen',
+            'department_type' => 'Kitchen Production',
+            'status' => 'Active',
+            'display_order' => 1,
+        ]);
+
+        $unit = \App\Models\InventoryUnit::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'Kilogram',
+            'short_code' => 'kg',
+            'status' => 'Active',
+        ]);
+
+        $cat = \App\Models\InventoryCategory::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'Kitchen Groceries',
+            'status' => 'Active',
+        ]);
+
+        $item = InventoryItem::create([
+            'marquee_id' => $this->marquee->id,
+            'name' => 'Basmati Rice',
+            'item_code' => 'RICE-001',
+            'category_id' => $cat->id,
+            'unit_id' => $unit->id,
+            'status' => 'Active',
+        ]);
+
+        \Livewire\Livewire::actingAs($this->user)
+            ->test(\App\Livewire\DepartmentRequestManager::class)
+            ->call('openCreateForm')
+            ->assertSet('isFormOpen', true)
+            ->call('addQuickItem', $item->id, 5)
+            ->assertCount('formItems', 1)
+            ->set('department_id', $dept->id)
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSet('isFormOpen', false);
+
+        $this->assertDatabaseHas('department_stock_requests', [
+            'department_id' => $dept->id,
+            'marquee_id' => $this->marquee->id,
+        ]);
+
+        $this->assertDatabaseHas('department_stock_request_items', [
+            'item_id' => $item->id,
+            'requested_qty' => 5,
+        ]);
+    }
 }
+

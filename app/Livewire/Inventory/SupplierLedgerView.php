@@ -141,6 +141,7 @@ class SupplierLedgerView extends Component
     {
         $supplier = $this->supplier;
         $ledgers = SupplierLedger::where('supplier_id', $supplier->id)
+            ->with('purchaseInvoice')
             ->orderBy('transaction_date', 'asc')
             ->orderBy('id', 'asc')
             ->get();
@@ -167,12 +168,13 @@ class SupplierLedgerView extends Component
             fputcsv($handle, ['Generated At', date('Y-m-d H:i:s')]);
             fputcsv($handle, []);
 
-            fputcsv($handle, ['Date', 'Voucher No', 'Transaction Type', 'Description', 'Debit (Paid/Ret)', 'Credit (Billed)', 'Balance (Payable)']);
+            fputcsv($handle, ['Date', 'Voucher No', 'Supplier Invoice Number', 'Transaction Type', 'Description', 'Debit (Paid/Ret)', 'Credit (Billed)', 'Balance (Payable)']);
 
             foreach ($ledgers as $l) {
                 fputcsv($handle, [
                     $l->transaction_date->format('Y-m-d'),
                     $l->voucher_no ?: '—',
+                    $l->resolved_supplier_invoice_number ?: '—',
                     $l->reference_type,
                     $l->description,
                     $l->debit > 0 ? $l->debit : '0.00',
@@ -188,6 +190,7 @@ class SupplierLedgerView extends Component
     public function render()
     {
         $ledgers = SupplierLedger::where('supplier_id', $this->supplier->id)
+            ->with('purchaseInvoice')
             ->orderBy('transaction_date', 'desc')
             ->orderBy('id', 'desc')
             ->paginate(15);

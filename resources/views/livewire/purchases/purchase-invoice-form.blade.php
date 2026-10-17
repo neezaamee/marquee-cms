@@ -374,7 +374,7 @@
 
             <!-- Invoice Item Grid -->
             <div class="table-responsive border rounded mb-4">
-                <table class="table table-sm table-striped fs-10 mb-0 align-middle">
+                <table class="table table-hover fs-9 mb-0 align-middle">
                     <thead class="bg-200 text-900">
                         <tr>
                             <th class="ps-3" style="width: 50px;">#</th>
@@ -422,7 +422,7 @@
                     <table class="table table-sm table-borderless fs-11">
                         <tr>
                             <td class="text-600 font-sans-serif fw-bold">Gross Subtotal:</td>
-                            <td class="text-end font-monospace fw-bold text-dark">Rs. {{ number_format($gross_amount, 2) }}</td>
+                            <td class="text-end font-monospace fw-bold text-dark">Rs. {{ number_format($gross_amount) }}</td>
                         </tr>
                         <tr>
                             <td class="text-600 font-sans-serif fw-bold align-middle">Discount Allowed (Rs.):</td>
@@ -430,23 +430,23 @@
                                 @if($status === 'Draft')
                                     <input wire:model.live.blur="discount" type="number" step="0.01" class="form-control form-control-sm font-monospace text-end float-end" style="max-width: 150px;" />
                                 @else
-                                    <span class="font-monospace fw-bold text-danger">- Rs. {{ number_format($discount, 2) }}</span>
+                                    <span class="font-monospace fw-bold text-danger">- Rs. {{ number_format($discount) }}</span>
                                 @endif
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-600 font-sans-serif fw-bold align-middle">Tax Added (Rs.):</td>
+                            <td class="text-600 font-sans-serif fw-bold align-middle">Frieght (Rs.):</td>
                             <td class="text-end">
                                 @if($status === 'Draft')
                                     <input wire:model.live.blur="tax" type="number" step="0.01" class="form-control form-control-sm font-monospace text-end float-end" style="max-width: 150px;" />
                                 @else
-                                    <span class="font-monospace fw-bold text-success">+ Rs. {{ number_format($tax, 2) }}</span>
+                                    <span class="font-monospace fw-bold text-success">+ Rs. {{ number_format($tax) }}</span>
                                 @endif
                             </td>
                         </tr>
                         <tr class="border-top table-light fw-black font-monospace fs-9">
                             <td class="text-800">Net Amount Payable:</td>
-                            <td class="text-end text-danger fs-8">Rs. {{ number_format($net_amount, 2) }}</td>
+                            <td class="text-end text-danger fs-8">Rs. {{ number_format($net_amount) }}</td>
                         </tr>
                     </table>
                 </div>
@@ -459,7 +459,7 @@
                 <div class="d-flex justify-content-end gap-2 border-top pt-3">
                     <a href="{{ route('purchase-invoices.index') }}" class="btn btn-falcon-default btn-sm">Discard</a>
                     <button type="button" wire:click="save" class="btn btn-falcon-primary btn-sm">
-                        <span class="fas fa-save me-1"></span>Save Draft Bill
+                        <span class="fas fa-save me-1"></span>Save Bill
                     </button>
                 </div>
             @endif
