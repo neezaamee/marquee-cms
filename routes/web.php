@@ -180,15 +180,17 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                 $search = request('search');
                 $filterCategory = request('filterCategory');
                 $filterStatus = request('filterStatus');
+                $filterDateFrom = request('filterDateFrom');
+                $filterDateTo = request('filterDateTo');
 
-                $data = app(\App\Livewire\Inventory\StockView::class)->getStockReportData($marqueeId, $branchId, $search, $filterCategory, $filterStatus);
+                $data = app(\App\Livewire\Inventory\StockView::class)->getStockReportData($marqueeId, $branchId, $search, $filterCategory, $filterStatus, $filterDateFrom, $filterDateTo);
                 $items = $data['items'];
                 $stats = $data['stats'];
                 $branchName = $branchId ? \App\Models\Branch::find($branchId)?->name : 'All Branches';
                 $categoryName = $filterCategory ? \App\Models\InventoryCategory::find($filterCategory)?->name : 'All Categories';
                 $isPdf = true;
 
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.stock-pdf', compact('items', 'stats', 'marquee', 'branchName', 'categoryName', 'search', 'filterStatus', 'isPdf'))
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.stock-pdf', compact('items', 'stats', 'marquee', 'branchName', 'categoryName', 'search', 'filterStatus', 'filterDateFrom', 'filterDateTo', 'isPdf'))
                     ->setPaper('a4', 'landscape');
                 return $pdf->stream('Stock_Valuation_Report_' . date('Ymd_His') . '.pdf');
             })->name('inventory.stock.pdf');
@@ -201,15 +203,17 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                 $search = request('search');
                 $filterCategory = request('filterCategory');
                 $filterStatus = request('filterStatus');
+                $filterDateFrom = request('filterDateFrom');
+                $filterDateTo = request('filterDateTo');
 
-                $data = app(\App\Livewire\Inventory\StockView::class)->getStockReportData($marqueeId, $branchId, $search, $filterCategory, $filterStatus);
+                $data = app(\App\Livewire\Inventory\StockView::class)->getStockReportData($marqueeId, $branchId, $search, $filterCategory, $filterStatus, $filterDateFrom, $filterDateTo);
                 $items = $data['items'];
                 $stats = $data['stats'];
                 $branchName = $branchId ? \App\Models\Branch::find($branchId)?->name : 'All Branches';
                 $categoryName = $filterCategory ? \App\Models\InventoryCategory::find($filterCategory)?->name : 'All Categories';
                 $isPdf = false;
 
-                return view('inventory.stock-pdf', compact('items', 'stats', 'marquee', 'branchName', 'categoryName', 'search', 'filterStatus', 'isPdf'));
+                return view('inventory.stock-pdf', compact('items', 'stats', 'marquee', 'branchName', 'categoryName', 'search', 'filterStatus', 'filterDateFrom', 'filterDateTo', 'isPdf'));
             })->name('inventory.stock.print');
 
             Route::view('inventory/stock-takes', 'inventory.stock-takes')->name('inventory.stock-takes.index');

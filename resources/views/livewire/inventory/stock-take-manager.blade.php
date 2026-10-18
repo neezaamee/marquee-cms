@@ -343,16 +343,205 @@
                         </div>
                     @endif
 
-                    <div class="{{ $adj_type === 'Adjustment' ? 'col-md-4' : 'col-md-4' }}">
-                        <label class="form-label fw-semi-bold">Item <span class="text-danger">*</span></label>
-                        <select wire:model.live="adj_item_id" class="form-select form-select-sm">
-                            <option value="">Select Item…</option>
-                            @foreach($inventoryItems as $it)
-                                <option value="{{ $it->id }}">{{ $it->name }} ({{ $it->item_code }})</option>
-                            @endforeach
-                        </select>
+                    <div class="col-md-4 position-relative"
+                         x-data="{
+                            open: false,
+                            search: '',
+                            activeIndex: -1,
+                            items: {{ json_encode($catalogItemsData ?? []) }},
+                            get filteredItems() {
+                                if (!this.search || !this.search.trim()) return this.items;
+                                const q = this.search.toLowerCase().trim();
+                                return this.items.filter(i => 
+                                    (i.item_code && i.item_code.toLowerCase().includes(q)) || 
+                                    (i.name && i.name.toLowerCase().includes(q)) ||
+                                    (i.category && i.category.toLowerCase().includes(q))
+                                );
+                            },
+                            init() {
+                                this.syncFromWire();
+                                this.$watch('$wire.adj_item_id', () => {
+                                    this.syncFromWire();
+                                });
+                            },
+                            syncFromWire() {
+                                const currentId = $wire.adj_item_id;
+                                if (!currentId) {
+                                    this.search = '';
+                                    this.activeIndex = -1;
+                                } else {
+                                    const found = this.items.find(i => i.id == currentId);
+                                    if (found) {
+                                        this.search = found.name + (found.item_code ? ' [' + found.item_code + ']' : '');
+                                    }
+                                }
+                            },
+                            selectItem(item) {
+                                this.search = item.name + (item.item_code ? ' [' + item.item_code + ']' : '');
+                                this.open = false;
+                                this.activeIndex = -1;
+                                $wire.selectAdjustmentItem(item.id);
+                            },
+                            clearSelection() {
+                                this.search = '';
+                                this.open = true;
+                                this.activeIndex = -1;
+                                $wire.selectAdjustmentItem('');
+                                this.$nextTick(() => {
+                                    this.$refs.itemSearchInput.focus();
+                                });
+                            },
+                            handleKeydown(e) {
+                                const count = this.filteredItems.length;
+                                if (!this.open) {
+                                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                                        e.preventDefault();
+                                        this.open = true;
+                                        this.activeIndex = 0;
+                                        this.scrollToActive();
+                                        return;
+                                    }
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        this.open = true;
+                                        return;
+                                    }
+                                    return;
+                                }
+                                if (e.key === 'ArrowDown') {
+                                    e.preventDefault();
+                                    if (count > 0) {
+                                        this.activeIndex = (this.activeIndex + 1) % count;
+                                        this.scrollToActive();
+                                    }
+                                } else if (e.key === 'ArrowUp') {
+                                    e.preventDefault();
+                                    if (count > 0) {
+                                        this.activeIndex = (this.activeIndex - 1 + count) % count;
+                                        this.scrollToActive();
+                                    }
+                                } else if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    if (this.activeIndex >= 0 && this.activeIndex < count) {
+                                        this.selectItem(this.filteredItems[this.activeIndex]);
+                                    } else if (count === 1) {
+                                        this.selectItem(this.filteredItems[0]);
+                                    }
+                                } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    this.open = false;
+                                    this.activeIndex = -1;
+                                } else if (e.key === 'Tab') {
+                                    this.open = false;
+                                }
+                            },
+                            scrollToActive() {
+                                this.$nextTick(() => {
+                                    if (this.$refs.dropdownList) {
+                                        const el = this.$refs.dropdownList.querySelector(`[data-index=\'${this.activeIndex}\']`);
+                                        if (el) el.scrollIntoView({ block: 'nearest' });
+                                    }
+                                });
+                            }
+                         }"
+                         @click.outside="
+                            if ($wire.adj_item_id) {
+                                const found = items.find(i => i.id == $wire.adj_item_id);
+                                if (found) search = found.name + (found.item_code ? ' [' + found.item_code + ']' : '');
+                            } else {
+                                search = '';
+                            }
+                            open = false;
+                            activeIndex = -1;
+                         ">
+                        <label class="form-label fw-semi-bold d-flex justify-content-between align-items-center mb-1">
+                            <span>Item <span class="text-danger">*</span></span>
+                            <span class="text-muted fs-11"><i class="fas fa-search me-1"></i>Searchable</span>
+                        </label>
+
+                        <input type="hidden" wire:model="adj_item_id" />
+
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0 px-2 text-muted">
+                                <span class="fas fa-search fs-12"></span>
+                            </span>
+                            <input x-ref="itemSearchInput"
+                                   type="text"
+                                   class="form-control form-control-sm border-start-0 border-end-0 @error('adj_item_id') is-invalid @enderror"
+                                   placeholder="Search item by name or code (use ↑ / ↓)..."
+                                   autocomplete="off"
+                                   x-model="search"
+                                   @focus="open = true; $refs.itemSearchInput.select()"
+                                   @click="open = true"
+                                   @keydown="handleKeydown($event)" />
+                            <template x-if="search">
+                                <button type="button" 
+                                        class="btn btn-outline-secondary btn-sm border-start-0 border-end-0 px-2 text-muted" 
+                                        @click="clearSelection()"
+                                        title="Clear selection">
+                                    <span class="fas fa-times fs-12"></span>
+                                </button>
+                            </template>
+                            <button type="button"
+                                    class="btn btn-outline-secondary btn-sm px-2 text-muted"
+                                    @click="open = !open; if(open) $nextTick(() => $refs.itemSearchInput.focus());"
+                                    title="Toggle item list">
+                                <span class="fas fa-chevron-down fs-11" :class="{ 'fa-rotate-180': open }"></span>
+                            </button>
+                        </div>
+
                         @error('adj_item_id') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
+
+                        {{-- Dropdown options list --}}
+                        <div x-show="open" 
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="opacity-0 transform scale-95"
+                             x-transition:enter-end="opacity-100 transform scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="opacity-100 transform scale-100"
+                             x-transition:leave-end="opacity-0 transform scale-95"
+                             x-ref="dropdownList"
+                             class="position-absolute bg-white border rounded shadow-lg start-0 end-0 z-3 mt-1 overflow-hidden" 
+                             style="max-height: 250px; overflow-y: auto; z-index: 1050; display: none;">
+                            <template x-for="(item, idx) in filteredItems" :key="item.id">
+                                <div :data-index="idx"
+                                     @mouseenter="activeIndex = idx"
+                                     @click="selectItem(item)"
+                                     :class="{
+                                         'bg-primary text-white': activeIndex === idx,
+                                         'bg-primary-subtle text-primary fw-bold': $wire.adj_item_id == item.id && activeIndex !== idx,
+                                         'hover-bg-light text-900': $wire.adj_item_id != item.id && activeIndex !== idx
+                                     }"
+                                     class="d-flex justify-content-between align-items-center py-2 px-3 border-bottom border-translucent cursor-pointer text-start"
+                                     style="user-select: none;">
+                                    <div>
+                                        <template x-if="item.item_code">
+                                            <span class="font-monospace fw-bold me-1" :class="activeIndex === idx ? 'text-white' : 'text-primary'" x-text="'[' + item.item_code + ']'"></span>
+                                        </template>
+                                        <span class="fw-semi-bold" x-text="item.name"></span>
+                                        <template x-if="item.category">
+                                            <span class="badge ms-1 fs-11" :class="activeIndex === idx ? 'bg-white text-dark' : 'bg-secondary-subtle text-secondary'" x-text="item.category"></span>
+                                        </template>
+                                    </div>
+                                    <div class="text-end ps-2 text-nowrap">
+                                        <span class="badge" :class="activeIndex === idx ? 'bg-white text-primary' : 'bg-light text-dark'" x-text="item.unit"></span>
+                                        <template x-if="item.rate > 0">
+                                            <span class="font-monospace fs-11 ms-1" :class="activeIndex === idx ? 'text-white' : 'text-muted'" x-text="'PKR ' + Number(item.rate).toFixed(2)"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="filteredItems.length === 0">
+                                <div class="text-center py-3 text-muted fs-11">
+                                    <span class="fas fa-exclamation-circle me-1"></span>No items match \"<span class="fw-bold" x-text="search"></span>\"
+                                </div>
+                            </template>
+                        </div>
                     </div>
+
+                    @php
+                        $curItem = !empty($adj_item_id) ? $inventoryItems->firstWhere('id', (int)$adj_item_id) : null;
+                    @endphp
 
                     <div class="col-md-3">
                         <label class="form-label fw-semi-bold">Date <span class="text-danger">*</span></label>
@@ -360,12 +549,22 @@
                         @error('adj_date') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label fw-semi-bold">Quantity <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semi-bold">
+                            Quantity <span class="text-danger">*</span>
+                            @if($curItem && $curItem->unit)
+                                <span class="badge bg-light text-secondary ms-1 fs-11">({{ $curItem->unit->short_code ?? $curItem->unit->name }})</span>
+                            @endif
+                        </label>
                         <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" wire:model="adj_quantity" placeholder="0.00">
                         @error('adj_quantity') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label fw-semi-bold">Unit Cost <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semi-bold">
+                            Unit Cost <span class="text-danger">*</span>
+                            @if($curItem && ($curItem->average_cost > 0 || $curItem->default_purchase_rate > 0))
+                                <span class="text-muted fs-11 ms-1">(Auto-filled)</span>
+                            @endif
+                        </label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text">PKR</span>
                             <input type="number" step="0.01" min="0" class="form-control" wire:model="adj_unit_cost" placeholder="0.00">

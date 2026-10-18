@@ -51,6 +51,14 @@ class StockTakeManager extends Component
 
     protected $paginationTheme = 'bootstrap';
 
+    protected $validationAttributes = [
+        'adj_item_id'   => 'item',
+        'adj_quantity'  => 'quantity',
+        'adj_unit_cost' => 'unit cost',
+        'adj_date'      => 'date',
+        'adj_type'      => 'adjustment type',
+    ];
+
     protected $queryString = [
         'search'             => ['except' => ''],
         'filterStatus'       => ['except' => ''],
@@ -530,7 +538,17 @@ class StockTakeManager extends Component
             if ($this->adj_type === 'Opening') {
                 $this->checkExistingOpening();
             }
+        } else {
+            $this->adj_unit_cost = '';
+            $this->adj_has_existing_opening = false;
         }
+    }
+
+    public function selectAdjustmentItem($itemId): void
+    {
+        $this->adj_item_id = $itemId ? (int)$itemId : '';
+        $this->resetErrorBag('adj_item_id');
+        $this->updatedAdjItemId();
     }
 
     protected function checkExistingOpening(): void
@@ -705,10 +723,22 @@ class StockTakeManager extends Component
             ->orderBy('name')
             ->get();
 
-        $inventoryItems = InventoryItem::where('marquee_id', $marqueeId)
+        $inventoryItems = InventoryItem::with(['unit', 'category'])
+            ->where('marquee_id', $marqueeId)
             ->where('status', 'Active')
             ->orderBy('name')
             ->get();
+
+        $catalogItemsData = $inventoryItems->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'name' => $item->name,
+                'item_code' => $item->item_code ?? '',
+                'unit' => $item->unit->short_code ?? ($item->unit->name ?? '—'),
+                'category' => $item->category->name ?? '',
+                'rate' => (float) ($item->average_cost ?: ($item->default_purchase_rate ?: 0)),
+            ];
+        })->values()->toArray();
 
         $branches = \App\Models\Branch::where('marquee_id', $marqueeId)
             ->where('status', 'active')
@@ -716,11 +746,12 @@ class StockTakeManager extends Component
             ->get();
 
         return view('livewire.inventory.stock-take-manager', [
-            'stockTakes'     => $stockTakes,
-            'adjustments'    => $adjustments,
-            'categories'     => $categories,
-            'inventoryItems' => $inventoryItems,
-            'branches'       => $branches,
+            'stockTakes'       => $stockTakes,
+            'adjustments'      => $adjustments,
+            'categories'       => $categories,
+            'inventoryItems'   => $inventoryItems,
+            'catalogItemsData' => $catalogItemsData,
+            'branches'         => $branches,
         ])->layout('layouts.admin');
     }
 }

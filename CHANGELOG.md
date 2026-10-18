@@ -5,6 +5,18 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.29.0] - 2026-10-18
+
+### Added & Enhanced
+- **Stock Adjustment Searchable Item Catalog**:
+  - Replaced static item select in Direct Adjustment forms (Opening Stock, Wastage, Damage, Expiry, Manual Adjustment) with a high-speed, keyboard-navigable Alpine.js autocomplete component.
+  - Multi-field search across item code, item name, and item category with instant client-side filtering and zero server roundtrip latency.
+  - Added contextual unit badges on Quantity input and auto-filled cost indicators on Unit Cost.
+  - Added friendly `$validationAttributes` and Livewire synchronization via `selectAdjustmentItem()`.
+- **Inventory Stock Matrix & PDF Valuation Date Range Filtering**:
+  - Added `filterDateFrom` and `filterDateTo` date range filters to Livewire `StockView` and DomPDF/print valuation exports.
+  - Integrated prior-to-date opening stock cumulative calculations for accurate point-in-time stock auditing.
+
 ## [1.28.0] - 2026-10-18
 
 ### Added & Enhanced

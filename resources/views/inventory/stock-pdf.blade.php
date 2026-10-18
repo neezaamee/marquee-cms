@@ -206,31 +206,40 @@
         <strong>Report Scope:</strong>
         Branch: <strong>{{ $branchName ?? 'All Branches' }}</strong> &bull;
         Category: <strong>{{ $categoryName ?? 'All Categories' }}</strong> &bull;
-        Status Filter: <strong>{{ !empty($filterStatus) ? ucfirst(str_replace('_', ' ', $filterStatus)) : 'All Statuses' }}</strong>
+        Status Filter: <strong>{{ !empty($filterStatus) ? ucfirst(str_replace('_', ' ', $filterStatus)) : 'All Statuses' }}</strong> &bull;
+        Period: <strong>{{ (!empty($filterDateFrom) || !empty($filterDateTo)) ? ($filterDateFrom ? \Carbon\Carbon::parse($filterDateFrom)->format('d-M-Y') : 'Beginning') . ' to ' . ($filterDateTo ? \Carbon\Carbon::parse($filterDateTo)->format('d-M-Y') : 'Present') : 'All Time' }}</strong>
         @if(!empty($search)) &bull; Keyword: <strong>"{{ $search }}"</strong> @endif
     </div>
 
     <table class="kpi-table">
         <tr>
-            <td style="width: 20%;">
+            <td style="width: 18%;">
                 <span class="kpi-label">Cataloged Items</span>
                 <span class="kpi-value text-primary">{{ number_format($stats['total'] ?? count($items)) }}</span>
             </td>
-            <td style="width: 20%;">
+            @if(!empty($filterDateFrom) && ($stats['total_opening_value'] ?? 0) > 0)
+                <td style="width: 22%; background: #fef9c3; border-color: #fde047;">
+                    <span class="kpi-label" style="color: #854d0e;">Opening Valuation</span>
+                    <span class="kpi-value" style="color: #a16207;">PKR {{ number_format($stats['total_opening_value'] ?? 0, 2) }}</span>
+                    <span style="font-size: 7.5px; color: #713f12; display: block;">{{ number_format($stats['total_opening_qty'] ?? 0, 2) }} units</span>
+                </td>
+            @endif
+            <td style="width: 18%;">
                 <span class="kpi-label">Healthy Stock</span>
                 <span class="kpi-value text-success">{{ number_format($stats['good'] ?? 0) }}</span>
             </td>
-            <td style="width: 20%;">
+            <td style="width: 18%;">
                 <span class="kpi-label">Reorder / Critical</span>
                 <span class="kpi-value text-warning">{{ number_format(($stats['reorder'] ?? 0) + ($stats['low'] ?? 0)) }}</span>
             </td>
-            <td style="width: 20%;">
+            <td style="width: 18%;">
                 <span class="kpi-label">Out of Stock</span>
                 <span class="kpi-value text-danger">{{ number_format($stats['out'] ?? 0) }}</span>
             </td>
-            <td style="width: 20%; background: #e0f2fe; border-color: #7dd3fc;">
-                <span class="kpi-label" style="color: #0369a1;">Total Stock Valuation</span>
+            <td style="width: {{ (!empty($filterDateFrom) && ($stats['total_opening_value'] ?? 0) > 0) ? '24%' : '28%' }}; background: #e0f2fe; border-color: #7dd3fc;">
+                <span class="kpi-label" style="color: #0369a1;">{{ !empty($filterDateTo) ? 'Closing Valuation' : 'Total Stock Valuation' }}</span>
                 <span class="kpi-value text-primary">PKR {{ number_format($stats['total_stock_value'] ?? 0, 2) }}</span>
+                <span style="font-size: 7.5px; color: #0284c7; display: block;">{{ number_format($stats['total_stock_qty'] ?? 0, 2) }} units</span>
             </td>
         </tr>
     </table>
@@ -239,15 +248,15 @@
         <thead>
             <tr>
                 <th style="width: 70px;">Code</th>
-                <th style="width: 140px;">Item Name</th>
-                <th style="width: 90px;">Category</th>
-                <th style="width: 40px;" class="text-center">Unit</th>
-                <th style="width: 65px;" class="text-end">Opening</th>
+                <th style="width: 135px;">Item Name</th>
+                <th style="width: 85px;">Category</th>
+                <th style="width: 35px;" class="text-center">Unit</th>
+                <th style="width: 65px;" class="text-end">{{ !empty($filterDateFrom) ? 'Op. Stock' : 'Opening' }}</th>
                 <th style="width: 65px;" class="text-end">Purchased</th>
                 <th style="width: 60px;" class="text-end">Returned</th>
                 <th style="width: 65px;" class="text-end">Net Issued</th>
                 <th style="width: 65px;" class="text-end">Adjusted</th>
-                <th style="width: 75px;" class="text-end">Current Stock</th>
+                <th style="width: 75px;" class="text-end">{{ !empty($filterDateTo) ? 'Closing Stock' : 'Current Stock' }}</th>
                 <th style="width: 70px;" class="text-end">Unit Cost</th>
                 <th style="width: 85px;" class="text-end">Stock Value</th>
                 <th style="width: 75px;" class="text-center">Status</th>
