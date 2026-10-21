@@ -129,6 +129,14 @@
                         </td>
                     </tr>
                     <tr>
+                        <td class="text-600 px-0 py-1">Tentative Guests:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->tentative_guests ? number_format($booking->tentative_guests) : '—' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-600 px-0 py-1">Confirmed Guests:</td>
+                        <td class="text-800 fw-bold px-0 py-1">{{ $booking->confirmed_guests ? number_format($booking->confirmed_guests) : ($booking->guest_count ? number_format($booking->guest_count) : '—') }}</td>
+                    </tr>
+                    <tr>
                         <td class="text-600 px-0 py-1">Privacy / Partition:</td>
                         <td class="text-800 fw-bold px-0 py-1">
                             @if($booking->privacy_required)

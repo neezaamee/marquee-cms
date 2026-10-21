@@ -5,6 +5,17 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.30.0] - 2026-10-21
+
+### Added & Enhanced
+- **Booking Headcount Validation & Confirmation Workflows**:
+  - Enforced mandatory `Confirmed Guests` field across Booking Wizard (`BookingWizard`), One-Page booking creation (`BookingOnePage`), and Edit Booking (`BookingEdit`) views.
+  - Set `Tentative Guests` as an optional field with graceful `null` handling across database storage and UI inputs.
+  - Enhanced printable booking sheets (`booking-slip`, `booking-slip-v2`, `booking-slip-v3`, and `pdf.blade.php`) to display `Confirmed Guests` and `Tentative Guests` as separate, dedicated table entries.
+  - Implemented Falcon-styled confirmation modal for "Complete Event & Recognize Revenue" on `BookingView` preventing accidental completions for future dates.
+  - Added automated tax authority resolution in `FbrPosService` mapping marquee/branch provinces to regional revenue authorities (PRA, SRB, KPRA, BRA, FBR).
+  - Added comprehensive automated test suite `BookingConfirmedGuestsRequirementTest`.
+
 ## [1.29.0] - 2026-10-18
 
 ### Added & Enhanced

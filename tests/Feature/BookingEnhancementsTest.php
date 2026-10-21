@@ -323,6 +323,7 @@ class BookingEnhancementsTest extends TestCase
             ->set('checkType', 'slot')
             ->set('selectedSlotId', $this->slot->id)
             ->set('selectedPackageId', $this->package->id)
+            ->set('confirmedGuests', 100)
             ->set('noFood', false);
 
         // Simulate adding menu items: Item A, Item B, Item C

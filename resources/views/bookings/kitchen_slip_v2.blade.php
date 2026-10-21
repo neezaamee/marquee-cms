@@ -604,9 +604,9 @@
                         @else
                             {{ $booking->hall->hall_name ?? 'Main Hall' }}
                         @endif
-                        @if($branch)
+                    <!-- @if($branch)
                             <span class="text-muted fw-normal" style="font-size: 12.5px;">({{ $branch->name }})</span>
-                        @endif
+                        @endif -->
                     </div>
                 </div>
 
@@ -621,14 +621,14 @@
                 </div>
 
                 <!-- Shift / Timings -->
-                <div class="col-3 text-end">
+             {{--<div class="col-3 text-end">
                     <div class="info-label">
                         @if($lang === 'english') Event Timings @elseif($lang === 'urdu') اوقات @else Event Timings / وقت @endif
                     </div>
                     <div class="info-value font-monospace text-dark">
                         {{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }}
                     </div>
-                </div>
+                </div>--}}
             </div>
         </div>
 

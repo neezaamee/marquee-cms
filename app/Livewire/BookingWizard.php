@@ -73,7 +73,7 @@ class BookingWizard extends Component
     // Step 4: Package & Pricing
     public $selectedPackageId = '';
     public $guestCount = 100;
-    public $tentativeGuests = 100;
+    public $tentativeGuests = null;
     public $confirmedGuests = null;
     public $guestStatus = 'Tentative';
     public $perPlatePrice = 0.00;
@@ -768,7 +768,7 @@ class BookingWizard extends Component
 
         $package = Package::with('menuItems')->findOrFail($this->selectedPackageId);
         $this->perPlatePrice = $package->per_plate_price;
-        $this->guestCount = $package->minimum_guests ?: 100;
+        $this->guestCount = $this->confirmedGuests ?: ($package->minimum_guests ?: 100);
         
         // Auto default security deposit from selected branch configuration
         $branch = $this->selectedBranchId ? \App\Models\Branch::find($this->selectedBranchId) : null;
@@ -1111,11 +1111,13 @@ class BookingWizard extends Component
 
     public function syncGuestCounts()
     {
-        $tentative = is_numeric($this->tentativeGuests) && intval($this->tentativeGuests) > 0
+        $tentative = (is_numeric($this->tentativeGuests) && intval($this->tentativeGuests) > 0)
             ? intval($this->tentativeGuests)
-            : (is_numeric($this->guestCount) && intval($this->guestCount) > 0 ? intval($this->guestCount) : 100);
+            : null;
 
-        $confirmed = (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0) ? intval($this->confirmedGuests) : null;
+        $confirmed = (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0)
+            ? intval($this->confirmedGuests)
+            : null;
 
         $this->tentativeGuests = $tentative;
         $this->confirmedGuests = $confirmed;
@@ -1124,18 +1126,23 @@ class BookingWizard extends Component
             $this->guestCount = $confirmed;
             $this->guestStatus = 'Confirmed';
 
-            if ($confirmed > $tentative) {
+            if (!is_null($tentative) && $confirmed > $tentative) {
                 session()->flash('warning', "Notice: Confirmed guests ({$confirmed}) exceed tentative guest estimate ({$tentative}).");
             }
-        } else {
+        } elseif (!is_null($tentative)) {
             $this->guestCount = $tentative;
             $this->guestStatus = 'Tentative';
+        } else {
+            $this->guestCount = 0;
+            $this->guestStatus = 'Confirmed';
         }
     }
 
     public function updatedGuestCount()
     {
-        $this->tentativeGuests = is_numeric($this->guestCount) ? intval($this->guestCount) : 100;
+        if (is_numeric($this->guestCount) && intval($this->guestCount) > 0) {
+            $this->confirmedGuests = intval($this->guestCount);
+        }
         $this->syncGuestCounts();
         $this->recalculatePrices();
     }
@@ -1191,11 +1198,6 @@ class BookingWizard extends Component
             }
         }
         $this->extraCharges = $addonsSum;
-
-        // If guestCount was set directly without tentativeGuests, sync tentativeGuests
-        if (is_numeric($this->guestCount) && intval($this->guestCount) > 0 && is_null($this->confirmedGuests)) {
-            $this->tentativeGuests = intval($this->guestCount);
-        }
 
         $this->syncGuestCounts();
 
@@ -1279,8 +1281,8 @@ class BookingWizard extends Component
         } elseif ($this->currentStep === 4) {
             $rules = [
                 'guestCount' => 'required|integer|min:1',
-                'tentativeGuests' => 'required|integer|min:1',
-                'confirmedGuests' => 'nullable|integer|min:0',
+                'confirmedGuests' => 'required|integer|min:1',
+                'tentativeGuests' => 'nullable|integer|min:1',
                 'perPlatePrice' => 'required|numeric|min:0',
                 'hallCharges' => 'required|numeric|min:0',
                 'extraCharges' => 'required|numeric|min:0',
@@ -1298,7 +1300,11 @@ class BookingWizard extends Component
                 $rules['privacyGentsPercentage'] = 'required|integer|min:0|max:100';
             }
 
-            $this->validate($rules);
+            $this->validate($rules, [
+                'confirmedGuests.required' => 'Confirmed Guests is mandatory.',
+                'confirmedGuests.min' => 'Confirmed Guests must be at least 1.',
+                'tentativeGuests.min' => 'Tentative Guests must be at least 1.',
+            ]);
 
             if ($this->privacyRequired) {
                 $ladies = intval($this->privacyLadiesPercentage);
@@ -1348,8 +1354,8 @@ class BookingWizard extends Component
             'startTime' => 'required',
             'endTime' => 'required',
             'guestCount' => 'required|integer|min:1',
-            'tentativeGuests' => 'required|integer|min:1',
-            'confirmedGuests' => 'nullable|integer|min:0',
+            'confirmedGuests' => 'required|integer|min:1',
+            'tentativeGuests' => 'nullable|integer|min:1',
             'perPlatePrice' => 'required|numeric|min:0',
             'hallCharges' => 'required|numeric|min:0',
             'extraCharges' => 'required|numeric|min:0',
@@ -1371,6 +1377,9 @@ class BookingWizard extends Component
         $this->validate($rules, [
             'selectedBranchId.required' => 'Please select a branch for this booking.',
             'selectedBranchId.exists' => 'The selected branch is invalid.',
+            'confirmedGuests.required' => 'Confirmed Guests is mandatory.',
+            'confirmedGuests.min' => 'Confirmed Guests must be at least 1.',
+            'tentativeGuests.min' => 'Tentative Guests must be at least 1.',
         ]);
 
         $user = auth()->user();
@@ -1448,9 +1457,9 @@ class BookingWizard extends Component
                     'start_time' => $this->startTime,
                     'end_time' => $this->endTime,
                     'guest_count' => $this->guestCount,
-                    'tentative_guests' => is_numeric($this->tentativeGuests) ? intval($this->tentativeGuests) : $this->guestCount,
-                    'confirmed_guests' => (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0) ? intval($this->confirmedGuests) : null,
-                    'guest_status' => $this->guestStatus ?: 'Tentative',
+                    'tentative_guests' => (is_numeric($this->tentativeGuests) && intval($this->tentativeGuests) > 0) ? intval($this->tentativeGuests) : null,
+                    'confirmed_guests' => intval($this->confirmedGuests),
+                    'guest_status' => $this->guestStatus ?: 'Confirmed',
                     'per_plate_price' => $this->perPlatePrice,
                     'package_amount' => $this->packageAmount,
                     'hall_charges' => $this->hallCharges,

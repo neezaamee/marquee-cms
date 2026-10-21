@@ -99,9 +99,9 @@ class BookingEdit extends Component
     }
 
     // Guest confirmation fields
-    public $tentativeGuests = 100;
+    public $tentativeGuests = null;
     public $confirmedGuests = null;
-    public $guestStatus = 'Tentative';
+    public $guestStatus = 'Confirmed';
 
     public $specialInstructions = '';
     public $bookingStatus = '';
@@ -182,10 +182,10 @@ class BookingEdit extends Component
         $this->customEnd = $booking->end_time->format('H:i');
 
         $this->selectedPackageId = $booking->package_id;
-        $this->tentativeGuests = $booking->tentative_guests ?? $booking->guest_count;
-        $this->confirmedGuests = $booking->confirmed_guests;
-        $this->guestStatus = $booking->guest_status ?? ($booking->confirmed_guests ? 'Confirmed' : 'Tentative');
-        $this->guestCount = $booking->confirmed_guests ?? $booking->tentative_guests ?? $booking->guest_count;
+        $this->tentativeGuests = $booking->tentative_guests;
+        $this->confirmedGuests = $booking->confirmed_guests ?? $booking->guest_count;
+        $this->guestStatus = $booking->guest_status ?? ($this->confirmedGuests ? 'Confirmed' : 'Tentative');
+        $this->guestCount = $this->confirmedGuests ?? $booking->tentative_guests ?? $booking->guest_count;
         $this->perPlatePrice = $booking->per_plate_price ?? 0.00;
         $this->hallCharges = $booking->hall_charges ?? 0.00;
         $this->extraCharges = $booking->extra_charges ?? 0.00;
@@ -632,15 +632,13 @@ class BookingEdit extends Component
 
     public function syncGuestCounts()
     {
-        if ($this->guestCount === '' || $this->guestCount === 0 || $this->guestCount === '0') {
-            $this->tentativeGuests = 0;
-        }
-
-        $tentative = is_numeric($this->tentativeGuests)
+        $tentative = (is_numeric($this->tentativeGuests) && intval($this->tentativeGuests) > 0)
             ? intval($this->tentativeGuests)
-            : (is_numeric($this->guestCount) ? intval($this->guestCount) : 0);
+            : null;
 
-        $confirmed = (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0) ? intval($this->confirmedGuests) : null;
+        $confirmed = (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0)
+            ? intval($this->confirmedGuests)
+            : null;
 
         $this->tentativeGuests = $tentative;
         $this->confirmedGuests = $confirmed;
@@ -649,12 +647,15 @@ class BookingEdit extends Component
             $this->guestCount = $confirmed;
             $this->guestStatus = 'Confirmed';
 
-            if ($confirmed > $tentative) {
+            if (!is_null($tentative) && $confirmed > $tentative) {
                 session()->flash('warning', "Notice: Confirmed guests ({$confirmed}) exceed tentative guest estimate ({$tentative}).");
             }
-        } else {
+        } elseif (!is_null($tentative)) {
             $this->guestCount = $tentative;
             $this->guestStatus = 'Tentative';
+        } else {
+            $this->guestCount = 0;
+            $this->guestStatus = 'Confirmed';
         }
     }
 
@@ -990,12 +991,6 @@ class BookingEdit extends Component
                 $addonsSum += $price * $quantity;
             }
         }
-        if ($this->guestCount === '' || $this->guestCount === 0 || $this->guestCount === '0') {
-            $this->tentativeGuests = 0;
-        } elseif (is_numeric($this->guestCount) && is_null($this->confirmedGuests)) {
-            $this->tentativeGuests = intval($this->guestCount);
-        }
-
         $this->syncGuestCounts();
 
         // Typecast/sanitize inputs to numeric types to prevent TypeError in number_format()
@@ -1047,6 +1042,8 @@ class BookingEdit extends Component
             'startTime' => 'required',
             'endTime' => 'required',
             'guestCount' => 'required|integer|min:1',
+            'confirmedGuests' => 'required|integer|min:1',
+            'tentativeGuests' => 'nullable|integer|min:1',
             'perPlatePrice' => 'required|numeric|min:0',
             'hallCharges' => 'required|numeric|min:0',
             'extraCharges' => 'required|numeric|min:0',
@@ -1068,6 +1065,9 @@ class BookingEdit extends Component
         $this->validate($rules, [
             'selectedBranchId.required' => 'Please select a branch for this booking.',
             'selectedBranchId.exists' => 'The selected branch is invalid.',
+            'confirmedGuests.required' => 'Confirmed Guests is mandatory.',
+            'confirmedGuests.min' => 'Confirmed Guests must be at least 1.',
+            'tentativeGuests.min' => 'Tentative Guests must be at least 1.',
         ]);
 
         $user = auth()->user();
@@ -1161,9 +1161,9 @@ class BookingEdit extends Component
                     'start_time' => $this->startTime,
                     'end_time' => $this->endTime,
                     'guest_count' => $this->guestCount,
-                    'tentative_guests' => is_numeric($this->tentativeGuests) ? intval($this->tentativeGuests) : $this->guestCount,
-                    'confirmed_guests' => (is_numeric($this->confirmedGuests) && intval($this->confirmedGuests) > 0) ? intval($this->confirmedGuests) : null,
-                    'guest_status' => $this->guestStatus ?: 'Tentative',
+                    'tentative_guests' => (is_numeric($this->tentativeGuests) && intval($this->tentativeGuests) > 0) ? intval($this->tentativeGuests) : null,
+                    'confirmed_guests' => intval($this->confirmedGuests),
+                    'guest_status' => $this->guestStatus ?: 'Confirmed',
                     'per_plate_price' => $this->perPlatePrice,
                     'package_amount' => $this->packageAmount,
                     'hall_charges' => $this->hallCharges,

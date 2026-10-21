@@ -116,8 +116,12 @@
                         <td class="meta-value px-0 py-1">{{ $booking->slot->slot_name ?? 'Custom Schedule' }} <small class="text-danger-800 font-monospace fw-bold px-0 py-1">({{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }})</small></td>
                     </tr>
                     <tr>
-                        <td class="meta-label px-0 py-1">Guests Count:</td>
-                        <td class="meta-value px-0 py-1">T: {{ $booking->tentative_guests ?? $booking->guest_count }}, C: {{ $booking->confirmed_guests ?? 'Pending' }}</td>
+                        <td class="meta-label px-0 py-1">Tentative Guests:</td>
+                        <td class="meta-value px-0 py-1">{{ $booking->tentative_guests ? number_format($booking->tentative_guests) : '—' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="meta-label px-0 py-1">Confirmed Guests:</td>
+                        <td class="meta-value px-0 py-1">{{ $booking->confirmed_guests ? number_format($booking->confirmed_guests) : ($booking->guest_count ? number_format($booking->guest_count) : '—') }}</td>
                     </tr>
                     {{--<tr>
                         <td class="meta-label px-0 py-1">Privacy:</td>

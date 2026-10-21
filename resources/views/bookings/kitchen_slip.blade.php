@@ -695,14 +695,14 @@
                 </div>
 
                 <!-- Shift / Timings -->
-                <div class="col-3 text-end">
+            <div class="col-3 text-end">
                     <div class="info-label">
                         @if($lang === 'english') Event Timings @elseif($lang === 'urdu') اوقات @else Event Timings / وقت @endif
                     </div>
                     <div class="info-value font-monospace text-dark">
                         {{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }}
                     </div>
-                </div>
+            </div>
             </div>
         </div>
 

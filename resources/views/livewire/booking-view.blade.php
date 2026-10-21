@@ -72,7 +72,7 @@
                         <button wire:click="updateStatus('Reserved')" class="btn btn-warning btn-xs text-white" type="button"><span class="fas fa-pause-circle me-1"></span>Reserve</button>
                     @endif
                     @if($booking->booking_status !== 'Completed' && $booking->booking_status !== 'Cancelled')
-                        <button wire:click="updateStatus('Completed')" wire:confirm="Are you sure you want to mark this Event as Completed? This will automatically recognize earned revenue and release advance liabilities in the General Ledger." class="btn btn-info btn-xs" type="button">
+                        <button wire:click="openCompleteEventModal" class="btn btn-info btn-xs" type="button">
                             <span class="fas fa-calendar-check me-1"></span>Complete Event & Recognize Revenue
                         </button>
                     @endif
@@ -2196,6 +2196,79 @@
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Complete Event & Recognize Revenue Modal (Falcon Template) -->
+    @if($showCompleteEventModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.55); z-index: 1055;" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-info text-white py-2">
+                        <h6 class="modal-title fw-bold text-white fs-13">
+                            <span class="fas fa-calendar-check me-2"></span>Complete Event & Recognize Revenue
+                        </h6>
+                        <button wire:click="closeCompleteEventModal" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-3 fs-12">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="avatar avatar-l me-3 flex-shrink-0">
+                                <div class="avatar-name rounded-circle bg-info-subtle text-info">
+                                    <span class="fas fa-coins fs-10"></span>
+                                </div>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1 text-900">Mark Event as Completed?</h6>
+                                <p class="text-700 fs-11 mb-0">
+                                    This will finalize the event, automatically recognize earned revenue, and release advance liability in the General Ledger.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="bg-light border rounded p-3 mb-3">
+                            <div class="row g-2 fs-11">
+                                <div class="col-6">
+                                    <span class="text-600 d-block">Booking Reference:</span>
+                                    <span class="text-900 fw-bold font-monospace">#{{ $booking->booking_number }}</span>
+                                </div>
+                                <div class="col-6">
+                                    <span class="text-600 d-block">Customer:</span>
+                                    <span class="text-900 fw-bold">{{ $booking->customer->full_name ?? '—' }}</span>
+                                </div>
+                                <div class="col-6 mt-2">
+                                    <span class="text-600 d-block">Event Date:</span>
+                                    <span class="text-900 fw-bold">{{ $booking->booking_date->format('M d, Y') }}</span>
+                                </div>
+                                <div class="col-6 mt-2">
+                                    <span class="text-600 d-block">Shift / Slot:</span>
+                                    <span class="text-900 fw-bold">{{ $booking->slot->slot_name ?? 'Custom Schedule' }}</span>
+                                </div>
+                                <div class="col-6 mt-2">
+                                    <span class="text-600 d-block">Advance Received:</span>
+                                    <span class="text-success fw-bold font-monospace">Rs. {{ number_format($booking->advance_received, 2) }}</span>
+                                </div>
+                                <div class="col-6 mt-2">
+                                    <span class="text-600 d-block">Grand Total:</span>
+                                    <span class="text-primary fw-bold font-monospace">Rs. {{ number_format($booking->grand_total, 2) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning py-2 px-3 mb-0 fs-11">
+                            <span class="fas fa-info-circle me-1"></span>
+                            A double-entry Journal Voucher (JV) will be automatically generated and posted to the General Ledger.
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light py-2">
+                        <button wire:click="closeCompleteEventModal" type="button" class="btn btn-secondary btn-sm px-3">
+                            Cancel
+                        </button>
+                        <button wire:click="confirmCompleteEvent" type="button" class="btn btn-info btn-sm px-4 fw-bold">
+                            <span class="fas fa-check-circle me-1"></span> Yes, Complete & Recognize
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

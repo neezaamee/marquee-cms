@@ -640,13 +640,13 @@
 
                         <!-- Headcount Section (Tentative & Confirmed) -->
                         <div class="col-md-3">
-                            <label class="form-label font-sans-serif fw-bold text-700" for="confirmedGuests">Confirmed Guests</label>
-                            <input wire:model.live.debounce.350ms="confirmedGuests" class="form-control" type="number" id="confirmedGuests" min="0" placeholder="Confirmed count" />
+                            <label class="form-label font-sans-serif fw-bold text-700" for="confirmedGuests">Confirmed Guests *</label>
+                            <input wire:model.live.debounce.350ms="confirmedGuests" class="form-control @error('confirmedGuests') is-invalid @enderror" type="number" id="confirmedGuests" min="1" placeholder="Confirmed count" />
                             @error('confirmedGuests') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label font-sans-serif fw-bold text-700" for="tentativeGuests">Tentative Guests *</label>
-                            <input wire:model.live.debounce.350ms="tentativeGuests" class="form-control" type="number" id="tentativeGuests" min="1" placeholder="Initial estimate" />
+                            <label class="form-label font-sans-serif fw-bold text-700" for="tentativeGuests">Tentative Guests</label>
+                            <input wire:model.live.debounce.350ms="tentativeGuests" class="form-control @error('tentativeGuests') is-invalid @enderror" type="number" id="tentativeGuests" min="1" placeholder="Optional estimate" />
                             @error('tentativeGuests') <div class="text-danger fs-11 mt-1">{{ $message }}</div> @enderror
                         </div>
 

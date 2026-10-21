@@ -35,7 +35,24 @@ class FbrPosService
         }
 
         $marquee = $branch->marquee ?? $booking->marquee;
-        $taxAuthority = strtoupper($marquee->tax_authority ?? 'FBR');
+        $taxAuthority = strtoupper($marquee->tax_authority ?? '');
+
+        // If tax authority is unconfigured or left as default FBR, intelligently resolve from branch/marquee province
+        if (empty($taxAuthority) || $taxAuthority === 'FBR') {
+            $province = strtolower($branch->province ?? $marquee->province ?? '');
+            $city = strtolower($branch->city ?? $marquee->city ?? '');
+            if (in_array($province, ['punjab', 'pb']) || in_array($city, ['lahore', 'faisalabad', 'rawalpindi', 'multan', 'gujranwala', 'sialkot'])) {
+                $taxAuthority = 'PRA';
+            } elseif (in_array($province, ['sindh']) || in_array($city, ['karachi', 'hyderabad', 'sukkur'])) {
+                $taxAuthority = 'SRB';
+            } elseif (in_array($province, ['khyber pakhtunkhwa', 'kp', 'kpk']) || in_array($city, ['peshawar'])) {
+                $taxAuthority = 'KPRA';
+            } elseif (in_array($province, ['balochistan']) || in_array($city, ['quetta'])) {
+                $taxAuthority = 'BRA';
+            } else {
+                $taxAuthority = 'FBR';
+            }
+        }
         $isSandbox = (bool) $branch->fbr_sandbox_mode;
         $connectionType = strtolower($branch->pos_connection_type ?? 'cloud'); // 'cloud' or 'local'
 

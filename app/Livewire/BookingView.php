@@ -46,6 +46,9 @@ class BookingView extends Component
     public $depositPaymentMethod = 'Cash';
     public $depositAccountId = null;
 
+    // Complete Event & Revenue Recognition Modal State
+    public $showCompleteEventModal = false;
+
     // Guest Confirmation Modal State
     public $showGuestModal = false;
     public $modalTentativeGuests = 100;
@@ -1218,6 +1221,36 @@ class BookingView extends Component
 
         $this->booking->refresh();
         session()->flash('success', 'Booking status updated to ' . $newStatus);
+    }
+
+    /**
+     * Open Complete Event & Recognize Revenue Confirmation Modal.
+     */
+    public function openCompleteEventModal()
+    {
+        if (\Carbon\Carbon::parse($this->booking->booking_date)->startOfDay()->gt(\Carbon\Carbon::today())) {
+            session()->flash('error', 'Future bookings cannot be marked as Completed.');
+            return;
+        }
+
+        $this->showCompleteEventModal = true;
+    }
+
+    /**
+     * Close Complete Event & Recognize Revenue Modal.
+     */
+    public function closeCompleteEventModal()
+    {
+        $this->showCompleteEventModal = false;
+    }
+
+    /**
+     * Confirm Event Completion and Revenue Recognition.
+     */
+    public function confirmCompleteEvent()
+    {
+        $this->showCompleteEventModal = false;
+        $this->updateStatus('Completed');
     }
 
     /**

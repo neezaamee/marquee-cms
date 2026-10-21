@@ -325,6 +325,14 @@
                             <td class="meta-value">{{ $booking->slot->slot_name ?? 'Custom' }} ({{ $booking->start_time->format('h:i A') }} - {{ $booking->end_time->format('h:i A') }})</td>
                         </tr>
                         <tr>
+                            <td class="meta-label">Tentative Guests:</td>
+                            <td class="meta-value">{{ $booking->tentative_guests ? number_format($booking->tentative_guests) : '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="meta-label">Confirmed Guests:</td>
+                            <td class="meta-value">{{ $booking->confirmed_guests ? number_format($booking->confirmed_guests) : ($booking->guest_count ? number_format($booking->guest_count) : '—') }}</td>
+                        </tr>
+                        <tr>
                             <td class="meta-label">Event Type:</td>
                             <td>{{ $booking->eventType->event_type_name ?? '—' }}</td>
                         </tr>
