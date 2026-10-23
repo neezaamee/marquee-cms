@@ -94,19 +94,7 @@ class BookingList extends Component
 
     private function normalizeDateForDb(?string $date): ?string
     {
-        if (empty($date)) {
-            return null;
-        }
-        try {
-            $trimmed = trim($date);
-            if (preg_match('/^\d{2}[-\/]\d{2}[-\/]\d{4}$/', $trimmed)) {
-                $parts = preg_split('/[-\/]/', $trimmed);
-                return Carbon::createFromDate((int) $parts[2], (int) $parts[1], (int) $parts[0])->format('Y-m-d');
-            }
-            return Carbon::parse($trimmed)->format('Y-m-d');
-        } catch (\Exception $e) {
-            return $date;
-        }
+        return Booking::normalizeDateForFilter($date);
     }
 
     public function updatedSearch() { $this->resetPage(); }
@@ -638,165 +626,31 @@ class BookingList extends Component
     public function getFilteredBookingsQuery()
     {
         $user = auth()->user();
-        $marqueeId = $user->getActiveMarqueeId();
 
         // Lock filterBranch only if user is restricted to a branch (staff/branch manager)
         if ($user->branch_id && !$user->isBusinessOwner() && !$user->isSuperAdmin()) {
             $this->filterBranch = $user->branch_id;
         }
 
-        $paymentsSubqueries = [
-            'payments as posted_received' => function ($q) {
-                $q->where('status', 'posted')
-                  ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit']);
-            },
-            'payments as posted_refunds' => function ($q) {
-                $q->where('status', 'posted')
-                  ->where('payment_type', 'refund');
-            }
+        $filters = [
+            'search' => $this->search,
+            'filterStatus' => $this->filterStatus,
+            'filterPaymentStatus' => $this->filterPaymentStatus,
+            'filterHall' => $this->filterHall,
+            'filterBranch' => $this->filterBranch,
+            'filterEventType' => $this->filterEventType,
+            'filterGuestStatus' => $this->filterGuestStatus,
+            'filterBalanceStatus' => $this->filterBalanceStatus,
+            'filterQuickShortcut' => $this->filterQuickShortcut,
+            'filterCreatedBy' => $this->filterCreatedBy,
+            'filterCareOf' => $this->filterCareOf,
+            'filterPerHead' => $this->filterPerHead,
+            'filterPerHeadAmount' => $this->filterPerHeadAmount,
+            'filterDateStart' => $this->filterDateStart,
+            'filterDateEnd' => $this->filterDateEnd,
         ];
 
-        $startDate = $this->normalizeDateForDb($this->filterDateStart);
-        $endDate = $this->normalizeDateForDb($this->filterDateEnd);
-
-        $query = Booking::withTrashed()->with([
-            'customer',
-            'hall',
-            'hall.branch',
-            'branch',
-            'halls',
-            'slot',
-            'package',
-            'payments',
-            'eventType',
-            'creator',
-            'finalBill',
-            'vendorSales',
-        ])
-        ->withSum($paymentsSubqueries, 'amount')
-        ->where('marquee_id', $marqueeId);
-
-        // Apply Search
-        if (!empty($this->search)) {
-            $searchTerm = '%' . trim($this->search) . '%';
-            $cleanDigits = preg_replace('/[^0-9]/', '', $this->search);
-            $isSqlite = DB::connection()->getDriverName() === 'sqlite';
-            $fullNameSql = $isSqlite
-                ? "(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))"
-                : "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))";
-
-            $query->where(function ($q) use ($searchTerm, $cleanDigits, $fullNameSql) {
-                $q->where('booking_number', 'like', $searchTerm)
-                  ->orWhereHas('customer', function ($cq) use ($searchTerm, $cleanDigits, $fullNameSql) {
-                      $cq->where('first_name', 'like', $searchTerm)
-                        ->orWhere('last_name', 'like', $searchTerm)
-                        ->orWhereRaw("{$fullNameSql} LIKE ?", [$searchTerm])
-                        ->orWhere('company_name', 'like', $searchTerm)
-                        ->orWhere('customer_code', 'like', $searchTerm)
-                        ->orWhere('referred_by_name', 'like', $searchTerm);
-
-                      if (!empty($cleanDigits)) {
-                          $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%')
-                            ->orWhere('alternate_phone', 'like', '%' . $cleanDigits . '%');
-                      }
-                  });
-            });
-        }
-
-        // Apply Filters
-        if (!empty($this->filterStatus)) {
-            $query->where('booking_status', $this->filterStatus);
-        }
-
-        if (!empty($this->filterPaymentStatus)) {
-            $query->where('payment_status', $this->filterPaymentStatus);
-        }
-
-        if (!empty($this->filterHall)) {
-            $query->where('hall_id', $this->filterHall);
-        }
-
-        if (!empty($this->filterBranch)) {
-            $query->where(function ($q) {
-                $q->where('branch_id', $this->filterBranch)
-                  ->orWhereHas('hall', fn($hq) => $hq->where('branch_id', $this->filterBranch));
-            });
-        }
-
-        if (!empty($this->filterEventType)) {
-            $query->where('event_type_id', $this->filterEventType);
-        }
-
-        if (!empty($this->filterGuestStatus)) {
-            $query->where('guest_status', $this->filterGuestStatus);
-        }
-
-        if (!empty($this->filterCreatedBy)) {
-            $query->where('created_by', $this->filterCreatedBy);
-        }
-
-        if (!empty($startDate)) {
-            $query->where('booking_date', '>=', $startDate);
-        }
-
-        if (!empty($endDate)) {
-            $query->where('booking_date', '<=', $endDate);
-        }
-
-        // Apply Care Of Filter
-        if (!empty($this->filterCareOf)) {
-            $query->whereHas('customer', function ($cq) {
-                $cq->where('referred_by_name', $this->filterCareOf);
-            });
-        }
-
-        // Apply Per Head Filter
-        if ($this->filterPerHead === 'zero') {
-            $query->where(function ($q) {
-                $q->whereNull('per_plate_price')
-                  ->orWhere('per_plate_price', '<=', 0)
-                  ->orWhere('no_food', true);
-            });
-        } elseif ($this->filterPerHead === 'has_rate') {
-            $query->where('per_plate_price', '>', 0);
-        } elseif ($this->filterPerHead === 'specific' && is_numeric($this->filterPerHeadAmount)) {
-            $query->where('per_plate_price', (float) $this->filterPerHeadAmount);
-        } elseif (is_numeric($this->filterPerHead)) {
-            $query->where('per_plate_price', (float) $this->filterPerHead);
-        }
-
-        // Apply Balance Status Filter (strictly for completed events or events that have passed before today)
-        if ($this->filterBalanceStatus === 'outstanding' || $this->filterQuickShortcut === 'outstanding') {
-            $todayStr = Carbon::today()->format('Y-m-d');
-            $query->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
-                  ->where(function ($q) use ($todayStr) {
-                      $q->where('booking_status', 'Completed')
-                        ->orWhere('is_revenue_recognized', true)
-                        ->orWhereDate('booking_date', '<', $todayStr);
-                  })
-                  ->where('payment_status', '!=', 'Paid');
-        } elseif ($this->filterBalanceStatus === 'fully_paid') {
-            $query->where('payment_status', 'Paid');
-        }
-
-        // Apply Quick Shortcuts
-        if ($this->filterQuickShortcut === 'today') {
-            $query->whereDate('booking_date', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
-        } elseif ($this->filterQuickShortcut === 'upcoming') {
-            $query->whereDate('booking_date', '>=', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Rejected', 'Completed']);
-        } elseif ($this->filterQuickShortcut === 'next_7_days') {
-            $query->whereBetween('booking_date', [Carbon::today(), Carbon::today()->addDays(7)])->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
-        } elseif ($this->filterQuickShortcut === 'this_month') {
-            $query->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
-        } elseif ($this->filterQuickShortcut === 'pending') {
-            $query->whereIn('booking_status', ['Draft', 'Pending']);
-        } elseif ($this->filterQuickShortcut === 'confirmed') {
-            $query->where('booking_status', 'Confirmed');
-        } elseif ($this->filterQuickShortcut === 'tentative') {
-            $query->whereIn('booking_status', ['Reserved', 'Draft']);
-        }
-
-        return $query;
+        return Booking::applyBookingFilters($filters, $user);
     }
 
     /**
@@ -865,7 +719,7 @@ class BookingList extends Component
                     ? $b->halls->pluck('hall_name')->implode(', ') 
                     : ($b->hall->hall_name ?? '—');
 
-                $branchName = $b->hall->branch->name ?? ($b->branch->name ?? 'Main Branch');
+                $branchName = $b->effective_branch?->name ?? ($b->hall?->branch?->name ?? ($b->branch?->name ?? 'Main Branch'));
 
                 $eventTiming = '';
                 if ($b->start_time && $b->end_time) {

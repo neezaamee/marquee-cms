@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class Booking extends Model
@@ -573,5 +574,215 @@ class Booking extends Model
         }
 
         return $this->computeMenuHash() !== $this->kitchen_menu_hash;
+    }
+
+    /**
+     * Normalize date string into Y-m-d format for database queries.
+     */
+    public static function normalizeDateForFilter(?string $date): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+        try {
+            $trimmed = trim($date);
+            if (preg_match('/^\d{2}[-\/]\d{2}[-\/]\d{4}$/', $trimmed)) {
+                $parts = preg_split('/[-\/]/', $trimmed);
+                return Carbon::createFromDate((int) $parts[2], (int) $parts[1], (int) $parts[0])->format('Y-m-d');
+            }
+            return Carbon::parse($trimmed)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return $date;
+        }
+    }
+
+    /**
+     * Scope a query to apply all operational booking dashboard filters.
+     * Used uniformly by Livewire BookingList, CSV Export, and Printable PDF Reports.
+     */
+    public function scopeApplyBookingFilters($query, array $filters = [], $user = null)
+    {
+        $user = $user ?? auth()->user();
+        $marqueeId = $user ? $user->getActiveMarqueeId() : null;
+
+        $paymentsSubqueries = [
+            'payments as posted_received' => function ($q) {
+                $q->where('status', 'posted')
+                  ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit']);
+            },
+            'payments as posted_refunds' => function ($q) {
+                $q->where('status', 'posted')
+                  ->where('payment_type', 'refund');
+            }
+        ];
+
+        // Ensure soft-deleted bookings (e.g. Cancelled) are queryable if looking up all or cancelled
+        $query->withTrashed()->with([
+            'customer',
+            'hall',
+            'hall.branch',
+            'branch',
+            'halls',
+            'slot',
+            'package',
+            'payments',
+            'eventType',
+            'creator',
+            'finalBill',
+            'vendorSales',
+            'marquee',
+        ])
+        ->withSum($paymentsSubqueries, 'amount');
+
+        if ($marqueeId) {
+            $query->where('marquee_id', $marqueeId);
+        }
+
+        // Branch restriction: lock if user is non-owner/non-superadmin restricted to a branch
+        $filterBranch = $filters['filterBranch'] ?? null;
+        if ($user && $user->branch_id && !$user->isBusinessOwner() && !$user->isSuperAdmin()) {
+            $filterBranch = $user->branch_id;
+        }
+
+        if (!empty($filterBranch)) {
+            $query->where(function ($q) use ($filterBranch) {
+                $q->where('branch_id', $filterBranch)
+                  ->orWhereHas('hall', fn($hq) => $hq->where('branch_id', $filterBranch))
+                  ->orWhereHas('halls', fn($hq) => $hq->where('branch_id', $filterBranch));
+            });
+        }
+
+        // Search text
+        if (!empty($filters['search'])) {
+            $search = trim($filters['search']);
+            $searchTerm = '%' . $search . '%';
+            $cleanDigits = preg_replace('/[^0-9]/', '', $search);
+            $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+            $fullNameSql = $isSqlite
+                ? "(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))"
+                : "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))";
+
+            $query->where(function ($q) use ($searchTerm, $cleanDigits, $fullNameSql) {
+                $q->where('booking_number', 'like', $searchTerm)
+                  ->orWhereHas('customer', function ($cq) use ($searchTerm, $cleanDigits, $fullNameSql) {
+                      $cq->where('first_name', 'like', $searchTerm)
+                        ->orWhere('last_name', 'like', $searchTerm)
+                        ->orWhereRaw("{$fullNameSql} LIKE ?", [$searchTerm])
+                        ->orWhere('company_name', 'like', $searchTerm)
+                        ->orWhere('customer_code', 'like', $searchTerm)
+                        ->orWhere('referred_by_name', 'like', $searchTerm);
+
+                      if (!empty($cleanDigits)) {
+                          $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%')
+                            ->orWhere('alternate_phone', 'like', '%' . $cleanDigits . '%');
+                      }
+                  });
+            });
+        }
+
+        // Booking Status
+        if (!empty($filters['filterStatus'])) {
+            $query->where('booking_status', $filters['filterStatus']);
+        }
+
+        // Payment Status
+        if (!empty($filters['filterPaymentStatus'])) {
+            $query->where('payment_status', $filters['filterPaymentStatus']);
+        }
+
+        // Hall / Venue (checks both primary hall_id and multi-hall pivot)
+        if (!empty($filters['filterHall'])) {
+            $hallId = $filters['filterHall'];
+            $query->where(function ($q) use ($hallId) {
+                $q->where('hall_id', $hallId)
+                  ->orWhereHas('halls', fn($hq) => $hq->where('halls.id', $hallId));
+            });
+        }
+
+        // Event Type
+        if (!empty($filters['filterEventType'])) {
+            $query->where('event_type_id', $filters['filterEventType']);
+        }
+
+        // Guest Status
+        if (!empty($filters['filterGuestStatus'])) {
+            $query->where('guest_status', $filters['filterGuestStatus']);
+        }
+
+        // Created By (Operator)
+        if (!empty($filters['filterCreatedBy'])) {
+            $query->where('created_by', $filters['filterCreatedBy']);
+        }
+
+        // Dates
+        $startDate = static::normalizeDateForFilter($filters['filterDateStart'] ?? null);
+        $endDate = static::normalizeDateForFilter($filters['filterDateEnd'] ?? null);
+
+        if (!empty($startDate)) {
+            $query->where('booking_date', '>=', $startDate);
+        }
+        if (!empty($endDate)) {
+            $query->where('booking_date', '<=', $endDate);
+        }
+
+        // Care Of
+        if (!empty($filters['filterCareOf'])) {
+            $careOf = $filters['filterCareOf'];
+            $query->whereHas('customer', function ($cq) use ($careOf) {
+                $cq->where('referred_by_name', $careOf);
+            });
+        }
+
+        // Per Head Price
+        $perHead = $filters['filterPerHead'] ?? null;
+        $perHeadAmount = $filters['filterPerHeadAmount'] ?? null;
+        if ($perHead === 'zero') {
+            $query->where(function ($q) {
+                $q->whereNull('per_plate_price')
+                  ->orWhere('per_plate_price', '<=', 0)
+                  ->orWhere('no_food', true);
+            });
+        } elseif ($perHead === 'has_rate') {
+            $query->where('per_plate_price', '>', 0);
+        } elseif ($perHead === 'specific' && is_numeric($perHeadAmount)) {
+            $query->where('per_plate_price', (float) $perHeadAmount);
+        } elseif (is_numeric($perHead)) {
+            $query->where('per_plate_price', (float) $perHead);
+        }
+
+        // Balance Status
+        $balanceStatus = $filters['filterBalanceStatus'] ?? null;
+        $quickShortcut = $filters['filterQuickShortcut'] ?? null;
+        if ($balanceStatus === 'outstanding' || $quickShortcut === 'outstanding') {
+            $todayStr = Carbon::today()->format('Y-m-d');
+            $query->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                  ->where(function ($q) use ($todayStr) {
+                      $q->where('booking_status', 'Completed')
+                        ->orWhere('is_revenue_recognized', true)
+                        ->orWhereDate('booking_date', '<', $todayStr);
+                  })
+                  ->where('payment_status', '!=', 'Paid');
+        } elseif ($balanceStatus === 'fully_paid') {
+            $query->where('payment_status', 'Paid');
+        }
+
+        // Quick Shortcuts
+        if ($quickShortcut === 'today') {
+            $query->whereDate('booking_date', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+        } elseif ($quickShortcut === 'upcoming') {
+            $query->whereDate('booking_date', '>=', Carbon::today())->whereNotIn('booking_status', ['Cancelled', 'Rejected', 'Completed']);
+        } elseif ($quickShortcut === 'next_7_days') {
+            $query->whereBetween('booking_date', [Carbon::today(), Carbon::today()->addDays(7)])->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+        } elseif ($quickShortcut === 'this_month') {
+            $query->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+        } elseif ($quickShortcut === 'pending') {
+            $query->whereIn('booking_status', ['Draft', 'Pending']);
+        } elseif ($quickShortcut === 'confirmed') {
+            $query->where('booking_status', 'Confirmed');
+        } elseif ($quickShortcut === 'tentative') {
+            $query->whereIn('booking_status', ['Reserved', 'Draft']);
+        }
+
+        return $query;
     }
 }

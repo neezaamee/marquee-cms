@@ -140,86 +140,26 @@ class BookingController extends Controller
         $user = auth()->user();
         $activeMarqueeId = $user->getActiveMarqueeId();
 
-        $query = Booking::with(['customer', 'hall', 'slot', 'package', 'payments', 'eventType', 'branch', 'marquee'])
-            ->where('marquee_id', $activeMarqueeId);
+        $filters = $request->only([
+            'search',
+            'filterStatus',
+            'filterPaymentStatus',
+            'filterHall',
+            'filterBranch',
+            'filterEventType',
+            'filterGuestStatus',
+            'filterBalanceStatus',
+            'filterQuickShortcut',
+            'filterCreatedBy',
+            'filterCareOf',
+            'filterPerHead',
+            'filterPerHeadAmount',
+            'filterDateStart',
+            'filterDateEnd',
+        ]);
 
-        if ($user->branch_id) {
-            $query->where('branch_id', $user->branch_id);
-        } elseif ($request->filled('filterBranch')) {
-            $branchId = $request->input('filterBranch');
-            $query->where(function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId)
-                  ->orWhereHas('hall', fn($hq) => $hq->where('branch_id', $branchId));
-            });
-        }
-
-        if ($request->filled('filterEventType')) {
-            $query->where('event_type_id', $request->input('filterEventType'));
-        }
-
-        if ($request->filled('filterGuestStatus')) {
-            $query->where('guest_status', $request->input('filterGuestStatus'));
-        }
-
-        if ($request->filled('filterCareOf')) {
-            $query->whereHas('customer', function ($cq) use ($request) {
-                $cq->where('referred_by_name', $request->input('filterCareOf'));
-            });
-        }
-
-        if ($request->filled('search')) {
-            $searchTerm = '%' . trim($request->input('search')) . '%';
-            $cleanDigits = preg_replace('/[^0-9]/', '', $request->input('search'));
-            $isSqlite = DB::connection()->getDriverName() === 'sqlite';
-            $fullNameSql = $isSqlite
-                ? "(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))"
-                : "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))";
-
-            $query->where(function ($q) use ($searchTerm, $cleanDigits, $fullNameSql) {
-                $q->where('booking_number', 'like', $searchTerm)
-                  ->orWhereHas('customer', function ($cq) use ($searchTerm, $cleanDigits, $fullNameSql) {
-                      $cq->where('first_name', 'like', $searchTerm)
-                        ->orWhere('last_name', 'like', $searchTerm)
-                        ->orWhereRaw("{$fullNameSql} LIKE ?", [$searchTerm])
-                        ->orWhere('company_name', 'like', $searchTerm)
-                        ->orWhere('customer_code', 'like', $searchTerm)
-                        ->orWhere('referred_by_name', 'like', $searchTerm);
-
-                      if (!empty($cleanDigits)) {
-                          $cq->orWhere('phone_number', 'like', '%' . $cleanDigits . '%')
-                            ->orWhere('alternate_phone', 'like', '%' . $cleanDigits . '%');
-                      }
-                  });
-            });
-        }
-
-        if ($request->filled('filterStatus')) {
-            $query->where('booking_status', $request->input('filterStatus'));
-        }
-
-        if ($request->filled('filterPaymentStatus')) {
-            $query->where('payment_status', $request->input('filterPaymentStatus'));
-        }
-
-        if ($request->filled('filterHall')) {
-            $query->where('hall_id', $request->input('filterHall'));
-        }
-
-        if ($request->filled('filterDateStart')) {
-            $startDate = $this->normalizeDateForDb($request->input('filterDateStart'));
-            if ($startDate) {
-                $query->where('booking_date', '>=', $startDate);
-            }
-        }
-
-        if ($request->filled('filterDateEnd')) {
-            $endDate = $this->normalizeDateForDb($request->input('filterDateEnd'));
-            if ($endDate) {
-                $query->where('booking_date', '<=', $endDate);
-            }
-        }
-
-        $bookings = $query->orderBy('booking_date', 'desc')
+        $bookings = Booking::applyBookingFilters($filters, $user)
+            ->orderBy('booking_date', 'desc')
             ->orderBy('id', 'desc')
             ->get();
 
@@ -230,19 +170,7 @@ class BookingController extends Controller
 
     private function normalizeDateForDb(?string $date): ?string
     {
-        if (empty($date)) {
-            return null;
-        }
-        try {
-            $trimmed = trim($date);
-            if (preg_match('/^\d{2}[-\/]\d{2}[-\/]\d{4}$/', $trimmed)) {
-                $parts = preg_split('/[-\/]/', $trimmed);
-                return Carbon::createFromDate((int) $parts[2], (int) $parts[1], (int) $parts[0])->format('Y-m-d');
-            }
-            return Carbon::parse($trimmed)->format('Y-m-d');
-        } catch (\Exception $e) {
-            return $date;
-        }
+        return Booking::normalizeDateForFilter($date);
     }
 
     /**

@@ -94,11 +94,52 @@
             
             <!-- Filters Summary -->
             <div class="mt-3 bg-light p-2 rounded border fs-11 text-700">
-                <strong>Report Filters:</strong>
-                <span class="mx-2">|</span> Search: <code>{{ request('search') ?: 'All' }}</code>
-                <span class="mx-2">|</span> Status: <span class="badge bg-secondary text-dark">{{ request('filterStatus') ?: 'All' }}</span>
-                <span class="mx-2">|</span> Payment: <span class="badge bg-secondary text-dark">{{ request('filterPaymentStatus') ?: 'All' }}</span>
-                <span class="mx-2">|</span> Date Range: <code>{{ request('filterDateStart') ?: 'Any' }}</code> to <code>{{ request('filterDateEnd') ?: 'Any' }}</code>
+                <strong class="me-1"><span class="fas fa-filter me-1 text-primary"></span>Active Filters:</strong>
+                @php
+                    $activeFiltersList = [];
+                    if (request('search')) $activeFiltersList[] = 'Search: "' . request('search') . '"';
+                    if (request('filterStatus')) $activeFiltersList[] = 'Status: ' . request('filterStatus');
+                    if (request('filterPaymentStatus')) $activeFiltersList[] = 'Payment: ' . request('filterPaymentStatus');
+                    if (request('filterBranch')) {
+                        $bName = \App\Models\Branch::find(request('filterBranch'))?->name ?? ('Branch #' . request('filterBranch'));
+                        $activeFiltersList[] = 'Branch: ' . $bName;
+                    }
+                    if (request('filterHall')) {
+                        $hName = \App\Models\Hall::find(request('filterHall'))?->hall_name ?? ('Hall #' . request('filterHall'));
+                        $activeFiltersList[] = 'Hall: ' . $hName;
+                    }
+                    if (request('filterEventType')) {
+                        $etName = \App\Models\EventType::find(request('filterEventType'))?->event_type_name ?? ('Event Type #' . request('filterEventType'));
+                        $activeFiltersList[] = 'Event: ' . $etName;
+                    }
+                    if (request('filterGuestStatus')) $activeFiltersList[] = 'Guest: ' . request('filterGuestStatus');
+                    if (request('filterBalanceStatus')) $activeFiltersList[] = 'Balance: ' . (request('filterBalanceStatus') === 'outstanding' ? 'Outstanding' : 'Fully Paid');
+                    if (request('filterQuickShortcut')) $activeFiltersList[] = 'Shortcut: ' . ucwords(str_replace('_', ' ', request('filterQuickShortcut')));
+                    if (request('filterCreatedBy')) {
+                        $uName = \App\Models\User::find(request('filterCreatedBy'))?->name ?? ('User #' . request('filterCreatedBy'));
+                        $activeFiltersList[] = 'Operator: ' . $uName;
+                    }
+                    if (request('filterCareOf')) $activeFiltersList[] = 'Care Of: ' . request('filterCareOf');
+                    if (request('filterPerHead')) {
+                        $ph = request('filterPerHead');
+                        if ($ph === 'zero') $phText = 'Rent Only (Rs. 0)';
+                        elseif ($ph === 'has_rate') $phText = 'With Rate (> Rs. 0)';
+                        elseif ($ph === 'specific') $phText = 'Rate: Rs. ' . (request('filterPerHeadAmount') ?: '0');
+                        else $phText = 'Rate: Rs. ' . $ph;
+                        $activeFiltersList[] = 'Per Head: ' . $phText;
+                    }
+                    if (request('filterDateStart') || request('filterDateEnd')) {
+                        $activeFiltersList[] = 'Dates: ' . (request('filterDateStart') ?: 'Start') . ' to ' . (request('filterDateEnd') ?: 'End');
+                    }
+                @endphp
+
+                @if(empty($activeFiltersList))
+                    <span class="badge bg-secondary text-dark">All Bookings (No Filters Applied)</span>
+                @else
+                    @foreach($activeFiltersList as $filterItem)
+                        <span class="badge bg-secondary text-dark me-1 mb-1">{{ $filterItem }}</span>
+                    @endforeach
+                @endif
             </div>
         </div>
 
@@ -113,8 +154,21 @@
             $totalGuests = $activeBookings->sum(fn($b) => $b->effective_guest_count);
             $tentativeGuestsSum = $activeBookings->sum(fn($b) => $b->tentative_guests ?? $b->guest_count);
             $confirmedGuestsSum = $activeBookings->sum(fn($b) => $b->confirmed_guests ?? 0);
-            $totalAmount = $activeBookings->sum('grand_total');
-            $receivedAmount = $activeBookings->sum(fn($b) => $b->payments->sum('amount'));
+            
+            $totalAmount = $activeBookings->sum(function($b) {
+                $effectiveEventSales = (float) ($b->finalBill ? $b->finalBill->grand_total : $b->grand_total);
+                $invoicedVendorTotal = (float) ($b->finalBill && $b->finalBill->vendor_charges !== null 
+                    ? $b->finalBill->vendor_charges 
+                    : ($b->relationLoaded('vendorSales') 
+                        ? $b->vendorSales->where('include_in_invoice', true)->whereIn('status', ['confirmed', 'settled'])->sum('sale_amount') 
+                        : 0
+                    )
+                );
+                return $effectiveEventSales + $invoicedVendorTotal;
+            });
+            $receivedAmount = $activeBookings->sum(function($b) {
+                return max(0.00, floatval($b->posted_received ?? $b->total_paid ?? 0) - floatval($b->posted_refunds ?? 0));
+            });
             $balanceAmount = max(0.00, $totalAmount - $receivedAmount);
         @endphp
         <div class="row g-3 mb-4">
@@ -180,8 +234,18 @@
                 @forelse($bookings as $booking)
                     @php
                         $isCancelledOrRejected = in_array($booking->booking_status, ['Cancelled', 'Rejected']) || $booking->trashed();
-                        $received = $booking->payments->sum('amount');
-                        $balance = max(0.00, $booking->grand_total - $received);
+                        $received = max(0.00, floatval($booking->posted_received ?? $booking->total_paid ?? 0) - floatval($booking->posted_refunds ?? 0));
+                        $effectiveEventSales = (float) ($booking->finalBill ? $booking->finalBill->grand_total : $booking->grand_total);
+                        $invoicedVendorTotal = (float) ($booking->finalBill && $booking->finalBill->vendor_charges !== null 
+                            ? $booking->finalBill->vendor_charges 
+                            : ($booking->relationLoaded('vendorSales') 
+                                ? $booking->vendorSales->where('include_in_invoice', true)->whereIn('status', ['confirmed', 'settled'])->sum('sale_amount') 
+                                : 0
+                            )
+                        );
+                        $effectiveTotalInvoice = $effectiveEventSales + $invoicedVendorTotal;
+                        $effectivePerPlate = $booking->finalBill ? $booking->finalBill->per_plate_price : $booking->per_plate_price;
+                        $balance = max(0.00, $effectiveTotalInvoice - $received);
                     @endphp
                     <tr class="{{ $isCancelledOrRejected ? 'text-muted bg-light' : '' }}" style="{{ $isCancelledOrRejected ? 'opacity: 0.75;' : '' }}">
                         <td class="font-monospace fw-semi-bold">
@@ -210,13 +274,15 @@
                             <small class="text-muted fs-12">T: {{ $booking->tentative_guests ?? $booking->guest_count }} | C: {{ $booking->confirmed_guests ?? '—' }}</small>
                         </td>
                         <td class="text-end font-monospace">
-                            @if($booking->no_food)
-                                No Food
+                            @if($effectivePerPlate && $effectivePerPlate > 0)
+                                Rs. {{ number_format($effectivePerPlate, 2) }}
+                            @elseif($booking->no_food)
+                                Rent Only
                             @else
-                                Rs. {{ number_format($booking->per_plate_price, 2) }}
+                                Rs. 0.00
                             @endif
                         </td>
-                        <td class="text-end fw-semi-bold font-monospace {{ $isCancelledOrRejected ? 'text-decoration-line-through text-muted' : '' }}">Rs. {{ number_format($booking->grand_total, 2) }}</td>
+                        <td class="text-end fw-semi-bold font-monospace {{ $isCancelledOrRejected ? 'text-decoration-line-through text-muted' : '' }}">Rs. {{ number_format($effectiveTotalInvoice, 2) }}</td>
                         <td class="text-end font-monospace">Rs. {{ number_format($received, 2) }}</td>
                         <td class="text-end font-monospace fw-bold text-{{ $isCancelledOrRejected ? 'muted' : ($balance > 0 ? 'danger' : 'dark') }}">Rs. {{ number_format($balance, 2) }}</td>
                         <td class="text-center">

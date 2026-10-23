@@ -5,6 +5,19 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.31.0] - 2026-10-24
+
+### Added & Enhanced
+- **Booking List & Operational Report Unified Filter Engine**:
+  - Centralized full query filter logic into `Booking::applyBookingFilters($filters, $user)` supporting multi-tenant and branch scoping, text search, booking status, payment status, multi-hall allocation, event type, guest status, balance status, quick shortcut pills, date ranges, created-by operator, care-of referral, and per-head pricing.
+  - Aligned printable report (`bookings.report`) and CSV exports (`exportExcel`) with the exact filters and sorting of the interactive Livewire table.
+- **Booking List Footer Page Totals & Accurate Balance Calculation**:
+  - Corrected calculation of total event sales in the table footer to include finalized bill grand totals and invoiced vendor service charges.
+  - Replaced missing `paid_amount` reference with net posted payments received (`posted_received - posted_refunds`).
+  - Corrected remaining balance formula to strictly reflect `Total Sales - Total Paid`, resolving the bug where balance equaled gross sales.
+  - Implemented live reactive recalculation of footer totals upon any filter or search application.
+  - Added test suite `BookingListExportAndReportFiltersTest`.
+
 ## [1.30.0] - 2026-10-21
 
 ### Added & Enhanced

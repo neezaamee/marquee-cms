@@ -710,30 +710,59 @@
                     </tbody>
                     @if($bookings->isNotEmpty())
                         @php
-                            $pageActiveBookings = $bookings->filter(fn($b) => !in_array($b->booking_status, ['Cancelled', 'Rejected']) && !$b->trashed());
+                            $isFilteringCancelledOrRejected = in_array($filterStatus, ['Cancelled', 'Rejected']);
+                            $pageActiveBookings = $bookings->filter(function($b) use ($isFilteringCancelledOrRejected) {
+                                if ($b->trashed()) return false;
+                                if ($isFilteringCancelledOrRejected) return true;
+                                return !in_array($b->booking_status, ['Cancelled', 'Rejected']);
+                            });
                             $pageActiveCount = $pageActiveBookings->count();
                             $pageTotalGuests = $pageActiveBookings->sum(fn($b) => $b->effective_guest_count);
-                            $pageTotalAmount = $pageActiveBookings->sum('grand_total');
-                            $pageTotalPaid = $pageActiveBookings->sum(fn($b) => $b->paid_amount ?? 0);
-                            $pageTotalBalance = max(0, $pageTotalAmount - $pageTotalPaid);
+
+                            $pageTotalAmount = $pageActiveBookings->sum(function($b) {
+                                $eventSales = (float) ($b->finalBill ? $b->finalBill->grand_total : $b->grand_total);
+                                $vendorCharges = (float) ($b->finalBill && $b->finalBill->vendor_charges !== null 
+                                    ? $b->finalBill->vendor_charges 
+                                    : ($b->relationLoaded('vendorSales') 
+                                        ? $b->vendorSales->where('include_in_invoice', true)->whereIn('status', ['confirmed', 'settled'])->sum('sale_amount') 
+                                        : 0
+                                    )
+                                );
+                                return $eventSales + $vendorCharges;
+                            });
+
+                            $pageTotalPaid = $pageActiveBookings->sum(function($b) {
+                                return max(0.00, floatval($b->posted_received ?? $b->total_paid ?? 0) - floatval($b->posted_refunds ?? 0));
+                            });
+
+                            $pageTotalBalance = max(0.00, $pageTotalAmount - $pageTotalPaid);
                         @endphp
                         <tfoot class="bg-light fw-bold fs-11 border-top border-200">
                             <tr>
                                 <td colspan="5" class="text-end text-uppercase text-600 px-3">
-                                    <span class="fas fa-calculator me-1 text-primary"></span>Page Totals (Excl. Cancelled & Rejected):
+                                    <span class="fas fa-calculator me-1 text-primary"></span>
+                                    @if($filterStatus === 'Cancelled')
+                                        Page Totals (Cancelled):
+                                    @elseif($filterStatus === 'Rejected')
+                                        Page Totals (Rejected):
+                                    @else
+                                        Page Totals (Excl. Cancelled & Rejected):
+                                    @endif
                                 </td>
                                 <td>
                                     <div class="font-monospace text-primary fw-bold">{{ number_format($pageTotalGuests) }} Guests</div>
-                                    <div class="text-muted fs-12">{{ $pageActiveCount }} Active</div>
+                                    <div class="text-muted fs-12">{{ $pageActiveCount }} {{ $isFilteringCancelledOrRejected ? $filterStatus : 'Active' }}</div>
                                 </td>
                                 <td>—</td>
                                 <td>
-                                    <span class="badge bg-success-subtle text-success fs-12">{{ $pageActiveCount }} Active</span>
+                                    <span class="badge bg-{{ $isFilteringCancelledOrRejected ? 'secondary' : 'success' }}-subtle text-{{ $isFilteringCancelledOrRejected ? 'secondary' : 'success' }} fs-12">
+                                        {{ $pageActiveCount }} {{ $isFilteringCancelledOrRejected ? $filterStatus : 'Active' }}
+                                    </span>
                                 </td>
                                 <td>
-                                    <div class="font-monospace text-dark fw-bold">Rs. {{ number_format($pageTotalAmount, 0) }}</div>
-                                    <div class="fs-12 font-monospace text-success">Paid: Rs. {{ number_format($pageTotalPaid, 0) }}</div>
-                                    <div class="fs-12 font-monospace text-{{ $pageTotalBalance > 0 ? 'danger' : 'success' }}">Bal: Rs. {{ number_format($pageTotalBalance, 0) }}</div>
+                                    <div class="font-monospace text-dark fw-bold" title="Total Event Sales Amount">Rs. {{ number_format($pageTotalAmount, 0) }}</div>
+                                    <div class="fs-12 font-monospace text-success" title="Total Amount Received">Paid: Rs. {{ number_format($pageTotalPaid, 0) }}</div>
+                                    <div class="fs-12 font-monospace text-{{ $pageTotalBalance > 0 ? 'danger' : 'success' }}" title="Remaining Balance (Sale - Paid)">Bal: Rs. {{ number_format($pageTotalBalance, 0) }}</div>
                                 </td>
                                 <td></td>
                             </tr>
