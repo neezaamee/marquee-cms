@@ -5,6 +5,22 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.32.0] - 2026-10-24
+
+### Added & Enhanced
+- **Double-Entry Chart of Accounts & General Ledger Auditing Engine**:
+  - Resolved multi-branch consolidated opening balance omission in `AccountingService::getGeneralLedger` by aggregating `sum('debit')` and `sum('credit')` across all branches instead of filtering out branch records with `whereNull('branch_id')`.
+  - Fixed Accountant Dashboard Cash & Bank balance multi-year inflation by strictly scoping opening balances and journal movements to the active financial year (`financial_year_id` and `voucher_date >= fy_start_date`).
+  - Preserved inactive accounts with historical postings or opening balances in `getTrialBalance`, `getProfitAndLoss`, and `getBalanceSheet` statements, preventing Trial Balance debit-credit discrepancies.
+  - Implemented service-level leaf account validation (`children_count > 0`) and cross-tenant guards in `AccountingService::validateJournalItems` preventing direct postings to parent header accounts.
+  - Segregated dedicated booking security deposit receipts to liability account `2002` (`Security Deposits`) and mapped damage deductions to distinct revenue account `4006` (`Security Deposit Forfeiture & Damage Income`), eliminating account code collision with `4005` (`Vendor Commission Income`).
+  - Standardized Trial Balance UI footer column sums by removing misleading `-` prefix on credit totals.
+  - Added comprehensive audit test suite `tests/Feature/COAIncomeAssetReconciliationAuditTest.php` with 6 dedicated feature tests verifying Phase 9 reconciliation dataset and findings DEF-01 to DEF-05.
+- **Vendor Payout Cash Deduction & Double-Entry Balance**:
+  - Implemented automatic disbursing asset account resolution in `VendorCommissionService` ensuring vendor payouts and settlements always credit `1001 Cash in Hand` or `1002 Bank` according to the payment method.
+  - Updated Booking View vendor payout modal to pre-populate default cash in hand account and dynamically switch to bank account when selecting bank payment methods.
+  - Added test `test_vendor_payout_deducts_cash_in_hand_and_creates_balanced_voucher` to `VendorAdvanceAndBalanceIntegrationTest.php`.
+
 ## [1.31.0] - 2026-10-24
 
 ### Added & Enhanced

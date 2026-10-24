@@ -435,9 +435,43 @@ class BookingView extends Component
         $this->vpPaymentDate = date('Y-m-d');
         $this->vpPaymentMethod = 'Cash';
         $this->vpReference = '';
-        $this->vpAccountId = null;
+
+        $marqueeId = $this->booking->marquee_id ?? (auth()->check() ? auth()->user()->getActiveMarqueeId() : null);
+        $defaultCashAccount = \App\Models\Account::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where(function ($q) {
+                $q->where('account_code', '1001')
+                  ->orWhere('account_code', 'like', '1001%')
+                  ->orWhere('name', 'like', '%Cash%');
+            })
+            ->where('nature', 'Asset')
+            ->first();
+        $this->vpAccountId = $defaultCashAccount?->id ?? null;
+
         $this->vpRemarks = '';
         $this->showVendorPaymentModal = true;
+    }
+
+    public function updatedVpPaymentMethod($val)
+    {
+        $marqueeId = $this->booking->marquee_id ?? (auth()->check() ? auth()->user()->getActiveMarqueeId() : null);
+        $isCash = in_array(strtolower($val), ['cash', 'cash in hand']);
+        $targetCode = $isCash ? '1001' : '1002';
+        $targetKeyword = $isCash ? '%Cash%' : '%Bank%';
+
+        $account = \App\Models\Account::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where(function ($q) use ($targetCode, $targetKeyword) {
+                $q->where('account_code', $targetCode)
+                  ->orWhere('account_code', 'like', $targetCode . '%')
+                  ->orWhere('name', 'like', $targetKeyword);
+            })
+            ->where('nature', 'Asset')
+            ->first();
+
+        if ($account) {
+            $this->vpAccountId = $account->id;
+        }
     }
 
     public function recordVendorInstallmentPayment()

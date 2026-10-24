@@ -128,8 +128,8 @@
                         <tfoot class="bg-200 fw-bold">
                             <tr>
                                 <td colspan="4" class="text-end px-3">Total Net Balances:</td>
-                                <td class="text-end font-monospace text-success fs-9">+{{ number_format($reportData['total_debit'], 2) }}</td>
-                                <td class="text-end font-monospace text-danger px-3 fs-9">-{{ number_format($reportData['total_credit'], 2) }}</td>
+                                <td class="text-end font-monospace text-dark fs-9">{{ number_format($reportData['total_debit'], 2) }}</td>
+                                <td class="text-end font-monospace text-dark px-3 fs-9">{{ number_format($reportData['total_credit'], 2) }}</td>
                             </tr>
                         </tfoot>
                     </table>

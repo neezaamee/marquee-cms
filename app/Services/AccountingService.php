@@ -95,9 +95,8 @@ class AccountingService
      */
     public function createJournalVoucher(array $header, array $items): JournalVoucher
     {
-        $this->validateJournalItems($items);
-
         $marqueeId = $header['marquee_id'] ?? null;
+        $this->validateJournalItems($items, $marqueeId);
         $voucherDate = $header['voucher_date'];
 
         // Enforce active Financial Year rule
@@ -176,7 +175,8 @@ class AccountingService
      */
     public function updateJournalVoucher(int $id, array $header, array $items): JournalVoucher
     {
-        $this->validateJournalItems($items);
+        $marqueeId = $header['marquee_id'] ?? null;
+        $this->validateJournalItems($items, $marqueeId);
 
         $voucher = JournalVoucher::findOrFail($id);
 
@@ -213,7 +213,7 @@ class AccountingService
     /**
      * Validate voucher line items.
      */
-    protected function validateJournalItems(array $items): void
+    protected function validateJournalItems(array $items, ?int $marqueeId = null): void
     {
         if (count($items) < 2) {
             throw new InvalidArgumentException("A journal voucher must have at least two line items.");
@@ -222,7 +222,25 @@ class AccountingService
         $totalDebit = 0;
         $totalCredit = 0;
 
+        $accountIds = array_filter(array_column($items, 'account_id'));
+        $accounts = Account::withoutGlobalScope('tenant')->whereIn('id', $accountIds)->withCount('children')->get()->keyBy('id');
+
         foreach ($items as $item) {
+            $accountId = $item['account_id'] ?? null;
+            $account = $accounts->get($accountId);
+
+            if (!$account) {
+                throw new InvalidArgumentException("Account not found for ID: {$accountId}");
+            }
+
+            if ($account->children_count > 0) {
+                throw new InvalidArgumentException("Cannot post directly to header/parent account: '{$account->name}' ({$account->account_code}). Please select a sub-account.");
+            }
+
+            if ($marqueeId && $account->marquee_id && $account->marquee_id != $marqueeId) {
+                throw new InvalidArgumentException("Account '{$account->name}' does not belong to this marquee/tenant.");
+            }
+
             $debit = (float)($item['debit'] ?? 0);
             $credit = (float)($item['credit'] ?? 0);
 
@@ -297,13 +315,15 @@ class AccountingService
 
         if ($branchId) {
             $openingBalanceQuery->where('branch_id', $branchId);
+            $openingBalRecord = $openingBalanceQuery->first();
+            $openingDebit = (float)($openingBalRecord?->debit ?? 0);
+            $openingCredit = (float)($openingBalRecord?->credit ?? 0);
         } else {
-            $openingBalanceQuery->whereNull('branch_id');
+            // When consolidated across branches, opening balances can be per-branch or tenant-wide.
+            // Sum all opening balances for this account and financial year.
+            $openingDebit = (float)$openingBalanceQuery->sum('debit');
+            $openingCredit = (float)$openingBalanceQuery->sum('credit');
         }
-
-        $openingBalRecord = $openingBalanceQuery->first();
-        $openingDebit = (float)($openingBalRecord?->debit ?? 0);
-        $openingCredit = (float)($openingBalRecord?->credit ?? 0);
 
         // Sum transactions from the beginning of the financial year up to ($startDate - 1 day)
         $fyStart = $fy->start_date instanceof \DateTimeInterface 
@@ -438,8 +458,12 @@ class AccountingService
             ? $fy->end_date->format('Y-m-d') 
             : date('Y-m-d', strtotime($fy->end_date)));
 
-        // Fetch all active accounts for the tenant/platform
-        $accountsQuery = Account::where('is_active', true)->with(['accountType']);
+        // Fetch accounts for the tenant/platform: active accounts or accounts with activity in this period
+        $accountsQuery = Account::where(function ($q) use ($financialYearId) {
+            $q->where('is_active', true)
+              ->orWhereHas('journalVoucherItems')
+              ->orWhereHas('openingBalances', fn($ob) => $ob->where('financial_year_id', $financialYearId));
+        })->with(['accountType']);
         if ($marqueeId) {
             $accountsQuery->where('marquee_id', $marqueeId);
         } else {
@@ -521,8 +545,12 @@ class AccountingService
         $startDate = $startDate ?: $defaultStart;
         $endDate = $endDate ?: $defaultEnd;
 
-        // Fetch all active accounts of Income and Expense natures
-        $accountsQuery = Account::where('is_active', true)
+        // Fetch accounts of Income and Expense natures: active accounts or accounts with activity
+        $accountsQuery = Account::where(function ($q) use ($financialYearId) {
+            $q->where('is_active', true)
+              ->orWhereHas('journalVoucherItems')
+              ->orWhereHas('openingBalances', fn($ob) => $ob->where('financial_year_id', $financialYearId));
+        })
             ->whereIn('nature', ['Income', 'Expense'])
             ->with(['accountType']);
             
@@ -593,8 +621,12 @@ class AccountingService
             ? $fy->end_date->format('Y-m-d') 
             : date('Y-m-d', strtotime($fy->end_date)));
 
-        // Fetch all active accounts of Asset, Liability, and Equity natures
-        $accountsQuery = Account::where('is_active', true)
+        // Fetch accounts of Asset, Liability, and Equity natures: active accounts or accounts with activity
+        $accountsQuery = Account::where(function ($q) use ($financialYearId) {
+            $q->where('is_active', true)
+              ->orWhereHas('journalVoucherItems')
+              ->orWhereHas('openingBalances', fn($ob) => $ob->where('financial_year_id', $financialYearId));
+        })
             ->whereIn('nature', ['Asset', 'Liability', 'Equity'])
             ->with(['accountType']);
             
@@ -983,6 +1015,15 @@ class AccountingService
                     'nature' => 'Income',
                     'system' => true,
                     'desc' => 'Commission Earned on Third-Party Vendor Services',
+                ],
+                [
+                    'parent_code' => '4000',
+                    'account_code' => '4006',
+                    'name' => 'Security Deposit Forfeiture & Damage Income',
+                    'type_code' => 'OPERATING_REVENUE',
+                    'nature' => 'Income',
+                    'system' => true,
+                    'desc' => 'Retained Security Deposits & Event Damage Compensation Income',
                 ],
 
                 // Expenses

@@ -2161,7 +2161,7 @@
                             <div class="row g-2 mb-2">
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Payment Method <span class="text-danger">*</span></label>
-                                    <select wire:model="vpPaymentMethod" class="form-select form-select-sm">
+                                    <select wire:model.live="vpPaymentMethod" class="form-select form-select-sm">
                                         <option value="Cash">Cash</option>
                                         <option value="Bank Transfer">Bank Transfer</option>
                                         <option value="Cheque">Cheque</option>

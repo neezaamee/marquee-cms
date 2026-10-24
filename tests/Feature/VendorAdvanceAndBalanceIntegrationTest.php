@@ -625,4 +625,66 @@ class VendorAdvanceAndBalanceIntegrationTest extends TestCase
         $this->assertStringContainsString('Advance Paid: Rs. 10,000.00', $invoiceHtml);
         $this->assertStringContainsString('Net Due: Rs. 15,000.00', $invoiceHtml);
     }
+
+    /**
+     * Test: Vendor payout from Booking View reduces Cash in Hand and creates balanced double-entry voucher.
+     */
+    public function test_vendor_payout_deducts_cash_in_hand_and_creates_balanced_voucher(): void
+    {
+        $serviceEngine = app(VendorCommissionService::class);
+
+        // Create a vendor sale with Rs. 50,000 net payable to vendor
+        $sale = $serviceEngine->createVendorSale([
+            'vendor_id' => $this->vendor->id,
+            'vendor_service_id' => $this->vendorService->id,
+            'booking_id' => $this->booking->id,
+            'customer_id' => $this->customer->id,
+            'sale_amount' => 60000,
+            'commission_rate' => 10,
+            'advance_amount' => 0,
+        ]);
+
+        $this->assertEquals(54000, $sale->vendor_net_amount);
+        $this->assertEquals(54000, $sale->remaining_amount);
+
+        $this->actingAs($this->owner);
+
+        // Pre-condition: Check cash account movements prior to payout
+        $initialCashCredits = \App\Models\JournalVoucherItem::where('account_id', $this->cashAccount->id)->sum('credit');
+
+        // Test Livewire BookingView "Pay Vendor" modal pre-selects default cash account
+        Livewire::test(BookingView::class, ['booking' => $this->booking])
+            ->call('openVendorPaymentModal', $sale->id)
+            ->assertSet('showVendorPaymentModal', true)
+            ->assertSet('vpPaymentMethod', 'Cash')
+            ->assertSet('vpAccountId', $this->cashAccount->id)
+            ->set('vpPaymentAmount', 20000)
+            ->call('recordVendorInstallmentPayment')
+            ->assertHasNoErrors()
+            ->assertSet('showVendorPaymentModal', false);
+
+        // Verify VendorSale updated
+        $sale->refresh();
+        $this->assertEquals(20000, (float) $sale->paid_amount);
+        $this->assertEquals(34000, (float) $sale->remaining_amount);
+
+        // Verify Journal Voucher exists and is perfectly balanced
+        $jv = \App\Models\JournalVoucher::with('items')->where('notes', 'like', '%' . $this->vendor->name . '%')->latest('id')->first();
+        $this->assertNotNull($jv, 'Journal voucher must be created for vendor payout');
+        $this->assertEquals('posted', $jv->status);
+
+        $totalDr = (float) $jv->items->sum('debit');
+        $totalCr = (float) $jv->items->sum('credit');
+        $this->assertEquals(20000.00, $totalDr, 'Total debit must match payout amount');
+        $this->assertEquals(20000.00, $totalCr, 'Total credit must match payout amount');
+        $this->assertEquals($totalDr, $totalCr, 'Double-entry voucher must balance');
+
+        // Verify Credit entry specifically reduced Cash in Hand (1001)
+        $creditItem = $jv->items->firstWhere('credit', '>', 0);
+        $this->assertEquals($this->cashAccount->id, $creditItem->account_id, 'Credit leg must be posted to Cash in Hand account');
+        $this->assertEquals(20000.00, (float) $creditItem->credit, 'Cash in Hand must be credited by Rs. 20,000');
+
+        $finalCashCredits = \App\Models\JournalVoucherItem::where('account_id', $this->cashAccount->id)->sum('credit');
+        $this->assertEquals($initialCashCredits + 20000.00, $finalCashCredits, 'Cash account total credits must increase by payout amount');
+    }
 }

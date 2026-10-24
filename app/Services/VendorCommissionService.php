@@ -786,14 +786,15 @@ class VendorCommissionService
             'narration' => 'Payout against vendor ledger balance',
         ]);
 
-        // Credit Cash / Bank Account
-        if ($settlement->account_id) {
+        // Credit Cash / Bank Account (resolves default Cash/Bank if not explicitly passed)
+        $disbursingAccount = $this->resolveDisbursingAccount($settlement->marquee_id, $settlement->account_id, $settlement->payment_method ?? 'Cash');
+        if ($disbursingAccount) {
             JournalVoucherItem::create([
                 'journal_voucher_id' => $jv->id,
-                'account_id' => $settlement->account_id,
+                'account_id' => $disbursingAccount->id,
                 'debit' => 0.00,
                 'credit' => $settlement->paid_amount,
-                'narration' => 'Payment issued via ' . $settlement->payment_method,
+                'narration' => 'Payment issued via ' . ($settlement->payment_method ?? 'Cash') . ' from ' . $disbursingAccount->name,
             ]);
         }
 
@@ -864,17 +865,83 @@ class VendorCommissionService
             'narration' => $params['notes'] ?? 'Vendor payout',
         ]);
 
-        // Credit Cash / Bank Account (if provided)
-        if (!empty($params['account_id'])) {
+        // Credit Cash / Bank Account (Resolves default Cash 1001 / Bank 1002 if account_id is empty)
+        $paymentMethod = $params['payment_method'] ?? 'Cash';
+        $disbursingAccount = $this->resolveDisbursingAccount($vendor->marquee_id, $params['account_id'] ?? null, $paymentMethod);
+
+        if ($disbursingAccount) {
             JournalVoucherItem::create([
                 'journal_voucher_id' => $jv->id,
-                'account_id' => $params['account_id'],
+                'account_id' => $disbursingAccount->id,
                 'debit' => 0.00,
                 'credit' => $amount,
-                'narration' => 'Disbursed via ' . ($params['payment_method'] ?? 'Cash'),
+                'narration' => 'Disbursed via ' . $paymentMethod . ' from ' . $disbursingAccount->name,
             ]);
         }
 
         return $jv;
+    }
+
+    /**
+     * Resolve default asset account for disbursing payments (Cash or Bank).
+     */
+    protected function resolveDisbursingAccount(?int $marqueeId, ?int $accountId, string $paymentMethod = 'Cash'): ?Account
+    {
+        if ($accountId) {
+            $account = Account::withoutGlobalScope('tenant')->find($accountId);
+            if ($account) {
+                return $account;
+            }
+        }
+
+        $methodLower = strtolower($paymentMethod);
+        $isCash = in_array($methodLower, ['cash', 'cash in hand', 'cash payment']);
+        $targetCode = $isCash ? '1001' : '1002';
+
+        // 1. Try resolving by standard account code (1001 for Cash, 1002 for Bank)
+        $account = Account::withoutGlobalScope('tenant')
+            ->where(function ($q) use ($marqueeId) {
+                if ($marqueeId) {
+                    $q->where('marquee_id', $marqueeId);
+                } else {
+                    $q->whereNull('marquee_id');
+                }
+            })
+            ->where('account_code', $targetCode)
+            ->first();
+
+        if ($account) {
+            return $account;
+        }
+
+        // 2. Try resolving via active CashBankAccount
+        $cashBank = \App\Models\CashBankAccount::withoutGlobalScope('tenant')
+            ->where(function ($q) use ($marqueeId) {
+                if ($marqueeId) {
+                    $q->where('marquee_id', $marqueeId);
+                } else {
+                    $q->whereNull('marquee_id');
+                }
+            })
+            ->where('type', $isCash ? 'cash' : 'bank')
+            ->where('status', 'active')
+            ->first();
+
+        if ($cashBank && $cashBank->account_id) {
+            return Account::withoutGlobalScope('tenant')->find($cashBank->account_id);
+        }
+
+        // 3. Fallback: Any active Asset account matching Cash or Bank in name
+        return Account::withoutGlobalScope('tenant')
+            ->where(function ($q) use ($marqueeId) {
+                if ($marqueeId) {
+                    $q->where('marquee_id', $marqueeId);
+                } else {
+                    $q->whereNull('marquee_id');
+                }
+            })
+            ->where('nature', 'Asset')
+            ->where('name', 'LIKE', $isCash ? '%Cash%' : '%Bank%')
+            ->first();
     }
 }

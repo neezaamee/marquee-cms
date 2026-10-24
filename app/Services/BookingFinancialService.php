@@ -170,9 +170,21 @@ class BookingFinancialService
                 ->findOrFail($targetAccountId);
 
             // 2. Determine Balancing Account
+            // If payment type is dedicated security deposit: SECURITY DEPOSIT LIABILITY (2002)
             // If revenue is not yet recognized: CUSTOMER ADVANCE LIABILITY (2003)
             // If revenue is recognized: ACCOUNTS RECEIVABLE (1003)
-            if (!$booking->is_revenue_recognized) {
+            if ($payment->payment_type === 'security_deposit') {
+                $balancingAccount = $this->resolveCoaAccount(
+                    $marqueeId,
+                    '2002',
+                    'Security Deposits',
+                    'Liability',
+                    'CURRENT_LIABILITIES'
+                );
+                $balancingNarration = "Security Deposit Liability for Booking #{$booking->booking_number} (Payment #{$payment->payment_number})";
+                $ledgerType = 'security_deposit';
+                $ledgerDesc = "Security deposit received via {$payment->payment_method} for Booking #{$booking->booking_number}";
+            } elseif (!$booking->is_revenue_recognized) {
                 $balancingAccount = $this->resolveCoaAccount(
                     $marqueeId,
                     '2003',
@@ -752,8 +764,17 @@ class BookingFinancialService
             }
 
             // Accounts
-            $depositLiabilityAccount = $this->resolveCoaAccount($marqueeId, '2003', 'Customer Advances / Contract Liabilities', 'Liability', 'CURRENT_LIABILITIES');
-            $damageIncomeAccount = $this->resolveCoaAccount($marqueeId, '4005', 'Security Deposit Forfeiture & Damage Income', 'Income', 'OPERATING_REVENUE');
+            // Check if booking had a dedicated security deposit payment posted to 2002
+            $hasDedicatedDeposit = BookingPayment::where('booking_id', $booking->id)
+                ->where('payment_type', 'security_deposit')
+                ->where('status', 'posted')
+                ->exists();
+
+            $depositAccountCode = $hasDedicatedDeposit ? '2002' : '2003';
+            $depositAccountName = $hasDedicatedDeposit ? 'Security Deposits' : 'Customer Advances / Contract Liabilities';
+
+            $depositLiabilityAccount = $this->resolveCoaAccount($marqueeId, $depositAccountCode, $depositAccountName, 'Liability', 'CURRENT_LIABILITIES');
+            $damageIncomeAccount = $this->resolveCoaAccount($marqueeId, '4006', 'Security Deposit Forfeiture & Damage Income', 'Income', 'OPERATING_REVENUE');
 
             $disbursingAccount = null;
             if ($refundAmount > 0) {

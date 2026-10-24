@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\BookingPayment;
 use App\Models\CashBankAccount;
 use App\Models\Expense;
+use App\Models\FinancialYear;
 use App\Models\JournalVoucher;
 use App\Models\Marquee;
 use App\Models\PaymentVoucher;
@@ -35,20 +36,44 @@ class AccountantDashboard extends Component
 
         $accountIds = $cashBankAccounts->pluck('account_id')->filter()->unique()->toArray();
 
-        // 1. Opening balances from Chart of Accounts
-        $openingBalances = !empty($accountIds) ? DB::table('account_opening_balances')
-            ->whereIn('account_id', $accountIds)
+        // Resolve Active Financial Year for this marquee
+        $activeFy = FinancialYear::withoutGlobalScope('tenant')
+            ->where(function ($q) use ($marqueeId) {
+                if ($marqueeId) {
+                    $q->where('marquee_id', $marqueeId);
+                } else {
+                    $q->whereNull('marquee_id');
+                }
+            })
+            ->where('status', 'active')
+            ->first();
+
+        // 1. Opening balances from Chart of Accounts for the active financial year
+        $openingBalancesQuery = DB::table('account_opening_balances')->whereIn('account_id', $accountIds);
+        if ($activeFy) {
+            $openingBalancesQuery->where('financial_year_id', $activeFy->id);
+        }
+        $openingBalances = !empty($accountIds) ? $openingBalancesQuery
             ->select('account_id', DB::raw('COALESCE(SUM(debit - credit), 0) as balance'))
             ->groupBy('account_id')
             ->pluck('balance', 'account_id') : collect();
 
-        // 2. Posted journal movements
-        $journalMovements = !empty($accountIds) ? DB::table('journal_voucher_items')
+        // 2. Posted journal movements (starting from the active financial year start date)
+        $journalQuery = DB::table('journal_voucher_items')
             ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
             ->whereNull('journal_vouchers.deleted_at')
             ->where('journal_vouchers.status', 'posted')
             ->where('journal_vouchers.marquee_id', $marqueeId)
-            ->whereIn('journal_voucher_items.account_id', $accountIds)
+            ->whereIn('journal_voucher_items.account_id', $accountIds);
+
+        if ($activeFy) {
+            $fyStartDate = $activeFy->start_date instanceof \DateTimeInterface
+                ? $activeFy->start_date->format('Y-m-d')
+                : date('Y-m-d', strtotime($activeFy->start_date));
+            $journalQuery->where('journal_vouchers.voucher_date', '>=', $fyStartDate);
+        }
+
+        $journalMovements = !empty($accountIds) ? $journalQuery
             ->select('journal_voucher_items.account_id', DB::raw('COALESCE(SUM(journal_voucher_items.debit - journal_voucher_items.credit), 0) as balance'))
             ->groupBy('journal_voucher_items.account_id')
             ->pluck('balance', 'account_id') : collect();
