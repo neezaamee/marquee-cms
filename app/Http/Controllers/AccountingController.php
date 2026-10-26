@@ -3,6 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Services\AccountingService;
+use App\Models\Branch;
+use App\Models\FinancialYear;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class AccountingController extends Controller
 {
@@ -72,6 +76,72 @@ class AccountingController extends Controller
     {
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
         return view('finance.general-ledger');
+    }
+
+    /**
+     * Export General Ledger report to PDF.
+     */
+    public function generalLedgerPdf(Request $request, AccountingService $accountingService)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+
+        $request->validate([
+            'account_id' => 'required|exists:accounts,id',
+            'financial_year_id' => 'required|exists:financial_years,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
+            'branch_id' => 'nullable|exists:branches,id',
+        ]);
+
+        $user = auth()->user();
+        $isSaas = $request->boolean('is_saas');
+        $marquee = $isSaas ? null : $user->marquee;
+
+        $accountId = (int)$request->input('account_id');
+        $financialYearId = (int)$request->input('financial_year_id');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        $branchId = $request->input('branch_id') ? (int)$request->input('branch_id') : null;
+
+        // Enforce user branch scope
+        if (!$isSaas && $user->branch_id && !$user->isSuperAdmin()) {
+            $branchId = $user->branch_id;
+        }
+
+        try {
+            $ledgerData = $accountingService->getGeneralLedger(
+                $accountId,
+                $startDate,
+                $endDate,
+                $branchId,
+                $financialYearId
+            );
+        } catch (\Exception $e) {
+            abort(400, 'Unable to generate General Ledger PDF: ' . $e->getMessage());
+        }
+
+        $branchName = $isSaas 
+            ? 'SaaS Platform' 
+            : ($branchId ? (Branch::find($branchId)?->name ?? 'Branch') : 'All Branches / Central');
+            
+        $financialYear = FinancialYear::find($financialYearId);
+
+        $pdf = Pdf::loadView('finance.general-ledger-pdf', [
+            'ledgerData' => $ledgerData,
+            'account' => $ledgerData['account'],
+            'marquee' => $marquee,
+            'branchName' => $branchName,
+            'financialYear' => $financialYear,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'isSaas' => $isSaas,
+            'isPdf' => true,
+        ])->setPaper('a4', 'portrait');
+
+        $accountCode = $ledgerData['account']->account_code;
+        $filename = 'General_Ledger_' . $accountCode . '_' . date('Ymd_His') . '.pdf';
+        
+        return $pdf->stream($filename);
     }
 
     /**

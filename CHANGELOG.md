@@ -5,6 +5,26 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.33.0] - 2026-10-27
+
+### Added & Enhanced
+- **General Ledger Inquiry Enterprise Upgrades**:
+  - Implemented interactive searchable account selector with keyboard navigation, instant client-side filtering, and dropdown styling.
+  - Added clean Bootstrap 5.3 pagination preserving filter query parameters (`account`, `date_from`, `date_to`).
+  - Added full export suite: CSV / Excel export and formal A4 landscape DomPDF report via dedicated controller action (`AccountingController::generalLedgerPdf`) and view `general-ledger-pdf.blade.php`.
+  - Added shareable deep-link URL query strings synchronized via Livewire `#[Url]` for effortless team collaboration.
+- **Double-Entry Revenue Recognition Reconciliation Engine**:
+  - Resolved Account 1003 (Accounts Receivable) balance discrepancy when customer advance payments covered vendor service charges.
+  - Updated `RevenueRecognitionService` to credit Account 1003 for net advance applied to vendor charges, ensuring receivables return to 0.00 upon event completion when fully paid.
+  - Implemented automated reconciliation Artisan command `finance:reconcile-booking-revenue` to audit and synchronize past completed booking revenue vouchers.
+  - Added comprehensive feature test `test_booking_with_vendor_service_clears_accounts_receivable_on_completion_when_fully_paid` to `BookingFinancialAccountingTest.php`.
+- **Collision-Proof Journal & Payment Voucher Number Generation**:
+  - Resolved database duplicate entry violation (`1062 Duplicate entry for key 'marquee_fy_voucher_unique'`) in `AccountingService::generateNextVoucherNo` and `PaymentVoucherService::generateVoucherNo`.
+  - Implemented exact prefix-scoped queries (`JV-{$year}-{$branch}-%`), preventing contamination from vendor payout or settlement timestamps.
+  - Extended uniqueness queries to include soft-deleted records (`withTrashed()`), aligning with MySQL composite unique constraints.
+  - Implemented an active collision-prevention `do ... while` verification loop ensuring generated voucher numbers are 100% unique prior to database insertion.
+  - Enhanced `PaymentsList` blade template to display error banners prominently inside Post, Reject, and Reverse modal dialogs instead of trapping them behind modal backdrops.
+
 ## [1.32.0] - 2026-10-24
 
 ### Added & Enhanced

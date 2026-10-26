@@ -18,9 +18,12 @@ use App\Models\Marquee;
 use App\Models\Role;
 use App\Models\Slot;
 use App\Models\User;
+use App\Models\Vendor;
+use App\Models\VendorService;
 use App\Services\AccountingService;
 use App\Services\BookingFinancialService;
 use App\Services\RevenueRecognitionService;
+use App\Services\VendorCommissionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -843,4 +846,141 @@ class BookingFinancialAccountingTest extends TestCase
             ->assertSee($booking1->booking_number)
             ->assertSee('Muhammad Ali');
     }
+
+    /**
+     * Test 14: Booking with vendor service clears Accounts Receivable (1003) to 0.00 upon event completion when fully paid.
+     */
+    public function test_booking_with_vendor_service_clears_accounts_receivable_on_completion_when_fully_paid(): void
+    {
+        $financialService = app(BookingFinancialService::class);
+        $vendorServiceEngine = app(VendorCommissionService::class);
+        $recService = app(RevenueRecognitionService::class);
+
+        // 1. Create a Booking with Grand Total Rs. 100,000
+        $booking = $this->createBooking(100000.00);
+
+        // 2. Create Vendor and Vendor Service
+        $vendor = Vendor::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'name' => 'Royal Photography',
+            'phone' => '03009988776',
+            'service_type' => 'Photography',
+            'status' => 'active',
+        ]);
+
+        $vendorService = VendorService::create([
+            'marquee_id' => $this->marquee->id,
+            'vendor_id' => $vendor->id,
+            'service_name' => 'Full Day Event Coverage',
+            'unit' => 'Event',
+            'default_sale_price' => 10000.00,
+            'status' => 'active',
+        ]);
+
+        // 3. Attach Vendor Sale of Rs. 10,000 to the booking (included in invoice)
+        $sale = $vendorServiceEngine->createVendorSale([
+            'vendor_id' => $vendor->id,
+            'vendor_service_id' => $vendorService->id,
+            'booking_id' => $booking->id,
+            'customer_id' => $this->customer->id,
+            'branch_id' => $this->branch->id,
+            'sale_date' => now()->format('Y-m-d'),
+            'event_date' => now()->format('Y-m-d'),
+            'quantity' => 1,
+            'unit' => 'Event',
+            'sale_amount' => 10000.00,
+            'commission_rate' => 20.00, // 2,000 commission, 8,000 net vendor
+            'advance_amount' => 0.00,
+            'include_in_invoice' => true,
+        ]);
+
+        $booking->refresh();
+
+        // Effective commercial invoice amount = 100,000 (Hall) + 10,000 (Vendor) = 110,000
+        $this->assertEquals(110000.00, $booking->effective_invoice_amount);
+
+        // Assert Vendor Sale created initial JV debiting 1003 (Accounts Receivable) for 10,000
+        $jvVs = JournalVoucher::where('reference', $sale->vendor_sale_number)->first();
+        $this->assertNotNull($jvVs);
+        $drArItem = $jvVs->items->where('account_id', $this->receivableAccount->id)->first();
+        $this->assertNotNull($drArItem);
+        $this->assertEquals(10000.00, (float)$drArItem->debit);
+
+        // 4. Customer pays full booking amount of Rs. 110,000 (advance before event completion)
+        $payment = $this->recordAndPostPayment($financialService, $booking, [
+            'amount' => 110000.00,
+            'payment_method' => 'Cash',
+            'account_id' => $this->cashAccount->id,
+            'notes' => 'Full advance payment including vendor services',
+        ]);
+
+        $booking->refresh();
+        $this->assertEquals(110000.00, $booking->advance_received);
+        $this->assertEquals(110000.00, $booking->total_paid);
+
+        // 5. Complete event & recognize revenue
+        $recJv = $recService->recognizeRevenue($booking);
+
+        $booking->refresh();
+
+        // Assert booking financial status
+        $this->assertTrue($booking->is_revenue_recognized);
+        $this->assertEquals(110000.00, $booking->revenue_recognized);
+        $this->assertEquals(0.00, $booking->receivable_amount);
+        $this->assertEquals(0.00, $booking->advance_received);
+        $this->assertEquals('Settled', $booking->financial_status);
+        $this->assertEquals('Paid', $booking->payment_status);
+
+        // 6. Assert Balanced Journal Voucher on Revenue Recognition
+        $this->assertEquals(110000.00, (float)$recJv->total_debit);
+        $this->assertEquals(110000.00, (float)$recJv->total_credit);
+
+        // Debit 2003 (Customer Advance Liability release): 110,000
+        $drAdvance = $recJv->items()->where('account_id', $this->advanceLiabilityAccount->id)->first();
+        $this->assertNotNull($drAdvance);
+        $this->assertEquals(110000.00, (float)$drAdvance->debit);
+
+        // Credit 4001 (Hall Booking Revenue): exactly 100,000 (pure venue revenue, not inflated by vendor service)
+        $crRevenue = $recJv->items()->where('account_id', $this->revenueAccount->id)->first();
+        $this->assertNotNull($crRevenue);
+        $this->assertEquals(100000.00, (float)$crRevenue->credit);
+
+        // Credit 1003 (Accounts Receivable): 10,000 (clearing the vendor service receivable!)
+        $crReceivable = $recJv->items()->where('account_id', $this->receivableAccount->id)->first();
+        $this->assertNotNull($crReceivable, 'Revenue recognition must credit Accounts Receivable (1003) to clear vendor charge');
+        $this->assertEquals(10000.00, (float)$crReceivable->credit);
+
+        // 7. General Ledger Check: Account 1003 Closing Balance MUST BE 0.00!
+        $glAr = $this->accountingService->getGeneralLedger(
+            $this->receivableAccount->id,
+            now()->startOfYear()->format('Y-m-d'),
+            now()->endOfYear()->format('Y-m-d'),
+            $this->branch->id,
+            $this->financialYear->id
+        );
+
+        $this->assertEquals(0.00, $glAr['closing_balance'], 'Accounts Receivable (1003) closing balance must be 0.00 after full payment and completion');
+
+        // General Ledger Check: Customer Advances (2003) MUST BE 0.00!
+        $glAdvance = $this->accountingService->getGeneralLedger(
+            $this->advanceLiabilityAccount->id,
+            now()->startOfYear()->format('Y-m-d'),
+            now()->endOfYear()->format('Y-m-d'),
+            $this->branch->id,
+            $this->financialYear->id
+        );
+        $this->assertEquals(0.00, $glAdvance['closing_balance'], 'Customer Advances (2003) closing balance must be 0.00');
+
+        // General Ledger Check: Hall Revenue (4001) MUST BE 100,000.00!
+        $glRevenue = $this->accountingService->getGeneralLedger(
+            $this->revenueAccount->id,
+            now()->startOfYear()->format('Y-m-d'),
+            now()->endOfYear()->format('Y-m-d'),
+            $this->branch->id,
+            $this->financialYear->id
+        );
+        $this->assertEquals(100000.00, $glRevenue['closing_balance'], 'Hall Revenue (4001) must be exactly 100,000.00');
+    }
 }
+

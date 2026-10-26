@@ -44,31 +44,49 @@ class PaymentVoucherService
 
         if ($branchId) {
             $branch = Branch::find($branchId);
-            $branchCode = $branch ? strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $branch->name), 0, 3)) : 'BR';
+            $clean = $branch ? preg_replace('/[^A-Za-z0-9]/', '', $branch->name) : '';
+            $branchCode = !empty($clean) ? strtoupper(substr($clean, 0, 3)) : 'BR';
         } else {
             $branchCode = 'HO';
         }
 
-        $query = PaymentVoucher::where('marquee_id', $marqueeId)
-            ->where('voucher_type', $prefix);
+        $fullPrefix = "{$prefix}-{$yearSuffix}-{$branchCode}-";
 
-        if ($financialYearId) {
-            $query->where('financial_year_id', $financialYearId);
-        }
+        $existingVouchers = PaymentVoucher::withTrashed()
+            ->where('marquee_id', $marqueeId)
+            ->where('voucher_type', $prefix)
+            ->when($financialYearId, fn($q) => $q->where('financial_year_id', $financialYearId))
+            ->where('voucher_no', 'like', "{$fullPrefix}%")
+            ->pluck('voucher_no');
 
-        $latest = $query->orderBy('id', 'desc')->first();
-        $nextSeq = 1;
-
-        if ($latest && $latest->voucher_no) {
-            $parts = explode('-', $latest->voucher_no);
-            $lastPart = end($parts);
-            if (is_numeric($lastPart)) {
-                $nextSeq = (int) $lastPart + 1;
+        $maxSeq = 0;
+        foreach ($existingVouchers as $vNo) {
+            $suffix = substr($vNo, strlen($fullPrefix));
+            if (is_numeric($suffix)) {
+                $num = (int)$suffix;
+                if ($num > $maxSeq) {
+                    $maxSeq = $num;
+                }
             }
         }
 
-        $sequenceStr = str_pad((string) $nextSeq, 4, '0', STR_PAD_LEFT);
-        return "{$prefix}-{$yearSuffix}-{$branchCode}-{$sequenceStr}";
+        $nextSeq = $maxSeq + 1;
+
+        do {
+            $sequenceStr = str_pad((string) $nextSeq, 4, '0', STR_PAD_LEFT);
+            $candidate = "{$fullPrefix}{$sequenceStr}";
+
+            $exists = PaymentVoucher::withTrashed()
+                ->where('marquee_id', $marqueeId)
+                ->where('voucher_no', $candidate)
+                ->exists();
+
+            if (!$exists) {
+                return $candidate;
+            }
+
+            $nextSeq++;
+        } while (true);
     }
 
     /**

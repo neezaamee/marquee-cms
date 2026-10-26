@@ -363,6 +363,13 @@
                     <button wire:click="$set('showPostModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
+                    @if(session()->has('error'))
+                        <div class="alert alert-danger py-2 fs-12 mb-3">
+                            <span class="fas fa-times-circle me-1"></span>
+                            <strong>Posting Error:</strong> {{ session('error') }}
+                        </div>
+                    @endif
+
                     <!-- Warning Notice -->
                     <div class="alert alert-warning py-2 fs-12 mb-3">
                         <span class="fas fa-exclamation-triangle me-1"></span>
@@ -452,6 +459,12 @@
                     <button wire:click="$set('showRejectModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-3">
+                    @if(session()->has('error'))
+                        <div class="alert alert-danger py-2 fs-12 mb-3">
+                            <span class="fas fa-times-circle me-1"></span>
+                            <strong>Action Error:</strong> {{ session('error') }}
+                        </div>
+                    @endif
                     <p class="fs-12 text-700 mb-2">
                         Are you sure you want to reject payment <strong>{{ $rejectingPayment->payment_number ?: ('PAY-'.$rejectingPayment->id) }}</strong> of <strong>Rs. {{ number_format($rejectingPayment->amount, 2) }}</strong>?
                     </p>
@@ -484,6 +497,12 @@
                     <button wire:click="$set('showReverseModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-3">
+                    @if(session()->has('error'))
+                        <div class="alert alert-danger py-2 fs-12 mb-3">
+                            <span class="fas fa-times-circle me-1"></span>
+                            <strong>Reversal Error:</strong> {{ session('error') }}
+                        </div>
+                    @endif
                     <div class="alert alert-danger py-2 fs-12 mb-3">
                         <span class="fas fa-exclamation-triangle me-1"></span>
                         <strong>Warning:</strong> Reversing this payment will generate an offsetting Journal Voucher and debit the customer ledger / advance liability.

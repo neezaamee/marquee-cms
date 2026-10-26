@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>General Ledger - {{ $account->account_code }} {{ $account->name }}</title>
+    <style>
+        @page {
+            margin: 20px 25px 25px 25px;
+            size: a4 portrait;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'DejaVu Sans', Arial, sans-serif;
+            font-size: 8.5px;
+            line-height: 1.35;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+        }
+        .header-table {
+            width: 100%;
+            border-bottom: 2px solid #1e3a8a;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+        .header-table td { vertical-align: top; }
+        .company-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: #1e3a8a;
+            text-transform: uppercase;
+            margin: 0 0 2px 0;
+        }
+        .company-subtitle {
+            font-size: 8.5px;
+            color: #475569;
+            margin: 0;
+        }
+        .report-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #0284c7;
+            text-align: right;
+            text-transform: uppercase;
+            margin: 0 0 2px 0;
+        }
+        .report-meta {
+            font-size: 8px;
+            color: #475569;
+            text-align: right;
+        }
+        .account-badge {
+            width: 100%;
+            margin-bottom: 8px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 6px 10px;
+        }
+        .account-badge td { vertical-align: middle; }
+        .kpi-table {
+            width: 100%;
+            margin-bottom: 10px;
+            border-collapse: collapse;
+        }
+        .kpi-table td {
+            padding: 5px 8px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            text-align: center;
+        }
+        .kpi-label {
+            font-size: 7.5px;
+            text-transform: uppercase;
+            color: #64748b;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .kpi-value {
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .ledger-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            table-layout: fixed;
+        }
+        .ledger-table th {
+            background-color: #1e3a8a;
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 5px 4px;
+            border: 1px solid #1e3a8a;
+            text-align: left;
+        }
+        .ledger-table td {
+            padding: 4px 4px;
+            border: 1px solid #e2e8f0;
+            font-size: 7.5px;
+            word-wrap: break-word;
+        }
+        .ledger-table tr:nth-child(even) td {
+            background-color: #f8fafc;
+        }
+        .text-end { text-align: right; }
+        .text-center { text-align: center; }
+        .font-mono { font-family: 'DejaVu Sans Mono', monospace; }
+        .text-success { color: #15803d; }
+        .text-danger { color: #b91c1c; }
+        .text-primary { color: #1d4ed8; }
+        .fw-bold { font-weight: bold; }
+        .bg-light { background-color: #f8fafc; }
+        .footer {
+            clear: both;
+            margin-top: 15px;
+            font-size: 7.5px;
+            color: #94a3b8;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Section -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 55%;">
+                <div class="company-title">
+                    {{ $marquee->name ?? ($isSaas ? 'SaaS Platform' : config('app.name', 'Marquee CMS')) }}
+                </div>
+                @if(!$isSaas && !empty($marquee->address))
+                    <div class="company-subtitle">{{ $marquee->address }}</div>
+                @endif
+                <div class="company-subtitle">
+                    Branch: <strong>{{ $branchName }}</strong>
+                    @if($financialYear)
+                        | Financial Year: <strong>{{ $financialYear->name }}</strong>
+                    @endif
+                </div>
+            </td>
+            <td style="width: 45%;">
+                <div class="report-title">General Ledger Statement</div>
+                <div class="report-meta">
+                    Period: <strong>{{ date('d M, Y', strtotime($startDate)) }}</strong> to <strong>{{ date('d M, Y', strtotime($endDate)) }}</strong><br>
+                    Generated on: {{ date('d M, Y h:i A') }}<br>
+                    Generated by: {{ auth()->user()->name ?? 'System' }}
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Account Details Bar -->
+    <table class="account-badge">
+        <tr>
+            <td style="width: 70%;">
+                <span style="font-size: 11px; font-weight: bold; color: #1e3a8a;">
+                    [{{ $account->account_code }}] {{ $account->name }}
+                </span>
+                <span style="color: #64748b; font-size: 8px; margin-left: 8px;">
+                    (Nature: <strong>{{ strtoupper($account->nature) }}</strong>)
+                </span>
+            </td>
+            <td style="width: 30%; text-align: right;">
+                <span style="font-size: 8px; color: #64748b;">Status: <strong>Active</strong></span>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Quick Stats Cards -->
+    <table class="kpi-table">
+        <tr>
+            <td style="width: 25%;">
+                <span class="kpi-label">Opening Balance</span>
+                <span class="kpi-value font-mono">{{ number_format($ledgerData['opening_balance'], 2) }}</span>
+            </td>
+            <td style="width: 25%;">
+                <span class="kpi-label text-success">Total Debits</span>
+                <span class="kpi-value text-success font-mono">+{{ number_format($ledgerData['total_debit'], 2) }}</span>
+            </td>
+            <td style="width: 25%;">
+                <span class="kpi-label text-danger">Total Credits</span>
+                <span class="kpi-value text-danger font-mono">-{{ number_format($ledgerData['total_credit'], 2) }}</span>
+            </td>
+            <td style="width: 25%;">
+                <span class="kpi-label text-primary">Closing Balance</span>
+                <span class="kpi-value text-primary font-mono">{{ number_format($ledgerData['closing_balance'], 2) }}</span>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Ledger Transactions Table -->
+    <table class="ledger-table">
+        <thead>
+            <tr>
+                <th style="width: 12%;">Date</th>
+                <th style="width: 13%;">Voucher No</th>
+                <th style="width: 13%;">Reference</th>
+                <th style="width: 28%;">Narration</th>
+                <th class="text-end" style="width: 11%;">Debit</th>
+                <th class="text-end" style="width: 11%;">Credit</th>
+                <th class="text-end" style="width: 12%;">Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Opening Balance Row -->
+            <tr class="fw-bold bg-light">
+                <td class="font-mono">{{ date('Y-m-d', strtotime($startDate)) }}</td>
+                <td colspan="3">Opening Balance Brought Forward</td>
+                <td class="text-end font-mono">
+                    {{ $ledgerData['opening_balance_debit'] > 0 ? number_format($ledgerData['opening_balance_debit'], 2) : '—' }}
+                </td>
+                <td class="text-end font-mono">
+                    {{ $ledgerData['opening_balance_credit'] > 0 ? number_format($ledgerData['opening_balance_credit'], 2) : '—' }}
+                </td>
+                <td class="text-end font-mono fw-bold">
+                    {{ number_format($ledgerData['opening_balance'], 2) }}
+                </td>
+            </tr>
+
+            <!-- Transaction Entries -->
+            @forelse($ledgerData['entries'] as $entry)
+                <tr>
+                    <td class="font-mono">{{ date('Y-m-d', strtotime($entry['voucher_date'])) }}</td>
+                    <td class="font-mono fw-bold">{{ $entry['voucher_no'] }}</td>
+                    <td>{{ $entry['reference'] ?? '—' }}</td>
+                    <td>{{ $entry['narration'] ?? '—' }}</td>
+                    <td class="text-end font-mono text-success">
+                        {{ $entry['debit'] > 0 ? number_format($entry['debit'], 2) : '—' }}
+                    </td>
+                    <td class="text-end font-mono text-danger">
+                        {{ $entry['credit'] > 0 ? number_format($entry['credit'], 2) : '—' }}
+                    </td>
+                    <td class="text-end font-mono fw-bold">
+                        {{ number_format($entry['running_balance'], 2) }}
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="7" class="text-center" style="padding: 15px; color: #64748b;">
+                        No transaction entries found for this account within the selected period.
+                    </td>
+                </tr>
+            @endforelse
+        </tbody>
+        <tfoot>
+            <tr class="fw-bold" style="background-color: #f1f5f9; border-top: 2px solid #1e3a8a;">
+                <td colspan="4" class="text-end" style="padding: 6px 4px;">Closing Balances / Totals:</td>
+                <td class="text-end font-mono text-success" style="padding: 6px 4px;">+{{ number_format($ledgerData['total_debit'], 2) }}</td>
+                <td class="text-end font-mono text-danger" style="padding: 6px 4px;">-{{ number_format($ledgerData['total_credit'], 2) }}</td>
+                <td class="text-end font-mono text-primary fw-bold" style="padding: 6px 4px;">{{ number_format($ledgerData['closing_balance'], 2) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="footer">
+        *** End of General Ledger Statement — Generated by {{ config('app.name', 'Marquee CMS') }} on {{ date('Y-m-d H:i:s') }} ***
+    </div>
+
+</body>
+</html>

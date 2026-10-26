@@ -59,35 +59,65 @@ class AccountingService
         $fy = FinancialYear::findOrFail($financialYearId);
         $yearSuffix = date('Y', strtotime($fy->start_date));
 
-        $query = JournalVoucher::where('financial_year_id', $financialYearId);
-        if ($marqueeId) {
-            $query->where('marquee_id', $marqueeId);
-        } else {
-            $query->whereNull('marquee_id');
-        }
-
         if ($branchId) {
-            $query->where('branch_id', $branchId);
             $branchCode = DB::table('branches')->where('id', $branchId)->value('name');
-            $branchSuffix = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $branchCode ?? ''), 0, 3));
+            $cleanBranch = preg_replace('/[^A-Za-z0-9]/', '', $branchCode ?? '');
+            $branchSuffix = !empty($cleanBranch) ? strtoupper(substr($cleanBranch, 0, 3)) : 'BR';
         } else {
             $branchSuffix = 'HO'; // Head Office / Central
         }
 
-        $latestVoucher = $query->orderBy('id', 'desc')->first();
-        $nextSequence = 1;
+        $prefix = "JV-{$yearSuffix}-{$branchSuffix}-";
 
-        if ($latestVoucher) {
-            $parts = explode('-', $latestVoucher->voucher_no);
-            $lastSeq = end($parts);
-            if (is_numeric($lastSeq)) {
-                $nextSequence = (int)$lastSeq + 1;
+        // Query all existing vouchers with this prefix for this financial year & marquee (including soft-deleted)
+        $existingVouchers = JournalVoucher::withTrashed()
+            ->where('financial_year_id', $financialYearId)
+            ->where(function ($q) use ($marqueeId) {
+                if ($marqueeId) {
+                    $q->where('marquee_id', $marqueeId);
+                } else {
+                    $q->whereNull('marquee_id');
+                }
+            })
+            ->where('voucher_no', 'like', "{$prefix}%")
+            ->pluck('voucher_no');
+
+        $maxSeq = 0;
+        foreach ($existingVouchers as $vNo) {
+            $suffix = substr($vNo, strlen($prefix));
+            if (is_numeric($suffix)) {
+                $num = (int)$suffix;
+                if ($num > $maxSeq) {
+                    $maxSeq = $num;
+                }
             }
         }
 
-        $sequenceStr = str_pad((string)$nextSequence, 4, '0', STR_PAD_LEFT);
+        $nextSequence = $maxSeq + 1;
 
-        return "JV-{$yearSuffix}-{$branchSuffix}-{$sequenceStr}";
+        // Collision-proof loop: ensure candidate voucher_no is never duplicated in the unique index
+        do {
+            $sequenceStr = str_pad((string)$nextSequence, 4, '0', STR_PAD_LEFT);
+            $candidate = "{$prefix}{$sequenceStr}";
+
+            $exists = JournalVoucher::withTrashed()
+                ->where('financial_year_id', $financialYearId)
+                ->where(function ($q) use ($marqueeId) {
+                    if ($marqueeId) {
+                        $q->where('marquee_id', $marqueeId);
+                    } else {
+                        $q->whereNull('marquee_id');
+                    }
+                })
+                ->where('voucher_no', $candidate)
+                ->exists();
+
+            if (!$exists) {
+                return $candidate;
+            }
+
+            $nextSequence++;
+        } while (true);
     }
 
     /**

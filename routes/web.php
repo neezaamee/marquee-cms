@@ -153,6 +153,7 @@ Route::middleware(['auth', 'user.active'])->group(function () {
             Route::get('finance/payment-vouchers/{id}/print', [AccountingController::class, 'printPaymentVoucher'])->name('finance.payment-vouchers.print');
 
             Route::get('finance/general-ledger', [AccountingController::class, 'generalLedger'])->name('finance.general-ledger');
+            Route::get('finance/general-ledger/pdf', [AccountingController::class, 'generalLedgerPdf'])->name('finance.general-ledger.pdf');
             Route::get('finance/trial-balance', [AccountingController::class, 'trialBalance'])->name('finance.trial-balance');
             Route::get('finance/profit-loss', [AccountingController::class, 'profitLoss'])->name('finance.profit-loss');
             Route::get('finance/balance-sheet', [AccountingController::class, 'balanceSheet'])->name('finance.balance-sheet');
