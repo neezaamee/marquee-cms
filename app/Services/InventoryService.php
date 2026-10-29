@@ -189,21 +189,8 @@ class InventoryService
             // 1. Get supplier
             $supplier = Supplier::findOrFail($supplierId);
 
-            // 2. Fetch last running balance
-            $lastLedger = SupplierLedger::where('supplier_id', $supplierId)
-                ->orderBy('transaction_date', 'desc')
-                ->orderBy('id', 'desc')
-                ->first();
-
-            $previousBalance = $lastLedger
-                ? $lastLedger->running_balance
-                : ($referenceType === 'OpeningBalance' ? 0.00 : (float) $supplier->opening_balance);
-
-            // Credits increase payables, Debits decrease payables
-            $newBalance = $previousBalance + $credit - $debit;
-
-            // 3. Create entry
-            return SupplierLedger::create([
+            // 2. Create entry (initial running balance will be synchronized by rebuildSupplierLedger)
+            $ledger = SupplierLedger::create([
                 'marquee_id' => $marqueeId,
                 'supplier_id' => $supplierId,
                 'transaction_date' => $date,
@@ -213,9 +200,14 @@ class InventoryService
                 'supplier_invoice_no' => $supplierInvoiceNo,
                 'debit' => $debit,
                 'credit' => $credit,
-                'running_balance' => $newBalance,
+                'running_balance' => 0.00,
                 'description' => $description,
             ]);
+
+            // 3. Rebuild all running balances chronologically for data integrity
+            $this->rebuildSupplierLedger($supplierId);
+
+            return $ledger->fresh();
         });
     }
 
@@ -228,6 +220,7 @@ class InventoryService
             $supplier = Supplier::findOrFail($supplierId);
             $ledgers = SupplierLedger::where('supplier_id', $supplierId)
                 ->orderBy('transaction_date', 'asc')
+                ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END ASC")
                 ->orderBy('id', 'asc')
                 ->get();
 
@@ -240,7 +233,7 @@ class InventoryService
             $runningBalance = $hasOpeningBalanceRow ? 0.00 : (float) $supplier->opening_balance;
 
             foreach ($ledgers as $ledger) {
-                $runningBalance = $runningBalance + $ledger->credit - $ledger->debit;
+                $runningBalance = round($runningBalance + (float) $ledger->credit - (float) $ledger->debit, 2);
                 $ledger->update(['running_balance' => $runningBalance]);
             }
         });

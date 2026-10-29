@@ -39,7 +39,11 @@ class Supplier extends Model
      */
     public function getCurrentBalanceAttribute(): float
     {
-        $lastLedger = $this->ledgers()->orderBy('transaction_date', 'desc')->orderBy('id', 'desc')->first();
+        $lastLedger = $this->ledgers()
+            ->orderBy('transaction_date', 'desc')
+            ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END DESC")
+            ->orderBy('id', 'desc')
+            ->first();
         return $lastLedger ? (float) $lastLedger->running_balance : (float) $this->opening_balance;
     }
 

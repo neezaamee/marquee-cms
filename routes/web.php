@@ -330,6 +330,7 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                 $ledgers = \App\Models\SupplierLedger::where('supplier_id', $supplier->id)
                     ->with('purchaseInvoice')
                     ->orderBy('transaction_date', 'asc')
+                    ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END ASC")
                     ->orderBy('id', 'asc')
                     ->get();
                 $isPdf = true;
@@ -342,6 +343,7 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                 $ledgers = \App\Models\SupplierLedger::where('supplier_id', $supplier->id)
                     ->with('purchaseInvoice')
                     ->orderBy('transaction_date', 'asc')
+                    ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END ASC")
                     ->orderBy('id', 'asc')
                     ->get();
                 $isPdf = false;

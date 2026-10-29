@@ -137,12 +137,20 @@ class SupplierLedgerView extends Component
         $this->resetErrorBag();
     }
 
+    public function recalculateLedger(InventoryService $inventoryService)
+    {
+        $inventoryService->rebuildSupplierLedger($this->supplier->id);
+        $this->supplier->refresh();
+        session()->flash('success', 'Supplier ledger recalculated and synchronized successfully.');
+    }
+
     public function exportExcel()
     {
         $supplier = $this->supplier;
         $ledgers = SupplierLedger::where('supplier_id', $supplier->id)
             ->with('purchaseInvoice')
             ->orderBy('transaction_date', 'asc')
+            ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END ASC")
             ->orderBy('id', 'asc')
             ->get();
 
@@ -192,6 +200,7 @@ class SupplierLedgerView extends Component
         $ledgers = SupplierLedger::where('supplier_id', $this->supplier->id)
             ->with('purchaseInvoice')
             ->orderBy('transaction_date', 'desc')
+            ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END DESC")
             ->orderBy('id', 'desc')
             ->paginate(15);
 
