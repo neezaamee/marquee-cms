@@ -15,6 +15,8 @@ class PurchaseInvoiceList extends Component
     public $search = '';
     public $filterStatus = '';
     public $filterSupplier = '';
+    public $filterDateFrom = '';
+    public $filterDateTo = '';
     public $perPage = 15;
     public $confirmingDeletionId = null;
     public $confirmingPostId = null;
@@ -26,6 +28,8 @@ class PurchaseInvoiceList extends Component
         'search' => ['except' => ''],
         'filterStatus' => ['except' => ''],
         'filterSupplier' => ['except' => ''],
+        'filterDateFrom' => ['except' => ''],
+        'filterDateTo' => ['except' => ''],
         'perPage' => ['except' => 15],
     ];
 
@@ -41,6 +45,23 @@ class PurchaseInvoiceList extends Component
 
     public function updatingFilterSupplier()
     {
+        $this->resetPage();
+    }
+
+    public function updatingFilterDateFrom()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFilterDateTo()
+    {
+        $this->resetPage();
+    }
+
+    public function clearDateFilter()
+    {
+        $this->filterDateFrom = '';
+        $this->filterDateTo = '';
         $this->resetPage();
     }
 
@@ -152,7 +173,15 @@ class PurchaseInvoiceList extends Component
             $query->where('supplier_id', $this->filterSupplier);
         }
 
-        $purchaseInvoices = $query->latest()->paginate($this->perPage);
+        if (!empty($this->filterDateFrom)) {
+            $query->whereDate('purchase_date', '>=', $this->filterDateFrom);
+        }
+
+        if (!empty($this->filterDateTo)) {
+            $query->whereDate('purchase_date', '<=', $this->filterDateTo);
+        }
+
+        $purchaseInvoices = $query->orderBy('purchase_date', 'desc')->orderBy('id', 'desc')->paginate($this->perPage);
         $suppliers = Supplier::where('marquee_id', $marqueeId)->orderBy('name')->get();
 
         return view('livewire.purchases.purchase-invoice-list', compact('purchaseInvoices', 'suppliers'))

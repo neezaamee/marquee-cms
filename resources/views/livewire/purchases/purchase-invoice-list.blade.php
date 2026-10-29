@@ -8,6 +8,12 @@
                 <span class="badge badge-subtle-primary rounded-pill font-monospace fs-11 ms-1">
                     {{ $purchaseInvoices->total() }} Total
                 </span>
+                @if(!empty($filterDateFrom) || !empty($filterDateTo))
+                    <span class="badge badge-subtle-info rounded-pill font-monospace fs-11 ms-1" title="Filtered Date Range">
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        {{ $filterDateFrom ?: 'Start' }} &rarr; {{ $filterDateTo ?: 'Today' }}
+                    </span>
+                @endif
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <!-- Page size selector -->
@@ -17,6 +23,23 @@
                     <option value="25">25 / page</option>
                     <option value="50">50 / page</option>
                 </select>
+
+                <!-- Date Range Filters -->
+                <div class="d-flex align-items-center gap-1 bg-white border rounded px-2 py-1">
+                    <span class="text-500 fs-11 fw-bold text-uppercase me-1"><span class="fas fa-calendar-alt text-primary me-1"></span>From:</span>
+                    <input type="date" wire:model.live="filterDateFrom" class="form-control form-control-sm border-0 p-0 shadow-none" style="width: 125px;" title="Period From Date" />
+                </div>
+
+                <div class="d-flex align-items-center gap-1 bg-white border rounded px-2 py-1">
+                    <span class="text-500 fs-11 fw-bold text-uppercase me-1"><span class="fas fa-calendar-check text-primary me-1"></span>To:</span>
+                    <input type="date" wire:model.live="filterDateTo" class="form-control form-control-sm border-0 p-0 shadow-none" style="width: 125px;" title="Period To Date" />
+                </div>
+
+                @if(!empty($filterDateFrom) || !empty($filterDateTo))
+                    <button wire:click="clearDateFilter" type="button" class="btn btn-falcon-default btn-sm text-danger" title="Clear Date Filter">
+                        <span class="fas fa-times me-1"></span>Reset Dates
+                    </button>
+                @endif
 
                 <!-- Supplier Filter -->
                 <select wire:model.live="filterSupplier" class="form-select form-select-sm" style="max-width: 180px;">

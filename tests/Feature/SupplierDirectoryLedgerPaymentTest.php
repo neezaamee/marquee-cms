@@ -359,4 +359,86 @@ class SupplierDirectoryLedgerPaymentTest extends TestCase
             'supplier_invoice_no' => 'VEND-REF-4422',
         ]);
     }
+
+    public function test_purchase_invoice_list_filters_by_from_and_to_dates(): void
+    {
+        $this->actingAs($this->owner);
+
+        // 1. Create invoices with distinct dates
+        $invoice1 = PurchaseInvoice::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'supplier_id' => $this->supplier->id,
+            'invoice_number' => 'PINV-DATE-001',
+            'reference_number' => 'REF-001',
+            'purchase_date' => '2026-10-05',
+            'gross_amount' => 1000.00,
+            'discount' => 0.00,
+            'tax' => 0.00,
+            'net_amount' => 1000.00,
+            'status' => 'Draft',
+        ]);
+
+        $invoice2 = PurchaseInvoice::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'supplier_id' => $this->supplier->id,
+            'invoice_number' => 'PINV-DATE-002',
+            'reference_number' => 'REF-002',
+            'purchase_date' => '2026-10-15',
+            'gross_amount' => 2000.00,
+            'discount' => 0.00,
+            'tax' => 0.00,
+            'net_amount' => 2000.00,
+            'status' => 'Draft',
+        ]);
+
+        $invoice3 = PurchaseInvoice::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'supplier_id' => $this->supplier->id,
+            'invoice_number' => 'PINV-DATE-003',
+            'reference_number' => 'REF-003',
+            'purchase_date' => '2026-10-25',
+            'gross_amount' => 3000.00,
+            'discount' => 0.00,
+            'tax' => 0.00,
+            'net_amount' => 3000.00,
+            'status' => 'Draft',
+        ]);
+
+        // Test without date filter -> All seen
+        Livewire::test(PurchaseInvoiceList::class)
+            ->assertSee('PINV-DATE-001')
+            ->assertSee('PINV-DATE-002')
+            ->assertSee('PINV-DATE-003');
+
+        // Test with filterDateFrom = '2026-10-10' -> Excludes invoice1
+        Livewire::test(PurchaseInvoiceList::class)
+            ->set('filterDateFrom', '2026-10-10')
+            ->assertDontSee('PINV-DATE-001')
+            ->assertSee('PINV-DATE-002')
+            ->assertSee('PINV-DATE-003');
+
+        // Test with filterDateTo = '2026-10-20' -> Excludes invoice3
+        Livewire::test(PurchaseInvoiceList::class)
+            ->set('filterDateTo', '2026-10-20')
+            ->assertSee('PINV-DATE-001')
+            ->assertSee('PINV-DATE-002')
+            ->assertDontSee('PINV-DATE-003');
+
+        // Test with both From and To (2026-10-10 to 2026-10-20) -> Only invoice2
+        Livewire::test(PurchaseInvoiceList::class)
+            ->set('filterDateFrom', '2026-10-10')
+            ->set('filterDateTo', '2026-10-20')
+            ->assertDontSee('PINV-DATE-001')
+            ->assertSee('PINV-DATE-002')
+            ->assertDontSee('PINV-DATE-003')
+            ->call('clearDateFilter')
+            ->assertSet('filterDateFrom', '')
+            ->assertSet('filterDateTo', '')
+            ->assertSee('PINV-DATE-001')
+            ->assertSee('PINV-DATE-002')
+            ->assertSee('PINV-DATE-003');
+    }
 }
