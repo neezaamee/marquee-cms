@@ -32,6 +32,7 @@
             <a href="{{ route('suppliers.index') }}" class="btn btn-falcon-default btn-sm">
                 <span class="fas fa-arrow-left me-1"></span>Back to Directory
             </a>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
                 <!-- Recalculate Ledger -->
                 <button wire:click="recalculateLedger" wire:loading.attr="disabled" type="button" class="btn btn-falcon-default btn-sm" title="Recalculate and synchronize all chronological running balances">
                     <span wire:loading.remove wire:target="recalculateLedger" class="fas fa-sync-alt me-1 text-primary"></span>
