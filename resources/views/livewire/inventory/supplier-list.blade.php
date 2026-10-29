@@ -68,11 +68,37 @@
                                 <small class="text-500 fs-11 d-block mt-1">Check all procurement types provided by this supplier.</small>
                             </div>
 
+                            @php
+                                $isOwner = auth()->user() && (auth()->user()->isBusinessOwner() || auth()->user()->isSuperAdmin());
+                                $isOpeningBalanceDisabled = $editId && !$isOwner;
+                            @endphp
                             <div class="mb-3">
-                                <label class="form-label fs-11 fw-bold text-600" for="supplier-desc">Opening Balance *</label>
-                                <input wire:model="opening_balance" type="number" step="0.01" class="form-control form-control-sm @error('opening_balance') is-invalid @enderror" id="opening-balance" {{ $editId ? 'disabled' : '' }} />
-                                @error('opening_balance') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                <small class="text-muted d-block mt-1 fs-11">Starting outstanding payable amount. (Can only set on creation).</small>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label fs-11 fw-bold text-600 mb-0" for="opening-balance">Opening Balance *</label>
+                                    @if($editId && $isOwner)
+                                        <span class="badge badge-subtle-success font-monospace" style="font-size: 10px;">
+                                            <i class="fas fa-user-shield me-1"></i>Owner Privileged Edit
+                                        </span>
+                                    @endif
+                                </div>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted">Rs.</span>
+                                    <input wire:model="opening_balance" type="number" step="0.01" class="form-control form-control-sm @error('opening_balance') is-invalid @enderror" id="opening-balance" {{ $isOpeningBalanceDisabled ? 'disabled' : '' }} />
+                                </div>
+                                @error('opening_balance') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                @if($editId)
+                                    @if($isOwner)
+                                        <small class="text-success d-block mt-1 fs-11">
+                                            <i class="fas fa-sync-alt me-1"></i>As an Owner, updating this balance will automatically recalculate the supplier's entire ledger history.
+                                        </small>
+                                    @else
+                                        <small class="text-muted d-block mt-1 fs-11">
+                                            <i class="fas fa-lock me-1"></i>Locked. Only business owners are authorized to modify the opening balance after creation.
+                                        </small>
+                                    @endif
+                                @else
+                                    <small class="text-muted d-block mt-1 fs-11">Starting outstanding payable amount upon onboarding this supplier.</small>
+                                @endif
                             </div>
 
                             <div class="mb-3">

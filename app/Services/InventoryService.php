@@ -195,7 +195,9 @@ class InventoryService
                 ->orderBy('id', 'desc')
                 ->first();
 
-            $previousBalance = $lastLedger ? $lastLedger->running_balance : $supplier->opening_balance;
+            $previousBalance = $lastLedger
+                ? $lastLedger->running_balance
+                : ($referenceType === 'OpeningBalance' ? 0.00 : (float) $supplier->opening_balance);
 
             // Credits increase payables, Debits decrease payables
             $newBalance = $previousBalance + $credit - $debit;
@@ -229,7 +231,13 @@ class InventoryService
                 ->orderBy('id', 'asc')
                 ->get();
 
-            $runningBalance = $supplier->opening_balance;
+            // Check if there is an explicit OpeningBalance row in ledgers
+            $hasOpeningBalanceRow = $ledgers->contains(fn($l) => $l->reference_type === 'OpeningBalance');
+
+            // If an OpeningBalance row exists, initial running balance starts at 0 before ledger entries,
+            // because the OpeningBalance row itself credits the opening balance amount.
+            // If no OpeningBalance row exists, base running balance starts at $supplier->opening_balance.
+            $runningBalance = $hasOpeningBalanceRow ? 0.00 : (float) $supplier->opening_balance;
 
             foreach ($ledgers as $ledger) {
                 $runningBalance = $runningBalance + $ledger->credit - $ledger->debit;

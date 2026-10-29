@@ -5,6 +5,19 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.34.0] - 2026-10-29
+
+### Added & Enhanced
+- **Owner-Restricted Supplier Opening Balance Editing & Ledger Recalculation**:
+  - Implemented secure owner-only privilege (`isBusinessOwner` or `isSuperAdmin`) for modifying existing supplier opening balances in `SupplierList`.
+  - Added real-time authorization checks on both front-end (lock state indicator with padlock message for non-owners, `Owner Privileged Edit` badge for owners) and server-side validation.
+  - Implemented automated historical ledger recalculation via `InventoryService::rebuildSupplierLedger()` and `recordSupplierTransaction()`, synchronizing all chronological running balances without double-counting opening balance entries.
+  - Added comprehensive automated feature test suite `tests/Feature/SupplierOpeningBalanceRecalculationTest.php` covering owner updates, automatic recalculation, and non-owner access rejection.
+- **Multi-Tenant Employee Unique Constraint & Auto-Increment Isolation**:
+  - Resolved MySQL duplicate entry violation (`1062 Duplicate entry for key 'employees.employees_employee_id_unique'`) when onboarding employees across separate marquee tenants.
+  - Added database migration `2026_10_29_000001_scope_employee_id_unique_to_marquee.php` dropping legacy global single-column unique constraint and establishing composite tenant-scoped unique index `unique(['marquee_id', 'employee_id'])`.
+  - Hardened `Employee::booted()` auto-increment generator with active marquee resolution fallback and isolated sequence queries.
+
 ## [1.33.0] - 2026-10-27
 
 ### Added & Enhanced

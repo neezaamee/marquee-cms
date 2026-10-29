@@ -4,6 +4,7 @@ namespace App\Livewire\Inventory;
 
 use App\Models\Supplier;
 use App\Models\SupplierCategory;
+use App\Models\SupplierLedger;
 use App\Services\InventoryService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -125,6 +126,19 @@ class SupplierList extends Component
     {
         $this->validate();
         $marqueeId = auth()->user()->getActiveMarqueeId();
+        $isOwner = auth()->user() && (auth()->user()->isBusinessOwner() || auth()->user()->isSuperAdmin());
+
+        // Authorization check if opening balance is being altered on an existing supplier
+        if ($this->editId) {
+            $existingSupplier = Supplier::findOrFail($this->editId);
+            $oldOpeningBalance = (float) $existingSupplier->opening_balance;
+            $newOpeningBalance = (float) $this->opening_balance;
+
+            if (abs($oldOpeningBalance - $newOpeningBalance) > 0.0001 && !$isOwner) {
+                $this->addError('opening_balance', 'Only business owners are authorized to modify the opening balance.');
+                return;
+            }
+        }
 
         $data = [
             'marquee_id' => $marqueeId,
@@ -140,15 +154,60 @@ class SupplierList extends Component
             'status' => $this->status,
         ];
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($inventoryService, $marqueeId, $data) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($inventoryService, $marqueeId, $data, $isOwner) {
             if ($this->editId) {
                 $supplier = Supplier::findOrFail($this->editId);
+                $oldOpeningBalance = (float) $supplier->opening_balance;
+                $newOpeningBalance = (float) $this->opening_balance;
+                $openingBalanceChanged = abs($oldOpeningBalance - $newOpeningBalance) > 0.0001;
+
                 $supplier->update($data);
 
                 // Synchronize categories
                 $supplier->categories()->sync($this->selectedCategories);
 
-                session()->flash('success', 'Supplier profile updated successfully.');
+                if ($openingBalanceChanged && $isOwner) {
+                    $openingLedger = SupplierLedger::where('supplier_id', $supplier->id)
+                        ->where('reference_type', 'OpeningBalance')
+                        ->first();
+
+                    if ($openingLedger) {
+                        if ($newOpeningBalance > 0) {
+                            $openingLedger->update([
+                                'credit' => $newOpeningBalance,
+                                'description' => 'Opening balance payable (Adjusted by Owner)',
+                                'updated_by' => auth()->id(),
+                            ]);
+                        } else {
+                            $openingLedger->delete();
+                        }
+                    } elseif ($newOpeningBalance > 0) {
+                        $earliestDate = SupplierLedger::where('supplier_id', $supplier->id)->min('transaction_date');
+                        $opDate = $earliestDate ? min($earliestDate, date('Y-m-d')) : date('Y-m-d');
+
+                        SupplierLedger::create([
+                            'marquee_id' => $marqueeId,
+                            'supplier_id' => $supplier->id,
+                            'transaction_date' => $opDate,
+                            'reference_type' => 'OpeningBalance',
+                            'reference_id' => $supplier->id,
+                            'voucher_no' => 'OP-BAL',
+                            'supplier_invoice_no' => null,
+                            'debit' => 0.00,
+                            'credit' => $newOpeningBalance,
+                            'running_balance' => $newOpeningBalance,
+                            'description' => 'Opening balance payable (Added by Owner)',
+                            'created_by' => auth()->id(),
+                        ]);
+                    }
+
+                    // Automatically recalculate supplier ledger balances
+                    $inventoryService->rebuildSupplierLedger($supplier->id);
+
+                    session()->flash('success', 'Supplier profile and ledger balances updated successfully.');
+                } else {
+                    session()->flash('success', 'Supplier profile updated successfully.');
+                }
             } else {
                 $data['supplier_code'] = $inventoryService->generateNextSupplierCode($marqueeId);
                 $supplier = Supplier::create($data);

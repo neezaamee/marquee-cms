@@ -132,14 +132,19 @@ class Employee extends Model
             if (empty($employee->employee_id)) {
                 $marqueeId = $employee->marquee_id;
                 if (empty($marqueeId) && auth()->check()) {
-                    $marqueeId = auth()->user()->getActiveMarqueeId();
+                    $marqueeId = auth()->user()->getActiveMarqueeId() ?: auth()->user()->marquee_id;
+                    $employee->marquee_id = $marqueeId;
                 }
 
-                $existingIds = static::withoutGlobalScopes()
+                $query = static::withoutGlobalScopes()
                     ->withTrashed()
-                    ->where('marquee_id', $marqueeId)
-                    ->where('employee_id', 'like', 'EMP-%')
-                    ->pluck('employee_id');
+                    ->where('employee_id', 'like', 'EMP-%');
+
+                if (!empty($marqueeId)) {
+                    $query->where('marquee_id', $marqueeId);
+                }
+
+                $existingIds = $query->pluck('employee_id');
 
                 $maxSeq = 0;
                 foreach ($existingIds as $eId) {
@@ -153,11 +158,15 @@ class Employee extends Model
                 $nextSeq = $maxSeq + 1;
                 do {
                     $candidateId = 'EMP-' . str_pad($nextSeq, 5, '0', STR_PAD_LEFT);
-                    $exists = static::withoutGlobalScopes()
+                    $checkQuery = static::withoutGlobalScopes()
                         ->withTrashed()
-                        ->where('marquee_id', $marqueeId)
-                        ->where('employee_id', $candidateId)
-                        ->exists();
+                        ->where('employee_id', $candidateId);
+
+                    if (!empty($marqueeId)) {
+                        $checkQuery->where('marquee_id', $marqueeId);
+                    }
+
+                    $exists = $checkQuery->exists();
                     if ($exists) {
                         $nextSeq++;
                     }
