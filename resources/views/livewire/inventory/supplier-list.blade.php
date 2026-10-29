@@ -130,10 +130,13 @@
         <div class="{{ $showForm ? 'col-md-8' : 'col-md-12' }}">
             <div class="card border border-200">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
-                    <h5 class="mb-0 fs-13"><span class="fas fa-truck me-2 text-primary"></span>Supplier Directory</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="mb-0 fs-13"><span class="fas fa-truck me-2 text-primary"></span>Supplier Directory</h5>
+                        <span class="badge badge-subtle-primary fs-11">{{ $suppliers->total() }} Total</span>
+                    </div>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <!-- Category Filter -->
-                        <select wire:model.live="categoryFilter" class="form-select form-select-sm" style="width: 160px;">
+                        <select wire:model.live="categoryFilter" class="form-select form-select-sm" style="width: 150px;">
                             <option value="all">All Categories</option>
                             @foreach($availableCategories as $c)
                                 <option value="{{ $c->id }}">{{ $c->name }}</option>
@@ -141,16 +144,69 @@
                         </select>
 
                         <!-- Balance Filter -->
-                        <select wire:model.live="balanceFilter" class="form-select form-select-sm" style="width: 150px;">
+                        <select wire:model.live="balanceFilter" class="form-select form-select-sm" style="width: 140px;">
                             <option value="all">All Balances</option>
                             <option value="outstanding">Outstanding (> 0)</option>
                         </select>
 
                         <!-- Search -->
-                        <div class="input-group input-group-sm" style="width: 200px;">
+                        <div class="input-group input-group-sm" style="width: 180px;">
                             <input wire:model.live.debounce.300ms="search" class="form-control" type="search" placeholder="Search suppliers..." />
                             <span class="input-group-text bg-white"><span class="fas fa-search text-400"></span></span>
                         </div>
+
+                        @if(!empty($search) || $categoryFilter !== 'all' || $balanceFilter !== 'all')
+                            <button wire:click="$set('search', ''); $set('categoryFilter', 'all'); $set('balanceFilter', 'all');" class="btn btn-falcon-default btn-sm text-secondary" type="button" title="Reset all filters">
+                                <span class="fas fa-undo me-1"></span>Reset
+                            </button>
+                        @endif
+
+                        <!-- Export to Excel (CSV) -->
+                        <button wire:click="exportExcel" type="button" class="btn btn-falcon-default btn-sm text-nowrap" title="Export Supplier Directory to Excel">
+                            <span wire:loading.remove wire:target="exportExcel">
+                                <span class="fas fa-file-excel me-1 text-success"></span>Excel
+                            </span>
+                            <span wire:loading wire:target="exportExcel">
+                                <span class="spinner-border spinner-border-sm me-1 text-success"></span>Exporting...
+                            </span>
+                        </button>
+
+                        <!-- Download PDF -->
+                        <a href="{{ route('suppliers.pdf', ['search' => $search, 'categoryFilter' => $categoryFilter, 'balanceFilter' => $balanceFilter]) }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap" title="Download Supplier Directory as PDF">
+                            <span class="fas fa-file-pdf me-1 text-danger"></span>PDF
+                        </a>
+
+                        <!-- Print -->
+                        <a href="{{ route('suppliers.print', ['search' => $search, 'categoryFilter' => $categoryFilter, 'balanceFilter' => $balanceFilter]) }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap" title="Print Supplier Directory">
+                            <span class="fas fa-print me-1 text-primary"></span>Print
+                        </a>
+
+                        <!-- Share Dropdown -->
+                        <div class="dropdown font-sans-serif d-inline-block">
+                            <button class="btn btn-falcon-default btn-sm dropdown-toggle text-nowrap" type="button" id="shareSupplierDirectoryDropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Share Supplier Directory">
+                                <span class="fas fa-share-alt me-1 text-info"></span>Share
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end py-2" aria-labelledby="shareSupplierDirectoryDropdown" style="min-width: 250px;">
+                                @php
+                                    $marqueeName = auth()->user()->marquee?->name ?? config('app.name', 'Marquee CMS');
+                                    $dirShareText = urlencode("{$marqueeName} - Supplier Directory & Accounts Payable\nTotal Listed: " . $suppliers->total() . "\nView Directory: " . request()->fullUrl());
+                                    $waDirUrl = "https://api.whatsapp.com/send?text={$dirShareText}";
+                                    $mailSubject = urlencode("{$marqueeName} - Supplier Directory");
+                                    $mailBody = urlencode("Supplier Directory from {$marqueeName}.\n\nView here: " . request()->fullUrl());
+                                @endphp
+                                <a class="dropdown-item d-flex align-items-center" href="{{ $waDirUrl }}" target="_blank">
+                                    <span class="fab fa-whatsapp me-2 text-success fs-9"></span>Share via WhatsApp
+                                </a>
+                                <a class="dropdown-item d-flex align-items-center" href="mailto:?subject={{ $mailSubject }}&body={{ $mailBody }}">
+                                    <span class="fas fa-envelope me-2 text-primary fs-10"></span>Share via Email
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <button class="dropdown-item d-flex align-items-center" type="button" onclick="navigator.clipboard.writeText('{{ request()->fullUrl() }}'); alert('Supplier Directory link copied to clipboard!');">
+                                    <span class="fas fa-link me-2 text-secondary fs-10"></span>Copy Directory Link
+                                </button>
+                            </div>
+                        </div>
+
                         @if(!$showForm && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_inventory')))
                             <button wire:click="create" class="btn btn-falcon-primary btn-sm text-nowrap">
                                 <span class="fas fa-plus me-1"></span>Register Supplier
@@ -218,7 +274,19 @@
                                             </span>
                                         </td>
                                         <td class="text-end px-3">
-                                            <div class="d-flex justify-content-end gap-2">
+                                            <div class="d-flex justify-content-end gap-2 align-items-center">
+                                                @php
+                                                    $rawWa = !empty($supp->whatsapp_number) ? $supp->whatsapp_number : $supp->mobile_number;
+                                                    $cleanWa = preg_replace('/[^0-9]/', '', $rawWa);
+                                                @endphp
+                                                @if(!empty($cleanWa))
+                                                    @php
+                                                        $waMsg = urlencode("Hello {$supp->name},\nHere is your supplier ledger and account summary from " . (auth()->user()->marquee?->name ?? 'our marquee') . ".\nOutstanding Balance: Rs. " . number_format($supp->current_balance, 2) . "\nLedger Statement: " . route('suppliers.ledger', $supp->id));
+                                                    @endphp
+                                                    <a href="https://wa.me/{{ $cleanWa }}?text={{ $waMsg }}" target="_blank" class="btn btn-link p-0 text-success" title="Message / Share on WhatsApp">
+                                                        <span class="fab fa-whatsapp fs-10"></span>
+                                                    </a>
+                                                @endif
                                                 <a href="{{ route('suppliers.ledger', $supp->id) }}" class="btn btn-link p-0" title="Ledger Statement">
                                                     <span class="text-info fas fa-file-invoice-dollar"></span>
                                                 </a>

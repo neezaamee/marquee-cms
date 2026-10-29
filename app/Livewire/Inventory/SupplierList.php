@@ -252,7 +252,7 @@ class SupplierList extends Component
         }
     }
 
-    public function render()
+    public function getFilteredSuppliersQuery()
     {
         $marqueeId = auth()->user()->getActiveMarqueeId();
         $query = Supplier::where('marquee_id', $marqueeId)->with(['categories']);
@@ -290,6 +290,92 @@ class SupplierList extends Component
                 });
             });
         }
+
+        return $query;
+    }
+
+    public function exportExcel()
+    {
+        $suppliers = $this->getFilteredSuppliersQuery()->orderBy('name', 'asc')->get();
+        $filename = "Supplier_Directory_" . date('Ymd_His') . ".csv";
+
+        $headers = [
+            "Content-type"        => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=\"{$filename}\"",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        return response()->stream(function () use ($suppliers) {
+            $handle = fopen('php://output', 'w');
+            fputs($handle, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel
+
+            $marquee = auth()->user()->marquee;
+            $marqueeName = $marquee ? $marquee->name : 'Marquee CMS';
+
+            fputcsv($handle, [$marqueeName . ' - SUPPLIER DIRECTORY']);
+            fputcsv($handle, ['Exported At', date('Y-m-d H:i:s')]);
+            fputcsv($handle, ['Category Filter', $this->categoryFilter === 'all' ? 'All Categories' : (SupplierCategory::find($this->categoryFilter)?->name ?? 'Selected')]);
+            fputcsv($handle, ['Balance Filter', $this->balanceFilter === 'outstanding' ? 'Outstanding (> 0)' : 'All Balances']);
+            if (!empty($this->search)) {
+                fputcsv($handle, ['Search Query', $this->search]);
+            }
+            fputcsv($handle, ['Total Suppliers', $suppliers->count()]);
+            fputcsv($handle, []);
+
+            fputcsv($handle, [
+                '#',
+                'Supplier Code',
+                'Supplier Name',
+                'Categories',
+                'Contact Person',
+                'Mobile Number',
+                'WhatsApp Number',
+                'Email',
+                'City',
+                'Address',
+                'Status',
+                'Opening Balance (Rs.)',
+                'Current Outstanding (Rs.)',
+                'Notes'
+            ]);
+
+            $totalOutstanding = 0.0;
+            foreach ($suppliers as $idx => $s) {
+                $categoriesStr = $s->categories->pluck('name')->join(', ');
+                $balance = (float) $s->current_balance;
+                $totalOutstanding += $balance;
+
+                fputcsv($handle, [
+                    $idx + 1,
+                    $s->supplier_code ?: '—',
+                    $s->name,
+                    $categoriesStr ?: '—',
+                    $s->contact_person ?: '—',
+                    $s->mobile_number ?: '—',
+                    $s->whatsapp_number ?: '—',
+                    $s->email ?: '—',
+                    $s->city ?: '—',
+                    $s->address ?: '—',
+                    $s->status,
+                    number_format($s->opening_balance, 2, '.', ''),
+                    number_format($balance, 2, '.', ''),
+                    $s->notes ?: '—',
+                ]);
+            }
+
+            fputcsv($handle, []);
+            fputcsv($handle, ['', '', '', '', '', '', '', '', '', '', 'TOTAL OUTSTANDING (Rs.)', '', number_format($totalOutstanding, 2, '.', '')]);
+
+            fclose($handle);
+        }, 200, $headers);
+    }
+
+    public function render()
+    {
+        $marqueeId = auth()->user()->getActiveMarqueeId();
+        $query = $this->getFilteredSuppliersQuery();
 
         $suppliers = $query->latest()->paginate(10);
 

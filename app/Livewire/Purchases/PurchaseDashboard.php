@@ -203,11 +203,29 @@ class PurchaseDashboard extends Component
             ->where('purchase_invoices.status', '!=', 'Cancelled')
             ->when($branchId, fn($q) => $q->where('purchase_invoices.branch_id', $branchId))
             ->when($this->filterSupplier, fn($q) => $q->where('purchase_invoices.supplier_id', $this->filterSupplier))
-            ->select('supplier_categories.name as category_name', DB::raw('SUM(purchase_invoices.net_amount) as total_spend'), DB::raw('COUNT(DISTINCT purchase_invoices.id) as invoice_count'))
+            ->select('supplier_categories.id as category_id', 'supplier_categories.name as category_name', DB::raw('SUM(purchase_invoices.net_amount) as total_spend'), DB::raw('COUNT(DISTINCT purchase_invoices.id) as invoice_count'))
             ->groupBy('supplier_categories.id', 'supplier_categories.name')
             ->orderByDesc('total_spend')
             ->take(6)
             ->get();
+
+        // Deduct purchase returns from category spend
+        $categoryBreakdown = $categoryBreakdown->map(function ($cat) use ($marqueeId, $branchId, $startStr, $endStr) {
+            $catReturns = (float) DB::table('purchase_returns')
+                ->join('suppliers', 'suppliers.id', '=', 'purchase_returns.supplier_id')
+                ->join('supplier_supplier_category', 'supplier_supplier_category.supplier_id', '=', 'suppliers.id')
+                ->where('purchase_returns.marquee_id', $marqueeId)
+                ->where('supplier_supplier_category.supplier_category_id', $cat->category_id)
+                ->whereBetween('purchase_returns.return_date', [$startStr, $endStr])
+                ->where('purchase_returns.status', '!=', 'Cancelled')
+                ->when($branchId, fn($q) => $q->where('purchase_returns.branch_id', $branchId))
+                ->when($this->filterSupplier, fn($q) => $q->where('purchase_returns.supplier_id', $this->filterSupplier))
+                ->sum('purchase_returns.net_amount');
+
+            $cat->total_returns = $catReturns;
+            $cat->net_spend = max(0.0, (float) $cat->total_spend - $catReturns);
+            return $cat;
+        });
 
         // =========================================================================
         // 7. 6-MONTH PROCUREMENT SPEND TREND
@@ -253,11 +271,11 @@ class PurchaseDashboard extends Component
             ->take(5)
             ->get();
 
-        // Recent Invoices
+        // Recent Invoices (eager load returns to deduct return amount in UI)
         $recentInvoices = PurchaseInvoice::where('marquee_id', $marqueeId)
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->when($this->filterSupplier, fn($q) => $q->where('supplier_id', $this->filterSupplier))
-            ->with(['supplier', 'branch'])
+            ->with(['supplier', 'branch', 'returns'])
             ->latest('purchase_date')
             ->latest('id')
             ->take(5)
@@ -283,10 +301,21 @@ class PurchaseDashboard extends Component
             ->take(5)
             ->get();
 
-        // Attach live balance to top suppliers
-        $topSuppliersWithBalance = $topSuppliers->map(function ($s) {
+        // Attach live balance and net purchases (after deducting returns) to top suppliers
+        $topSuppliersWithBalance = $topSuppliers->map(function ($s) use ($marqueeId, $branchId, $startStr, $endStr) {
             $suppModel = Supplier::find($s->id);
             $s->current_balance = $suppModel ? $suppModel->current_balance : 0.0;
+
+            $returnsQuery = PurchaseReturn::where('marquee_id', $marqueeId)
+                ->where('supplier_id', $s->id)
+                ->whereBetween('return_date', [$startStr, $endStr])
+                ->where('status', '!=', 'Cancelled');
+            if ($branchId) {
+                $returnsQuery->where('branch_id', $branchId);
+            }
+            $s->total_returns = (float) $returnsQuery->sum('net_amount');
+            $s->net_purchases = max(0.0, (float) $s->total_purchases - $s->total_returns);
+
             return $s;
         });
 

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Inventory\SupplierLedgerView;
+use App\Livewire\Inventory\SupplierList;
 use App\Livewire\Purchases\PurchaseInvoiceList;
 use App\Models\Account;
 use App\Models\AccountOpeningBalance;
@@ -517,5 +518,42 @@ class SupplierDirectoryLedgerPaymentTest extends TestCase
             ->assertSee('-Rs. 10,000.00')
             ->assertSee('Bal: Rs. 0.00')
             ->assertSee('Fully Returned');
+    }
+
+    public function test_supplier_directory_pdf_excel_print_and_share_options(): void
+    {
+        $this->actingAs($this->owner);
+
+        // 1. Livewire UI test: verify options are visible
+        Livewire::test(SupplierList::class)
+            ->assertSee('Supplier Directory')
+            ->assertSee('Excel')
+            ->assertSee('PDF')
+            ->assertSee('Print')
+            ->assertSee('Share')
+            ->assertSee('Share via WhatsApp')
+            ->assertSee('Share via Email')
+            ->assertSee('Copy Directory Link');
+
+        // 2. Excel CSV export test
+        $response = Livewire::test(SupplierList::class)
+            ->call('exportExcel');
+
+        $this->assertTrue(isset($response->effects['download']) || $response->instance()->exportExcel() instanceof \Symfony\Component\HttpFoundation\StreamedResponse);
+
+        $streamed = $response->instance()->exportExcel();
+        $this->assertEquals('text/csv; charset=UTF-8', $streamed->headers->get('Content-Type'));
+        $this->assertStringContainsString('Supplier_Directory_', $streamed->headers->get('Content-Disposition'));
+
+        // 3. PDF route test
+        $pdfResponse = $this->get(route('suppliers.pdf'));
+        $pdfResponse->assertStatus(200);
+        $this->assertStringContainsString('application/pdf', $pdfResponse->headers->get('Content-Type'));
+
+        // 4. Print route test
+        $printResponse = $this->get(route('suppliers.print'));
+        $printResponse->assertStatus(200);
+        $printResponse->assertSee('Print Directory');
+        $printResponse->assertSee('Supplier Directory');
     }
 }

@@ -321,6 +321,99 @@ Route::middleware(['auth', 'user.active'])->group(function () {
 
             // Supplier Directory & Categories Module
             Route::view('inventory/suppliers', 'inventory.suppliers')->name('suppliers.index');
+            Route::get('inventory/suppliers-directory/pdf', function (\Illuminate\Http\Request $request) {
+                $marqueeId = auth()->user()->getActiveMarqueeId();
+                $marquee = auth()->user()->marquee;
+                $query = \App\Models\Supplier::where('marquee_id', $marqueeId)->with(['categories']);
+
+                $search = $request->query('search');
+                if (!empty($search)) {
+                    $cleanDigits = preg_replace('/[^0-9]/', '', $search);
+                    $query->where(function ($q) use ($search, $cleanDigits) {
+                        $q->where('name', 'like', '%' . $search . '%')
+                          ->orWhere('supplier_code', 'like', '%' . $search . '%')
+                          ->orWhere('contact_person', 'like', '%' . $search . '%');
+                        if (!empty($cleanDigits)) {
+                            $q->orWhere('mobile_number', 'like', '%' . $cleanDigits . '%');
+                        }
+                    });
+                }
+
+                $categoryFilter = $request->query('categoryFilter', 'all');
+                if ($categoryFilter !== 'all' && !empty($categoryFilter)) {
+                    $query->whereHas('categories', function ($q) use ($categoryFilter) {
+                        $q->where('supplier_categories.id', $categoryFilter);
+                    });
+                }
+
+                $balanceFilter = $request->query('balanceFilter', 'all');
+                if ($balanceFilter === 'outstanding') {
+                    $query->where(function ($q) {
+                        $q->whereExists(function ($sub) {
+                            $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                                ->from('supplier_ledgers as sl1')
+                                ->whereColumn('sl1.supplier_id', 'suppliers.id')
+                                ->whereNull('sl1.deleted_at')
+                                ->whereRaw('sl1.id = (SELECT MAX(sl2.id) FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL)')
+                                ->where('sl1.running_balance', '>', 0.01);
+                        })->orWhere(function ($sub) {
+                            $sub->whereDoesntHave('ledgers')->where('opening_balance', '>', 0.01);
+                        });
+                    });
+                }
+
+                $suppliers = $query->orderBy('name', 'asc')->get();
+                $isPdf = true;
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.supplier-directory-pdf', compact('suppliers', 'marquee', 'isPdf', 'search', 'categoryFilter', 'balanceFilter'))
+                    ->setPaper('a4', 'landscape');
+                return $pdf->stream('Supplier_Directory_' . date('Ymd_His') . '.pdf');
+            })->name('suppliers.pdf');
+
+            Route::get('inventory/suppliers-directory/print', function (\Illuminate\Http\Request $request) {
+                $marqueeId = auth()->user()->getActiveMarqueeId();
+                $marquee = auth()->user()->marquee;
+                $query = \App\Models\Supplier::where('marquee_id', $marqueeId)->with(['categories']);
+
+                $search = $request->query('search');
+                if (!empty($search)) {
+                    $cleanDigits = preg_replace('/[^0-9]/', '', $search);
+                    $query->where(function ($q) use ($search, $cleanDigits) {
+                        $q->where('name', 'like', '%' . $search . '%')
+                          ->orWhere('supplier_code', 'like', '%' . $search . '%')
+                          ->orWhere('contact_person', 'like', '%' . $search . '%');
+                        if (!empty($cleanDigits)) {
+                            $q->orWhere('mobile_number', 'like', '%' . $cleanDigits . '%');
+                        }
+                    });
+                }
+
+                $categoryFilter = $request->query('categoryFilter', 'all');
+                if ($categoryFilter !== 'all' && !empty($categoryFilter)) {
+                    $query->whereHas('categories', function ($q) use ($categoryFilter) {
+                        $q->where('supplier_categories.id', $categoryFilter);
+                    });
+                }
+
+                $balanceFilter = $request->query('balanceFilter', 'all');
+                if ($balanceFilter === 'outstanding') {
+                    $query->where(function ($q) {
+                        $q->whereExists(function ($sub) {
+                            $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                                ->from('supplier_ledgers as sl1')
+                                ->whereColumn('sl1.supplier_id', 'suppliers.id')
+                                ->whereNull('sl1.deleted_at')
+                                ->whereRaw('sl1.id = (SELECT MAX(sl2.id) FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL)')
+                                ->where('sl1.running_balance', '>', 0.01);
+                        })->orWhere(function ($sub) {
+                            $sub->whereDoesntHave('ledgers')->where('opening_balance', '>', 0.01);
+                        });
+                    });
+                }
+
+                $suppliers = $query->orderBy('name', 'asc')->get();
+                $isPdf = false;
+                return view('inventory.supplier-directory-pdf', compact('suppliers', 'marquee', 'isPdf', 'search', 'categoryFilter', 'balanceFilter'));
+            })->name('suppliers.print');
             Route::view('inventory/supplier-categories', 'inventory.supplier-categories')->name('supplier-categories.index');
             Route::get('inventory/suppliers/{supplier}/ledger', function (\App\Models\Supplier $supplier) {
                 return view('inventory.supplier-ledger', compact('supplier'));

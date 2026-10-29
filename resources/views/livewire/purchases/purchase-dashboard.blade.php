@@ -95,7 +95,7 @@
 
     <!-- 1. Top Key Performance Indicators (KPI Cards) -->
     <div class="row g-3 mb-3">
-        <!-- Invoiced Purchases (Net Spend) -->
+        <!-- Invoiced Purchases (Net Spend after deducting returns) -->
         <div class="col-sm-6 col-lg-3">
             <div class="card overflow-hidden h-100 border border-primary-subtle shadow-sm">
                 <div class="bg-holder bg-card" style="background-image:url({{ asset('assets/img/icons/spot-illustrations/corner-1.png') }});"></div>
@@ -104,8 +104,14 @@
                         <h6 class="text-uppercase text-600 fw-bold fs-11 text-primary mb-0">Total Invoiced Spend</h6>
                         <span class="badge badge-subtle-primary fs-11"><span class="fas fa-receipt me-1"></span>{{ $totalInvoicesCount }} Bills</span>
                     </div>
-                    <div class="display-6 fs-4 mb-1 fw-black text-primary font-monospace">Rs. {{ number_format($totalPurchasesNet, 2) }}</div>
-                    <div class="d-flex justify-content-between fs-11 text-500">
+                    <div class="display-6 fs-4 mb-1 fw-black text-primary font-monospace">Rs. {{ number_format($effectiveProcurementSpend, 2) }}</div>
+                    @if($totalReturnsNet > 0)
+                        <div class="d-flex justify-content-between align-items-center fs-11 mb-1">
+                            <span class="text-muted">Gross: Rs. {{ number_format($totalPurchasesNet, 2) }}</span>
+                            <span class="text-danger fw-semibold"><span class="fas fa-undo-alt me-1"></span>-Rs. {{ number_format($totalReturnsNet, 2) }}</span>
+                        </div>
+                    @endif
+                    <div class="d-flex justify-content-between fs-11 text-500 {{ $totalReturnsNet > 0 ? 'border-top pt-1' : '' }}">
                         <span>Posted: <strong class="text-success">{{ $postedInvoicesCount }}</strong></span>
                         <span>Draft: <strong class="text-warning">{{ $draftInvoicesCount }}</strong></span>
                         <span>Tax: <strong>{{ number_format($totalPurchasesTax, 0) }}</strong></span>
@@ -158,8 +164,8 @@
                     </div>
                     <div class="display-6 fs-4 mb-1 fw-black text-info-emphasis font-monospace">Rs. {{ number_format($totalOutstandingPayables, 2) }}</div>
                     <div class="d-flex justify-content-between fs-11 text-500">
-                        <span>Returns: <strong class="text-danger">Rs. {{ number_format($totalReturnsNet, 0) }}</strong> ({{ $totalReturnsCount }})</span>
-                        <span>Net Spend: <strong class="text-dark">Rs. {{ number_format($effectiveProcurementSpend, 0) }}</strong></span>
+                        <span>Returns Deducted: <strong class="text-danger">-Rs. {{ number_format($totalReturnsNet, 2) }}</strong> ({{ $totalReturnsCount }})</span>
+                        <a href="{{ route('purchase-returns.index') }}" class="text-primary text-decoration-none fw-semi-bold">Returns &rarr;</a>
                     </div>
                 </div>
             </div>
@@ -242,7 +248,7 @@
                     <h6 class="mb-0 fw-bold text-700">
                         <span class="fas fa-tags me-2 text-primary"></span>Spending by Supplier Category
                     </h6>
-                    <span class="fs-11 text-muted">Active Invoices</span>
+                    <span class="fs-11 text-muted">Net of Returns</span>
                 </div>
                 <div class="card-body p-3">
                     @if($categoryBreakdown->isEmpty())
@@ -252,13 +258,13 @@
                         </div>
                     @else
                         @php
-                            $catTotalSpend = max(1, $categoryBreakdown->sum('total_spend'));
+                            $catTotalSpend = max(1, $categoryBreakdown->sum('net_spend'));
                             $palette = ['primary', 'info', 'success', 'warning', 'danger', 'secondary'];
                         @endphp
                         @foreach($categoryBreakdown as $idx => $cat)
                             @php
                                 $color = $palette[$idx % count($palette)];
-                                $pct = round(($cat->total_spend / $catTotalSpend) * 100, 1);
+                                $pct = round(($cat->net_spend / $catTotalSpend) * 100, 1);
                             @endphp
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center fs-11 mb-1">
@@ -267,7 +273,10 @@
                                         <span class="text-muted fs-10">({{ $cat->invoice_count }} invoices)</span>
                                     </span>
                                     <span class="font-monospace fw-bold text-dark">
-                                        Rs. {{ number_format($cat->total_spend, 2) }}
+                                        Rs. {{ number_format($cat->net_spend, 2) }}
+                                        @if($cat->total_returns > 0)
+                                            <span class="text-danger fs-10 ms-1">(-Rs. {{ number_format($cat->total_returns, 0) }})</span>
+                                        @endif
                                         <span class="text-muted fw-normal">({{ $pct }}%)</span>
                                     </span>
                                 </div>
@@ -473,11 +482,25 @@
                                         <td class="px-3 font-monospace fw-bold text-dark">{{ $inv->invoice_number }}</td>
                                         <td>{{ Str::limit($inv->supplier->name ?? '—', 16) }}</td>
                                         <td class="text-muted">{{ $inv->purchase_date ? $inv->purchase_date->format('d M') : '—' }}</td>
-                                        <td class="text-end font-monospace fw-bold text-success">Rs. {{ number_format($inv->net_amount, 2) }}</td>
+                                        <td class="text-end font-monospace fw-bold">
+                                            @if($inv->returned_amount > 0)
+                                                <span class="text-success">Rs. {{ number_format($inv->balance_after_returns, 2) }}</span>
+                                                <div class="fs-10 text-danger font-monospace">
+                                                    <span class="fas fa-undo-alt me-1"></span>-Rs. {{ number_format($inv->returned_amount, 2) }}
+                                                </div>
+                                            @else
+                                                <span class="text-success">Rs. {{ number_format($inv->net_amount, 2) }}</span>
+                                            @endif
+                                        </td>
                                         <td>
                                             <span class="badge badge-subtle-{{ $inv->status === 'Posted' ? 'success' : ($inv->status === 'Draft' ? 'secondary' : 'info') }}">
                                                 {{ $inv->status }}
                                             </span>
+                                            @if($inv->return_status)
+                                                <span class="badge {{ $inv->return_status === 'Fully Returned' ? 'badge-subtle-danger text-danger' : 'badge-subtle-warning text-warning-emphasis' }} fs-11 ms-1">
+                                                    <span class="fas fa-undo-alt me-1"></span>{{ $inv->return_status }}
+                                                </span>
+                                            @endif
                                         </td>
                                         <td class="text-end px-3">
                                             <a href="{{ route('purchase-invoices.pdf', $inv->id) }}" target="_blank" class="btn btn-outline-info btn-xs me-1" title="PDF">
@@ -522,7 +545,7 @@
                                     <th>Supplier Code & Name</th>
                                     <th>Contact</th>
                                     <th class="text-center">Bills Count</th>
-                                    <th class="text-end">Total Purchases</th>
+                                    <th class="text-end">Purchases (Net)</th>
                                     <th class="text-end">Current Ledger Balance</th>
                                     <th class="text-end px-3">Action</th>
                                 </tr>
@@ -541,7 +564,14 @@
                                         </td>
                                         <td class="font-monospace text-muted">{{ $s->mobile_number ?? '—' }}</td>
                                         <td class="text-center font-monospace">{{ $s->invoice_count }}</td>
-                                        <td class="text-end font-monospace fw-bold text-primary">Rs. {{ number_format($s->total_purchases, 2) }}</td>
+                                        <td class="text-end font-monospace fw-bold text-primary">
+                                            Rs. {{ number_format($s->net_purchases, 2) }}
+                                            @if($s->total_returns > 0)
+                                                <div class="fs-10 text-danger font-monospace">
+                                                    <span class="fas fa-undo-alt me-1"></span>-Rs. {{ number_format($s->total_returns, 2) }}
+                                                </div>
+                                            @endif
+                                        </td>
                                         <td class="text-end font-monospace fw-bold {{ $s->current_balance > 0 ? 'text-danger' : 'text-success' }}">
                                             Rs. {{ number_format($s->current_balance, 2) }}
                                         </td>
