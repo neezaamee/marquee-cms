@@ -153,7 +153,7 @@ class PurchaseInvoiceList extends Component
     public function render()
     {
         $marqueeId = auth()->user()->marquee_id;
-        $query = PurchaseInvoice::where('marquee_id', $marqueeId)->with(['supplier', 'branch', 'journalVoucher']);
+        $query = PurchaseInvoice::where('marquee_id', $marqueeId)->with(['supplier', 'branch', 'journalVoucher', 'returns']);
 
         if (!empty($this->search)) {
             $query->where(function ($q) {

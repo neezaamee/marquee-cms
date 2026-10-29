@@ -84,7 +84,7 @@ class PurchaseInvoiceForm extends Component
 
         if ($id) {
             $this->editId = $id;
-            $this->invoice = PurchaseInvoice::with(['details.item.unit', 'journalVoucher'])->findOrFail($id);
+            $this->invoice = PurchaseInvoice::with(['details.item.unit', 'journalVoucher', 'returns.details'])->findOrFail($id);
             $this->invoice_number = $this->invoice->invoice_number;
             $this->supplier_id = $this->invoice->supplier_id;
             $this->branch_id = $this->invoice->branch_id;

@@ -417,7 +417,51 @@
             </div>
 
             <!-- Cost Math totals layout -->
-            <div class="row justify-content-end mb-3">
+            <div class="row justify-content-between mb-3">
+                <div class="col-md-7">
+                    @if($invoice && $invoice->returns->where('status', '!=', 'Cancelled')->isNotEmpty())
+                        <div class="card border border-warning shadow-none mb-3">
+                            <div class="card-header bg-warning-subtle py-2 px-3 d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 text-warning-emphasis fw-bold fs-11">
+                                    <i class="fas fa-undo-alt me-1"></i>Linked Purchase Returns ({{ $invoice->returns->where('status', '!=', 'Cancelled')->count() }})
+                                </h6>
+                                <span class="badge badge-subtle-warning fs-11">{{ $invoice->return_status }}</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm fs-11 mb-0 align-middle">
+                                    <thead class="bg-light">
+                                        <tr>
+                                            <th class="ps-3">Return #</th>
+                                            <th>Date</th>
+                                            <th>Status</th>
+                                            <th class="text-end pe-3">Returned Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($invoice->returns->where('status', '!=', 'Cancelled') as $ret)
+                                            <tr>
+                                                <td class="ps-3 font-monospace fw-bold">
+                                                    <a href="{{ route('purchase-returns.edit', $ret->id) }}" class="text-primary text-decoration-none">
+                                                        {{ $ret->return_number }}
+                                                    </a>
+                                                </td>
+                                                <td>{{ $ret->return_date ? $ret->return_date->format('Y-m-d') : '—' }}</td>
+                                                <td>
+                                                    <span class="badge badge-subtle-{{ $ret->status === 'Posted' ? 'success' : 'secondary' }} fs-11">
+                                                        {{ $ret->status }}
+                                                    </span>
+                                                </td>
+                                                <td class="text-end pe-3 font-monospace text-danger fw-bold">
+                                                    - Rs. {{ number_format($ret->net_amount, 2) }}
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+                </div>
                 <div class="col-md-4">
                     <table class="table table-sm table-borderless fs-11">
                         <tr>
@@ -448,6 +492,16 @@
                             <td class="text-800">Net Amount Payable:</td>
                             <td class="text-end text-danger fs-8">Rs. {{ number_format($net_amount) }}</td>
                         </tr>
+                        @if($invoice && $invoice->returned_amount > 0)
+                            <tr class="table-warning font-monospace fs-10">
+                                <td class="text-danger fw-bold"><i class="fas fa-undo-alt me-1"></i>Less: Purchase Returns:</td>
+                                <td class="text-end text-danger fw-bold">- Rs. {{ number_format($invoice->returned_amount, 2) }}</td>
+                            </tr>
+                            <tr class="border-top table-success fw-black font-monospace fs-9">
+                                <td class="text-success">Net Adjusted Balance:</td>
+                                <td class="text-end text-success fs-8">Rs. {{ number_format($invoice->balance_after_returns, 2) }}</td>
+                            </tr>
+                        @endif
                     </table>
                 </div>
             </div>

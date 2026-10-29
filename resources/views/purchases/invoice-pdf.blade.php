@@ -290,15 +290,53 @@
         @endif
         @if($invoice->tax > 0)
             <tr>
-                <td>Tax:</td>
+                <td>Tax / Freight:</td>
                 <td class="text-end font-mono">+ Rs. {{ number_format($invoice->tax, 2) }}</td>
             </tr>
         @endif
         <tr class="grand-total">
-            <td>Net Payable:</td>
+            <td>Invoiced Amount:</td>
             <td class="text-end font-mono">Rs. {{ number_format($invoice->net_amount, 2) }}</td>
         </tr>
+        @if($invoice->returned_amount > 0)
+            <tr>
+                <td style="color: #c0392b; font-weight: bold;">Less: Purchase Returns:</td>
+                <td class="text-end font-mono" style="color: #c0392b; font-weight: bold;">- Rs. {{ number_format($invoice->returned_amount, 2) }}</td>
+            </tr>
+            <tr class="grand-total" style="background-color: #27ae60; color: #fff;">
+                <td>Adjusted Net Payable:</td>
+                <td class="text-end font-mono">Rs. {{ number_format($invoice->balance_after_returns, 2) }}</td>
+            </tr>
+        @endif
     </table>
+
+    @if($invoice->returns && $invoice->returns->where('status', '!=', 'Cancelled')->isNotEmpty())
+        <div style="clear: both; margin-top: 15px; margin-bottom: 10px;">
+            <strong style="font-size: 11px; color: #c0392b;">Linked Purchase Returns ({{ $invoice->return_status }}):</strong>
+            <table class="items-table" style="margin-top: 5px;">
+                <thead>
+                    <tr style="background-color: #e74c3c;">
+                        <th style="width: 30px;" class="text-center">#</th>
+                        <th style="width: 140px;">Return Number</th>
+                        <th>Return Date</th>
+                        <th>Status</th>
+                        <th style="width: 120px;" class="text-end">Amount (Rs.)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($invoice->returns->where('status', '!=', 'Cancelled') as $rIdx => $ret)
+                        <tr>
+                            <td class="text-center font-mono">{{ $rIdx + 1 }}</td>
+                            <td class="font-mono fw-bold">{{ $ret->return_number }}</td>
+                            <td>{{ $ret->return_date ? $ret->return_date->format('d M, Y') : '—' }}</td>
+                            <td>{{ $ret->status }}</td>
+                            <td class="text-end font-mono fw-bold" style="color: #c0392b;">- Rs. {{ number_format($ret->net_amount, 2) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
 
     @if($invoice->notes)
         <div style="clear: both; margin-top: 10px; padding: 8px 12px; background: #fafafa; border: 1px solid #eee; border-radius: 4px;">

@@ -126,8 +126,16 @@
                                         <span class="text-muted">—</span>
                                     @endif
                                 </td>
-                                <td class="py-2.5 text-end font-monospace fw-bold fs-9 text-dark">
-                                    Rs. {{ number_format($inv->net_amount, 2) }}
+                                <td class="py-2.5 text-end font-monospace fs-9">
+                                    <div class="fw-bold text-dark">Rs. {{ number_format($inv->net_amount, 2) }}</div>
+                                    @if($inv->returned_amount > 0)
+                                        <div class="fs-11 text-danger font-monospace" title="Total Returned Amount">
+                                            <i class="fas fa-undo-alt me-1"></i>-Rs. {{ number_format($inv->returned_amount, 2) }}
+                                        </div>
+                                        <div class="fs-11 text-success fw-bold font-monospace border-top pt-0.5 mt-1" title="Net Invoice Value after Returns">
+                                            Bal: Rs. {{ number_format($inv->balance_after_returns, 2) }}
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="py-2.5 font-monospace">
                                     @if($inv->journalVoucher)
@@ -148,6 +156,13 @@
                                         $sc = $statuses[$inv->status] ?? 'dark';
                                     @endphp
                                     <span class="badge badge-subtle-{{ $sc }} rounded-pill px-2 py-1 fs-11">{{ $inv->status }}</span>
+                                    @if($inv->return_status)
+                                        <div>
+                                            <span class="badge badge-subtle-warning rounded-pill px-2 py-0.5 fs-11 mt-1" title="Returned Amount: Rs. {{ number_format($inv->returned_amount, 2) }}">
+                                                <i class="fas fa-undo me-1"></i>{{ $inv->return_status }}
+                                            </span>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="py-2.5 text-end pe-3">
                                     <div class="d-flex justify-content-end align-items-center gap-2">

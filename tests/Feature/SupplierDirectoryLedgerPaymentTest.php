@@ -16,6 +16,7 @@ use App\Models\JournalVoucherItem;
 use App\Models\Marquee;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseInvoiceDetail;
+use App\Models\PurchaseReturn;
 use App\Models\Role;
 use App\Models\SubscriptionPlan;
 use App\Models\Supplier;
@@ -440,5 +441,81 @@ class SupplierDirectoryLedgerPaymentTest extends TestCase
             ->assertSee('PINV-DATE-001')
             ->assertSee('PINV-DATE-002')
             ->assertSee('PINV-DATE-003');
+    }
+
+    public function test_purchase_invoice_reflects_returns_and_deducts_from_balance(): void
+    {
+        $this->actingAs($this->owner);
+
+        // 1. Create a purchase invoice of 10,000
+        $invoice = PurchaseInvoice::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'supplier_id' => $this->supplier->id,
+            'invoice_number' => 'PINV-RET-TEST',
+            'reference_number' => 'REF-RET-01',
+            'purchase_date' => '2026-10-20',
+            'gross_amount' => 10000.00,
+            'discount' => 0.00,
+            'tax' => 0.00,
+            'net_amount' => 10000.00,
+            'status' => 'Posted',
+        ]);
+
+        $this->assertEquals(0.00, $invoice->returned_amount);
+        $this->assertEquals(10000.00, $invoice->balance_after_returns);
+        $this->assertNull($invoice->return_status);
+
+        // 2. Add a partial purchase return of 3,000
+        $return = PurchaseReturn::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'supplier_id' => $this->supplier->id,
+            'purchase_invoice_id' => $invoice->id,
+            'return_number' => 'RET-2026-00001',
+            'return_date' => '2026-10-22',
+            'gross_amount' => 3000.00,
+            'tax' => 0.00,
+            'net_amount' => 3000.00,
+            'status' => 'Posted',
+        ]);
+
+        $invoice->refresh();
+        $this->assertEquals(3000.00, $invoice->returned_amount);
+        $this->assertEquals(7000.00, $invoice->balance_after_returns);
+        $this->assertEquals('Partially Returned', $invoice->return_status);
+
+        // 3. Verify PurchaseInvoiceList displays original, returned, and net balance after returns
+        Livewire::test(PurchaseInvoiceList::class)
+            ->assertSee('PINV-RET-TEST')
+            ->assertSee('10,000.00')
+            ->assertSee('-Rs. 3,000.00')
+            ->assertSee('Bal: Rs. 7,000.00')
+            ->assertSee('Partially Returned');
+
+        // 4. Add remaining return of 7,000 (total return = 10,000)
+        PurchaseReturn::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'supplier_id' => $this->supplier->id,
+            'purchase_invoice_id' => $invoice->id,
+            'return_number' => 'RET-2026-00002',
+            'return_date' => '2026-10-23',
+            'gross_amount' => 7000.00,
+            'tax' => 0.00,
+            'net_amount' => 7000.00,
+            'status' => 'Posted',
+        ]);
+
+        $invoice->refresh();
+        $this->assertEquals(10000.00, $invoice->returned_amount);
+        $this->assertEquals(0.00, $invoice->balance_after_returns);
+        $this->assertEquals('Fully Returned', $invoice->return_status);
+
+        Livewire::test(PurchaseInvoiceList::class)
+            ->assertSee('PINV-RET-TEST')
+            ->assertSee('-Rs. 10,000.00')
+            ->assertSee('Bal: Rs. 0.00')
+            ->assertSee('Fully Returned');
     }
 }

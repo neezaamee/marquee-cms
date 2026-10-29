@@ -376,14 +376,14 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                 return view('purchases.invoice-form', compact('id'));
             })->name('purchase-invoices.edit');
             Route::get('purchases/invoices/{id}/pdf', function ($id) {
-                $invoice = \App\Models\PurchaseInvoice::with(['details.item.unit', 'supplier', 'branch', 'marquee', 'journalVoucher', 'purchaseOrder', 'goodsReceivingNote'])->findOrFail($id);
+                $invoice = \App\Models\PurchaseInvoice::with(['details.item.unit', 'supplier', 'branch', 'marquee', 'journalVoucher', 'purchaseOrder', 'goodsReceivingNote', 'returns'])->findOrFail($id);
                 $isPdf = true;
                 $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('purchases.invoice-pdf', compact('invoice', 'isPdf'))
                     ->setPaper('a4', 'portrait');
                 return $pdf->stream('Purchase_Invoice_' . $invoice->invoice_number . '.pdf');
             })->name('purchase-invoices.pdf');
             Route::get('purchases/invoices/{id}/print', function ($id) {
-                $invoice = \App\Models\PurchaseInvoice::with(['details.item.unit', 'supplier', 'branch', 'marquee', 'journalVoucher', 'purchaseOrder', 'goodsReceivingNote'])->findOrFail($id);
+                $invoice = \App\Models\PurchaseInvoice::with(['details.item.unit', 'supplier', 'branch', 'marquee', 'journalVoucher', 'purchaseOrder', 'goodsReceivingNote', 'returns'])->findOrFail($id);
                 $isPdf = false;
                 return view('purchases.invoice-pdf', compact('invoice', 'isPdf'));
             })->name('purchase-invoices.print');

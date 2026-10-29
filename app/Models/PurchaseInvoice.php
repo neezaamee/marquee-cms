@@ -81,4 +81,54 @@ class PurchaseInvoice extends Model
     {
         return $this->hasMany(PurchaseInvoiceDetail::class, 'purchase_invoice_id');
     }
+
+    /**
+     * Get purchase returns linked to this invoice.
+     */
+    public function returns()
+    {
+        return $this->hasMany(PurchaseReturn::class, 'purchase_invoice_id');
+    }
+
+    /**
+     * Get posted purchase returns linked to this invoice.
+     */
+    public function postedReturns()
+    {
+        return $this->hasMany(PurchaseReturn::class, 'purchase_invoice_id')->where('status', 'Posted');
+    }
+
+    /**
+     * Get total returned amount across non-cancelled purchase returns.
+     */
+    public function getReturnedAmountAttribute(): float
+    {
+        if ($this->relationLoaded('returns')) {
+            return (float) $this->returns->where('status', '!=', 'Cancelled')->sum('net_amount');
+        }
+        return (float) $this->returns()->where('status', '!=', 'Cancelled')->sum('net_amount');
+    }
+
+    /**
+     * Get net payable balance on this invoice after subtracting returns.
+     */
+    public function getBalanceAfterReturnsAttribute(): float
+    {
+        return max(0.0, round((float) $this->net_amount - $this->returned_amount, 2));
+    }
+
+    /**
+     * Get return status badge text (null, Partially Returned, Fully Returned).
+     */
+    public function getReturnStatusAttribute(): ?string
+    {
+        $returned = $this->returned_amount;
+        if ($returned <= 0.001) {
+            return null;
+        }
+        if ($returned >= ((float) $this->net_amount - 0.01)) {
+            return 'Fully Returned';
+        }
+        return 'Partially Returned';
+    }
 }
