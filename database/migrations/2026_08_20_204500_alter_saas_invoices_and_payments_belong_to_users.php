@@ -13,9 +13,11 @@ return new class extends Migration
     public function up(): void
     {
         // 1. Add max_marquees to subscription_plans
-        Schema::table('subscription_plans', function (Blueprint $table) {
-            $table->integer('max_marquees')->default(1)->after('max_branches');
-        });
+        if (!Schema::hasColumn('subscription_plans', 'max_marquees')) {
+            Schema::table('subscription_plans', function (Blueprint $table) {
+                $table->integer('max_marquees')->default(1)->after('max_branches');
+            });
+        }
 
         // 2. Make marquee_id nullable in financial_years
         Schema::table('financial_years', function (Blueprint $table) {
@@ -38,8 +40,11 @@ return new class extends Migration
 
         // 4. Make marquee_id nullable in accounts
         Schema::table('accounts', function (Blueprint $table) {
-            $table->dropUnique(['marquee_id', 'account_code']);
             $table->dropForeign(['marquee_id']);
+        });
+
+        Schema::table('accounts', function (Blueprint $table) {
+            $table->dropUnique(['marquee_id', 'account_code']);
             
             $table->unsignedBigInteger('marquee_id')->nullable()->change();
             
@@ -49,8 +54,11 @@ return new class extends Migration
 
         // 5. Alter saas_invoices to change marquee_id to user_id
         Schema::table('saas_invoices', function (Blueprint $table) {
-            $table->dropIndex(['marquee_id', 'invoice_status']);
             $table->dropForeign(['marquee_id']);
+        });
+
+        Schema::table('saas_invoices', function (Blueprint $table) {
+            $table->dropIndex(['marquee_id', 'invoice_status']);
             $table->dropColumn('marquee_id');
             $table->foreignId('user_id')->after('invoice_number')->constrained('users')->onDelete('cascade');
             
@@ -65,16 +73,18 @@ return new class extends Migration
         });
 
         // 7. Seed Super Admin (Platform) Financial Year
-        DB::table('financial_years')->insert([
-            'marquee_id' => null,
-            'name' => 'SaaS Platform FY 2026',
-            'start_date' => '2026-01-01',
-            'end_date' => '2026-12-31',
-            'status' => 'active',
-            'is_default' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        if (!DB::table('financial_years')->where('name', 'SaaS Platform FY 2026')->exists()) {
+            DB::table('financial_years')->insert([
+                'marquee_id' => null,
+                'name' => 'SaaS Platform FY 2026',
+                'start_date' => '2026-01-01',
+                'end_date' => '2026-12-31',
+                'status' => 'active',
+                'is_default' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         // 8. Seed Super Admin hierarchical Chart of Accounts (where marquee_id is null)
         $this->seedSuperAdminCOA();
@@ -99,19 +109,24 @@ return new class extends Migration
 
         $rootIds = [];
         foreach ($roots as $code => $data) {
-            $rootIds[$code] = DB::table('accounts')->insertGetId([
-                'marquee_id' => null,
-                'account_code' => $code,
-                'name' => $data['name'],
-                'parent_id' => null,
-                'account_type_id' => $types[$data['type']]->id,
-                'nature' => $data['nature'],
-                'description' => "Root account for {$data['name']}",
-                'is_active' => true,
-                'system_generated' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            $existing = DB::table('accounts')->whereNull('marquee_id')->where('account_code', $code)->first();
+            if ($existing) {
+                $rootIds[$code] = $existing->id;
+            } else {
+                $rootIds[$code] = DB::table('accounts')->insertGetId([
+                    'marquee_id' => null,
+                    'account_code' => $code,
+                    'name' => $data['name'],
+                    'parent_id' => null,
+                    'account_type_id' => $types[$data['type']]->id,
+                    'nature' => $data['nature'],
+                    'description' => "Root account for {$data['name']}",
+                    'is_active' => true,
+                    'system_generated' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
         }
 
         // Sub accounts
@@ -137,19 +152,22 @@ return new class extends Migration
         ];
 
         foreach ($subs as $sub) {
-            DB::table('accounts')->insert([
-                'marquee_id' => null,
-                'account_code' => $sub['code'],
-                'name' => $sub['name'],
-                'parent_id' => $rootIds[$sub['parent_code']],
-                'account_type_id' => $types[$sub['type']]->id,
-                'nature' => $sub['nature'],
-                'description' => $sub['desc'],
-                'is_active' => true,
-                'system_generated' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            $existing = DB::table('accounts')->whereNull('marquee_id')->where('account_code', $sub['code'])->exists();
+            if (!$existing) {
+                DB::table('accounts')->insert([
+                    'marquee_id' => null,
+                    'account_code' => $sub['code'],
+                    'name' => $sub['name'],
+                    'parent_id' => $rootIds[$sub['parent_code']],
+                    'account_type_id' => $types[$sub['type']]->id,
+                    'nature' => $sub['nature'],
+                    'description' => $sub['desc'],
+                    'is_active' => true,
+                    'system_generated' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
         }
     }
 
