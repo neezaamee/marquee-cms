@@ -1,17 +1,134 @@
 <div>
+    <style>
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 12mm 10mm 15mm 10mm;
+            }
+
+            .d-print-none,
+            .btn,
+            .navbar-vertical,
+            .navbar-top,
+            .footer,
+            #navbarVerticalCollapse {
+                display: none !important;
+            }
+
+            .d-print-block {
+                display: block !important;
+            }
+
+            .table-responsive {
+                overflow: visible !important;
+            }
+
+            .table {
+                border-collapse: collapse !important;
+                width: 100% !important;
+                font-size: 10px !important;
+            }
+
+            .table th, .table td {
+                border: 1px solid #cbd5e1 !important;
+                padding: 5px 7px !important;
+                color: #0f172a !important;
+            }
+
+            .table thead th {
+                background-color: #f1f5f9 !important;
+                color: #0f172a !important;
+                font-weight: 700 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .card {
+                border: none !important;
+                box-shadow: none !important;
+            }
+
+            .card-header {
+                display: none !important;
+            }
+        }
+    </style>
+
     <!-- Main Card container -->
     <div class="card mb-3">
         <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0"><span class="fas fa-list-alt me-2 text-primary"></span>Expense Register</h5>
-            <div class="d-flex align-items-center gap-2">
-                <a href="{{ route('expenses.create') }}" class="btn btn-falcon-primary btn-sm text-nowrap">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <!-- Per Page Selector -->
+                <div class="d-flex align-items-center me-1 d-print-none">
+                    <label class="me-1 fs-11 text-muted text-nowrap mb-0" for="perPageSelect">Show:</label>
+                    <select wire:model.live="perPage" id="perPageSelect" class="form-select form-select-sm" style="width: 75px;">
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+
+                <!-- Export CSV -->
+                <button wire:click="exportCSV" wire:loading.attr="disabled" class="btn btn-falcon-default btn-sm text-nowrap d-print-none" title="Export Filtered CSV">
+                    <span wire:loading.remove wire:target="exportCSV"><span class="fas fa-file-csv text-success me-1"></span>Export CSV</span>
+                    <span wire:loading wire:target="exportCSV"><span class="spinner-border spinner-border-sm me-1"></span>Exporting...</span>
+                </button>
+
+                <!-- PDF Download -->
+                <a href="{{ $this->pdfUrl }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap d-print-none" title="Download Formatted PDF">
+                    <span class="fas fa-file-pdf text-danger me-1"></span>PDF
+                </a>
+
+                <!-- Print View -->
+                <a href="{{ $this->printUrl }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap d-print-none" title="Print Register">
+                    <span class="fas fa-print text-primary me-1"></span>Print
+                </a>
+
+                <a href="{{ route('expenses.create') }}" class="btn btn-falcon-primary btn-sm text-nowrap d-print-none">
                     <span class="fas fa-plus me-1"></span> New Expense
                 </a>
             </div>
         </div>
 
+        <!-- Dedicated Print Header (visible only on paper print / PDF) -->
+        <div class="d-none d-print-block p-3 border-bottom">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    @php
+                        $user = auth()->user();
+                        $activeMarquee = $user ? \App\Models\Marquee::find($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+                        $selectedBranch = $branch_id ? \App\Models\Branch::find($branch_id) : null;
+                        $selectedCategory = $expense_category_id ? \App\Models\ExpenseCategory::find($expense_category_id) : null;
+                    @endphp
+                    <h3 class="mb-1 text-primary fw-bold" style="font-size: 18px;">{{ $activeMarquee->name ?? config('app.name', 'Marquee CMS') }}</h3>
+                    <p class="mb-0 text-muted" style="font-size: 10px;">
+                        {{ $activeMarquee->address ?? 'Corporate Accounts & Finance' }} &bull; Phone: {{ $activeMarquee->contact_phone ?? '—' }}
+                    </p>
+                </div>
+                <div class="text-end">
+                    <h4 class="mb-1 fw-bold text-dark" style="font-size: 15px;">Expense Register Log</h4>
+                    <div class="text-muted" style="font-size: 9.5px;">
+                        <span><strong>Scope:</strong> {{ $selectedBranch ? $selectedBranch->name : 'All Branches' }}</span> |
+                        @if($selectedCategory)
+                            <span><strong>Category:</strong> {{ $selectedCategory->name }}</span> |
+                        @endif
+                        @if($status)
+                            <span><strong>Status:</strong> {{ $status }}</span> |
+                        @endif
+                        <span><strong>Period:</strong> {{ $start_date ?: 'All Dates' }} {{ $end_date ? 'to ' . $end_date : '' }}</span>
+                        <br>
+                        <span><strong>Printed:</strong> {{ now()->format('d M Y, h:i A') }}</span> |
+                        <span><strong>User:</strong> {{ auth()->user()->name ?? 'System' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Filtration drawer -->
-        <div class="card-body bg-light border-bottom">
+        <div class="card-body bg-light border-bottom d-print-none">
             <div class="row g-2">
                 <div class="col-md-3">
                     <input wire:model.live.debounce.300ms="search" type="text" class="form-control form-control-sm" placeholder="Search Voucher / Ref / Cost Center...">
@@ -48,6 +165,7 @@
                     <select wire:model.live="payment_status" class="form-select form-select-sm">
                         <option value="">All Pay Status</option>
                         <option value="Paid">Paid</option>
+                        <option value="Partially Paid">Partially Paid</option>
                         <option value="Unpaid">Unpaid</option>
                     </select>
                 </div>
@@ -97,7 +215,7 @@
                 <table class="table table-sm table-striped fs-10 mb-0 align-middle table-hover">
                     <thead class="bg-200 text-900">
                         <tr>
-                            <th class="px-3" style="width: 3%;">
+                            <th class="px-3 d-print-none" style="width: 3%;">
                                 <input wire:model.live="selectAll" class="form-check-input" type="checkbox">
                             </th>
                             <th style="width: 12%;">Voucher No</th>
@@ -107,7 +225,7 @@
                             <th class="text-end" style="width: 12%;">Total Amount</th>
                             <th style="width: 12%;">Payment Method</th>
                             <th class="text-center" style="width: 10%;">Status</th>
-                            <th class="text-end px-3" style="width: 8%;">Actions</th>
+                            <th class="text-end px-3 d-print-none" style="width: 8%;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -126,7 +244,7 @@
                                 $sc = $statusColors[$exp->status] ?? 'secondary';
                             @endphp
                             <tr>
-                                <td class="px-3">
+                                <td class="px-3 d-print-none">
                                     <input wire:model.live="selectedExpenses" value="{{ $exp->id }}" class="form-check-input" type="checkbox">
                                 </td>
                                 <td>
@@ -153,17 +271,28 @@
                                 <td>
                                     <div>{{ $exp->payment_method }}</div>
                                     @if($exp->payment_method === 'Accounts Payable')
-                                        <span class="badge badge-subtle-{{ $exp->payment_status === 'Paid' ? 'success' : 'danger' }} rounded-pill" style="font-size: 8px;">
-                                            {{ $exp->payment_status }}
-                                        </span>
+                                        @if($exp->payment_status === 'Paid')
+                                            <span class="badge badge-subtle-success rounded-pill" style="font-size: 8px;">Paid</span>
+                                        @elseif($exp->payment_status === 'Partially Paid')
+                                            @php
+                                                $pct = $exp->total_amount > 0 ? round(($exp->paid_amount / $exp->total_amount) * 100) : 0;
+                                                $due = max(0, $exp->total_amount - ($exp->paid_amount ?? 0));
+                                            @endphp
+                                            <span class="badge badge-subtle-warning rounded-pill" style="font-size: 8px;" title="Paid: {{ number_format($exp->paid_amount, 2) }} / Due: {{ number_format($due, 2) }}">
+                                                Partially Paid ({{ $pct }}%)
+                                            </span>
+                                            <div class="text-muted" style="font-size: 8px;">Due: {{ number_format($due, 2) }}</div>
+                                        @else
+                                            <span class="badge badge-subtle-danger rounded-pill" style="font-size: 8px;">Unpaid</span>
+                                        @endif
                                     @endif
                                 </td>
                                 <td class="text-center">
                                     <span class="badge badge-subtle-{{ $sc }} rounded-pill">{{ $exp->status }}</span>
                                 </td>
-                                <td class="text-end px-3">
+                                <td class="text-end px-3 d-print-none">
                                     <div class="d-flex justify-content-end gap-2">
-                                        @if($exp->payment_method === 'Accounts Payable' && $exp->payment_status === 'Unpaid' && in_array($exp->status, ['Approved', 'Posted']))
+                                        @if($exp->payment_method === 'Accounts Payable' && in_array($exp->payment_status, ['Unpaid', 'Partially Paid']) && in_array($exp->status, ['Approved', 'Posted']))
                                             <button wire:click="openPayModal({{ $exp->id }})" class="btn btn-link p-0 text-success" title="Clear Bill Payment">
                                                 <span class="fas fa-receipt"></span>
                                             </button>
@@ -203,8 +332,13 @@
                 </table>
             </div>
 
-            <div class="card-footer d-flex justify-content-end border-top">
-                {{ $expenses->links() }}
+            <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2 border-top py-2 d-print-none">
+                <div class="fs-11 text-muted">
+                    Showing {{ $expenses->firstItem() ?? 0 }} to {{ $expenses->lastItem() ?? 0 }} of {{ $expenses->total() }} expenses
+                </div>
+                <div>
+                    {{ $expenses->links() }}
+                </div>
             </div>
         </div>
     </div>
@@ -220,6 +354,21 @@
                             <button type="button" wire:click="clearPayModal" class="btn-close btn-close-white" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
+                            @php
+                                $payingExp = $payingExpenseId ? \App\Models\Expense::find($payingExpenseId) : null;
+                                $remDue = $payingExp ? max(0, $payingExp->total_amount - ($payingExp->paid_amount ?? 0)) : 0;
+                            @endphp
+                            @if($payingExp)
+                                <div class="alert alert-subtle-info py-2 px-3 fs-11 mb-3">
+                                    <div><strong>Voucher:</strong> {{ $payingExp->expense_number }} &bull; {{ $payingExp->supplier->name ?? 'Vendor' }}</div>
+                                    <div><strong>Total Bill:</strong> {{ number_format($payingExp->total_amount, 2) }} PKR</div>
+                                    @if($payingExp->paid_amount > 0)
+                                        <div><strong>Already Settled:</strong> {{ number_format($payingExp->paid_amount, 2) }} PKR</div>
+                                    @endif
+                                    <div class="fw-bold text-success fs-10 mt-1">Amount to Clear: {{ number_format($remDue, 2) }} PKR</div>
+                                </div>
+                            @endif
+
                             <div class="mb-3">
                                 <label class="form-label" for="pay_m">Clear Payment Method</label>
                                 <select wire:model.live="payMethod" class="form-select form-select-sm" id="pay_m">

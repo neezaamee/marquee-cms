@@ -659,6 +659,7 @@ class BookingList extends Component
     public function exportExcel()
     {
         $bookings = $this->getFilteredBookingsQuery()
+            ->with(['extraServices'])
             ->orderBy('booking_date', 'desc')
             ->orderBy('id', 'desc')
             ->get();
@@ -690,6 +691,10 @@ class BookingList extends Component
                 'Confirmed Guests',
                 'Effective Headcount',
                 'Per Plate Rate',
+                'Hall Charges',
+                'Extra Add-ons',
+                'Discounts',
+                'Tax',
                 'Event Sales Amount',
                 'Vendor / Service Charges',
                 'Total Amount',
@@ -713,6 +718,16 @@ class BookingList extends Component
                 );
                 $effectiveGrandTotal = $effectiveEventSales + $invoicedVendorTotal;
                 $effectivePerPlate = $b->finalBill ? $b->finalBill->per_plate_price : $b->per_plate_price;
+                $effectiveHallCharges = (float) ($b->finalBill && $b->finalBill->hall_charges !== null ? $b->finalBill->hall_charges : ($b->hall_charges ?? 0));
+                $effectiveExtraAddons = (float) ($b->finalBill && $b->finalBill->extra_charges !== null 
+                    ? $b->finalBill->extra_charges 
+                    : (($b->extra_charges !== null && (float) $b->extra_charges > 0)
+                        ? $b->extra_charges
+                        : ($b->relationLoaded('extraServices') ? $b->extraServices->sum('total_price') : ($b->extra_charges ?? 0))
+                    )
+                );
+                $effectiveDiscount = (float) ($b->finalBill && $b->finalBill->discount_amount !== null ? $b->finalBill->discount_amount : ($b->discount_amount ?? 0));
+                $effectiveTax = (float) ($b->finalBill && $b->finalBill->tax_amount !== null ? $b->finalBill->tax_amount : ($b->tax_amount ?? 0));
                 $balance = max(0.00, $effectiveGrandTotal - $received);
 
                 $hallsList = $b->halls->isNotEmpty() 
@@ -746,6 +761,10 @@ class BookingList extends Component
                     $b->confirmed_guests ?? '—',
                     $b->effective_guest_count,
                     $perPlateText,
+                    number_format($effectiveHallCharges, 2, '.', ''),
+                    number_format($effectiveExtraAddons, 2, '.', ''),
+                    number_format($effectiveDiscount, 2, '.', ''),
+                    number_format($effectiveTax, 2, '.', ''),
                     number_format($effectiveEventSales, 2, '.', ''),
                     number_format($invoicedVendorTotal, 2, '.', ''),
                     number_format($effectiveGrandTotal, 2, '.', ''),

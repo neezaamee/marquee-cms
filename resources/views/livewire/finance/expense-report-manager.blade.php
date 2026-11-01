@@ -1,6 +1,93 @@
-<div class="row g-3">
-    <!-- Sidebar Selector Pane -->
-    <div class="col-lg-3 d-print-none">
+<div>
+    <style>
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 12mm 10mm 15mm 10mm;
+            }
+
+            /* Expand report container to 100% full width */
+            .col-lg-9, .col-12 {
+                width: 100% !important;
+                max-width: 100% !important;
+                flex: 0 0 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            /* Suppress sidebar, filters, buttons, and app navigation */
+            .d-print-none,
+            .btn,
+            .navbar-vertical,
+            .navbar-top,
+            .footer,
+            #navbarVerticalCollapse {
+                display: none !important;
+            }
+
+            .d-print-block {
+                display: block !important;
+            }
+
+            .d-print-flex {
+                display: flex !important;
+            }
+
+            /* Clean paper table styles */
+            .table-responsive {
+                overflow: visible !important;
+            }
+
+            .table {
+                border-collapse: collapse !important;
+                width: 100% !important;
+                font-size: 10px !important;
+            }
+
+            .table th, .table td {
+                border: 1px solid #cbd5e1 !important;
+                padding: 5px 8px !important;
+                color: #0f172a !important;
+            }
+
+            .table thead th {
+                background-color: #f1f5f9 !important;
+                color: #0f172a !important;
+                font-weight: 700 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .card {
+                border: none !important;
+                box-shadow: none !important;
+            }
+
+            .card-header {
+                display: none !important;
+            }
+
+            .print-kpi-container {
+                display: flex !important;
+                gap: 12px !important;
+                margin-bottom: 15px !important;
+            }
+
+            .print-kpi-card {
+                flex: 1 1 0 !important;
+                border: 1px solid #cbd5e1 !important;
+                padding: 8px 12px !important;
+                border-radius: 4px !important;
+                background-color: #f8fafc !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+
+    <div class="row g-3">
+        <!-- Sidebar Selector Pane -->
+        <div class="col-lg-3 d-print-none">
         <div class="card h-100 shadow-none border">
             <div class="card-header bg-light py-2">
                 <h6 class="mb-0 fs-11"><span class="fas fa-file-invoice me-2 text-primary"></span>Report Categories</h6>
@@ -98,17 +185,57 @@
                         <button wire:click="exportCSV" class="btn btn-falcon-default btn-sm px-3 me-2">
                             <span class="fas fa-file-csv me-1"></span>Export CSV
                         </button>
-                        <button onclick="window.print()" class="btn btn-falcon-default btn-sm px-3">
-                            <span class="fas fa-print me-1"></span>Print
+                        <button onclick="window.print()" class="btn btn-falcon-default btn-sm px-3" title="Print document or Save as PDF">
+                            <span class="fas fa-print me-1"></span>Print / PDF
                         </button>
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- Dedicated Print Header (visible only on paper print / PDF) -->
+        <div class="d-none d-print-block mb-3 border-bottom pb-2">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    @php
+                        $user = auth()->user();
+                        $activeMarquee = $user ? \App\Models\Marquee::find($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+                        $reportTitles = [
+                            'category_summary' => 'Category-Wise Expense Summary',
+                            'payment_methods' => 'Payment Method Expense Breakdown',
+                            'register' => 'Detailed Expense Register Log',
+                            'budget_vs_actual' => 'Budget vs Actual Expenses',
+                            'utility' => 'Utility Service Billings Report',
+                            'tax_summary' => 'Expense Tax Summary Report',
+                        ];
+                        $currentTitle = $reportTitles[$reportType] ?? 'Expense Analysis Report';
+                        $selectedBranch = $branch_id ? \App\Models\Branch::find($branch_id) : null;
+                    @endphp
+                    <h3 class="mb-1 text-primary fw-bold" style="font-size: 18px;">{{ $activeMarquee->name ?? config('app.name', 'Marquee CMS') }}</h3>
+                    <p class="mb-0 text-muted" style="font-size: 10px;">
+                        {{ $activeMarquee->address ?? 'Central Accounts & Finance Department' }} &bull; Phone: {{ $activeMarquee->contact_phone ?? '—' }}
+                    </p>
+                </div>
+                <div class="text-end">
+                    <h4 class="mb-1 fw-bold text-dark" style="font-size: 15px;">{{ $currentTitle }}</h4>
+                    <div class="text-muted" style="font-size: 9.5px;">
+                        <span><strong>Scope:</strong> {{ $selectedBranch ? $selectedBranch->name : 'Company-Wide (All Branches)' }}</span> |
+                        @if($reportType === 'budget_vs_actual')
+                            <span><strong>Budget Year:</strong> {{ $year }}</span>
+                        @else
+                            <span><strong>Period:</strong> {{ $start_date ?: 'Start' }} to {{ $end_date ?: 'Current' }}</span>
+                        @endif
+                        <br>
+                        <span><strong>Printed:</strong> {{ now()->format('d M Y, h:i A') }}</span> |
+                        <span><strong>User:</strong> {{ auth()->user()->name ?? 'System' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Summary KPI Cards -->
-        <div class="row g-2 mb-3">
-            <div class="col-sm-4">
+        <div class="row g-2 mb-3 print-kpi-container">
+            <div class="col-sm-4 print-kpi-card">
                 <div class="card shadow-none border p-2">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
@@ -119,7 +246,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-4">
+            <div class="col-sm-4 print-kpi-card">
                 <div class="card shadow-none border p-2">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
@@ -130,7 +257,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-4">
+            <div class="col-sm-4 print-kpi-card">
                 <div class="card shadow-none border p-2">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
@@ -369,4 +496,5 @@
             </div>
         </div>
     </div>
+</div>
 </div>

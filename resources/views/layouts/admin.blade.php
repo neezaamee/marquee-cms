@@ -89,6 +89,51 @@
         opacity: 1;
         transform: translateY(0) scale(1);
       }
+
+      /* Global Clean Print Output Styles */
+      @media print {
+        /* Hide all admin sidebar navigation, top navigation, footer, loaders, and badges */
+        .navbar-vertical,
+        .navbar-top,
+        nav.navbar,
+        .footer,
+        .global-progress-bar,
+        .global-livewire-badge,
+        .d-print-none,
+        #navbarVerticalCollapse,
+        .toggle-icon-wrapper,
+        .navbar-toggler {
+          display: none !important;
+        }
+
+        /* Reset body and layout container to full printable width without sidebar offsets */
+        html, body, .main, [data-layout="container"], .container, .container-fluid, .content {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 100% !important;
+          margin-left: 0 !important;
+          padding-left: 0 !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+        }
+
+        .card {
+          border: 1px solid #dee2e6 !important;
+          box-shadow: none !important;
+          background: #ffffff !important;
+        }
+
+        .table {
+          width: 100% !important;
+          page-break-inside: auto;
+        }
+
+        tr, .card-header, .card-body {
+          page-break-inside: avoid;
+        }
+      }
     </style>
 
     @yield('styles')

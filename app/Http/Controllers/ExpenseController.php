@@ -2,7 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
+use App\Models\Marquee;
+use App\Models\Supplier;
+use App\Repositories\ExpenseRepositoryInterface;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
 class ExpenseController extends Controller
@@ -14,6 +20,122 @@ class ExpenseController extends Controller
     {
         abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_expenses'), 403);
         return view('finance.expenses.dashboard');
+    }
+
+    /**
+     * Printable view of the expense register.
+     */
+    public function printRegister(Request $request, ExpenseRepositoryInterface $repository)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_expenses'), 403);
+
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        $marquee = $marqueeId ? Marquee::find($marqueeId) : null;
+
+        $filters = [
+            'marquee_id' => $marqueeId,
+            'status' => $request->input('status'),
+            'branch_id' => $request->input('branch_id'),
+            'expense_category_id' => $request->input('expense_category_id'),
+            'supplier_id' => $request->input('supplier_id'),
+            'payment_method' => $request->input('payment_method'),
+            'payment_status' => $request->input('payment_status'),
+            'start_date' => $request->input('start_date'),
+            'end_date' => $request->input('end_date'),
+            'search' => $request->input('search'),
+        ];
+
+        $expenses = $repository->all($filters);
+
+        $totalAmount = (float)$expenses->sum('total_amount');
+        $totalTax = (float)$expenses->sum('tax_amount');
+        $totalSubtotal = (float)$expenses->sum('amount');
+        $count = $expenses->count();
+
+        $branchName = null;
+        if (!empty($filters['branch_id'])) {
+            $branch = Branch::find($filters['branch_id']);
+            $branchName = $branch ? $branch->name : null;
+        }
+
+        $categoryName = null;
+        if (!empty($filters['expense_category_id'])) {
+            $cat = ExpenseCategory::find($filters['expense_category_id']);
+            $categoryName = $cat ? $cat->name : null;
+        }
+
+        $supplierName = null;
+        if (!empty($filters['supplier_id'])) {
+            $sup = Supplier::find($filters['supplier_id']);
+            $supplierName = $sup ? $sup->name : null;
+        }
+
+        $isPdf = false;
+
+        return view('finance.expenses.expense-register-pdf', compact(
+            'expenses', 'marquee', 'filters', 'totalAmount', 'totalTax', 'totalSubtotal', 'count',
+            'branchName', 'categoryName', 'supplierName', 'isPdf'
+        ));
+    }
+
+    /**
+     * Stream or download PDF of the expense register.
+     */
+    public function pdfRegister(Request $request, ExpenseRepositoryInterface $repository)
+    {
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('view_expenses'), 403);
+
+        $user = auth()->user();
+        $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        $marquee = $marqueeId ? Marquee::find($marqueeId) : null;
+
+        $filters = [
+            'marquee_id' => $marqueeId,
+            'status' => $request->input('status'),
+            'branch_id' => $request->input('branch_id'),
+            'expense_category_id' => $request->input('expense_category_id'),
+            'supplier_id' => $request->input('supplier_id'),
+            'payment_method' => $request->input('payment_method'),
+            'payment_status' => $request->input('payment_status'),
+            'start_date' => $request->input('start_date'),
+            'end_date' => $request->input('end_date'),
+            'search' => $request->input('search'),
+        ];
+
+        $expenses = $repository->all($filters);
+
+        $totalAmount = (float)$expenses->sum('total_amount');
+        $totalTax = (float)$expenses->sum('tax_amount');
+        $totalSubtotal = (float)$expenses->sum('amount');
+        $count = $expenses->count();
+
+        $branchName = null;
+        if (!empty($filters['branch_id'])) {
+            $branch = Branch::find($filters['branch_id']);
+            $branchName = $branch ? $branch->name : null;
+        }
+
+        $categoryName = null;
+        if (!empty($filters['expense_category_id'])) {
+            $cat = ExpenseCategory::find($filters['expense_category_id']);
+            $categoryName = $cat ? $cat->name : null;
+        }
+
+        $supplierName = null;
+        if (!empty($filters['supplier_id'])) {
+            $sup = Supplier::find($filters['supplier_id']);
+            $supplierName = $sup ? $sup->name : null;
+        }
+
+        $isPdf = true;
+
+        $pdf = Pdf::loadView('finance.expenses.expense-register-pdf', compact(
+            'expenses', 'marquee', 'filters', 'totalAmount', 'totalTax', 'totalSubtotal', 'count',
+            'branchName', 'categoryName', 'supplierName', 'isPdf'
+        ))->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Expense_Register_' . date('Ymd_His') . '.pdf');
     }
 
     /**

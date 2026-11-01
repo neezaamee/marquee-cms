@@ -118,6 +118,22 @@ class SupplierLedgerView extends Component
                 ];
                 $accountingService->createJournalVoucher($header, $items);
             }
+
+            // Auto-settle supplier Accounts Payable credit expenses via FIFO
+            app(\App\Services\ExpenseService::class)->settleSupplierExpensesFifo(
+                $this->supplier->id,
+                (float) $this->payment_amount,
+                $this->reference_no ?: 'PAID',
+                $marqueeId
+            );
+
+            // If supplier balance is now cleared, reconcile all expenses
+            if ($this->supplier->fresh()->current_balance <= 0.01) {
+                app(\App\Services\ExpenseService::class)->reconcileSupplierExpenses(
+                    $this->supplier->id,
+                    $marqueeId
+                );
+            }
         });
 
         session()->flash('success', 'Manual vendor payment recorded successfully.');
@@ -140,6 +156,8 @@ class SupplierLedgerView extends Component
     public function recalculateLedger(InventoryService $inventoryService)
     {
         $inventoryService->rebuildSupplierLedger($this->supplier->id);
+        $marqueeId = $this->supplier->marquee_id ?: (auth()->user()->marquee_id ?: auth()->user()->getActiveMarqueeId());
+        app(\App\Services\ExpenseService::class)->reconcileSupplierExpenses($this->supplier->id, $marqueeId);
         $this->supplier->refresh();
         session()->flash('success', 'Supplier ledger recalculated and synchronized successfully.');
     }

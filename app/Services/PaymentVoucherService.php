@@ -347,6 +347,14 @@ class PaymentVoucherService
                     $voucher->voucher_no,
                     "Payment via {$voucher->voucher_type} #{$voucher->voucher_no}. " . ($voucher->description ?? '')
                 );
+
+                // Auto-settle supplier Accounts Payable credit expenses via FIFO
+                app(\App\Services\ExpenseService::class)->settleSupplierExpensesFifo(
+                    $voucher->supplier_id,
+                    (float)$voucher->amount,
+                    $voucher->voucher_no,
+                    $marqueeId
+                );
             }
 
             // B. Vendor / Service Provider
@@ -369,6 +377,7 @@ class PaymentVoucherService
                 $expense = Expense::find($voucher->expense_id);
                 if ($expense) {
                     $expense->update([
+                        'paid_amount' => $expense->total_amount,
                         'payment_status' => 'Paid',
                         'status' => Expense::STATUS_PAID,
                         'journal_voucher_id' => $jv->id,

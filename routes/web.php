@@ -362,11 +362,74 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                     });
                 }
 
+                $dateRange = $request->query('dateRange', 'all_time');
+                $dateFrom = $request->query('dateFrom');
+                $dateTo = $request->query('dateTo');
+                $stockFilter = $request->query('stockFilter', 'all');
+
+                if ($stockFilter === 'supplied_only') {
+                    $query->whereExists(function ($sub) use ($marqueeId, $dateFrom, $dateTo) {
+                        $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                            ->from('purchase_invoices')
+                            ->whereColumn('purchase_invoices.supplier_id', 'suppliers.id')
+                            ->where('purchase_invoices.marquee_id', $marqueeId)
+                            ->where('purchase_invoices.status', '!=', 'Cancelled');
+                        if (!empty($dateFrom)) {
+                            $sub->whereDate('purchase_invoices.purchase_date', '>=', $dateFrom);
+                        }
+                        if (!empty($dateTo)) {
+                            $sub->whereDate('purchase_invoices.purchase_date', '<=', $dateTo);
+                        }
+                    });
+                }
+
                 $suppliers = $query->orderBy('name', 'asc')->get();
+                $supplierIds = $suppliers->pluck('id')->toArray();
+
+                $purchasesBySupplier = \Illuminate\Support\Facades\DB::table('purchase_invoices')
+                    ->where('marquee_id', $marqueeId)
+                    ->where('status', '!=', 'Cancelled')
+                    ->whereIn('supplier_id', $supplierIds)
+                    ->when($dateFrom, fn($q) => $q->whereDate('purchase_date', '>=', $dateFrom))
+                    ->when($dateTo, fn($q) => $q->whereDate('purchase_date', '<=', $dateTo))
+                    ->select(
+                        'supplier_id',
+                        \Illuminate\Support\Facades\DB::raw('COUNT(id) as invoice_count'),
+                        \Illuminate\Support\Facades\DB::raw('COALESCE(SUM(net_amount), 0) as total_purchases')
+                    )
+                    ->groupBy('supplier_id')
+                    ->get()
+                    ->keyBy('supplier_id');
+
+                $returnsBySupplier = \Illuminate\Support\Facades\DB::table('purchase_returns')
+                    ->where('marquee_id', $marqueeId)
+                    ->where('status', '!=', 'Cancelled')
+                    ->whereIn('supplier_id', $supplierIds)
+                    ->when($dateFrom, fn($q) => $q->whereDate('return_date', '>=', $dateFrom))
+                    ->when($dateTo, fn($q) => $q->whereDate('return_date', '<=', $dateTo))
+                    ->select(
+                        'supplier_id',
+                        \Illuminate\Support\Facades\DB::raw('COALESCE(SUM(net_amount), 0) as total_returns')
+                    )
+                    ->groupBy('supplier_id')
+                    ->get()
+                    ->keyBy('supplier_id');
+
+                foreach ($suppliers as $s) {
+                    $inv = $purchasesBySupplier->get($s->id);
+                    $ret = $returnsBySupplier->get($s->id);
+                    $gross = $inv ? (float) $inv->total_purchases : 0.0;
+                    $retAmt = $ret ? (float) $ret->total_returns : 0.0;
+                    $s->period_stock_received = max(0.0, $gross - $retAmt);
+                    $s->period_invoice_count = $inv ? (int) $inv->invoice_count : 0;
+                }
+
                 $isPdf = true;
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.supplier-directory-pdf', compact('suppliers', 'marquee', 'isPdf', 'search', 'categoryFilter', 'balanceFilter'))
-                    ->setPaper('a4', 'landscape');
-                return $pdf->stream('Supplier_Directory_' . date('Ymd_His') . '.pdf');
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.supplier-directory-pdf', compact(
+                    'suppliers', 'marquee', 'isPdf', 'search', 'categoryFilter', 'balanceFilter',
+                    'dateRange', 'dateFrom', 'dateTo', 'stockFilter'
+                ))->setPaper('a4', 'landscape');
+                return $pdf->stream('Supplier_Stock_Report_' . date('Ymd_His') . '.pdf');
             })->name('suppliers.pdf');
 
             Route::get('inventory/suppliers-directory/print', function (\Illuminate\Http\Request $request) {
@@ -410,9 +473,73 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                     });
                 }
 
+                $dateRange = $request->query('dateRange', 'all_time');
+                $dateFrom = $request->query('dateFrom');
+                $dateTo = $request->query('dateTo');
+                $stockFilter = $request->query('stockFilter', 'all');
+
+                if ($stockFilter === 'supplied_only') {
+                    $query->whereExists(function ($sub) use ($marqueeId, $dateFrom, $dateTo) {
+                        $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                            ->from('purchase_invoices')
+                            ->whereColumn('purchase_invoices.supplier_id', 'suppliers.id')
+                            ->where('purchase_invoices.marquee_id', $marqueeId)
+                            ->where('purchase_invoices.status', '!=', 'Cancelled');
+                        if (!empty($dateFrom)) {
+                            $sub->whereDate('purchase_invoices.purchase_date', '>=', $dateFrom);
+                        }
+                        if (!empty($dateTo)) {
+                            $sub->whereDate('purchase_invoices.purchase_date', '<=', $dateTo);
+                        }
+                    });
+                }
+
                 $suppliers = $query->orderBy('name', 'asc')->get();
+                $supplierIds = $suppliers->pluck('id')->toArray();
+
+                $purchasesBySupplier = \Illuminate\Support\Facades\DB::table('purchase_invoices')
+                    ->where('marquee_id', $marqueeId)
+                    ->where('status', '!=', 'Cancelled')
+                    ->whereIn('supplier_id', $supplierIds)
+                    ->when($dateFrom, fn($q) => $q->whereDate('purchase_date', '>=', $dateFrom))
+                    ->when($dateTo, fn($q) => $q->whereDate('purchase_date', '<=', $dateTo))
+                    ->select(
+                        'supplier_id',
+                        \Illuminate\Support\Facades\DB::raw('COUNT(id) as invoice_count'),
+                        \Illuminate\Support\Facades\DB::raw('COALESCE(SUM(net_amount), 0) as total_purchases')
+                    )
+                    ->groupBy('supplier_id')
+                    ->get()
+                    ->keyBy('supplier_id');
+
+                $returnsBySupplier = \Illuminate\Support\Facades\DB::table('purchase_returns')
+                    ->where('marquee_id', $marqueeId)
+                    ->where('status', '!=', 'Cancelled')
+                    ->whereIn('supplier_id', $supplierIds)
+                    ->when($dateFrom, fn($q) => $q->whereDate('return_date', '>=', $dateFrom))
+                    ->when($dateTo, fn($q) => $q->whereDate('return_date', '<=', $dateTo))
+                    ->select(
+                        'supplier_id',
+                        \Illuminate\Support\Facades\DB::raw('COALESCE(SUM(net_amount), 0) as total_returns')
+                    )
+                    ->groupBy('supplier_id')
+                    ->get()
+                    ->keyBy('supplier_id');
+
+                foreach ($suppliers as $s) {
+                    $inv = $purchasesBySupplier->get($s->id);
+                    $ret = $returnsBySupplier->get($s->id);
+                    $gross = $inv ? (float) $inv->total_purchases : 0.0;
+                    $retAmt = $ret ? (float) $ret->total_returns : 0.0;
+                    $s->period_stock_received = max(0.0, $gross - $retAmt);
+                    $s->period_invoice_count = $inv ? (int) $inv->invoice_count : 0;
+                }
+
                 $isPdf = false;
-                return view('inventory.supplier-directory-pdf', compact('suppliers', 'marquee', 'isPdf', 'search', 'categoryFilter', 'balanceFilter'));
+                return view('inventory.supplier-directory-pdf', compact(
+                    'suppliers', 'marquee', 'isPdf', 'search', 'categoryFilter', 'balanceFilter',
+                    'dateRange', 'dateFrom', 'dateTo', 'stockFilter'
+                ));
             })->name('suppliers.print');
             Route::view('inventory/supplier-categories', 'inventory.supplier-categories')->name('supplier-categories.index');
             Route::get('inventory/suppliers/{supplier}/ledger', function (\App\Models\Supplier $supplier) {
@@ -508,6 +635,8 @@ Route::middleware(['auth', 'user.active'])->group(function () {
             Route::get('expenses/budgets', [\App\Http\Controllers\ExpenseController::class, 'budgets'])->name('expenses.budgets');
             Route::get('expenses/recurring', [\App\Http\Controllers\ExpenseController::class, 'recurring'])->name('expenses.recurring');
             Route::get('expenses/reports', [\App\Http\Controllers\ExpenseController::class, 'reports'])->name('expenses.reports');
+            Route::get('expenses/export/print', [\App\Http\Controllers\ExpenseController::class, 'printRegister'])->name('expenses.print');
+            Route::get('expenses/export/pdf', [\App\Http\Controllers\ExpenseController::class, 'pdfRegister'])->name('expenses.pdf');
             Route::resource('expenses', \App\Http\Controllers\ExpenseController::class);
 
             // Kitchen & Event Operations Sprint Routes

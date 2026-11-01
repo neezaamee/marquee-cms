@@ -155,14 +155,14 @@
                             <span class="input-group-text bg-white"><span class="fas fa-search text-400"></span></span>
                         </div>
 
-                        @if(!empty($search) || $categoryFilter !== 'all' || $balanceFilter !== 'all')
-                            <button wire:click="$set('search', ''); $set('categoryFilter', 'all'); $set('balanceFilter', 'all');" class="btn btn-falcon-default btn-sm text-secondary" type="button" title="Reset all filters">
+                        @if(!empty($search) || $categoryFilter !== 'all' || $balanceFilter !== 'all' || $dateRange !== 'all_time' || $stockFilter !== 'all')
+                            <button wire:click="resetAllFilters" class="btn btn-falcon-default btn-sm text-secondary" type="button" title="Reset all filters">
                                 <span class="fas fa-undo me-1"></span>Reset
                             </button>
                         @endif
 
                         <!-- Export to Excel (CSV) -->
-                        <button wire:click="exportExcel" type="button" class="btn btn-falcon-default btn-sm text-nowrap" title="Export Supplier Directory to Excel">
+                        <button wire:click="exportExcel" type="button" class="btn btn-falcon-default btn-sm text-nowrap" title="Export Supplier Stock & Directory Report to Excel">
                             <span wire:loading.remove wire:target="exportExcel">
                                 <span class="fas fa-file-excel me-1 text-success"></span>Excel
                             </span>
@@ -172,12 +172,12 @@
                         </button>
 
                         <!-- Download PDF -->
-                        <a href="{{ route('suppliers.pdf', ['search' => $search, 'categoryFilter' => $categoryFilter, 'balanceFilter' => $balanceFilter]) }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap" title="Download Supplier Directory as PDF">
+                        <a href="{{ route('suppliers.pdf', ['search' => $search, 'categoryFilter' => $categoryFilter, 'balanceFilter' => $balanceFilter, 'dateRange' => $dateRange, 'dateFrom' => $dateFrom, 'dateTo' => $dateTo, 'stockFilter' => $stockFilter]) }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap" title="Download Supplier Stock Report as PDF">
                             <span class="fas fa-file-pdf me-1 text-danger"></span>PDF
                         </a>
 
                         <!-- Print -->
-                        <a href="{{ route('suppliers.print', ['search' => $search, 'categoryFilter' => $categoryFilter, 'balanceFilter' => $balanceFilter]) }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap" title="Print Supplier Directory">
+                        <a href="{{ route('suppliers.print', ['search' => $search, 'categoryFilter' => $categoryFilter, 'balanceFilter' => $balanceFilter, 'dateRange' => $dateRange, 'dateFrom' => $dateFrom, 'dateTo' => $dateTo, 'stockFilter' => $stockFilter]) }}" target="_blank" class="btn btn-falcon-default btn-sm text-nowrap" title="Print Supplier Stock & Directory Report">
                             <span class="fas fa-print me-1 text-primary"></span>Print
                         </a>
 
@@ -215,6 +215,85 @@
                     </div>
                 </div>
 
+                <!-- Date / Period & Stock Activity Filter Bar -->
+                <div class="px-3 py-2 bg-light border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="fs-11 fw-bold text-700"><span class="fas fa-calendar-alt text-primary me-1"></span>Report Period:</span>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" wire:click="setDateRange('all_time')" class="btn {{ $dateRange === 'all_time' ? 'btn-primary' : 'btn-outline-secondary' }}">All Time</button>
+                            <button type="button" wire:click="setDateRange('this_month')" class="btn {{ $dateRange === 'this_month' ? 'btn-primary' : 'btn-outline-secondary' }}">This Month</button>
+                            <button type="button" wire:click="setDateRange('last_month')" class="btn {{ $dateRange === 'last_month' ? 'btn-primary' : 'btn-outline-secondary' }}">Last Month</button>
+                            <button type="button" wire:click="setDateRange('this_quarter')" class="btn {{ $dateRange === 'this_quarter' ? 'btn-primary' : 'btn-outline-secondary' }}">Quarter</button>
+                            <button type="button" wire:click="setDateRange('this_year')" class="btn {{ $dateRange === 'this_year' ? 'btn-primary' : 'btn-outline-secondary' }}">This Year</button>
+                            <button type="button" wire:click="setDateRange('custom')" class="btn {{ $dateRange === 'custom' ? 'btn-primary' : 'btn-outline-secondary' }}">Custom</button>
+                        </div>
+
+                        @if($dateRange === 'custom')
+                            <div class="d-flex align-items-center gap-1 bg-white p-1 rounded border shadow-none">
+                                <span class="text-600 fs-11 ps-1 fw-semibold">From:</span>
+                                <input type="date" wire:model.live="dateFrom" class="form-control form-control-sm border-0 py-0" style="width: 125px;">
+                                <span class="text-500 fs-11">To:</span>
+                                <input type="date" wire:model.live="dateTo" class="form-control form-control-sm border-0 py-0" style="width: 125px;">
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Stock Activity Filter (Supplied Only vs All) -->
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fs-11 fw-bold text-700"><span class="fas fa-boxes text-info me-1"></span>Stock Activity:</span>
+                        <select wire:model.live="stockFilter" class="form-select form-select-sm" style="width: 195px;">
+                            <option value="all">All Registered Suppliers</option>
+                            <option value="supplied_only">Supplied Stock Only (> 0)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- KPI Summary Cards Bar -->
+                <div class="row g-2 p-3 bg-body-tertiary border-bottom">
+                    <div class="col-12 col-md-4">
+                        <div class="card h-100 border shadow-none bg-white">
+                            <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                                <div>
+                                    <h6 class="text-700 fs-11 mb-0">Total Stock Received Overall</h6>
+                                    <h4 class="mb-0 fw-bolder text-primary mt-1">Rs. {{ number_format($totalStockValueOverall, 2) }}</h4>
+                                    <span class="fs-11 text-muted">{{ $periodLabel }}</span>
+                                </div>
+                                <div class="avatar avatar-m bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center">
+                                    <span class="fas fa-dolly-flatbed fa-lg"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="card h-100 border shadow-none bg-white">
+                            <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                                <div>
+                                    <h6 class="text-700 fs-11 mb-0">Suppliers Providing Stock</h6>
+                                    <h4 class="mb-0 fw-bolder text-success mt-1">{{ $suppliersWithStockCount }} <span class="fs-11 text-muted fw-normal">Suppliers</span></h4>
+                                    <span class="fs-11 text-muted">Provided inventory / deliveries</span>
+                                </div>
+                                <div class="avatar avatar-m bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
+                                    <span class="fas fa-truck-loading fa-lg"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="card h-100 border shadow-none bg-white">
+                            <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                                <div>
+                                    <h6 class="text-700 fs-11 mb-0">Total Outstanding Payables (AP)</h6>
+                                    <h4 class="mb-0 fw-bolder text-danger mt-1">Rs. {{ number_format($totalOutstandingOverall, 2) }}</h4>
+                                    <span class="fs-11 text-muted">Filtered suppliers live liability</span>
+                                </div>
+                                <div class="avatar avatar-m bg-danger-subtle text-danger rounded-circle d-flex align-items-center justify-content-center">
+                                    <span class="fas fa-file-invoice-dollar fa-lg"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card-body p-0">
                     @if(session('success'))
                         <div class="alert alert-success border-2 d-flex align-items-center m-3" role="alert">
@@ -228,15 +307,16 @@
                         <table class="table table-sm table-striped fs-11 mb-0 align-middle">
                             <thead class="bg-200 text-900">
                                 <tr>
-                                    <th class="ps-3" style="width: 100px;">Code</th>
+                                    <th class="ps-3" style="width: 90px;">Code</th>
                                     <th>Supplier Name</th>
                                     <th>Categories</th>
                                     <th>Contact Person</th>
                                     <th>Mobile</th>
                                     <th>City</th>
+                                    <th class="text-end" style="width: 140px;">Stock Received</th>
                                     <th class="text-end" style="width: 120px;">Outstanding</th>
-                                    <th class="text-center" style="width: 90px;">Status</th>
-                                    <th class="text-end pe-3" style="width: 120px;">Actions</th>
+                                    <th class="text-center" style="width: 80px;">Status</th>
+                                    <th class="text-end pe-3" style="width: 110px;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -267,7 +347,15 @@
                                         <td>{{ $supp->contact_person ?: '—' }}</td>
                                         <td class="font-monospace fs-11">{{ $supp->mobile_number }}</td>
                                         <td>{{ $supp->city ?: '—' }}</td>
-                                        <td class="text-end font-monospace fw-bold text-danger">Rs. {{ number_format($supp->current_balance, 2) }}</td>
+                                        <td class="text-end font-monospace">
+                                            <div class="fw-bold text-primary">Rs. {{ number_format($supp->period_stock_received ?? 0, 2) }}</div>
+                                            @if(($supp->period_invoice_count ?? 0) > 0)
+                                                <span class="badge badge-subtle-info rounded-pill" style="font-size: 9px;">{{ $supp->period_invoice_count }} bills</span>
+                                            @else
+                                                <span class="text-muted" style="font-size: 9px;">0 bills</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-end font-monospace fw-bold {{ $supp->current_balance > 0 ? 'text-danger' : 'text-success' }}">Rs. {{ number_format($supp->current_balance, 2) }}</td>
                                         <td class="text-center">
                                             <span class="badge badge-subtle-{{ $supp->status === 'Active' ? 'success' : 'secondary' }} rounded-pill">
                                                 {{ $supp->status }}
@@ -303,10 +391,20 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="text-center py-4 text-muted">No suppliers registered.</td>
+                                        <td colspan="10" class="text-center py-4 text-muted">No suppliers found matching the criteria.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
+                            @if($suppliers->isNotEmpty())
+                                <tfoot>
+                                    <tr class="bg-200 fw-bold fs-11">
+                                        <td colspan="6" class="text-end ps-3">TOTAL (PAGE):</td>
+                                        <td class="text-end font-monospace text-primary">Rs. {{ number_format($suppliers->sum('period_stock_received'), 2) }}</td>
+                                        <td class="text-end font-monospace text-danger">Rs. {{ number_format($suppliers->sum('current_balance'), 2) }}</td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tfoot>
+                            @endif
                         </table>
                     </div>
                 </div>

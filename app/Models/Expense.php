@@ -37,6 +37,7 @@ class Expense extends Model
         'discount_amount',
         'total_amount',
         'total_amount_base',
+        'paid_amount',
         'payment_method',
         'cash_bank_account_id',
         'petty_cash_account_id',
@@ -56,6 +57,7 @@ class Expense extends Model
         'discount_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'total_amount_base' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
     ];
 
     // Status Constants

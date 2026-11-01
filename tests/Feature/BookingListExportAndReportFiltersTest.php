@@ -581,5 +581,35 @@ class BookingListExportAndReportFiltersTest extends TestCase
             ->assertSee('Paid: Rs. 0')
             ->assertSee('Bal: Rs. 150,000');
     }
+
+    public function test_export_csv_includes_hall_charges_extra_addons_discounts_and_tax_columns()
+    {
+        Livewire::actingAs($this->user);
+
+        $this->booking1->update([
+            'hall_charges' => 45000.00,
+            'extra_charges' => 18000.00,
+            'discount_amount' => 5000.00,
+            'tax_amount' => 12500.00,
+        ]);
+
+        $download = Livewire::test('booking-list')
+            ->set('search', 'BK-FILT-001')
+            ->call('exportExcel');
+
+        $csv = $this->getCsvContent($download);
+
+        // Verify CSV header columns exist
+        $this->assertStringContainsString('Hall Charges', $csv);
+        $this->assertStringContainsString('Extra Add-ons', $csv);
+        $this->assertStringContainsString('Discounts', $csv);
+        $this->assertStringContainsString('Tax', $csv);
+
+        // Verify row values exist
+        $this->assertStringContainsString('45000.00', $csv);
+        $this->assertStringContainsString('18000.00', $csv);
+        $this->assertStringContainsString('5000.00', $csv);
+        $this->assertStringContainsString('12500.00', $csv);
+    }
 }
 

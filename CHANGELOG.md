@@ -5,6 +5,28 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.35.0] - 2026-11-02
+
+### Added & Enhanced
+- **Booking List Financial Export Column Disaggregation**:
+  - Enhanced the booking list CSV export to provide dedicated, separate financial breakdown columns: `Extra Add-ons Charges`, `Tax Amount`, `Hall / Rent Charges`, and `Discount Amount`.
+  - Added unit and feature test coverage verifying strict column segregation and decimal precision.
+- **Supplier Directory Stock Procurement & Purchase Date Filtering**:
+  - Added date range filters (`From Date` and `To Date`) to the Supplier Directory to track vendor stock delivery timelines.
+  - Implemented real-time supplier stock receipt metrics: items received, total stock value, and overall procurement summaries.
+  - Added full export capabilities including CSV download, print-friendly layout, and formal DomPDF procurement report generation (`/suppliers/directory/pdf`).
+- **Expense Register & Expense Report Pagination, Print & PDF Overhauls**:
+  - Implemented responsive Bootstrap 5.3 pagination on the Expense Register (`ExpenseList`), configurable per-page sizing (15, 25, 50, 100), and filter state persistence.
+  - Resolved sidebar clipping in window print mode using dedicated `@media print` CSS rules in `admin.blade.php`, ensuring clean, full-width reports without UI navigation sidebars.
+  - Added standalone A4 landscape PDF export for the Expense Register (`/expenses/export-pdf`) via `ExpenseController::exportPdf` and `expense-register-pdf.blade.php`.
+- **Automated FIFO Accounts Payable Expense Settlement Engine**:
+  - Added `paid_amount` decimal column to `expenses` table via database migration `2026_11_02_000001_add_paid_amount_to_expenses_table.php`.
+  - Implemented `ExpenseService::settleSupplierExpensesFifo()` allocating vendor payments chronologically (First-In-First-Out) across outstanding Accounts Payable credit expenses.
+  - Added multi-stage payment tracking with visual badge indicators (`Unpaid`, `Partially Paid`, and `Paid`), automatically transitioning expenses to `Closed` status upon 100% settlement.
+  - Hooked FIFO auto-settlement into Payment Vouchers (`PaymentVoucherService::disburseAndPost`) and Supplier Directory Manual Vendor Payments (`SupplierLedgerView::recordPayment`).
+  - Added real-time reconciliation in `ExpenseList::render()` and `SupplierLedgerView::recalculateLedger()` for cleared vendors.
+  - Added comprehensive automated feature test suite `tests/Feature/ExpenseFifoSettlementTest.php`.
+
 ## [1.34.0] - 2026-10-29
 
 ### Added & Enhanced

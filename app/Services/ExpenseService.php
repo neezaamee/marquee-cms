@@ -197,15 +197,15 @@ class ExpenseService
                 throw new InvalidArgumentException("Insufficient balance in petty cash account: {$drawer->account_name}");
             }
             $drawer->decrement('current_balance', $expense->total_amount);
-            $expense->update(['payment_status' => 'Paid', 'status' => Expense::STATUS_PAID]);
+            $expense->update(['payment_status' => 'Paid', 'paid_amount' => $expense->total_amount, 'status' => Expense::STATUS_PAID]);
         } 
         // For cash/bank payments, mark paid automatically upon approval
         elseif (in_array($expense->payment_method, [Expense::METHOD_CASH, Expense::METHOD_BANK])) {
-            $expense->update(['payment_status' => 'Paid', 'status' => Expense::STATUS_PAID]);
+            $expense->update(['payment_status' => 'Paid', 'paid_amount' => $expense->total_amount, 'status' => Expense::STATUS_PAID]);
         }
         // For accounts payable, mark unpaid
         elseif ($expense->payment_method === Expense::METHOD_CREDIT) {
-            $expense->update(['payment_status' => 'Unpaid']);
+            $expense->update(['payment_status' => 'Unpaid', 'paid_amount' => 0.00]);
         }
 
         // 2. Consume budget
@@ -313,6 +313,8 @@ class ExpenseService
 
             $marqueeId = $expense->marquee_id;
 
+            $dueAmount = max(0.01, (float)$expense->total_amount - (float)($expense->paid_amount ?? 0));
+
             // Find Debit Account: Accounts Payable (2001)
             $debitAccountId = Account::where('marquee_id', $marqueeId)->where('account_code', '2001')->value('id');
 
@@ -327,10 +329,10 @@ class ExpenseService
                 
                 // Deduct Petty Cash drawer
                 $drawer = PettyCashAccount::findOrFail($pettyCashAccountId);
-                if ($drawer->current_balance < $expense->total_amount) {
+                if ($drawer->current_balance < $dueAmount) {
                     throw new InvalidArgumentException("Insufficient Petty Cash balance.");
                 }
-                $drawer->decrement('current_balance', $expense->total_amount);
+                $drawer->decrement('current_balance', $dueAmount);
             }
 
             if (!$debitAccountId || !$creditAccountId) {
@@ -349,14 +351,14 @@ class ExpenseService
             $items = [
                 [
                     'account_id' => $debitAccountId,
-                    'debit' => $expense->total_amount, // Debit decreases payables
+                    'debit' => $dueAmount, // Debit decreases payables
                     'credit' => 0.00,
                     'narration' => "Debit Accounts Payable - Invoice #{$expense->expense_number}",
                 ],
                 [
                     'account_id' => $creditAccountId,
                     'debit' => 0.00,
-                    'credit' => $expense->total_amount, // Credit decreases assets
+                    'credit' => $dueAmount, // Credit decreases assets
                     'narration' => "Credit Asset - Payment for #{$expense->expense_number}",
                 ]
             ];
@@ -369,7 +371,7 @@ class ExpenseService
                     $marqueeId,
                     $expense->supplier_id,
                     now()->format('Y-m-d'),
-                    $expense->total_amount, // Debit (decreases outstanding balance)
+                    $dueAmount, // Debit (decreases outstanding balance)
                     0.00, // Credit
                     'SupplierPayment',
                     $expense->id,
@@ -379,6 +381,7 @@ class ExpenseService
             }
 
             $expense->update([
+                'paid_amount' => $expense->total_amount,
                 'payment_status' => 'Paid',
                 'status' => Expense::STATUS_CLOSED,
                 'reference_number' => $refNumber ?? $expense->reference_number,
@@ -386,6 +389,153 @@ class ExpenseService
 
             return $expense;
         });
+    }
+
+    /**
+     * Settle unpaid Accounts Payable credit expenses for a supplier using First-In-First-Out (FIFO) allocation.
+     *
+     * @param int $supplierId
+     * @param float $paymentAmount
+     * @param string|null $voucherNo
+     * @param int|null $marqueeId
+     * @return array Array of settled expenses with settlement details
+     */
+    public function settleSupplierExpensesFifo(int $supplierId, float $paymentAmount, ?string $voucherNo = null, ?int $marqueeId = null): array
+    {
+        if ($paymentAmount <= 0.0001) {
+            return [];
+        }
+
+        if (!$marqueeId) {
+            $supplier = \App\Models\Supplier::find($supplierId);
+            $marqueeId = $supplier ? $supplier->marquee_id : null;
+        }
+
+        return DB::transaction(function () use ($supplierId, $paymentAmount, $voucherNo, $marqueeId) {
+            $unpaidExpenses = Expense::where('supplier_id', $supplierId)
+                ->when($marqueeId, fn($q) => $q->where('marquee_id', $marqueeId))
+                ->where('payment_method', Expense::METHOD_CREDIT)
+                ->whereIn('payment_status', ['Unpaid', 'Partially Paid'])
+                ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
+                ->orderBy('expense_date', 'asc')
+                ->orderBy('id', 'asc')
+                ->lockForUpdate()
+                ->get();
+
+            $settledExpenses = [];
+            $remainingPayment = (float)$paymentAmount;
+
+            foreach ($unpaidExpenses as $expense) {
+                if ($remainingPayment <= 0.001) {
+                    break;
+                }
+
+                $total = (float)$expense->total_amount;
+                $currentPaid = (float)($expense->paid_amount ?? 0);
+                $due = max(0.0, $total - $currentPaid);
+
+                if ($due <= 0.001) {
+                    $expense->update([
+                        'paid_amount' => $total,
+                        'payment_status' => 'Paid',
+                        'status' => in_array($expense->status, [Expense::STATUS_APPROVED, Expense::STATUS_POSTED]) ? Expense::STATUS_CLOSED : $expense->status,
+                    ]);
+                    continue;
+                }
+
+                if ($remainingPayment >= $due) {
+                    // Full settlement of this expense
+                    $refNote = $voucherNo ? " (Settled by {$voucherNo})" : "";
+                    $expense->update([
+                        'paid_amount' => $total,
+                        'payment_status' => 'Paid',
+                        'status' => in_array($expense->status, [Expense::STATUS_APPROVED, Expense::STATUS_POSTED]) ? Expense::STATUS_CLOSED : Expense::STATUS_PAID,
+                        'reference_number' => $expense->reference_number ? $expense->reference_number . $refNote : ($voucherNo ?? $expense->reference_number),
+                    ]);
+
+                    $remainingPayment -= $due;
+                    $settledExpenses[] = [
+                        'expense_id' => $expense->id,
+                        'expense_number' => $expense->expense_number,
+                        'amount_settled' => $due,
+                        'status' => 'Paid',
+                    ];
+                } else {
+                    // Partial settlement
+                    $newPaid = $currentPaid + $remainingPayment;
+                    $refNote = $voucherNo ? " (Partially paid by {$voucherNo})" : "";
+                    $expense->update([
+                        'paid_amount' => $newPaid,
+                        'payment_status' => 'Partially Paid',
+                        'reference_number' => $expense->reference_number ? $expense->reference_number . $refNote : ($voucherNo ?? $expense->reference_number),
+                    ]);
+
+                    $settledExpenses[] = [
+                        'expense_id' => $expense->id,
+                        'expense_number' => $expense->expense_number,
+                        'amount_settled' => $remainingPayment,
+                        'status' => 'Partially Paid',
+                    ];
+
+                    $remainingPayment = 0;
+                    break;
+                }
+            }
+
+            return $settledExpenses;
+        });
+    }
+
+    /**
+     * Auto-reconcile all outstanding credit expenses for a supplier based on their current balance or payment history.
+     */
+    public function reconcileSupplierExpenses(int $supplierId, ?int $marqueeId = null): array
+    {
+        $supplier = \App\Models\Supplier::find($supplierId);
+        if (!$supplier) {
+            return [];
+        }
+
+        $marqueeId = $marqueeId ?: $supplier->marquee_id;
+
+        // If supplier current_balance <= 0.01, all expenses are fully cleared
+        if ($supplier->current_balance <= 0.01) {
+            $updated = [];
+            $unpaid = Expense::where('supplier_id', $supplierId)
+                ->when($marqueeId, fn($q) => $q->where('marquee_id', $marqueeId))
+                ->where('payment_method', Expense::METHOD_CREDIT)
+                ->whereIn('payment_status', ['Unpaid', 'Partially Paid'])
+                ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
+                ->get();
+
+            foreach ($unpaid as $exp) {
+                $exp->update([
+                    'paid_amount' => $exp->total_amount,
+                    'payment_status' => 'Paid',
+                    'status' => in_array($exp->status, [Expense::STATUS_APPROVED, Expense::STATUS_POSTED]) ? Expense::STATUS_CLOSED : $exp->status,
+                ]);
+                $updated[] = $exp->id;
+            }
+            return $updated;
+        }
+
+        // Otherwise, calculate total debits paid from ledger minus what has already been marked as settled
+        $totalDebits = (float) SupplierLedger::where('supplier_id', $supplierId)
+            ->where('debit', '>', 0)
+            ->sum('debit');
+
+        $alreadySettled = (float) Expense::where('supplier_id', $supplierId)
+            ->when($marqueeId, fn($q) => $q->where('marquee_id', $marqueeId))
+            ->where('payment_method', Expense::METHOD_CREDIT)
+            ->sum('paid_amount');
+
+        $unallocatedDebits = max(0.0, $totalDebits - $alreadySettled);
+
+        if ($unallocatedDebits > 0.001) {
+            return $this->settleSupplierExpensesFifo($supplierId, $unallocatedDebits, 'Reconciliation', $marqueeId);
+        }
+
+        return [];
     }
 
     /**

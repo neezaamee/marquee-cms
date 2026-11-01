@@ -11,6 +11,10 @@ class ExpenseRepository implements ExpenseRepositoryInterface
     {
         $query = Expense::query()->with(['category', 'type', 'branch', 'supplier', 'employee', 'currency']);
 
+        if (!empty($filters['marquee_id'])) {
+            $query->where('marquee_id', $filters['marquee_id']);
+        }
+
         if (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }

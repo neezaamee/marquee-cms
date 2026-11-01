@@ -554,6 +554,101 @@ class SupplierDirectoryLedgerPaymentTest extends TestCase
         $printResponse = $this->get(route('suppliers.print'));
         $printResponse->assertStatus(200);
         $printResponse->assertSee('Print Directory');
-        $printResponse->assertSee('Supplier Directory');
+        $printResponse->assertSee('Supplier');
+    }
+
+    public function test_supplier_list_date_filter_and_stock_received_report(): void
+    {
+        $this->actingAs($this->owner);
+
+        // Supplier 1: Provided stock this month
+        $suppA = Supplier::create([
+            'marquee_id' => $this->marquee->id,
+            'supplier_code' => 'SUP-DATE-A',
+            'name' => 'Al-Makkah Poultry',
+            'mobile_number' => '03001112233',
+            'opening_balance' => 0.00,
+            'status' => 'Active',
+        ]);
+
+        // Supplier 2: Provided stock last month
+        $suppB = Supplier::create([
+            'marquee_id' => $this->marquee->id,
+            'supplier_code' => 'SUP-DATE-B',
+            'name' => 'Faisalabad Rice Mills',
+            'mobile_number' => '03004445566',
+            'opening_balance' => 0.00,
+            'status' => 'Active',
+        ]);
+
+        // Supplier 3: Registered but provided zero stock
+        $suppC = Supplier::create([
+            'marquee_id' => $this->marquee->id,
+            'supplier_code' => 'SUP-DATE-C',
+            'name' => 'Zero Stock Supplier',
+            'mobile_number' => '03007778899',
+            'opening_balance' => 0.00,
+            'status' => 'Active',
+        ]);
+
+        // Invoice for Supplier A in Current Month (Rs. 75,000)
+        PurchaseInvoice::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'supplier_id' => $suppA->id,
+            'invoice_number' => 'PI-DATE-001',
+            'purchase_date' => now()->format('Y-m-d'),
+            'net_amount' => 75000.00,
+            'gross_amount' => 75000.00,
+            'status' => 'Posted',
+        ]);
+
+        // Invoice for Supplier B in Last Month (Rs. 50,000)
+        PurchaseInvoice::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'supplier_id' => $suppB->id,
+            'invoice_number' => 'PI-DATE-002',
+            'purchase_date' => now()->subMonth()->format('Y-m-d'),
+            'net_amount' => 50000.00,
+            'gross_amount' => 50000.00,
+            'status' => 'Posted',
+        ]);
+
+        // 1. Test "This Month" filter on Livewire SupplierList
+        $testThisMonth = Livewire::test(SupplierList::class)
+            ->call('setDateRange', 'this_month')
+            ->assertSee('This Month')
+            ->assertSee('Total Stock Received Overall')
+            ->assertSee('Rs. 75,000.00') // Supplier A's stock in KPI
+            ->assertSee('Al-Makkah Poultry');
+
+        // 2. Test "Supplied Stock Only" filter (should exclude suppC)
+        $testSuppliedOnly = Livewire::test(SupplierList::class)
+            ->call('setDateRange', 'this_month')
+            ->set('stockFilter', 'supplied_only')
+            ->assertSee('Al-Makkah Poultry')
+            ->assertDontSee('Zero Stock Supplier')
+            ->assertDontSee('Faisalabad Rice Mills');
+
+        // 3. Test "Last Month" filter
+        $testLastMonth = Livewire::test(SupplierList::class)
+            ->call('setDateRange', 'last_month')
+            ->assertSee('Rs. 50,000.00')
+            ->assertSee('Faisalabad Rice Mills');
+
+        // 4. Test Print Route with date filter parameters
+        $printResponse = $this->get(route('suppliers.print', [
+            'dateRange' => 'this_month',
+            'dateFrom' => now()->startOfMonth()->format('Y-m-d'),
+            'dateTo' => now()->endOfMonth()->format('Y-m-d'),
+            'stockFilter' => 'supplied_only',
+        ]));
+
+        $printResponse->assertStatus(200);
+        $printResponse->assertSee('Supplier Stock & Directory Report');
+        $printResponse->assertSee('Stock Received');
+        $printResponse->assertSee('Al-Makkah Poultry');
+        $printResponse->assertSee('75,000.00');
     }
 }
