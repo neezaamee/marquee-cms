@@ -183,15 +183,21 @@ class MigrationManager extends Component
                 }
             }
 
-            Artisan::call('storage:link', ['--relative' => true, '--force' => true]);
+            // Determine options: only use --relative if symfony/filesystem is installed
+            $params = ['--force' => true];
+            if (class_exists(\Symfony\Component\Filesystem\Filesystem::class)) {
+                $params['--relative'] = true;
+            }
+
+            Artisan::call('storage:link', $params);
             $output = Artisan::output();
 
             // Fallback: If symlink command didn't create link and symlink() is enabled
             if (!file_exists($storageLink) && function_exists('symlink')) {
-                @symlink('../storage/app/public', $storageLink);
+                @symlink(storage_path('app/public'), $storageLink);
             }
 
-            $this->addConsoleLog('php artisan storage:link --relative --force', $output ?: 'Storage link verified.');
+            $this->addConsoleLog('php artisan storage:link --force', $output ?: 'Storage link verified.');
             session()->flash('success', 'Storage link created / verified successfully.');
         } catch (\Throwable $e) {
             $this->addConsoleLog('php artisan storage:link [FAILED]', $e->getMessage());
