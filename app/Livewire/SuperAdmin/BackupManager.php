@@ -31,6 +31,8 @@ class BackupManager extends Component
 
     // Restore Backup State
     public $uploadedBackup = null;
+    public $uploadedBackupName = '';
+    public $uploadedBackupSize = '';
     public $selectedRestoreBackupId = null;
     public $restoreConfirmationText = '';
     public $isRestoreModalOpen = false;
@@ -135,6 +137,36 @@ class BackupManager extends Component
     }
 
     /**
+     * Hook triggered when a backup file is uploaded.
+     */
+    public function updatedUploadedBackup()
+    {
+        if ($this->uploadedBackup) {
+            try {
+                $this->uploadedBackupName = $this->uploadedBackup->getClientOriginalName();
+                $bytes = $this->uploadedBackup->getSize();
+                $this->uploadedBackupSize = number_format($bytes / 1048576, 2) . ' MB';
+            } catch (\Throwable $e) {
+                $this->uploadedBackupName = '';
+                $this->uploadedBackupSize = '';
+            }
+        } else {
+            $this->uploadedBackupName = '';
+            $this->uploadedBackupSize = '';
+        }
+    }
+
+    /**
+     * Clear uploaded backup file selection.
+     */
+    public function clearUploadedBackup()
+    {
+        $this->uploadedBackup = null;
+        $this->uploadedBackupName = '';
+        $this->uploadedBackupSize = '';
+    }
+
+    /**
      * Prepare restore modal for an existing backup snapshot.
      */
     public function prepareRestore($backupId)
@@ -142,7 +174,7 @@ class BackupManager extends Component
         abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized access.');
 
         $this->selectedRestoreBackupId = $backupId;
-        $this->uploadedBackup = null;
+        $this->clearUploadedBackup();
         $this->restoreConfirmationText = '';
         $this->isRestoreModalOpen = true;
     }
@@ -157,6 +189,16 @@ class BackupManager extends Component
         $this->validate([
             'uploadedBackup' => 'required|file|max:512000', // 500MB max
         ]);
+
+        if ($this->uploadedBackup) {
+            try {
+                $this->uploadedBackupName = $this->uploadedBackup->getClientOriginalName();
+                $bytes = $this->uploadedBackup->getSize();
+                $this->uploadedBackupSize = number_format($bytes / 1048576, 2) . ' MB';
+            } catch (\Throwable $e) {
+                $this->uploadedBackupSize = '';
+            }
+        }
 
         $this->selectedRestoreBackupId = null;
         $this->restoreConfirmationText = '';
@@ -187,6 +229,9 @@ class BackupManager extends Component
             if ($this->selectedRestoreBackupId) {
                 $backup = SystemBackup::findOrFail($this->selectedRestoreBackupId);
                 $filePath = storage_path('app/' . $backup->file_path);
+                if (!file_exists($filePath)) {
+                    $filePath = storage_path('app/private/' . $backup->file_path);
+                }
             } elseif ($this->uploadedBackup) {
                 // Preserve original extension (.zip or .sql) so BackupService extracts properly
                 $originalExt = strtolower($this->uploadedBackup->getClientOriginalExtension());
@@ -194,10 +239,37 @@ class BackupManager extends Component
                     throw new \Exception("Unsupported backup file format. Please upload a .zip or .sql file.");
                 }
 
+                $tempDir = storage_path('app/backups/temp_restore');
+                \Illuminate\Support\Facades\File::ensureDirectoryExists($tempDir);
                 $tempName = 'restore_' . time() . '_' . uniqid() . '.' . $originalExt;
-                $storedPath = $this->uploadedBackup->storeAs('backups/temp_restore', $tempName);
-                $filePath = storage_path('app/' . $storedPath);
+                $filePath = $tempDir . '/' . $tempName;
                 $cleanUpPath = $filePath;
+
+                // Safely copy file to execution path without deleting Livewire's temporary file
+                $copied = false;
+                try {
+                    $realPath = $this->uploadedBackup->getRealPath();
+                    if ($realPath && file_exists($realPath)) {
+                        $copied = @copy($realPath, $filePath);
+                    }
+                } catch (\Throwable $e) {
+                    $copied = false;
+                }
+
+                if (!$copied) {
+                    $disk = config('livewire.temporary_file_upload.disk') ?: config('filesystems.default');
+                    $storage = \Illuminate\Support\Facades\Storage::disk($disk);
+                    $relPath = method_exists($this->uploadedBackup, 'path') ? $this->uploadedBackup->path() : null;
+                    if ($relPath && $storage->exists($relPath)) {
+                        \Illuminate\Support\Facades\File::put($filePath, $storage->get($relPath));
+                        $copied = true;
+                    }
+                }
+
+                if (!$copied && method_exists($this->uploadedBackup, 'getPathname') && file_exists($this->uploadedBackup->getPathname())) {
+                    @copy($this->uploadedBackup->getPathname(), $filePath);
+                    $copied = true;
+                }
             } else {
                 throw new \Exception("No backup file selected for restoration.");
             }
@@ -213,7 +285,7 @@ class BackupManager extends Component
             }
 
             $this->isRestoreModalOpen = false;
-            $this->uploadedBackup = null;
+            $this->clearUploadedBackup();
             $this->selectedRestoreBackupId = null;
             $this->restoreConfirmationText = '';
 
@@ -222,6 +294,12 @@ class BackupManager extends Component
             if (isset($cleanUpPath) && file_exists($cleanUpPath)) {
                 @unlink($cleanUpPath);
             }
+
+            // Reset state so that Livewire view render does not encounter a stale Flysystem reference
+            $this->clearUploadedBackup();
+            $this->isRestoreModalOpen = false;
+            $this->restoreConfirmationText = '';
+
             session()->flash('error', 'Data restoration failed: ' . $e->getMessage());
         }
     }

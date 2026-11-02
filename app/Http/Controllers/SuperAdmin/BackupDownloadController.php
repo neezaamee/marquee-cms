@@ -18,6 +18,9 @@ class BackupDownloadController extends Controller
         }
 
         $fullPath = storage_path('app/' . $backup->file_path);
+        if (!File::exists($fullPath)) {
+            $fullPath = storage_path('app/private/' . $backup->file_path);
+        }
 
         if (!File::exists($fullPath)) {
             return redirect()->back()->with('error', 'Backup file does not exist on disk.');

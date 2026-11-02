@@ -5,6 +5,19 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.35.1] - 2026-11-02
+
+### Fixed & Enhanced
+- **Super Admin Backup Restoration & Flysystem Metadata Resolution**:
+  - Resolved `League\Flysystem\UnableToRetrieveMetadata: Unable to retrieve the file_size for file at location: livewire-tmp/...` exception during external `.zip` or `.sql` backup restoration in `BackupManager`.
+  - Replaced destructive `storeAs()` calls (which moved and deleted temporary files from `livewire-tmp/`) with non-destructive stream copy/file copying, preserving temporary file handles for Livewire's component lifecycle.
+  - Added dedicated Livewire component state properties (`$uploadedBackupName`, `$uploadedBackupSize`) and `updatedUploadedBackup()` hook, removing brittle direct Flysystem metadata queries (`$uploadedBackup->getSize()`) from the Blade template.
+  - Implemented one-click "Clear" action on the uploaded file UI, allowing administrators to change or remove an uploaded backup archive seamlessly.
+  - Enhanced error handling in `executeRestore()` to automatically reset upload state upon any database or extraction failure, preventing stale Flysystem references during subsequent view re-renders.
+  - Added dual-path fallback checks across `BackupDownloadController`, `BackupService::deleteBackup`, and `BackupManager::executeRestore` to seamlessly support both `storage/app/` and Laravel 12's `storage/app/private/` disk paths.
+  - Published and tuned `config/livewire.php` to raise `temporary_file_upload.rules` to 500MB (`max:512000`) and extend timeout to 30 minutes for large enterprise database backups.
+  - Expanded automated feature test suite `tests/Feature/SuperAdminBackupManagementTest.php` with uploaded `.sql` and `.zip` archive restoration, view rendering validation, and upload clear operations (12 tests, 27 assertions passing).
+
 ## [1.35.0] - 2026-11-02
 
 ### Added & Enhanced

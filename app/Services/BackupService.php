@@ -321,6 +321,11 @@ class BackupService
         $fullPath = storage_path('app/' . $backup->file_path);
         if (File::exists($fullPath)) {
             File::delete($fullPath);
+        } else {
+            $privatePath = storage_path('app/private/' . $backup->file_path);
+            if (File::exists($privatePath)) {
+                File::delete($privatePath);
+            }
         }
 
         $fileName = $backup->file_name;

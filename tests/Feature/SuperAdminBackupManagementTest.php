@@ -176,4 +176,69 @@ class SuperAdminBackupManagementTest extends TestCase
             ->assertSet('isRestoreModalOpen', true)
             ->assertSet('selectedRestoreBackupId', null);
     }
+
+    public function test_clear_uploaded_backup()
+    {
+        $uploadedFile = UploadedFile::fake()->create('database_backup.sql', 100);
+
+        Livewire::actingAs($this->superAdmin)
+            ->test(BackupManager::class)
+            ->set('uploadedBackup', $uploadedFile)
+            ->assertSet('uploadedBackupName', 'database_backup.sql')
+            ->call('clearUploadedBackup')
+            ->assertSet('uploadedBackup', null)
+            ->assertSet('uploadedBackupName', '')
+            ->assertSet('uploadedBackupSize', '');
+    }
+
+    public function test_execute_restore_with_uploaded_sql_backup()
+    {
+        $sqlContent = "-- Test SQL Dump\nSELECT 1;";
+        $uploadedFile = UploadedFile::fake()->createWithContent('test_restore.sql', $sqlContent);
+
+        Livewire::actingAs($this->superAdmin)
+            ->test(BackupManager::class)
+            ->set('uploadedBackup', $uploadedFile)
+            ->set('restoreConfirmationText', 'RESTORE')
+            ->call('executeRestore')
+            ->assertHasNoErrors()
+            ->assertSet('isRestoreModalOpen', false)
+            ->assertSet('uploadedBackup', null);
+
+        $this->assertDatabaseHas('backup_activity_logs', [
+            'user_id' => $this->superAdmin->id,
+            'action' => 'backup_restored',
+        ]);
+    }
+
+    public function test_execute_restore_with_uploaded_zip_backup_and_view_rendering()
+    {
+        $tempZip = tempnam(sys_get_temp_dir(), 'test_zip_') . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($tempZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('database_dump.sql', "-- Test SQL Dump in Zip\nSELECT 1;");
+        $zip->close();
+
+        $uploadedFile = UploadedFile::fake()->createWithContent('test_backup.zip', file_get_contents($tempZip));
+
+        Livewire::actingAs($this->superAdmin)
+            ->test(BackupManager::class)
+            ->set('activeTab', 'restore')
+            ->set('uploadedBackup', $uploadedFile)
+            ->assertSee('File Ready:')
+            ->set('restoreConfirmationText', 'RESTORE')
+            ->call('executeRestore')
+            ->assertHasNoErrors()
+            ->assertSet('isRestoreModalOpen', false)
+            ->assertSet('uploadedBackup', null);
+
+        $this->assertDatabaseHas('backup_activity_logs', [
+            'user_id' => $this->superAdmin->id,
+            'action' => 'backup_restored',
+        ]);
+
+        if (file_exists($tempZip)) {
+            @unlink($tempZip);
+        }
+    }
 }

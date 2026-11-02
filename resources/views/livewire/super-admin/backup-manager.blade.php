@@ -341,10 +341,18 @@
                   Uploading backup archive to server, please wait...
                 </div>
 
-                @if ($uploadedBackup)
-                  <div class="alert alert-success py-2 px-3 mt-2 fs-10 mb-0">
-                    <i class="fas fa-check-circle me-1"></i>
-                    <strong>File Ready:</strong> {{ $uploadedBackup->getClientOriginalName() }} ({{ number_format($uploadedBackup->getSize() / 1048576, 2) }} MB)
+                @if ($uploadedBackup || $uploadedBackupName)
+                  <div class="alert alert-success py-2 px-3 mt-2 fs-10 mb-0 d-flex align-items-center justify-content-between">
+                    <div>
+                      <i class="fas fa-check-circle me-1"></i>
+                      <strong>File Ready:</strong> {{ $uploadedBackupName ?: (is_object($uploadedBackup) && method_exists($uploadedBackup, 'getClientOriginalName') ? $uploadedBackup->getClientOriginalName() : 'Backup File') }}
+                      @if ($uploadedBackupSize)
+                        ({{ $uploadedBackupSize }})
+                      @endif
+                    </div>
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2 text-decoration-none" wire:click="clearUploadedBackup" title="Remove file">
+                      <i class="fas fa-times-circle me-1"></i>Clear
+                    </button>
                   </div>
                 @endif
               </div>
@@ -498,10 +506,13 @@
                   <strong>Restoring Snapshot:</strong> {{ $targetBackup->file_name }} ({{ $targetBackup->human_size }})
                 </div>
               @endif
-            @elseif($uploadedBackup)
+            @elseif($uploadedBackup || $uploadedBackupName)
               <div class="alert alert-warning py-2 px-3 fs-10 mb-3">
                 <i class="fas fa-upload me-1"></i>
-                <strong>Restoring Uploaded Archive:</strong> {{ $uploadedBackup->getClientOriginalName() }}
+                <strong>Restoring Uploaded Archive:</strong> {{ $uploadedBackupName ?: (is_object($uploadedBackup) && method_exists($uploadedBackup, 'getClientOriginalName') ? $uploadedBackup->getClientOriginalName() : 'Backup Archive') }}
+                @if ($uploadedBackupSize)
+                  ({{ $uploadedBackupSize }})
+                @endif
               </div>
             @endif
 
