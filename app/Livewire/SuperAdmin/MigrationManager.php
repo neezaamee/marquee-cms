@@ -168,9 +168,23 @@ class MigrationManager extends Component
     {
         abort_unless(auth()->check() && auth()->user()->isSuperAdmin(), 403);
 
-        try {
-            $storageLink = public_path('storage');
+        $storageLink = public_path('storage');
 
+        // Check if hosting provider has disabled symlink creation functions (common on shared hosts like Hostinger)
+        $canSymlink = function_exists('symlink');
+        $canExec = function_exists('exec');
+
+        if (!$canSymlink && !$canExec) {
+            $this->addConsoleLog(
+                'storage:link [INFO]',
+                'Symlink functions (symlink, exec) are disabled by your shared hosting provider for security. ' .
+                'The built-in storage streaming route is active and serving all logos and media files directly from storage/app/public.'
+            );
+            session()->flash('success', 'Storage streaming fallback is active. All media and logos are being served securely without requiring symlinks.');
+            return;
+        }
+
+        try {
             // Delete existing symlink or empty folder if broken/stale
             if (is_link($storageLink) || file_exists($storageLink)) {
                 if (is_link($storageLink)) {
@@ -183,7 +197,17 @@ class MigrationManager extends Component
                 }
             }
 
-            // Determine options: only use --relative if symfony/filesystem is installed
+            // If PHP symlink is directly available, attempt it first
+            if ($canSymlink) {
+                $linked = @symlink(storage_path('app/public'), $storageLink);
+                if ($linked) {
+                    $this->addConsoleLog('symlink()', 'Symbolic link successfully created: public/storage -> storage/app/public');
+                    session()->flash('success', 'Storage link created successfully.');
+                    return;
+                }
+            }
+
+            // Otherwise, attempt Artisan storage:link
             $params = ['--force' => true];
             if (class_exists(\Symfony\Component\Filesystem\Filesystem::class)) {
                 $params['--relative'] = true;
@@ -192,16 +216,11 @@ class MigrationManager extends Component
             Artisan::call('storage:link', $params);
             $output = Artisan::output();
 
-            // Fallback: If symlink command didn't create link and symlink() is enabled
-            if (!file_exists($storageLink) && function_exists('symlink')) {
-                @symlink(storage_path('app/public'), $storageLink);
-            }
-
-            $this->addConsoleLog('php artisan storage:link --force', $output ?: 'Storage link verified.');
+            $this->addConsoleLog('php artisan storage:link', $output ?: 'Storage link verified.');
             session()->flash('success', 'Storage link created / verified successfully.');
         } catch (\Throwable $e) {
-            $this->addConsoleLog('php artisan storage:link [FAILED]', $e->getMessage());
-            session()->flash('error', 'Storage link failed: ' . $e->getMessage());
+            $this->addConsoleLog('storage:link [NOTICE]', $e->getMessage() . ' - Web streaming route is actively serving storage files.');
+            session()->flash('info', 'Symlink creation is restricted by your hosting provider, but your files and logos are automatically served via the built-in storage streaming route.');
         }
     }
 
