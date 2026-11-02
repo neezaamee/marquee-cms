@@ -35,14 +35,24 @@ Route::view('/offline', 'offline')->name('offline');
 
 // Storage fallback route: serves public files/logos if the storage symlink is missing or unsupported on live hosting
 Route::get('storage/{path}', function ($path) {
-    $basePath = storage_path('app/public');
-    $filePath = $basePath . '/' . $path;
+    $basePath = realpath(storage_path('app/public')) ?: storage_path('app/public');
+    $filePath = storage_path('app/public/' . $path);
     $realPath = realpath($filePath);
 
     if (!$realPath || !str_starts_with(str_replace('\\', '/', $realPath), str_replace('\\', '/', $basePath)) || !file_exists($realPath)) {
         abort(404);
     }
-    return response()->file($realPath);
+
+    $mimeType = @mime_content_type($realPath) ?: 'application/octet-stream';
+
+    return response()->file($realPath, [
+        'Content-Type' => $mimeType,
+        'Cache-Control' => 'public, max-age=86400',
+    ]);
+})->where('path', '.*');
+
+Route::get('public/storage/{path}', function ($path) {
+    return redirect('storage/' . $path, 301);
 })->where('path', '.*');
 
 // Authentication Guest Routes

@@ -1,5 +1,16 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Prevent 403 Forbidden on /storage requests on shared hosting:
+    # If the file exists directly in public/storage, serve it
+    RewriteCond %{DOCUMENT_ROOT}/public/storage/$1 -f
+    RewriteRule ^storage/(.*)$ public/storage/$1 [L]
+
+    # If public/storage symlink is missing/broken on shared hosting, route /storage/ through Laravel's index.php fallback
+    RewriteCond %{REQUEST_URI} ^/storage/
+    RewriteRule ^storage/(.*)$ public/index.php [L]
+
+    # Standard routing to public/
     RewriteCond %{REQUEST_URI} !^/public/
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>

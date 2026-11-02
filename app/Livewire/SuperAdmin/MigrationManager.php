@@ -169,10 +169,29 @@ class MigrationManager extends Component
         abort_unless(auth()->check() && auth()->user()->isSuperAdmin(), 403);
 
         try {
-            Artisan::call('storage:link');
+            $storageLink = public_path('storage');
+
+            // Delete existing symlink or empty folder if broken/stale
+            if (is_link($storageLink) || file_exists($storageLink)) {
+                if (is_link($storageLink)) {
+                    @unlink($storageLink);
+                } elseif (is_dir($storageLink)) {
+                    $files = array_diff(@scandir($storageLink) ?: [], ['.', '..']);
+                    if (empty($files)) {
+                        @rmdir($storageLink);
+                    }
+                }
+            }
+
+            Artisan::call('storage:link', ['--relative' => true, '--force' => true]);
             $output = Artisan::output();
 
-            $this->addConsoleLog('php artisan storage:link', $output ?: 'Storage link verified.');
+            // Fallback: If symlink command didn't create link and symlink() is enabled
+            if (!file_exists($storageLink) && function_exists('symlink')) {
+                @symlink('../storage/app/public', $storageLink);
+            }
+
+            $this->addConsoleLog('php artisan storage:link --relative --force', $output ?: 'Storage link verified.');
             session()->flash('success', 'Storage link created / verified successfully.');
         } catch (\Throwable $e) {
             $this->addConsoleLog('php artisan storage:link [FAILED]', $e->getMessage());
