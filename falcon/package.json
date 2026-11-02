@@ -97,7 +97,7 @@
     "simplebar": "^6.3.2",
     "sortablejs": "^1.15.6",
     "swiper": "^12.0.3",
-    "tinymce": "^8.2.0",
+    "tinymce": "^8.9.3",
     "typed.js": "^2.1.0"
   },
   "browserslist": [
