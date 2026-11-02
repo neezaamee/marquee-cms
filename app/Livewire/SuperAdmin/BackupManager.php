@@ -181,25 +181,47 @@ class BackupManager extends Component
             return;
         }
 
+        $cleanUpPath = null;
+
         try {
             if ($this->selectedRestoreBackupId) {
                 $backup = SystemBackup::findOrFail($this->selectedRestoreBackupId);
                 $filePath = storage_path('app/' . $backup->file_path);
             } elseif ($this->uploadedBackup) {
-                $filePath = $this->uploadedBackup->getRealPath();
+                // Preserve original extension (.zip or .sql) so BackupService extracts properly
+                $originalExt = strtolower($this->uploadedBackup->getClientOriginalExtension());
+                if (!in_array($originalExt, ['zip', 'sql'])) {
+                    throw new \Exception("Unsupported backup file format. Please upload a .zip or .sql file.");
+                }
+
+                $tempName = 'restore_' . time() . '_' . uniqid() . '.' . $originalExt;
+                $storedPath = $this->uploadedBackup->storeAs('backups/temp_restore', $tempName);
+                $filePath = storage_path('app/' . $storedPath);
+                $cleanUpPath = $filePath;
             } else {
                 throw new \Exception("No backup file selected for restoration.");
             }
 
+            if (!file_exists($filePath)) {
+                throw new \Exception("Backup file not found on server.");
+            }
+
             $backupService->restoreBackup($filePath, auth()->id());
+
+            if ($cleanUpPath && file_exists($cleanUpPath)) {
+                @unlink($cleanUpPath);
+            }
 
             $this->isRestoreModalOpen = false;
             $this->uploadedBackup = null;
             $this->selectedRestoreBackupId = null;
             $this->restoreConfirmationText = '';
 
-            session()->flash('success', 'Database restored successfully! All tables updated.');
+            session()->flash('success', 'Database restored successfully! All tables and records updated.');
         } catch (\Throwable $e) {
+            if (isset($cleanUpPath) && file_exists($cleanUpPath)) {
+                @unlink($cleanUpPath);
+            }
             session()->flash('error', 'Data restoration failed: ' . $e->getMessage());
         }
     }

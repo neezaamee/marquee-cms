@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Services\BackupService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -144,5 +146,34 @@ class SuperAdminBackupManagementTest extends TestCase
             'user_id' => $this->superAdmin->id,
             'action' => 'schedule_updated',
         ]);
+    }
+
+    public function test_restoring_backup_with_case_insensitive_text_succeeds()
+    {
+        $backupService = app(BackupService::class);
+        $backup = $backupService->createBackup(type: 'db_only', trigger: 'manual', userId: $this->superAdmin->id);
+
+        Livewire::actingAs($this->superAdmin)
+            ->test(BackupManager::class)
+            ->set('selectedRestoreBackupId', $backup->id)
+            ->set('restoreConfirmationText', 'restore')
+            ->call('executeRestore');
+
+        $this->assertDatabaseHas('backup_activity_logs', [
+            'user_id' => $this->superAdmin->id,
+            'action' => 'backup_restored',
+        ]);
+    }
+
+    public function test_prepare_upload_restore_modal()
+    {
+        $uploadedFile = UploadedFile::fake()->create('database_backup.sql', 100);
+
+        Livewire::actingAs($this->superAdmin)
+            ->test(BackupManager::class)
+            ->set('uploadedBackup', $uploadedFile)
+            ->call('prepareUploadRestore')
+            ->assertSet('isRestoreModalOpen', true)
+            ->assertSet('selectedRestoreBackupId', null);
     }
 }

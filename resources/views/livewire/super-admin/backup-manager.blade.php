@@ -333,12 +333,36 @@
             <form wire:submit.prevent="prepareUploadRestore">
               <div class="mb-3">
                 <label class="form-label fw-semibold">Select Backup File (.zip or .sql)</label>
-                <input type="file" class="form-control" wire:model="uploadedBackup">
-                @error('uploadedBackup') <span class="text-danger fs-10">{{ $message }}</span> @enderror
+                <input type="file" class="form-control" wire:model.live="uploadedBackup" accept=".zip,.sql">
+                @error('uploadedBackup') <span class="text-danger fs-10 d-block mt-1">{{ $message }}</span> @enderror
+
+                <div wire:loading wire:target="uploadedBackup" class="mt-2 text-warning fs-10">
+                  <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                  Uploading backup archive to server, please wait...
+                </div>
+
+                @if ($uploadedBackup)
+                  <div class="alert alert-success py-2 px-3 mt-2 fs-10 mb-0">
+                    <i class="fas fa-check-circle me-1"></i>
+                    <strong>File Ready:</strong> {{ $uploadedBackup->getClientOriginalName() }} ({{ number_format($uploadedBackup->getSize() / 1048576, 2) }} MB)
+                  </div>
+                @endif
               </div>
 
-              <button type="submit" class="btn btn-warning w-100" @if(!$uploadedBackup) disabled @endif>
-                <i class="fas fa-upload me-1"></i>Proceed to Restore
+              <button type="submit" 
+                      class="btn btn-warning w-100" 
+                      wire:loading.attr="disabled"
+                      wire:target="uploadedBackup, prepareUploadRestore"
+                      @if(!$uploadedBackup) disabled @endif>
+                <span wire:loading.remove wire:target="uploadedBackup, prepareUploadRestore">
+                  <i class="fas fa-upload me-1"></i>Proceed to Restore
+                </span>
+                <span wire:loading wire:target="uploadedBackup">
+                  <span class="spinner-border spinner-border-sm me-1" role="status"></span>Uploading Archive...
+                </span>
+                <span wire:loading wire:target="prepareUploadRestore">
+                  <span class="spinner-border spinner-border-sm me-1" role="status"></span>Preparing Restore...
+                </span>
               </button>
             </form>
           </div>
@@ -454,26 +478,64 @@
 
   <!-- RESTORE CONFIRMATION MODAL -->
   @if ($isRestoreModalOpen)
-    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);" x-data="{ confirmation: @entangle('restoreConfirmationText').live }">
       <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-danger">
+        <div class="modal-content border-danger shadow-lg">
           <div class="modal-header bg-danger text-white">
             <h5 class="modal-title text-white"><i class="fas fa-exclamation-triangle me-2"></i>Confirm Data Restoration</h5>
             <button type="button" class="btn-close btn-close-white" wire:click="closeRestoreModal"></button>
           </div>
-          <div class="modal-content-body p-3">
-            <div class="alert alert-danger" role="alert">
+          <div class="modal-body p-3">
+            <div class="alert alert-danger mb-3" role="alert">
               <strong>CRITICAL WARNING:</strong> Restoring database tables will overwrite current database records with the contents of the backup snapshot. This process cannot be undone.
             </div>
 
-            <p class="fs-10 text-700">To proceed with data restoration, please type <strong>RESTORE</strong> in capital letters below:</p>
+            @if($selectedRestoreBackupId)
+              @php $targetBackup = \App\Models\SystemBackup::find($selectedRestoreBackupId); @endphp
+              @if($targetBackup)
+                <div class="alert alert-warning py-2 px-3 fs-10 mb-3">
+                  <i class="fas fa-database me-1"></i>
+                  <strong>Restoring Snapshot:</strong> {{ $targetBackup->file_name }} ({{ $targetBackup->human_size }})
+                </div>
+              @endif
+            @elseif($uploadedBackup)
+              <div class="alert alert-warning py-2 px-3 fs-10 mb-3">
+                <i class="fas fa-upload me-1"></i>
+                <strong>Restoring Uploaded Archive:</strong> {{ $uploadedBackup->getClientOriginalName() }}
+              </div>
+            @endif
 
-            <input type="text" class="form-control mb-3" wire:model="restoreConfirmationText" placeholder="Type RESTORE to confirm">
+            <p class="fs-10 text-700 mb-2">To proceed with data restoration, please type <strong>RESTORE</strong> in the box below:</p>
+
+            <div class="input-group mb-3">
+              <input type="text" 
+                     class="form-control" 
+                     wire:model.live="restoreConfirmationText" 
+                     x-model="confirmation" 
+                     @keydown.enter.prevent="if (confirmation && confirmation.trim().toUpperCase() === 'RESTORE') { $wire.executeRestore(); }"
+                     placeholder="Type RESTORE to confirm"
+                     autocomplete="off"
+                     autofocus>
+              <button class="btn btn-outline-secondary btn-sm" type="button" @click="confirmation = 'RESTORE'; $wire.set('restoreConfirmationText', 'RESTORE')">
+                <i class="fas fa-check-double me-1"></i>Fill RESTORE
+              </button>
+            </div>
 
             <div class="d-flex justify-content-end gap-2">
               <button type="button" class="btn btn-secondary" wire:click="closeRestoreModal">Cancel</button>
-              <button type="button" class="btn btn-danger" wire:click="executeRestore" @if(trim(strtoupper($restoreConfirmationText)) !== 'RESTORE') disabled @endif>
-                <i class="fas fa-redo me-1"></i>Confirm & Execute Restore
+              <button type="button" 
+                      class="btn btn-danger" 
+                      wire:click="executeRestore" 
+                      :disabled="!confirmation || confirmation.trim().toUpperCase() !== 'RESTORE'"
+                      @if(trim(strtoupper($restoreConfirmationText)) !== 'RESTORE') disabled @endif
+                      wire:loading.attr="disabled"
+                      wire:target="executeRestore">
+                <span wire:loading.remove wire:target="executeRestore">
+                  <i class="fas fa-redo me-1"></i>Confirm & Execute Restore
+                </span>
+                <span wire:loading wire:target="executeRestore">
+                  <span class="spinner-border spinner-border-sm me-1" role="status"></span>Restoring Database...
+                </span>
               </button>
             </div>
           </div>
