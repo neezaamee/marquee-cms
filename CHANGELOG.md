@@ -5,6 +5,25 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.39.0] - 2026-11-03
+
+### Added & Enhanced
+- **Enterprise Support & Help Module — Phase 4 (Product Changelog, System Announcements & Contact Inquiries)**:
+  - Added database migration `2026_11_03_000004_create_support_announcements_changelog_contacts_tables.php` creating `product_changelogs`, `announcements`, `announcement_acknowledgments`, and `contact_requests`.
+  - Implemented `ProductChangelog` model with version tagging, release type badges, affected modules categorization, and publication state filters.
+  - Implemented `Announcement` and `AnnouncementAcknowledgment` models with active date-window scoping, multi-tier audience targeting (`all`, `selected_tenants`, `selected_roles`), severity levels (`info`, `warning`, `critical`, `success`), and confirmation tracking.
+  - Implemented `ContactRequest` model with department classification (`general`, `sales`, `billing`, `partnership`, `enterprise`), preferred contact channels (`email`, `phone`, `whatsapp`), and status tracking.
+  - Created customer/tenant Livewire components:
+    - `ChangelogViewer` (`/support/changelog`): chronological release notes browser with type filters (New Features, Improvements, Bug Fixes, Security, Performance) and version search.
+    - `ContactSupport` (`/support/contact`): direct inquiry portal with auto-populated client details, contact channel preferences, and operational hours info.
+    - `AnnouncementBanner`: persistent system-wide banner embedded into `layouts/admin.blade.php` rendering targeted notices with one-click "I Acknowledge" confirmation dismissal.
+  - Created Super Admin / Support Team operations Livewire components:
+    - `ChangelogManager` (`/admin/support/changelog`): CRUD management for platform releases with module tagging and instant publication toggles.
+    - `AnnouncementManager` (`/admin/support/announcements`): master notice publisher with scheduling, audience selector, severity styling, and acknowledgment metrics.
+    - `ContactRequestManager` (`/admin/support/contacts`): inquiry queue with department filters, specialist assignment, follow-up scheduling, and internal notes.
+  - Updated `sidebar.blade.php` with navigation links for Changelog, Announcements, and Contact Inquiries.
+  - Created automated feature test suite `tests/Feature/SupportChangelogAnnouncementContactTest.php` covering changelog viewing, admin publishing, active date windowing, tenant audience scoping, acknowledgment dismissal, and contact request management (9 tests, 37 assertions passing).
+
 ## [1.38.0] - 2026-11-03
 
 ### Added & Enhanced

@@ -245,3 +245,4 @@ class ChatInbox extends Component
         ])->layout('layouts.admin', ['title' => 'Support Live Chat Inbox — Operations']);
     }
 }
+

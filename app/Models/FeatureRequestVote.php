@@ -40,3 +40,4 @@ class FeatureRequestVote extends Model
         return $this->belongsTo(Marquee::class, 'marquee_id');
     }
 }
+

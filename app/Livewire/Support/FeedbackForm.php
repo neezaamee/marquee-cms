@@ -67,3 +67,4 @@ class FeedbackForm extends Component
         ])->layout('layouts.admin', ['title' => 'Submit Feedback & Suggestions']);
     }
 }
+

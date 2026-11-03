@@ -51,3 +51,4 @@ class ChatMessage extends Model
         return $this->sender->isSuperAdmin() || in_array($this->sender->role?->name, ['super_admin', 'support_agent', 'admin']);
     }
 }
+

@@ -1179,10 +1179,16 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('support.changelog*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('support.changelog.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Contact Requests</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                  <span class="nav-link-text ps-1">Product Changelog</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('support.contact*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('support.contact') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Contact Support</span>
                 </div>
               </a>
             </li>
@@ -1580,6 +1586,27 @@
               <a class="nav-link {{ Route::is('admin.support.feedback*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.feedback') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Feedback &amp; Roadmap</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('admin.support.changelog*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.changelog') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Changelog Releases</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('admin.support.announcements*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.announcements') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Announcements</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('admin.support.contacts*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.contacts') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Contact Inquiries</span>
                 </div>
               </a>
             </li>

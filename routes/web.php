@@ -722,12 +722,17 @@ Route::middleware(['auth', 'user.active'])->group(function () {
     Route::get('support/chat', \App\Livewire\Support\LiveChat::class)->name('support.chat');
     Route::get('support/feedback', \App\Livewire\Support\FeedbackForm::class)->name('support.feedback');
     Route::get('support/feature-requests', \App\Livewire\Support\FeatureRequestPortal::class)->name('support.feature-requests.index');
+    Route::get('support/changelog', \App\Livewire\Support\ChangelogViewer::class)->name('support.changelog.index');
+    Route::get('support/contact', \App\Livewire\Support\ContactSupport::class)->name('support.contact');
 
     // Super Admin / Support Team Operations
     Route::get('admin/support/tickets', \App\Livewire\SuperAdmin\Support\AdminTicketQueue::class)->name('admin.support.tickets');
     Route::get('admin/support/tickets/{ticketNumber}', \App\Livewire\SuperAdmin\Support\AdminTicketDetail::class)->name('admin.support.tickets.show');
     Route::get('admin/support/chat', \App\Livewire\SuperAdmin\Support\ChatInbox::class)->name('admin.support.chat');
     Route::get('admin/support/feedback', \App\Livewire\SuperAdmin\Support\FeedbackManager::class)->name('admin.support.feedback');
+    Route::get('admin/support/changelog', \App\Livewire\SuperAdmin\Support\ChangelogManager::class)->name('admin.support.changelog');
+    Route::get('admin/support/announcements', \App\Livewire\SuperAdmin\Support\AnnouncementManager::class)->name('admin.support.announcements');
+    Route::get('admin/support/contacts', \App\Livewire\SuperAdmin\Support\ContactRequestManager::class)->name('admin.support.contacts');
     Route::get('admin/support/faqs', \App\Livewire\SuperAdmin\Support\FaqManager::class)->name('admin.support.faqs');
     Route::get('admin/support/kb', \App\Livewire\SuperAdmin\Support\KbArticleManager::class)->name('admin.support.kb');
 });

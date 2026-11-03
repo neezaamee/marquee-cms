@@ -97,7 +97,7 @@
             <h6 class="mb-0 fw-bold">Release Notes</h6>
           </div>
           <p class="fs-11 text-600 mb-2">Explore the latest platform changelogs, updates, and feature upgrades.</p>
-          <a href="#supportCollapse" data-bs-toggle="collapse" class="btn btn-sm btn-link text-info p-0 fw-semibold fs-11 text-decoration-none">
+          <a href="{{ route('support.changelog.index') }}" class="btn btn-sm btn-link text-info p-0 fw-semibold fs-11 text-decoration-none">
             View Updates <i class="fas fa-arrow-right ms-1"></i>
           </a>
         </div>

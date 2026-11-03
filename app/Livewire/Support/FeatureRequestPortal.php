@@ -122,3 +122,4 @@ class FeatureRequestPortal extends Component
         ])->layout('layouts.admin', ['title' => 'Feature Requests & Roadmap']);
     }
 }
+

@@ -385,3 +385,4 @@ class SupportLiveChatAndFeedbackTest extends TestCase
         $this->assertEquals('Now officially released with full FBR API sandbox and production support.', $feature->public_notes);
     }
 }
+

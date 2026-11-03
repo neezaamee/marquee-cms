@@ -188,6 +188,11 @@
           <!-- Top Navbar -->
           @include('layouts.partials.navbar')
 
+          <!-- Active System Announcements Banner -->
+          @if(auth()->check())
+            <livewire:support.announcement-banner />
+          @endif
+
           <!-- Main View Content -->
           @yield('content')
           {{ $slot ?? '' }}
