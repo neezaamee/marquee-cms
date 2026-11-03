@@ -5,6 +5,24 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.37.0] - 2026-11-03
+
+### Added & Enhanced
+- **Enterprise Support & Help Module — Phase 2 (Complete Support Ticket Lifecycle)**:
+  - Added database migration `2026_11_03_000002_create_support_tickets_tables.php` creating `support_tickets`, `ticket_messages`, `ticket_attachments`, and `ticket_status_histories`.
+  - Implemented `SupportTicket` model with `BelongsToTenant` isolation, sequential ticket numbering (`TKT-YYYY-XXXX`), automated priority SLA target calculation, status transition engine, and CSAT satisfaction rating attributes.
+  - Implemented `TicketMessage`, `TicketAttachment`, and `TicketStatusHistory` models with strict separation of internal staff notes (`is_internal_note`).
+  - Added authenticated, streaming file download controller `TicketAttachmentController` (`/support/tickets/attachments/{id}/download`) validating multi-tenant ownership and guarding private internal staff attachments.
+  - Created customer/tenant Livewire components:
+    - `TicketList` (`/support/tickets`): real-time search, status/priority filtering, and KPI metric cards (Total, Active, Awaiting Reply, Resolved).
+    - `TicketCreate` (`/support/tickets/create`): submission form with category selection, priority SLAs, related module/reference ID linkage, and multi-file secure attachments.
+    - `TicketDetail` (`/support/tickets/{ticketNumber}`): message thread with chronological customer-facing messages, attachment downloads, reply interface, self-resolution confirmation, 5-star CSAT rating capture, and ticket reopening.
+  - Created Super Admin / Support Team operations Livewire components:
+    - `AdminTicketQueue` (`/admin/support/tickets`): master support desk queue with tenant filters, SLA breach indicators, unassigned ticket alerts, inline agent assignment, and batch/bulk operations.
+    - `AdminTicketDetail` (`/admin/support/tickets/{ticketNumber}`): unified view of customer messages and private internal staff notes, toggleable reply interface (Customer Reply vs Private Staff Note), ticket attribute modifiers, tenant customer context card, and status change audit trail.
+  - Integrated navigation links across `sidebar.blade.php` and connected quick links from `HelpCenterDashboard`.
+  - Added comprehensive automated feature test suite `tests/Feature/SupportTicketLifecycleTest.php` covering tenant scoping, sequential ID increments, internal note confidentiality, customer replies, CSAT ratings, admin queue management, and private attachment download authorization (11 tests, 41 assertions passing).
+
 ## [1.36.0] - 2026-11-03
 
 ### Added & Enhanced

@@ -46,7 +46,7 @@
             <h6 class="mb-0 fw-bold">Support Tickets</h6>
           </div>
           <p class="fs-11 text-600 mb-2">Submit and track technical inquiries, invoice discrepancies, or booking issues.</p>
-          <a href="#supportCollapse" data-bs-toggle="collapse" class="btn btn-sm btn-link text-primary p-0 fw-semibold fs-11 text-decoration-none">
+          <a href="{{ route('support.tickets.index') }}" class="btn btn-sm btn-link text-primary p-0 fw-semibold fs-11 text-decoration-none">
             Manage Tickets <i class="fas fa-arrow-right ms-1"></i>
           </a>
         </div>
@@ -292,7 +292,7 @@
               <h6 class="fw-bold mb-1">Didn't find what you need?</h6>
               <p class="fs-11 text-600 mb-3">Our technical support engineers can assist you with your queries directly.</p>
               <div class="d-flex justify-content-center gap-2">
-                <a href="#supportCollapse" data-bs-toggle="collapse" class="btn btn-sm btn-primary fs-11">
+                <a href="{{ route('support.tickets.create') }}" class="btn btn-sm btn-primary fs-11">
                   <i class="fas fa-plus me-1"></i>Submit a Ticket
                 </a>
                 <a href="#supportCollapse" data-bs-toggle="collapse" class="btn btn-sm btn-outline-secondary fs-11">

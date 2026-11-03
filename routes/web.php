@@ -715,8 +715,14 @@ Route::middleware(['auth', 'user.active'])->group(function () {
     // =========================================================================
     Route::get('support', \App\Livewire\Support\HelpCenterDashboard::class)->name('support.index');
     Route::get('support/articles/{slug}', \App\Livewire\Support\ArticleView::class)->name('support.article.show');
+    Route::get('support/tickets', \App\Livewire\Support\TicketList::class)->name('support.tickets.index');
+    Route::get('support/tickets/create', \App\Livewire\Support\TicketCreate::class)->name('support.tickets.create');
+    Route::get('support/tickets/{ticketNumber}', \App\Livewire\Support\TicketDetail::class)->name('support.tickets.show');
+    Route::get('support/tickets/attachments/{id}/download', [\App\Http\Controllers\Support\TicketAttachmentController::class, 'download'])->name('support.tickets.attachments.download');
 
     // Super Admin / Support Team Operations
+    Route::get('admin/support/tickets', \App\Livewire\SuperAdmin\Support\AdminTicketQueue::class)->name('admin.support.tickets');
+    Route::get('admin/support/tickets/{ticketNumber}', \App\Livewire\SuperAdmin\Support\AdminTicketDetail::class)->name('admin.support.tickets.show');
     Route::get('admin/support/faqs', \App\Livewire\SuperAdmin\Support\FaqManager::class)->name('admin.support.faqs');
     Route::get('admin/support/kb', \App\Livewire\SuperAdmin\Support\KbArticleManager::class)->name('admin.support.kb');
 });

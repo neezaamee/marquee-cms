@@ -1151,10 +1151,9 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('support.tickets.*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('support.tickets.index') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Support Tickets</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
                 </div>
               </a>
             </li>
@@ -1550,6 +1549,13 @@
             </div>
           </a>
           <ul class="nav collapse {{ $isAdminSupportActive ? 'show' : '' }}" id="adminSupportCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('admin.support.tickets*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.tickets') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Tickets Queue</span>
+                </div>
+              </a>
+            </li>
             <li class="nav-item">
               <a class="nav-link {{ Route::is('admin.support.faqs') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.faqs') }}">
                 <div class="d-flex align-items-center">
