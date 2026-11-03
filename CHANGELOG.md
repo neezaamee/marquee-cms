@@ -5,6 +5,37 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.40.0] - 2026-11-03
+
+### Added & Enhanced
+- **Enterprise Support & Help Module — Phase 5 (Operations Dashboard, SLA Tracking, Analytics & Settings)**:
+  - Implemented `SlaManagementService` (`app/Services/Support/SlaManagementService.php`):
+    - Priority-based SLA resolution deadline calculation based on configurable matrix (`urgent`, `high`, `normal`, `low`).
+    - Dynamic automatic breach scanning and updating (`checkAndUpdateSlaBreaches()`) flagging overdue tickets across tenants.
+    - Real-time calculation of support turnaround metrics: ticket volume totals, open/resolved ratios, average first response hours, average resolution hours, SLA compliance/breach rates, CSAT breakdown (1-5 stars with average rating), priority and status distribution, and specialist workload leaderboard.
+  - Implemented `SupportExportController` (`app/Http/Controllers/Support/SupportExportController.php`):
+    - Streamed CSV export of support tickets (`/admin/support/export/tickets`) with UTF-8 BOM encoding for Excel compatibility.
+    - Includes 19 audit fields: Ticket ID, Marquee Business, Branch, Submitter Name & Email, Assigned Specialist, Category, Subject, Priority, Status, Related Module, Reference ID, Created At, First Response At, Resolved At, SLA Due At, SLA Breached, CSAT Rating, and CSAT Comment.
+    - Tenant and permission authorization checks protecting platform data.
+  - Implemented `SupportDashboard` Livewire Component (`app/Livewire/SuperAdmin/Support/SupportDashboard.php` & `resources/views/livewire/super-admin/support/support-dashboard.blade.php`):
+    - Executive operational overview with 4 KPI summary cards: Ticket Volume, Turnaround Speeds, SLA Performance Compliance, and CSAT Rating.
+    - Multi-channel support volumes (Live Chat, Customer Feedback, Feature Requests Roadmap).
+    - Ticket status distribution pills, priority composition breakdown, and satisfaction rating distribution progress bars.
+    - Support specialist workload leaderboard with assigned, resolved, and pending counts.
+    - Real-time SLA breach & critical escalation watchlist table with quick "Manage" action buttons.
+    - Dynamic filtering by date range (`today`, `7_days`, `30_days`, `this_month`, `all_time`) and tenant marquee filter.
+  - Implemented `SupportSettingsManager` Livewire Component (`app/Livewire/SuperAdmin/Support/SupportSettingsManager.php` & `resources/views/livewire/super-admin/support/support-settings-manager.blade.php`):
+    - Configuration management for Support Desk parameters: ticket number prefix, primary support desk email, phone hotline, auto-close resolved ticket threshold (days), default assigned specialist, and live chat toggle.
+    - Operating schedule configuration: active working days selector (Monday–Sunday), shift start/end times, and timezone selector.
+    - SLA Turnaround Targets Matrix configuration: customizable first response and resolution hour targets per priority tier (`urgent`, `high`, `normal`, `low`).
+  - Updated `routes/web.php` with Phase 5 endpoints:
+    - `admin.support.dashboard` (`/admin/support/dashboard`)
+    - `admin.support.settings` (`/admin/support/settings`)
+    - `admin.support.export.tickets` (`/admin/support/export/tickets`)
+  - Updated `sidebar.blade.php` with navigation links for Operations Dashboard at the top of the Support Operations menu and SLA & Settings at the bottom.
+  - Created automated feature test suite `tests/Feature/SupportAnalyticsAndSettingsTest.php` covering super admin dashboard access, tenant access denial (403), dynamic SLA metric calculation, automated breach detection and database updating, settings persistence via Livewire, and streaming CSV audit export (8 tests, 40 assertions passing).
+  - Verified combined support test suite: 51 tests, 202 assertions passing across all 5 phases with 100% success rate.
+
 ## [1.39.0] - 2026-11-03
 
 ### Added & Enhanced

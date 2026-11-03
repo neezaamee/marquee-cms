@@ -1569,6 +1569,13 @@
           </a>
           <ul class="nav collapse {{ $isAdminSupportActive ? 'show' : '' }}" id="adminSupportCollapse" data-bs-parent="#navbarVerticalNav">
             <li class="nav-item">
+              <a class="nav-link {{ Route::is('admin.support.dashboard') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.dashboard') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Operations Dashboard</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
               <a class="nav-link {{ Route::is('admin.support.tickets*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.tickets') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Tickets Queue</span>
@@ -1621,6 +1628,13 @@
               <a class="nav-link {{ Route::is('admin.support.kb') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.kb') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Knowledge Base</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('admin.support.settings*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.settings') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">SLA &amp; Settings</span>
                 </div>
               </a>
             </li>

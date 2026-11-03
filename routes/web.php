@@ -726,6 +726,7 @@ Route::middleware(['auth', 'user.active'])->group(function () {
     Route::get('support/contact', \App\Livewire\Support\ContactSupport::class)->name('support.contact');
 
     // Super Admin / Support Team Operations
+    Route::get('admin/support/dashboard', \App\Livewire\SuperAdmin\Support\SupportDashboard::class)->name('admin.support.dashboard');
     Route::get('admin/support/tickets', \App\Livewire\SuperAdmin\Support\AdminTicketQueue::class)->name('admin.support.tickets');
     Route::get('admin/support/tickets/{ticketNumber}', \App\Livewire\SuperAdmin\Support\AdminTicketDetail::class)->name('admin.support.tickets.show');
     Route::get('admin/support/chat', \App\Livewire\SuperAdmin\Support\ChatInbox::class)->name('admin.support.chat');
@@ -735,4 +736,6 @@ Route::middleware(['auth', 'user.active'])->group(function () {
     Route::get('admin/support/contacts', \App\Livewire\SuperAdmin\Support\ContactRequestManager::class)->name('admin.support.contacts');
     Route::get('admin/support/faqs', \App\Livewire\SuperAdmin\Support\FaqManager::class)->name('admin.support.faqs');
     Route::get('admin/support/kb', \App\Livewire\SuperAdmin\Support\KbArticleManager::class)->name('admin.support.kb');
+    Route::get('admin/support/settings', \App\Livewire\SuperAdmin\Support\SupportSettingsManager::class)->name('admin.support.settings');
+    Route::get('admin/support/export/tickets', [\App\Http\Controllers\Support\SupportExportController::class, 'exportTickets'])->name('admin.support.export.tickets');
 });
