@@ -143,6 +143,30 @@ class MigrationManager extends Component
     }
 
     /**
+     * Run the Support & Help Module Seeder to initialize categories, FAQs, and permissions.
+     */
+    public function runSupportModuleSeeder(): void
+    {
+        abort_unless(auth()->check() && auth()->user()->isSuperAdmin(), 403);
+
+        try {
+            $exitCode = Artisan::call('db:seed', [
+                '--class' => 'SupportHelpModuleSeeder',
+                '--force' => true,
+            ]);
+
+            $output = Artisan::output();
+            $logContent = !empty(trim($output)) ? $output : "Seeder finished with Exit Code: {$exitCode}.";
+
+            $this->addConsoleLog('php artisan db:seed --class=SupportHelpModuleSeeder --force', $logContent);
+            session()->flash('success', 'Support & Help Module seeded successfully.');
+        } catch (\Throwable $e) {
+            $this->addConsoleLog('php artisan db:seed (Support Module) [FAILED]', $e->getMessage());
+            session()->flash('error', 'Support seeding failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Clear all application caches (views, routes, config, compiled).
      */
     public function clearSystemCache(): void

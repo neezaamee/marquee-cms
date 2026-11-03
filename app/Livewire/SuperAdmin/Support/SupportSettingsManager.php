@@ -160,3 +160,4 @@ class SupportSettingsManager extends Component
         ])->layout('layouts.admin', ['title' => 'Support Desk & SLA Settings']);
     }
 }
+

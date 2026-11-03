@@ -32,6 +32,11 @@
                     <span wire:loading wire:target="runRolesAndPermissionsSeeder" class="spinner-border spinner-border-sm me-1"></span>
                     Sync Roles & Permissions
                 </button>
+                <button wire:click="runSupportModuleSeeder" wire:loading.attr="disabled" class="btn btn-falcon-default btn-sm text-nowrap" type="button" title="Synchronize support categories, FAQs, and permissions">
+                    <span wire:loading.remove wire:target="runSupportModuleSeeder" class="fas fa-life-ring text-primary me-1"></span>
+                    <span wire:loading wire:target="runSupportModuleSeeder" class="spinner-border spinner-border-sm me-1"></span>
+                    Sync Support Module
+                </button>
                 <button wire:click="promptRunMigrations" wire:loading.attr="disabled" class="btn btn-primary btn-sm text-nowrap shadow-sm" type="button">
                     <span wire:loading.remove wire:target="runMigrations" class="fas fa-play me-1"></span>
                     <span wire:loading wire:target="runMigrations" class="spinner-border spinner-border-sm me-1"></span>
