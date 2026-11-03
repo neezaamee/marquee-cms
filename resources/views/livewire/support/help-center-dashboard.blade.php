@@ -63,7 +63,7 @@
             <h6 class="mb-0 fw-bold">Live Chat Support</h6>
           </div>
           <p class="fs-11 text-600 mb-2">Instant messaging with support engineers for urgent event-day assistance.</p>
-          <a href="#supportCollapse" data-bs-toggle="collapse" class="btn btn-sm btn-link text-success p-0 fw-semibold fs-11 text-decoration-none">
+          <a href="{{ route('support.chat') }}" class="btn btn-sm btn-link text-success p-0 fw-semibold fs-11 text-decoration-none">
             Start Conversation <i class="fas fa-arrow-right ms-1"></i>
           </a>
         </div>
@@ -80,7 +80,7 @@
             <h6 class="mb-0 fw-bold">Feature Requests</h6>
           </div>
           <p class="fs-11 text-600 mb-2">Suggest new software improvements, vote on ideas, and track development.</p>
-          <a href="#supportCollapse" data-bs-toggle="collapse" class="btn btn-sm btn-link text-warning p-0 fw-semibold fs-11 text-decoration-none">
+          <a href="{{ route('support.feature-requests.index') }}" class="btn btn-sm btn-link text-warning p-0 fw-semibold fs-11 text-decoration-none">
             Submit Suggestion <i class="fas fa-arrow-right ms-1"></i>
           </a>
         </div>
@@ -295,7 +295,7 @@
                 <a href="{{ route('support.tickets.create') }}" class="btn btn-sm btn-primary fs-11">
                   <i class="fas fa-plus me-1"></i>Submit a Ticket
                 </a>
-                <a href="#supportCollapse" data-bs-toggle="collapse" class="btn btn-sm btn-outline-secondary fs-11">
+                <a href="{{ route('support.chat') }}" class="btn btn-sm btn-outline-secondary fs-11">
                   <i class="fas fa-comment-dots me-1"></i>Live Chat
                 </a>
               </div>

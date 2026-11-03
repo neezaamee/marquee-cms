@@ -5,6 +5,24 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.38.0] - 2026-11-03
+
+### Added & Enhanced
+- **Enterprise Support & Help Module — Phase 3 (Live Support Chat, Customer Feedback & Community Roadmap)**:
+  - Added database migration `2026_11_03_000003_create_support_chat_and_feedback_tables.php` creating `support_conversations`, `chat_messages`, `support_feedbacks`, `feature_requests`, and `feature_request_votes`.
+  - Implemented `SupportConversation` and `ChatMessage` models with unique numbering (`CHAT-YYYY-XXXX`), multi-tenant scoping via `BelongsToTenant`, read-receipt tracking, and support specialist role detection.
+  - Implemented `SupportFeedback` model supporting multi-type customer submissions (`suggestion`, `bug_report`, `feature_request`, `ux`, `service_rating`), 1–5 star ratings, and admin moderation responses.
+  - Implemented `FeatureRequest` and `FeatureRequestVote` models with atomic, deduplicated upvoting via composite unique database constraint (`[feature_request_id, user_id]`) and vote tally synchronization.
+  - Created customer/tenant Livewire components:
+    - `LiveChat` (`/support/chat`): 3-second live polling chat interface, multi-conversation sidebar, real-time message exchange, file attachments, and self-close controls.
+    - `FeedbackForm` (`/support/feedback`): dual-tab interface for composing classified feedback with star ratings and reviewing historical submissions with product team responses.
+    - `FeatureRequestPortal` (`/support/feature-requests`): community roadmap with Planned/In Development/Released metrics, upvoting toggles, module filtering, and idea submission modal.
+  - Created Super Admin / Support Team operations Livewire components:
+    - `ChatInbox` (`/admin/support/chat`): master live chat queue across all tenant marquees, agent assignment dropdown, instant reply composer, and one-click **Chat-to-Ticket Conversion Action** creating populated `SupportTicket` with full chronological conversation transcripts.
+    - `FeedbackManager` (`/admin/support/feedback`): centralized moderation panel for reviewing feedback, submitting public customer responses, and updating feature roadmap statuses, target release versions, and internal engineering notes.
+  - Integrated navigation links into `sidebar.blade.php` (under *Communication* and *Support Operations*) and connected CTAs from `HelpCenterDashboard`.
+  - Created comprehensive automated feature test suite `tests/Feature/SupportLiveChatAndFeedbackTest.php` covering chat lifecycle, read receipts, cross-tenant chat isolation, admin replies, chat-to-ticket conversion, feedback submission, vote deduplication toggling, and roadmap moderation (11 tests, 57 assertions passing).
+
 ## [1.37.0] - 2026-11-03
 
 ### Added & Enhanced

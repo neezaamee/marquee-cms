@@ -719,10 +719,15 @@ Route::middleware(['auth', 'user.active'])->group(function () {
     Route::get('support/tickets/create', \App\Livewire\Support\TicketCreate::class)->name('support.tickets.create');
     Route::get('support/tickets/{ticketNumber}', \App\Livewire\Support\TicketDetail::class)->name('support.tickets.show');
     Route::get('support/tickets/attachments/{id}/download', [\App\Http\Controllers\Support\TicketAttachmentController::class, 'download'])->name('support.tickets.attachments.download');
+    Route::get('support/chat', \App\Livewire\Support\LiveChat::class)->name('support.chat');
+    Route::get('support/feedback', \App\Livewire\Support\FeedbackForm::class)->name('support.feedback');
+    Route::get('support/feature-requests', \App\Livewire\Support\FeatureRequestPortal::class)->name('support.feature-requests.index');
 
     // Super Admin / Support Team Operations
     Route::get('admin/support/tickets', \App\Livewire\SuperAdmin\Support\AdminTicketQueue::class)->name('admin.support.tickets');
     Route::get('admin/support/tickets/{ticketNumber}', \App\Livewire\SuperAdmin\Support\AdminTicketDetail::class)->name('admin.support.tickets.show');
+    Route::get('admin/support/chat', \App\Livewire\SuperAdmin\Support\ChatInbox::class)->name('admin.support.chat');
+    Route::get('admin/support/feedback', \App\Livewire\SuperAdmin\Support\FeedbackManager::class)->name('admin.support.feedback');
     Route::get('admin/support/faqs', \App\Livewire\SuperAdmin\Support\FaqManager::class)->name('admin.support.faqs');
     Route::get('admin/support/kb', \App\Livewire\SuperAdmin\Support\KbArticleManager::class)->name('admin.support.kb');
 });

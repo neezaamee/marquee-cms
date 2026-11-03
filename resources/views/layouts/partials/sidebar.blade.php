@@ -1158,10 +1158,23 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('support.chat*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('support.chat') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Live Chat</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('support.feedback*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('support.feedback') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Feedback</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('support.feature-requests*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('support.feature-requests.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Feature Requests</span>
                 </div>
               </a>
             </li>
@@ -1553,6 +1566,20 @@
               <a class="nav-link {{ Route::is('admin.support.tickets*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.tickets') }}">
                 <div class="d-flex align-items-center">
                   <span class="nav-link-text ps-1">Tickets Queue</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('admin.support.chat*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.chat') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Chat Inbox</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('admin.support.feedback*') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.feedback') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Feedback &amp; Roadmap</span>
                 </div>
               </a>
             </li>

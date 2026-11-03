@@ -255,3 +255,4 @@ class SupportTicket extends Model
         };
     }
 }
+
