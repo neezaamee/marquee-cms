@@ -100,6 +100,13 @@
     </li>
     @endif
 
+    <!-- Help Center Quick Link -->
+    <li class="nav-item px-1">
+      <a class="nav-link px-2 text-700" href="{{ route('support.index') }}" title="Help Center & Documentation" data-bs-toggle="tooltip" data-bs-placement="bottom">
+        <span class="fas fa-question-circle fs-8 text-primary"></span>
+      </a>
+    </li>
+
     <!-- Light/Dark Mode Switcher -->
     <li class="nav-item ps-2 pe-0">
       <div class="dropdown theme-control-dropdown">

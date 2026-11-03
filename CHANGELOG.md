@@ -5,6 +5,19 @@ All notable changes to the **MarqueeCMS** project will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.36.0] - 2026-11-03
+
+### Added & Enhanced
+- **Enterprise Support & Help Module — Phase 1 (Foundation, Schema & Help Center Portal)**:
+  - Added database migration `2026_11_03_000001_create_support_foundation_tables.php` creating `support_categories`, `faqs`, `kb_articles`, `kb_article_feedbacks`, and `support_settings`.
+  - Implemented Eloquent models `SupportCategory`, `Faq`, `KbArticle`, `KbArticleFeedback`, and `SupportSetting` with scopes, relationships, and automated slug / reading time generation.
+  - Added seeder `SupportHelpModuleSeeder` provisioning 18 granular support permissions (`support.view`, `support.ticket.*`, `support.faq.*`, `support.kb.*`, etc.) and pre-seeding initial categories, domain FAQs, and platform guides.
+  - Built tenant-facing `HelpCenterDashboard` Livewire component (`/support`) with real-time multi-topic search, category filtering pills, featured FAQs accordion with helpfulness voting, and quick action hubs.
+  - Built `ArticleView` Livewire component (`/support/articles/{slug}`) with reading time badges, view tracking, helpful/unhelpful rating capture, related guides, and escalation CTAs.
+  - Built Super Admin `FaqManager` (`/admin/support/faqs`) and `KbArticleManager` (`/admin/support/kb`) components with search, publication state toggles, and internal-only visibility controls.
+  - Integrated navigation links into `sidebar.blade.php` (under *Communication* and *System Administration*) and added quick Help Center icon in top navbar.
+  - Created automated feature test suite `tests/Feature/SupportHelpCenterTest.php` covering permissions, search filtering, helpfulness voting, internal article protection, and administrative CRUD (12 tests, 27 assertions passing).
+
 ## [1.35.1] - 2026-11-02
 
 ### Fixed & Enhanced

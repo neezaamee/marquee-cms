@@ -709,4 +709,14 @@ Route::middleware(['auth', 'user.active'])->group(function () {
     Route::get('admin/synthetic-data', \App\Livewire\SuperAdmin\DemoDataGenerator::class)->name('super-admin.synthetic-data');
     Route::get('admin/migrations', \App\Livewire\SuperAdmin\MigrationManager::class)->name('super-admin.migrations');
     Route::get('settings/default-data', \App\Livewire\Owner\TenantDefaultManager::class)->name('owner.default-data');
+
+    // =========================================================================
+    // SUPPORT & HELP CENTER MODULE
+    // =========================================================================
+    Route::get('support', \App\Livewire\Support\HelpCenterDashboard::class)->name('support.index');
+    Route::get('support/articles/{slug}', \App\Livewire\Support\ArticleView::class)->name('support.article.show');
+
+    // Super Admin / Support Team Operations
+    Route::get('admin/support/faqs', \App\Livewire\SuperAdmin\Support\FaqManager::class)->name('admin.support.faqs');
+    Route::get('admin/support/kb', \App\Livewire\SuperAdmin\Support\KbArticleManager::class)->name('admin.support.kb');
 });

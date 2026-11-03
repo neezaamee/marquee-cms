@@ -1133,13 +1133,23 @@
         </li>
 
         <li class="nav-item">
-          <a class="nav-link dropdown-indicator collapsed" href="#supportCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="supportCollapse">
+          @php
+            $isSupportActive = Route::is('support.*');
+          @endphp
+          <a class="nav-link dropdown-indicator {{ $isSupportActive ? '' : 'collapsed' }}" href="#supportCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $isSupportActive ? 'true' : 'false' }}" aria-controls="supportCollapse">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-headset"></span></span>
-              <span class="nav-link-text ps-1">Support</span>
+              <span class="nav-link-icon"><span class="fas fa-headset text-primary"></span></span>
+              <span class="nav-link-text ps-1">Support & Help</span>
             </div>
           </a>
-          <ul class="nav collapse" id="supportCollapse" data-bs-parent="#navbarVerticalNav">
+          <ul class="nav collapse {{ $isSupportActive ? 'show' : '' }}" id="supportCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('support.index') ? 'active fw-bold text-primary' : '' }}" href="{{ route('support.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Help Center</span>
+                </div>
+              </a>
+            </li>
             <li class="nav-item">
               <a class="nav-link text-muted" href="#!">
                 <div class="d-flex align-items-center">
@@ -1527,6 +1537,35 @@
           <div class="col-auto navbar-vertical-label">System Administration</div>
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
         </div>
+
+        <!-- Support Operations (Super Admin) -->
+        @php
+          $isAdminSupportActive = Route::is('admin.support.*');
+        @endphp
+        <li class="nav-item">
+          <a class="nav-link dropdown-indicator {{ $isAdminSupportActive ? '' : 'collapsed' }}" href="#adminSupportCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $isAdminSupportActive ? 'true' : 'false' }}" aria-controls="adminSupportCollapse">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-life-ring text-primary"></span></span>
+              <span class="nav-link-text ps-1">Support Operations</span>
+            </div>
+          </a>
+          <ul class="nav collapse {{ $isAdminSupportActive ? 'show' : '' }}" id="adminSupportCollapse" data-bs-parent="#navbarVerticalNav">
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('admin.support.faqs') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.faqs') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">FAQ Management</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('admin.support.kb') ? 'active fw-bold text-primary' : '' }}" href="{{ route('admin.support.kb') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Knowledge Base</span>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </li>
 
         <li class="nav-item">
           <a class="nav-link dropdown-indicator collapsed" href="#systemSettingsCollapse" role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="systemSettingsCollapse">
