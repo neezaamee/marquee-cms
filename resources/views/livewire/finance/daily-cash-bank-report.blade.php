@@ -444,6 +444,11 @@
                             <i class="fas fa-undo me-1"></i>Refunds: Rs. {{ number_format($totalCashRefunds + $totalBankRefunds) }}
                         </span>
                     @endif
+                    @if(isset($totalGlDisbursements) && $totalGlDisbursements > 0)
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-11">
+                            <i class="fas fa-book me-1"></i>Direct JVs / Settlements: Rs. {{ number_format($totalGlDisbursements) }}
+                        </span>
+                    @endif
                     <span class="badge bg-danger text-white font-monospace fs-11 px-2 py-1">
                         Total Outflow: Rs. {{ number_format($totalOutflow, 2) }}
                     </span>
@@ -487,6 +492,26 @@
                                             @elseif($item['type'] === 'refund')
                                                 <span class="badge bg-info-subtle text-info border border-info-subtle fs-11 me-1">
                                                     <i class="fas fa-undo me-1"></i>Refund
+                                                </span>
+                                            @elseif($item['type'] === 'supplier_payment')
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle fs-11 me-1">
+                                                    <i class="fas fa-truck-loading me-1"></i>Supplier
+                                                </span>
+                                            @elseif($item['type'] === 'settlement')
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-11 me-1" style="background-color: #f3e8ff !important; color: #7e22ce !important; border-color: #e9d5ff !important;">
+                                                    <i class="fas fa-handshake me-1"></i>Vendor
+                                                </span>
+                                            @elseif($item['type'] === 'contra')
+                                                <span class="badge bg-info-subtle text-primary border border-info-subtle fs-11 me-1">
+                                                    <i class="fas fa-exchange-alt me-1"></i>Contra
+                                                </span>
+                                            @elseif($item['type'] === 'bank_charge')
+                                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fs-11 me-1">
+                                                    <i class="fas fa-percentage me-1"></i>Charges
+                                                </span>
+                                            @else
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-11 me-1">
+                                                    <i class="fas fa-book me-1"></i>JV
                                                 </span>
                                             @endif
                                             <span class="badge bg-secondary-subtle text-secondary fs-11">

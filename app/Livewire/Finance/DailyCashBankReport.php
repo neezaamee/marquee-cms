@@ -128,8 +128,25 @@ class DailyCashBankReport extends Component
         $pendingBankInflow = (float) $bankInflows->whereIn('status', ['received', 'pending_posting'])->sum('amount');
 
         // =========================================================================
-        // 2. OUTFLOWS: CASH & BANK UTILIZED (PAYMENT VOUCHERS, EXPENSES, REFUNDS)
+        // 2. OUTFLOWS: CASH & BANK UTILIZED (VOUCHERS, EXPENSES, REFUNDS & GL DISBURSEMENTS)
         // =========================================================================
+
+        // Load active cash and bank accounts for the marquee
+        $cashBankRecords = CashBankAccount::with(['account.accountType'])
+            ->where('marquee_id', $marqueeId)
+            ->where('status', 'active')
+            ->get();
+
+        $monitoredAccountIds = $cashBankRecords->pluck('account_id')->filter()->unique()->toArray();
+        if (empty($monitoredAccountIds)) {
+            $monitoredAccountIds = Account::where('marquee_id', $marqueeId)
+                ->where(function ($q) {
+                    $q->where('account_code', 'like', '1001%')
+                      ->orWhere('account_code', 'like', '1002%');
+                })
+                ->pluck('id')
+                ->toArray();
+        }
 
         // A. Payment Vouchers (CPV & BPV)
         $voucherQuery = PaymentVoucher::where('marquee_id', $marqueeId)
@@ -217,9 +234,133 @@ class DailyCashBankReport extends Component
         $totalCashRefunds = (float) $cashRefunds->sum('amount');
         $totalBankRefunds = (float) $bankRefunds->sum('amount');
 
-        // Total Outflows
-        $totalCashOutflow = $totalCashVouchersAmount + $totalCashExpensesAmount + $totalCashRefunds;
-        $totalBankOutflow = $totalBankVouchersAmount + $totalBankExpensesAmount + $totalBankRefunds;
+        // D. General Ledger Outflows & Disbursements (Direct Journal Vouchers, Supplier Payments, Vendor Payouts, Contra Transfers)
+        $glCredits = JournalVoucherItem::with(['journalVoucher', 'account'])
+            ->whereIn('account_id', $monitoredAccountIds)
+            ->where('credit', '>', 0)
+            ->whereHas('journalVoucher', function ($q) use ($marqueeId, $accessibleBranchIds, $selectedDate) {
+                $q->whereNull('deleted_at')
+                    ->where('status', '!=', 'cancelled')
+                    ->where('marquee_id', $marqueeId)
+                    ->whereDate('voucher_date', $selectedDate)
+                    ->when(!empty($accessibleBranchIds), fn($sub) => $sub->where(fn($s) => $s->whereIn('branch_id', $accessibleBranchIds)->orWhereNull('branch_id')))
+                    ->when($this->branchId, fn($sub) => $sub->where('branch_id', $this->branchId));
+            })
+            ->get();
+
+        $voucherJvIds = $allVouchers->pluck('journal_voucher_id')->filter()->unique()->toArray();
+        $voucherNumbers = $allVouchers->pluck('voucher_no')->filter()->unique()->toArray();
+        $expenseJvIds = $allExpenses->pluck('journal_voucher_id')->filter()->unique()->toArray();
+        $expenseNumbers = $allExpenses->pluck('expense_number')->filter()->unique()->toArray();
+        $refundJvIds = $refundQuery->pluck('journal_voucher_id')->filter()->unique()->toArray();
+        $refundNumbers = $refundQuery->pluck('payment_number')->filter()->unique()->toArray();
+
+        $unrepresentedGlCredits = $glCredits->filter(function ($item) use ($voucherJvIds, $voucherNumbers, $expenseJvIds, $expenseNumbers, $refundJvIds, $refundNumbers) {
+            $jv = $item->journalVoucher;
+            if (!$jv) {
+                return false;
+            }
+            if (in_array($jv->id, $voucherJvIds) || in_array($jv->id, $expenseJvIds) || in_array($jv->id, $refundJvIds)) {
+                return false;
+            }
+            $ref = $jv->reference;
+            if ($ref && (in_array($ref, $voucherNumbers) || in_array($ref, $expenseNumbers) || in_array($ref, $refundNumbers))) {
+                return false;
+            }
+            return true;
+        });
+
+        $unrepresentedJvIds = $unrepresentedGlCredits->pluck('journal_voucher_id')->unique()->toArray();
+        $debitItemsByJv = JournalVoucherItem::with('account')
+            ->whereIn('journal_voucher_id', $unrepresentedJvIds)
+            ->where('debit', '>', 0)
+            ->get()
+            ->groupBy('journal_voucher_id');
+
+        $glOutflowItems = collect();
+
+        foreach ($unrepresentedGlCredits as $item) {
+            $jv = $item->journalVoucher;
+            $acc = $item->account;
+            $cb = $cashBankRecords->firstWhere('account_id', $item->account_id);
+            $isCash = ($cb && $cb->type === 'cash') || str_starts_with($acc?->account_code ?? '', '1001');
+            $disbursingAccountName = $cb?->bank_name ?: ($acc?->name ?? ($isCash ? 'Cash Drawer' : 'Bank Account'));
+
+            $debitItems = $debitItemsByJv->get($item->journal_voucher_id, collect());
+            $primaryDebit = $debitItems->first();
+            $debitAcc = $primaryDebit?->account;
+            $debitAccName = $debitAcc?->name ?? 'Disbursement';
+            $debitAccCode = $debitAcc?->account_code ?? '';
+            $jvNotes = trim($jv->notes ?? '');
+            $itemNarr = trim($item->narration ?? '');
+            $debitNarr = trim($primaryDebit?->narration ?? '');
+
+            $method = $isCash ? 'Cash' : 'Bank';
+            if (stripos($jvNotes . ' ' . $itemNarr, 'Online') !== false || stripos($jvNotes . ' ' . $itemNarr, 'Transfer') !== false) {
+                $method = 'Online Transfer';
+            } elseif (stripos($jvNotes . ' ' . $itemNarr, 'Chq') !== false || stripos($jvNotes . ' ' . $itemNarr, 'Cheque') !== false) {
+                $method = 'Cheque';
+            }
+
+            // Classification & payee extraction
+            if (in_array($debitAcc?->id, $monitoredAccountIds) || str_starts_with($debitAccCode, '1001') || str_starts_with($debitAccCode, '1002')) {
+                $categoryLabel = 'Contra / Bank Transfer';
+                $payeeTitle = 'Transfer to ' . $debitAccName;
+                $type = 'contra';
+                $description = $itemNarr ?: ($jvNotes ?: "Transfer from {$disbursingAccountName} to {$debitAccName}");
+            } elseif (str_starts_with($jv->reference ?? '', 'PMT-') || stripos($jvNotes, 'Supplier Payment') !== false || $debitAccCode === '2001') {
+                $categoryLabel = 'Supplier Payment';
+                $type = 'supplier_payment';
+                if (preg_match('/(?:payment to|payout to):\s*([^.\n\r]+?)(?:\.|$)/i', $jvNotes, $m)) {
+                    $payeeTitle = trim($m[1]);
+                } elseif (preg_match('/(?:payment to|payout to)\s+([^-\n\r]+?)(?:\s+(?:for\s+booking|against\s+booking|\bfor\b)|\s+-|$)/i', $jvNotes ?: $itemNarr, $m)) {
+                    $payeeTitle = trim($m[1]);
+                } else {
+                    $payeeTitle = $debitAccName;
+                }
+                $description = $jvNotes ?: ($itemNarr ?: 'Supplier payment');
+            } elseif (str_starts_with($jv->voucher_no, 'JV-VPAY') || str_starts_with($jv->reference ?? '', 'PAY-VS-') || $debitAccCode === '2150-VEN' || stripos($jvNotes, 'vendor') !== false) {
+                $categoryLabel = 'Vendor Settlement';
+                $type = 'settlement';
+                if (preg_match('/(?:payment to|payout to)\s+([^-\n\r]+?)(?:\s+(?:for\s+booking|against\s+booking|\bfor\b)|\s+-|$)/i', $jvNotes ?: $itemNarr, $m)) {
+                    $payeeTitle = trim($m[1]);
+                } else {
+                    $payeeTitle = $debitAccName;
+                }
+                $description = $jvNotes ?: ($itemNarr ?: 'Vendor settlement payout');
+            } elseif (stripos($debitAccName, 'Bank Charge') !== false || stripos($debitAccName, 'Fee') !== false || str_starts_with($debitAccCode, '502')) {
+                $categoryLabel = 'Bank Charges';
+                $type = 'bank_charge';
+                $payeeTitle = $disbursingAccountName;
+                $description = $itemNarr ?: ($jvNotes ?: 'Bank service charges');
+            } else {
+                $categoryLabel = $debitAccName;
+                $type = 'jv';
+                $payeeTitle = $debitAccName;
+                $description = $itemNarr ?: ($jvNotes ?: ($debitNarr ?: 'Journal disbursement'));
+            }
+
+            $glOutflowItems->push([
+                'type' => $type,
+                'ref_no' => $jv->voucher_no,
+                'category_label' => $categoryLabel,
+                'payee_title' => $payeeTitle,
+                'description' => $description,
+                'method' => $method,
+                'account_name' => $disbursingAccountName,
+                'amount' => (float) $item->credit,
+                'status' => 'Posted',
+                'is_cash' => $isCash,
+                'time' => $jv->created_at ? $jv->created_at->format('h:i A') : '',
+            ]);
+        }
+
+        $totalCashGlDisbursements = (float) $glOutflowItems->where('is_cash', true)->sum('amount');
+        $totalBankGlDisbursements = (float) $glOutflowItems->where('is_cash', false)->sum('amount');
+
+        // Total Outflows Harmonization
+        $totalCashOutflow = $totalCashVouchersAmount + $totalCashExpensesAmount + $totalCashRefunds + $totalCashGlDisbursements;
+        $totalBankOutflow = $totalBankVouchersAmount + $totalBankExpensesAmount + $totalBankRefunds + $totalBankGlDisbursements;
         $totalOutflow = $totalCashOutflow + $totalBankOutflow;
 
         // Net Positions
@@ -287,14 +428,14 @@ class DailyCashBankReport extends Component
             ]);
         }
 
+        // Merge GL Outflows into the consolidated list
+        foreach ($glOutflowItems as $glItem) {
+            $outflowItems->push($glItem);
+        }
+
         // =========================================================================
         // 3. ACCOUNT-WISE POSITION & OPENING/CLOSING AUDIT
         // =========================================================================
-        $cashBankRecords = CashBankAccount::with(['account.accountType'])
-            ->where('marquee_id', $marqueeId)
-            ->where('status', 'active')
-            ->get();
-
         $accountPositions = collect();
         $totalOpeningCash = 0.0;
         $totalOpeningBank = 0.0;
@@ -320,8 +461,9 @@ class DailyCashBankReport extends Component
             $priorTransactions = DB::table('journal_voucher_items')
                 ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
                 ->whereNull('journal_vouchers.deleted_at')
+                ->where('journal_vouchers.status', '!=', 'cancelled')
                 ->where('journal_voucher_items.account_id', $accId)
-                ->where('journal_vouchers.voucher_date', '<', $selectedDate)
+                ->whereDate('journal_vouchers.voucher_date', '<', $selectedDate)
                 ->select(
                     DB::raw('COALESCE(SUM(journal_voucher_items.debit), 0) as prior_debit'),
                     DB::raw('COALESCE(SUM(journal_voucher_items.credit), 0) as prior_credit')
@@ -334,8 +476,9 @@ class DailyCashBankReport extends Component
             $dayTransactions = DB::table('journal_voucher_items')
                 ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
                 ->whereNull('journal_vouchers.deleted_at')
+                ->where('journal_vouchers.status', '!=', 'cancelled')
                 ->where('journal_voucher_items.account_id', $accId)
-                ->where('journal_vouchers.voucher_date', '=', $selectedDate)
+                ->whereDate('journal_vouchers.voucher_date', '=', $selectedDate)
                 ->select(
                     DB::raw('COALESCE(SUM(journal_voucher_items.debit), 0) as day_debit'),
                     DB::raw('COALESCE(SUM(journal_voucher_items.credit), 0) as day_credit')
@@ -453,6 +596,9 @@ class DailyCashBankReport extends Component
             'totalBankExpensesAmount' => $totalBankExpensesAmount,
             'totalCashRefunds' => $totalCashRefunds,
             'totalBankRefunds' => $totalBankRefunds,
+            'totalCashGlDisbursements' => $totalCashGlDisbursements,
+            'totalBankGlDisbursements' => $totalBankGlDisbursements,
+            'totalGlDisbursements' => $totalCashGlDisbursements + $totalBankGlDisbursements,
             // Net Results
             'netCashPosition' => $netCashPosition,
             'netBankPosition' => $netBankPosition,
