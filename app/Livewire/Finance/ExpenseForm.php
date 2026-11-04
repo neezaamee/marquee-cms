@@ -591,6 +591,60 @@ class ExpenseForm extends Component
             'Maintenance',
         ];
 
+        // Formatted option datasets for searchable dropdowns
+        $branchesFormatted = $branches->map(fn($b) => [
+            'id' => (int) $b->id,
+            'label' => $b->name,
+            'subtext' => $b->city ?? '',
+        ])->values()->toArray();
+
+        $categoriesFormatted = $categories->map(function ($cat) {
+            $code = $cat->defaultAccount?->account_code ?? $cat->category_code;
+            $label = ($code ? '[' . $code . '] ' : '') . $cat->name;
+            return [
+                'id' => (int) $cat->id,
+                'label' => $label,
+                'code' => (string) ($code ?? ''),
+                'subtext' => (string) ($code ?? ''),
+            ];
+        })->values()->toArray();
+
+        $paymentMethodsFormatted = [
+            ['id' => 'Cash', 'label' => 'Cash in Hand', 'subtext' => 'Cash Drawer'],
+            ['id' => 'Bank', 'label' => 'Bank Account', 'subtext' => 'Cheque / Transfer'],
+            ['id' => 'Petty Cash', 'label' => 'Petty Cash Box', 'subtext' => 'Petty Drawer'],
+            ['id' => 'Accounts Payable', 'label' => 'Accounts Payable (Credit)', 'subtext' => 'Vendor Credit'],
+        ];
+
+        $cashAccountsFormatted = $cashAccounts->map(fn($ca) => [
+            'id' => (int) $ca->id,
+            'label' => $ca->account_name . ($ca->account_number ? ' (' . $ca->account_number . ')' : ''),
+            'subtext' => $ca->account_number ?? '',
+        ])->values()->toArray();
+
+        $pettyDrawersFormatted = $pettyDrawers->map(fn($pd) => [
+            'id' => (int) $pd->id,
+            'label' => $pd->account_name . ' (Bal: ' . number_format((float) $pd->current_balance, 2) . ' PKR)',
+            'subtext' => number_format((float) $pd->current_balance, 2) . ' PKR',
+        ])->values()->toArray();
+
+        $suppliersFormatted = $suppliers->map(fn($sup) => [
+            'id' => (int) $sup->id,
+            'label' => $sup->name,
+            'subtext' => $sup->phone ?? ($sup->company_name ?? ''),
+        ])->values()->toArray();
+
+        $bookingsFormatted = $bookings->map(function ($bk) {
+            $customerName = $bk->customer->name ?? ($bk->customer->full_name ?? 'Guest');
+            $dateStr = $bk->booking_date ? $bk->booking_date->format('d M Y') : '';
+            return [
+                'id' => (int) $bk->id,
+                'label' => "{$bk->booking_number} — {$customerName}" . ($dateStr ? " ({$dateStr})" : ''),
+                'subtext' => $dateStr,
+                'code' => (string) $bk->booking_number,
+            ];
+        })->values()->toArray();
+
         return view('livewire.finance.expense-form', [
             'branches' => $branches,
             'categories' => $categories,
@@ -604,6 +658,13 @@ class ExpenseForm extends Component
             'cashAccounts' => $cashAccounts,
             'pettyDrawers' => $pettyDrawers,
             'departments' => $departments,
+            'branchesFormatted' => $branchesFormatted,
+            'categoriesFormatted' => $categoriesFormatted,
+            'paymentMethodsFormatted' => $paymentMethodsFormatted,
+            'cashAccountsFormatted' => $cashAccountsFormatted,
+            'pettyDrawersFormatted' => $pettyDrawersFormatted,
+            'suppliersFormatted' => $suppliersFormatted,
+            'bookingsFormatted' => $bookingsFormatted,
         ]);
     }
 }

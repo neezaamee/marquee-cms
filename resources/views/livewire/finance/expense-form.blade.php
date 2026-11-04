@@ -31,29 +31,26 @@
                     <!-- Branch -->
                     <div class="col-md-3">
                         <label class="form-label fw-semi-bold" for="br_id">Branch <span class="text-danger">*</span></label>
-                        <select wire:model="branch_id" class="form-select form-select-sm @error('branch_id') is-invalid @enderror" id="br_id">
-                            <option value="">Select branch</option>
-                            @foreach($branches as $b)
-                                <option value="{{ $b->id }}">{{ $b->name }}</option>
-                            @endforeach
-                        </select>
-                        @error('branch_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <x-searchable-select
+                            id="br_id"
+                            model="branch_id"
+                            :options="$branchesFormatted"
+                            placeholder="Search or select branch..."
+                            :required="true"
+                        />
                     </div>
 
                     <!-- Expense Category (26 Standard Categories) -->
                     @if(!$is_multiline)
                         <div class="col-md-3">
                             <label class="form-label fw-semi-bold" for="exp_cat">Expense Category <span class="text-danger">*</span></label>
-                            <select wire:model="expense_category_id" class="form-select form-select-sm @error('expense_category_id') is-invalid @enderror" id="exp_cat">
-                                <option value="">Select category...</option>
-                                @foreach($categories as $cat)
-                                    @php
-                                        $code = $cat->defaultAccount?->account_code ?? $cat->category_code;
-                                    @endphp
-                                    <option value="{{ $cat->id }}">{{ $code ? '[' . $code . '] ' : '' }}{{ $cat->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('expense_category_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <x-searchable-select
+                                id="exp_cat"
+                                model="expense_category_id"
+                                :options="$categoriesFormatted"
+                                placeholder="Search category or code..."
+                                :required="true"
+                            />
                         </div>
 
                         <!-- Amount -->
@@ -76,38 +73,40 @@
                     <!-- Payment Method -->
                     <div class="col-md-3">
                         <label class="form-label fw-semi-bold" for="pay_method">Payment Method <span class="text-danger">*</span></label>
-                        <select wire:model.live="payment_method" class="form-select form-select-sm @error('payment_method') is-invalid @enderror" id="pay_method">
-                            <option value="Cash">Cash in Hand</option>
-                            <option value="Bank">Bank Account</option>
-                            <option value="Petty Cash">Petty Cash Box</option>
-                            <option value="Accounts Payable">Accounts Payable (Credit)</option>
-                        </select>
-                        @error('payment_method') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <x-searchable-select
+                            id="pay_method"
+                            model="payment_method"
+                            :options="$paymentMethodsFormatted"
+                            placeholder="Select payment method..."
+                            :required="true"
+                            :clearable="false"
+                            :live="true"
+                        />
                     </div>
 
                     <!-- Dynamic Bank Account -->
                     @if($payment_method === 'Bank')
                         <div class="col-md-3">
                             <label class="form-label fw-semi-bold" for="cb_acc">Bank Account <span class="text-danger">*</span></label>
-                            <select wire:model="cash_bank_account_id" class="form-select form-select-sm @error('cash_bank_account_id') is-invalid @enderror" id="cb_acc">
-                                <option value="">Select bank account</option>
-                                @foreach($cashAccounts as $ca)
-                                    <option value="{{ $ca->id }}">{{ $ca->account_name }} ({{ $ca->account_number }})</option>
-                                @endforeach
-                            </select>
-                            @error('cash_bank_account_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <x-searchable-select
+                                id="cb_acc"
+                                model="cash_bank_account_id"
+                                :options="$cashAccountsFormatted"
+                                placeholder="Search bank name or account..."
+                                :required="true"
+                            />
                         </div>
                     @elseif($payment_method === 'Petty Cash')
                         <!-- Dynamic Petty Cash Drawer -->
                         <div class="col-md-3">
                             <label class="form-label fw-semi-bold" for="petty_acc">Petty Cash Drawer <span class="text-danger">*</span></label>
-                            <select wire:model="petty_cash_account_id" class="form-select form-select-sm @error('petty_cash_account_id') is-invalid @enderror" id="petty_acc">
-                                <option value="">Select petty drawer</option>
-                                @foreach($pettyDrawers as $pd)
-                                    <option value="{{ $pd->id }}">{{ $pd->account_name }} (Bal: {{ number_format($pd->current_balance, 2) }} PKR)</option>
-                                @endforeach
-                            </select>
-                            @error('petty_cash_account_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <x-searchable-select
+                                id="petty_acc"
+                                model="petty_cash_account_id"
+                                :options="$pettyDrawersFormatted"
+                                placeholder="Search petty drawer..."
+                                :required="true"
+                            />
                         </div>
                     @elseif($payment_method === 'Accounts Payable')
                         <!-- Due Date for Credit Payments -->
@@ -121,13 +120,12 @@
                     <!-- Paid To / Vendor (Optional) -->
                     <div class="col-md-3">
                         <label class="form-label" for="supplier">Paid To / Vendor <span class="text-muted fs-11">(Optional)</span></label>
-                        <select wire:model="supplier_id" class="form-select form-select-sm @error('supplier_id') is-invalid @enderror" id="supplier">
-                            <option value="">Select vendor / person</option>
-                            @foreach($suppliers as $sup)
-                                <option value="{{ $sup->id }}">{{ $sup->name }}</option>
-                            @endforeach
-                        </select>
-                        @error('supplier_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <x-searchable-select
+                            id="supplier"
+                            model="supplier_id"
+                            :options="$suppliersFormatted"
+                            placeholder="Search vendor or person..."
+                        />
                     </div>
 
                     <!-- Reference / Bill # (Optional) -->
@@ -168,15 +166,13 @@
                                             @foreach($items as $index => $item)
                                                 <tr>
                                                     <td>
-                                                        <select wire:model="items.{{ $index }}.expense_category_id" class="form-select form-select-sm">
-                                                            <option value="">Select Category</option>
-                                                            @foreach($categories as $cat)
-                                                                @php
-                                                                    $code = $cat->defaultAccount?->account_code ?? $cat->category_code;
-                                                                @endphp
-                                                                <option value="{{ $cat->id }}">{{ $code ? '[' . $code . '] ' : '' }}{{ $cat->name }}</option>
-                                                            @endforeach
-                                                        </select>
+                                                        <x-searchable-select
+                                                            id="item_cat_{{ $index }}"
+                                                            model="items.{{ $index }}.expense_category_id"
+                                                            :options="$categoriesFormatted"
+                                                            placeholder="Select category..."
+                                                            :required="true"
+                                                        />
                                                     </td>
                                                     <td>
                                                         <input wire:model="items.{{ $index }}.description" type="text" class="form-control form-control-sm" placeholder="Line remarks">
@@ -223,12 +219,12 @@
                                             <!-- Event Booking Link -->
                                             <div class="col-md-6">
                                                 <label class="form-label" for="booking">Link to Event Booking <span class="text-muted fs-11">(Direct Cost Tracking)</span></label>
-                                                <select wire:model="booking_id" class="form-select form-select-sm" id="booking">
-                                                    <option value="">No linked booking</option>
-                                                    @foreach($bookings as $bk)
-                                                        <option value="{{ $bk->id }}">{{ $bk->booking_number }} — {{ $bk->customer->name ?? 'Guest' }} ({{ $bk->booking_date ? $bk->booking_date->format('d M Y') : '' }})</option>
-                                                    @endforeach
-                                                </select>
+                                                <x-searchable-select
+                                                    id="booking"
+                                                    model="booking_id"
+                                                    :options="$bookingsFormatted"
+                                                    placeholder="Search booking # or customer..."
+                                                />
                                                 <span class="text-muted fs-11">Assign this expense directly to an event for gross margin tracking.</span>
                                             </div>
 

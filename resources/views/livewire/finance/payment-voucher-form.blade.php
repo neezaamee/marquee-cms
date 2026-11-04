@@ -50,12 +50,7 @@
                             @if(count($branches) > 1)
                             <div class="col-md-2">
                                 <label class="form-label fs-11 fw-bold text-uppercase text-secondary">Branch</label>
-                                <select wire:model.live="branch_id" class="form-select form-select-sm">
-                                    <option value="">Head Office</option>
-                                    @foreach($branches as $b)
-                                        <option value="{{ $b->id }}">{{ $b->name }}</option>
-                                    @endforeach
-                                </select>
+                                <x-searchable-select id="pv_branch_id" model="branch_id" :options="$branchesFormatted" placeholder="Head Office" :live="true" />
                             </div>
                             @endif
                         </div>
@@ -91,71 +86,19 @@
                             <div class="row g-3">
                                 <!-- Dynamic Selection Dropdown -->
                                 @if($payee_type === 'supplier')
-                                    <div class="col-md-6">
+                                    <div class="col-md-6" wire:key="payee-supplier-select">
                                         <label class="form-label fs-11 fw-bold">Select Supplier</label>
-                                        <select wire:model.live="payee_id" class="form-select form-select-sm">
-                                            <option value="">-- Choose Supplier --</option>
-                                            @foreach($suppliers as $sup)
-                                                <option value="{{ $sup->id }}">
-                                                    {{ $sup->name }} (Balance: Rs. {{ number_format($sup->current_balance, 0) }})
-                                                </option>
-                                            @endforeach
-                                        </select>
+                                        <x-searchable-select id="pv_supplier_select" model="payee_id" :options="$suppliersFormatted" placeholder="-- Choose Supplier --" :live="true" />
                                     </div>
                                 @elseif($payee_type === 'vendor')
-                                    <div class="col-md-6">
+                                    <div class="col-md-6" wire:key="payee-vendor-select">
                                         <label class="form-label fs-11 fw-bold">Select Third-Party Vendor / Service Provider</label>
-                                        <select wire:model.live="payee_id" class="form-select form-select-sm">
-                                            <option value="">-- Choose Vendor or Service Type --</option>
-                                            @if(count($vendors) > 0)
-                                                <optgroup label="Registered Vendors">
-                                                    @foreach($vendors as $ven)
-                                                        <option value="ven_{{ $ven->id }}">
-                                                            {{ $ven->name }} ({{ $ven->vendor_type ?? 'Vendor' }}) - Due: Rs. {{ number_format($ven->current_balance ?? 0, 0) }}
-                                                        </option>
-                                                    @endforeach
-                                                </optgroup>
-                                            @endif
-                                            <optgroup label="Standard Event Service Categories">
-                                                <option value="srv_decor">Stage & Theme Decoration</option>
-                                                <option value="srv_floral">Floral Setup & Fresh Flowers</option>
-                                                <option value="srv_sound">Sound & Audio System / DJ</option>
-                                                <option value="srv_lighting">Lighting & Truss Setup</option>
-                                                <option value="srv_photo">Photography & Video Coverage</option>
-                                                <option value="srv_catering">Catering & Master Chef Staff</option>
-                                                <option value="srv_crockery">Crockery & Buffet Setup</option>
-                                                <option value="srv_security">Security Guard Services</option>
-                                                <option value="srv_valet">Valet Parking Services</option>
-                                                <option value="srv_generator">Generator & Power Rental</option>
-                                                <option value="srv_janitorial">Janitorial & Cleaning Crew</option>
-                                            </optgroup>
-                                        </select>
+                                        <x-searchable-select id="pv_vendor_select" model="payee_id" :options="$vendorsFormatted" placeholder="-- Choose Vendor or Service Type --" :live="true" />
                                     </div>
                                 @elseif($payee_type === 'expense')
-                                    <div class="col-md-6">
+                                    <div class="col-md-6" wire:key="payee-expense-select">
                                         <label class="form-label fs-11 fw-bold">Select Operating Expense Category</label>
-                                        <select wire:model.live="payee_id" class="form-select form-select-sm">
-                                            <option value="">-- Choose Operating Expense Category --</option>
-                                            <optgroup label="Operating Expense Categories / Accounts">
-                                                @foreach($expenseCategories as $cat)
-                                                    @php
-                                                        $code = $cat->defaultAccount?->account_code ?? $cat->category_code;
-                                                    @endphp
-                                                    <option value="cat_{{ $cat->id }}">
-                                                        {{ $code ? '[' . $code . '] ' : '' }}{{ $cat->name }}
-                                                    </option>
-                                                @endforeach
-                                            </optgroup>
-                                            @if(count($expenses) > 0)
-                                                <optgroup label="Unposted Expense Vouchers (Optional)">
-                                                    @foreach($expenses as $exp)
-                                                        <option value="exp_{{ $exp->id }}">
-                                                            #{{ $exp->expense_number }} - {{ $exp->description }} (Rs. {{ number_format($exp->total_amount, 2) }})
-                                                        </option>
-                                                    @endforeach
-                                                </optgroup>
-                                            @endif
-                                        </select>
+                                        <x-searchable-select id="pv_expense_select" model="payee_id" :options="$expensePayeesFormatted" placeholder="-- Choose Operating Expense Category --" :live="true" />
                                     </div>
                                 @endif
 
@@ -202,42 +145,17 @@
                         <div class="card-body">
                             <div class="row g-3">
                                 <!-- Disbursing Source Account -->
-                                <div class="col-md-6">
+                                <div class="col-md-6" wire:key="pv-disbursing-acc-{{ $voucher_type }}">
                                     <label class="form-label fs-11 fw-bold">
                                         {{ $voucher_type === 'CPV' ? 'Disbursing Cash Drawer / Petty Cash' : 'Disbursing Bank Account' }}
                                     </label>
-                                    <select wire:model="cash_bank_account_id" class="form-select form-select-sm @error('cash_bank_account_id') is-invalid @enderror" required>
-                                        <option value="">-- Choose Account --</option>
-                                        @foreach($cashBankAccounts as $cba)
-                                            <option value="{{ $cba->id }}">
-                                                {{ $cba->account->name }} @if($cba->bank_name) ({{ $cba->bank_name }} - {{ $cba->account_number }}) @endif
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error('cash_bank_account_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    <x-searchable-select id="pv_cash_bank_account" model="cash_bank_account_id" :options="$cashBankAccountsFormatted" placeholder="-- Choose Account --" :required="true" />
                                 </div>
 
                                 <!-- Debit Account -->
                                 <div class="col-md-6">
                                     <label class="form-label fs-11 fw-bold">Debit Account Head (General Ledger)</label>
-                                    <select wire:model="debit_account_id" class="form-select form-select-sm @error('debit_account_id') is-invalid @enderror" required>
-                                        <option value="">-- Choose GL Account --</option>
-                                        @php
-                                            $groupedAccounts = $debitAccounts->groupBy(function($a) {
-                                                return $a->accountType ? $a->accountType->name : $a->nature;
-                                            });
-                                        @endphp
-                                        @foreach($groupedAccounts as $typeGroup => $accs)
-                                            <optgroup label="{{ $typeGroup }}">
-                                                @foreach($accs as $acc)
-                                                    <option value="{{ $acc->id }}">
-                                                        [{{ $acc->account_code }}] {{ $acc->name }}
-                                                    </option>
-                                                @endforeach
-                                            </optgroup>
-                                        @endforeach
-                                    </select>
-                                    @error('debit_account_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    <x-searchable-select id="pv_debit_account" model="debit_account_id" :options="$debitAccountsFormatted" placeholder="-- Choose GL Account --" :required="true" />
                                     <div class="fs-10 text-muted mt-1">This account will be debited upon voucher posting (e.g. Accounts Payable or Expense).</div>
                                 </div>
 
@@ -254,12 +172,7 @@
                                 <!-- Payment Instrument Mode -->
                                 <div class="col-md-4">
                                     <label class="form-label fs-11 fw-bold">Payment Method</label>
-                                    <select wire:model="payment_method" class="form-select form-select-sm">
-                                        <option value="Cash">Cash</option>
-                                        <option value="Cheque">Cheque / Demand Draft</option>
-                                        <option value="Bank Transfer">Bank Transfer / IBFT</option>
-                                        <option value="Online">Online / Digital Payment</option>
-                                    </select>
+                                    <x-searchable-select id="pv_payment_method" model="payment_method" :options="$paymentMethodsFormatted" placeholder="Select Method" />
                                 </div>
 
                                 <!-- Cheque / Instrument Details -->

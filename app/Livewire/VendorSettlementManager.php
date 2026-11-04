@@ -3,14 +3,31 @@
 namespace App\Livewire;
 
 use App\Models\Account;
+use App\Models\Marquee;
 use App\Models\Vendor;
 use App\Models\VendorSettlement;
 use App\Services\VendorCommissionService;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class VendorSettlementManager extends Component
 {
+    use WithPagination;
+
+    protected $paginationTheme = 'bootstrap';
+
     public ?Vendor $vendor = null;
+
+    // Filters & Pagination
+    public $perPage = 15;
+    public $filterVendorId = '';
+    public $dateFrom = '';
+    public $dateTo = '';
+
+    public function updatingPerPage() { $this->resetPage(); }
+    public function updatingFilterVendorId() { $this->resetPage(); }
+    public function updatingDateFrom() { $this->resetPage(); }
+    public function updatingDateTo() { $this->resetPage(); }
 
     // Settlement Modal State
     public $showSettlementModal = false;
@@ -43,6 +60,7 @@ class VendorSettlementManager extends Component
         $this->vendor = $vendor;
         if ($vendor) {
             $this->vendor_id = $vendor->id;
+            $this->filterVendorId = $vendor->id;
             $this->paid_amount = $vendor->current_balance;
         }
         $this->settlement_date = date('Y-m-d');
@@ -115,6 +133,79 @@ class VendorSettlementManager extends Component
         }
     }
 
+    public function exportCsv()
+    {
+        $marqueeId = $this->getMarqueeId();
+
+        $query = VendorSettlement::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->with(['vendor', 'account', 'journalVoucher']);
+        if ($this->vendor) {
+            $query->where('vendor_id', $this->vendor->id);
+        } elseif (!empty($this->filterVendorId)) {
+            $query->where('vendor_id', $this->filterVendorId);
+        }
+
+        if (!empty($this->dateFrom)) {
+            $query->whereDate('settlement_date', '>=', $this->dateFrom);
+        }
+
+        if (!empty($this->dateTo)) {
+            $query->whereDate('settlement_date', '<=', $this->dateTo);
+        }
+
+        $settlements = $query->orderBy('settlement_date', 'desc')->get();
+
+        $vendorName = $this->vendor ? $this->vendor->name : (!empty($this->filterVendorId) ? (Vendor::withoutGlobalScope('tenant')->find($this->filterVendorId)?->name ?? 'All_Providers') : 'All_Providers');
+        $filename = 'Provider_Settlements_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $vendorName) . '_' . date('Ymd_His') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
+
+        return response()->stream(function () use ($settlements, $vendorName) {
+            $handle = fopen('php://output', 'w');
+            fputs($handle, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel
+
+            fputcsv($handle, ['SERVICE PROVIDER SETTLEMENTS & PAYOUTS']);
+            fputcsv($handle, ['Provider / Vendor', $vendorName]);
+            fputcsv($handle, ['Generated At', date('Y-m-d H:i:s')]);
+            fputcsv($handle, []);
+
+            fputcsv($handle, [
+                'Settlement #',
+                'Service Provider',
+                'Settlement Date',
+                'Net Payable (PKR)',
+                'Paid Amount (PKR)',
+                'Remaining Balance (PKR)',
+                'Payment Method',
+                'Disbursing Account',
+                'Accounting JV',
+                'Status',
+            ]);
+
+            foreach ($settlements as $set) {
+                fputcsv($handle, [
+                    $set->settlement_number,
+                    $set->vendor?->name ?: '—',
+                    $set->settlement_date ? $set->settlement_date->format('Y-m-d') : '—',
+                    $set->net_payable_amount,
+                    $set->paid_amount,
+                    $set->remaining_balance,
+                    $set->payment_method,
+                    $set->account?->name ?: '—',
+                    $set->journalVoucher?->voucher_no ?: '—',
+                    ucfirst(str_replace('_', ' ', $set->status)),
+                ]);
+            }
+
+            fclose($handle);
+        }, 200, $headers);
+    }
+
     public function render()
     {
         $marqueeId = $this->getMarqueeId();
@@ -122,16 +213,44 @@ class VendorSettlementManager extends Component
         $query = VendorSettlement::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->with(['vendor', 'account', 'journalVoucher']);
         if ($this->vendor) {
             $query->where('vendor_id', $this->vendor->id);
+        } elseif (!empty($this->filterVendorId)) {
+            $query->where('vendor_id', $this->filterVendorId);
         }
 
-        $settlements = $query->orderBy('settlement_date', 'desc')->get();
+        if (!empty($this->dateFrom)) {
+            $query->whereDate('settlement_date', '>=', $this->dateFrom);
+        }
+
+        if (!empty($this->dateTo)) {
+            $query->whereDate('settlement_date', '<=', $this->dateTo);
+        }
+
+        $perPageCount = is_numeric($this->perPage) && (int)$this->perPage > 0 ? (int)$this->perPage : 15;
+        $settlements = $query->orderBy('settlement_date', 'desc')->paginate($perPageCount);
         $vendors = Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('status', 'active')->orderBy('name')->get();
         $accounts = Account::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->where('is_active', true)->orderBy('name')->get();
+
+        $selectedVendor = $this->vendor ?: (!empty($this->filterVendorId) ? $vendors->firstWhere('id', (int)$this->filterVendorId) : null);
+        $marquee = $marqueeId ? Marquee::find($marqueeId) : null;
+
+        $fromStr = $this->dateFrom ? \Carbon\Carbon::parse($this->dateFrom)->format('d-M-Y') : 'Beginning';
+        $toStr = $this->dateTo ? \Carbon\Carbon::parse($this->dateTo)->format('d-M-Y') : 'Current';
+        $periodLabel = ($this->dateFrom || $this->dateTo) ? "{$fromStr} to {$toStr}" : 'All Records';
+
+        $totalNetPayable = (clone $query)->sum('net_payable_amount');
+        $totalPaidAmount = (clone $query)->sum('paid_amount');
+        $totalRemainingBalance = (clone $query)->sum('remaining_balance');
 
         return view('livewire.vendor-settlement-manager', [
             'settlements' => $settlements,
             'vendors' => $vendors,
             'accounts' => $accounts,
+            'selectedVendor' => $selectedVendor,
+            'marquee' => $marquee,
+            'periodLabel' => $periodLabel,
+            'totalNetPayable' => $totalNetPayable,
+            'totalPaidAmount' => $totalPaidAmount,
+            'totalRemainingBalance' => $totalRemainingBalance,
         ])->layout('layouts.admin');
     }
 }

@@ -1,11 +1,141 @@
 <div class="p-3">
+    <style>
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 8mm 10mm;
+            }
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+                font-size: 10pt !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .no-print,
+            .navbar,
+            .navbar-vertical,
+            footer,
+            .btn,
+            .card-header .btn {
+                display: none !important;
+            }
+            .card {
+                border: none !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .card-header {
+                display: none !important;
+            }
+            .card-body {
+                padding: 0 !important;
+            }
+            .table-responsive {
+                overflow: visible !important;
+                width: 100% !important;
+            }
+            table {
+                width: 100% !important;
+                font-size: 9pt !important;
+                border-collapse: collapse !important;
+            }
+            thead {
+                display: table-header-group !important;
+            }
+            thead th {
+                background-color: #f1f3f5 !important;
+                color: #000 !important;
+                border-top: 1px solid #333 !important;
+                border-bottom: 2px solid #333 !important;
+                padding: 6px 8px !important;
+            }
+            tbody td {
+                border-bottom: 1px solid #ddd !important;
+                padding: 5px 8px !important;
+            }
+            tfoot {
+                display: table-footer-group !important;
+            }
+            tfoot td {
+                border-top: 2px solid #333 !important;
+                border-bottom: 2px solid #333 !important;
+                font-weight: bold !important;
+                background-color: #f8f9fa !important;
+                padding: 6px 8px !important;
+            }
+            tr {
+                page-break-inside: avoid !important;
+            }
+            a {
+                text-decoration: none !important;
+                color: #000 !important;
+            }
+            .badge {
+                border: 1px solid #ccc !important;
+                background: transparent !important;
+                color: #000 !important;
+                font-weight: normal !important;
+                padding: 2px 4px !important;
+            }
+            .print-letterhead {
+                display: block !important;
+                margin-bottom: 12px !important;
+                border-bottom: 2px solid #1a1a1a !important;
+                padding-bottom: 8px !important;
+            }
+        }
+        .print-letterhead {
+            display: none;
+        }
+    </style>
+
+    <!-- Executive Letterhead (Visible in Print Mode) -->
+    <div class="print-letterhead">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h3 class="fw-bold mb-1 text-uppercase text-dark">{{ $marquee?->name ?? config('app.name', 'MarqueeCMS') }}</h3>
+                @if($marquee?->address || $marquee?->phone || $marquee?->email)
+                    <div class="fs-11 text-muted">
+                        @if($marquee?->address) <span><i class="fas fa-map-marker-alt me-1"></i>{{ $marquee->address }}</span> @endif
+                        @if($marquee?->phone) <span class="ms-2"><i class="fas fa-phone me-1"></i>{{ $marquee->phone }}</span> @endif
+                        @if($marquee?->email) <span class="ms-2"><i class="fas fa-envelope me-1"></i>{{ $marquee->email }}</span> @endif
+                    </div>
+                @endif
+                <div class="mt-2">
+                    <span class="fs-13 fw-bold text-uppercase border-bottom border-dark pb-1">
+                        @if($reportType === 'sales') Service Provider Sales Report
+                        @elseif($reportType === 'commission') Service Provider Commission Income Report
+                        @elseif($reportType === 'ledger') Service Provider Financial Ledger Statement
+                        @elseif($reportType === 'settlement') Service Provider Settlement Report
+                        @elseif($reportType === 'monthly') Monthly Commission Summary Report
+                        @endif
+                    </span>
+                </div>
+            </div>
+            <div class="text-end fs-11">
+                <div><strong>Period:</strong> {{ $periodLabel }}</div>
+                <div><strong>Provider:</strong> {{ $selectedVendor ? $selectedVendor->name . ' (' . ($selectedVendor->vendor_type ?? 'Vendor') . ')' : 'All Service Providers' }}</div>
+                <div class="text-muted mt-1">Printed: {{ now()->format('d-M-Y h:i A') }}</div>
+                <div class="text-muted">Generated by: {{ auth()->user()?->name ?? 'System' }}</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Header Toolbar -->
-    <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div class="d-flex justify-content-between align-items-center mb-3 no-print flex-wrap gap-2">
         <div>
             <h4 class="fw-bold mb-1"><i class="fas fa-chart-bar text-primary me-2"></i>Service Provider Financial Reports</h4>
-            <p class="text-secondary fs-12 mb-0">Filter, inspect, and print provider sales, commission income, ledgers, and payouts.</p>
+            <p class="text-secondary fs-12 mb-0">Filter, inspect, export, and print provider sales, commission income, ledgers, and payouts.</p>
         </div>
-        <button onclick="window.print()" class="btn btn-primary btn-sm"><i class="fas fa-print me-1"></i> Print Report</button>
+        <div class="d-flex align-items-center gap-2">
+            <button wire:click="exportCsv" wire:loading.attr="disabled" class="btn btn-falcon-default btn-sm">
+                <span wire:loading.remove wire:target="exportCsv"><i class="fas fa-file-csv text-success me-1"></i>Export CSV</span>
+                <span wire:loading wire:target="exportCsv"><span class="spinner-border spinner-border-sm me-1"></span>Exporting...</span>
+            </button>
+            <button onclick="window.print()" class="btn btn-primary btn-sm"><i class="fas fa-print me-1"></i> Print Report</button>
+        </div>
     </div>
 
     <!-- Filters Bar (Hidden during print) -->
@@ -74,9 +204,9 @@
         </div>
     </div>
 
-    <!-- Printable Report Card -->
+    <!-- Report Card -->
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-light py-3 border-bottom d-flex justify-content-between align-items-center">
+        <div class="card-header bg-light py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="fw-bold mb-0 text-uppercase">
                     @if($reportType === 'sales') SERVICE PROVIDER SALES REPORT
@@ -86,11 +216,14 @@
                     @elseif($reportType === 'monthly') MONTHLY COMMISSION SUMMARY REPORT
                     @endif
                 </h5>
-                <div class="text-secondary fs-11 mt-1">Period: {{ $dateFrom }} to {{ $dateTo }}</div>
+                <div class="text-secondary fs-11 mt-1">
+                    <span><strong>Period:</strong> {{ $periodLabel }}</span>
+                    <span class="ms-3"><strong>Provider:</strong> {{ $selectedVendor ? $selectedVendor->name : 'All Service Providers' }}</span>
+                </div>
             </div>
             <div class="text-end fs-11 text-muted">
-                <div>Printed On: {{ date('d-M-Y h:i A') }}</div>
-                <div>System: MarqueeCMS ERP</div>
+                <div>Generated: {{ date('d-M-Y h:i A') }}</div>
+                <div>System: {{ $marquee?->name ?? 'MarqueeCMS ERP' }}</div>
             </div>
         </div>
         <div class="card-body p-0">
@@ -102,7 +235,7 @@
                                 <th>Date</th>
                                 <th>Sale #</th>
                                 <th>Service Provider</th>
-                                <th>Booking #</th>
+                                <th>Booking & Customer</th>
                                 <th>Sale Amount</th>
                                 <th>Commission %</th>
                                 <th>Commission Income</th>
@@ -115,7 +248,20 @@
                                     <td>{{ $row->sale_date->format('d-M-Y') }}</td>
                                     <td class="fw-bold font-monospace text-primary">{{ $row->vendor_sale_number }}</td>
                                     <td class="fw-semibold">{{ $row->vendor->name ?? '—' }}</td>
-                                    <td>{{ $row->booking->booking_number ?? 'Direct Sale' }}</td>
+                                    <td>
+                                        @if($row->booking)
+                                            <a href="{{ route('bookings.show', $row->booking_id) }}" class="badge badge-subtle-info text-decoration-none">
+                                                <i class="fas fa-calendar-check me-1"></i>{{ $row->booking->booking_number }}
+                                            </a>
+                                            @if($row->booking->customer)
+                                                <div class="text-dark fw-semi-bold fs-11 mt-1">
+                                                    <i class="fas fa-user me-1 text-400"></i>{{ $row->booking->customer->name }}
+                                                </div>
+                                            @endif
+                                        @else
+                                            <span class="text-muted">Direct Sale</span>
+                                        @endif
+                                    </td>
                                     <td class="fw-bold">Rs. {{ number_format($row->sale_amount) }}</td>
                                     <td><span class="badge badge-subtle-success">{{ $row->commission_rate }}%</span></td>
                                     <td class="fw-bold text-success">Rs. {{ number_format($row->commission_amount) }}</td>
@@ -145,6 +291,7 @@
                                 <th>Date</th>
                                 <th>Ref #</th>
                                 <th>Service Provider</th>
+                                <th>Booking & Customer</th>
                                 <th>Description</th>
                                 <th>Sale Credit</th>
                                 <th>Commission Debit</th>
@@ -155,9 +302,23 @@
                         <tbody>
                             @forelse($reportData as $row)
                                 <tr>
-                                    <td>{{ $row->transaction_date->format('d-M-Y') }}</td>
-                                    <td class="fw-bold font-monospace text-primary">{{ $row->reference_number }}</td>
+                                    <td>{{ $row->transaction_date ? $row->transaction_date->format('d-M-Y') : '—' }}</td>
+                                    <td class="fw-bold font-monospace text-primary">{{ $row->reference_number ?: '—' }}</td>
                                     <td class="fw-semibold">{{ $row->vendor->name ?? '—' }}</td>
+                                    <td>
+                                        @if($row->booking)
+                                            <a href="{{ route('bookings.show', $row->booking_id) }}" class="badge badge-subtle-info text-decoration-none">
+                                                <i class="fas fa-calendar-check me-1"></i>{{ $row->booking->booking_number }}
+                                            </a>
+                                            @if($row->booking->customer)
+                                                <div class="text-dark fw-semi-bold fs-11 mt-1">
+                                                    <i class="fas fa-user me-1 text-400"></i>{{ $row->booking->customer->name }}
+                                                </div>
+                                            @endif
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
                                     <td>{{ $row->description }}</td>
                                     <td class="fw-bold text-dark">{{ $row->sale_amount > 0 ? 'Rs. '.number_format($row->sale_amount) : '—' }}</td>
                                     <td class="fw-bold text-success">{{ $row->commission_amount > 0 ? 'Rs. '.number_format($row->commission_amount) : '—' }}</td>
@@ -165,9 +326,26 @@
                                     <td class="fw-bold text-danger">Rs. {{ number_format($row->running_balance) }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="8" class="text-center py-4 text-muted">No ledger transactions found.</td></tr>
+                                <tr><td colspan="9" class="text-center py-4 text-muted">No ledger transactions found.</td></tr>
                             @endforelse
                         </tbody>
+                        @if(count($reportData) > 0)
+                            <tfoot class="bg-light fw-bold">
+                                <tr>
+                                    <td colspan="5" class="text-end">TOTALS / CLOSING:</td>
+                                    <td class="fw-bold text-dark">Rs. {{ number_format($reportData->sum('sale_amount')) }}</td>
+                                    <td class="fw-bold text-success">Rs. {{ number_format($reportData->sum('commission_amount')) }}</td>
+                                    <td class="fw-bold text-primary">Rs. {{ number_format($reportData->sum('payment_amount')) }}</td>
+                                    <td class="fw-bold text-danger">
+                                        @if($selectedVendor)
+                                            Rs. {{ number_format($reportData->first()?->running_balance ?? 0) }}
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        @endif
                     </table>
 
                 @elseif($reportType === 'settlement')
@@ -187,7 +365,7 @@
                         <tbody>
                             @forelse($reportData as $row)
                                 <tr>
-                                    <td>{{ $row->settlement_date->format('d-M-Y') }}</td>
+                                    <td>{{ $row->settlement_date ? $row->settlement_date->format('d-M-Y') : '—' }}</td>
                                     <td class="fw-bold font-monospace text-primary">{{ $row->settlement_number }}</td>
                                     <td class="fw-semibold">{{ $row->vendor->name ?? '—' }}</td>
                                     <td class="fw-bold">Rs. {{ number_format($row->net_payable_amount) }}</td>
@@ -200,6 +378,17 @@
                                 <tr><td colspan="8" class="text-center py-4 text-muted">No settlements recorded.</td></tr>
                             @endforelse
                         </tbody>
+                        @if(count($reportData) > 0)
+                            <tfoot class="bg-light fw-bold">
+                                <tr>
+                                    <td colspan="3" class="text-end">TOTALS:</td>
+                                    <td class="fw-bold text-dark">Rs. {{ number_format($reportData->sum('net_payable_amount')) }}</td>
+                                    <td class="fw-bold text-success">Rs. {{ number_format($reportData->sum('paid_amount')) }}</td>
+                                    <td class="fw-bold text-danger">Rs. {{ number_format($reportData->sum('remaining_balance')) }}</td>
+                                    <td colspan="2">—</td>
+                                </tr>
+                            </tfoot>
+                        @endif
                     </table>
 
                 @elseif($reportType === 'monthly')

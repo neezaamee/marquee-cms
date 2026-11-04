@@ -100,6 +100,14 @@ class Customer extends Model
         return trim("{$this->first_name} {$this->last_name}");
     }
 
+    /**
+     * Alias for full_name.
+     */
+    public function getNameAttribute(): string
+    {
+        return $this->full_name;
+    }
+
     // ───────────────────── CRM Dynamic Accessors ─────────────────────
 
     public function getTotalBookingsAttribute(): int

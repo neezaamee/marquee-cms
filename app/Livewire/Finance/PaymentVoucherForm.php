@@ -446,6 +446,102 @@ class PaymentVoucherForm extends Component
 
     public function render()
     {
+        $branchesFormatted = collect([
+            ['id' => '', 'label' => 'Head Office', 'subtext' => 'Main Office']
+        ])->concat(collect($this->branches)->map(fn($b) => [
+            'id' => (string) $b->id,
+            'label' => $b->name,
+            'subtext' => $b->code ?? null,
+            'code' => $b->code ?? null,
+        ]))->values()->all();
+
+        $suppliersFormatted = collect($this->suppliers)->map(fn($sup) => [
+            'id' => (string) $sup->id,
+            'label' => $sup->name,
+            'subtext' => 'Balance: Rs. ' . number_format($sup->current_balance ?? 0, 0),
+            'code' => $sup->supplier_code ?? null,
+        ])->values()->all();
+
+        $vendorsFormatted = [];
+        foreach ($this->vendors as $ven) {
+            $vendorsFormatted[] = [
+                'id' => 'ven_' . $ven->id,
+                'label' => $ven->name,
+                'subtext' => ($ven->vendor_type ?? 'Vendor') . ' • Due: Rs. ' . number_format($ven->current_balance ?? 0, 0),
+                'group' => 'Registered Vendors',
+            ];
+        }
+        $standardServices = [
+            'srv_decor' => 'Stage & Theme Decoration',
+            'srv_floral' => 'Floral Setup & Fresh Flowers',
+            'srv_sound' => 'Sound & Audio System / DJ',
+            'srv_lighting' => 'Lighting & Truss Setup',
+            'srv_photo' => 'Photography & Video Coverage',
+            'srv_catering' => 'Catering & Master Chef Staff',
+            'srv_crockery' => 'Crockery & Buffet Setup',
+            'srv_security' => 'Security Guard Services',
+            'srv_valet' => 'Valet Parking Services',
+            'srv_generator' => 'Generator & Power Rental',
+            'srv_janitorial' => 'Janitorial & Cleaning Crew',
+        ];
+        foreach ($standardServices as $srvKey => $srvTitle) {
+            $vendorsFormatted[] = [
+                'id' => $srvKey,
+                'label' => $srvTitle,
+                'subtext' => 'Standard Event Service',
+                'group' => 'Standard Event Service Categories',
+            ];
+        }
+
+        $expensePayeesFormatted = [];
+        foreach ($this->expenseCategories as $cat) {
+            $code = $cat->defaultAccount?->account_code ?? $cat->category_code;
+            $expensePayeesFormatted[] = [
+                'id' => 'cat_' . $cat->id,
+                'label' => ($code ? "[{$code}] " : "") . $cat->name,
+                'subtext' => 'Operating Expense Category',
+                'code' => $code,
+                'group' => 'Operating Expense Categories / Accounts',
+            ];
+        }
+        foreach ($this->expenses as $exp) {
+            $expensePayeesFormatted[] = [
+                'id' => 'exp_' . $exp->id,
+                'label' => "#{$exp->expense_number} - {$exp->description}",
+                'subtext' => 'Rs. ' . number_format($exp->total_amount, 2),
+                'code' => $exp->expense_number,
+                'group' => 'Unposted Expense Vouchers',
+            ];
+        }
+
+        $cashBankAccountsFormatted = collect($this->cashBankAccounts)->map(function($cba) {
+            $bankInfo = $cba->bank_name ? " ({$cba->bank_name} - {$cba->account_number})" : '';
+            return [
+                'id' => (string) $cba->id,
+                'label' => ($cba->account ? $cba->account->name : 'Account #' . $cba->id) . $bankInfo,
+                'subtext' => ucfirst($cba->type) . ($cba->branch ? ' • ' . $cba->branch->name : ''),
+                'code' => $cba->account_number ?? null,
+            ];
+        })->values()->all();
+
+        $debitAccountsFormatted = collect($this->debitAccounts)->map(function($acc) {
+            $typeGroup = $acc->accountType ? $acc->accountType->name : $acc->nature;
+            return [
+                'id' => (string) $acc->id,
+                'label' => "[{$acc->account_code}] {$acc->name}",
+                'subtext' => $typeGroup,
+                'code' => $acc->account_code,
+                'group' => $typeGroup,
+            ];
+        })->values()->all();
+
+        $paymentMethodsFormatted = [
+            ['id' => 'Cash', 'label' => 'Cash', 'subtext' => 'Cash in Hand'],
+            ['id' => 'Cheque', 'label' => 'Cheque / Demand Draft', 'subtext' => 'Bank Instrument'],
+            ['id' => 'Bank Transfer', 'label' => 'Bank Transfer / IBFT', 'subtext' => 'Electronic'],
+            ['id' => 'Online', 'label' => 'Online / Digital Payment', 'subtext' => 'Digital Gateway'],
+        ];
+
         return view('livewire.finance.payment-voucher-form', [
             'editId' => $this->editId,
             'voucher_type' => $this->voucher_type,
@@ -475,6 +571,13 @@ class PaymentVoucherForm extends Component
             'expenseCategories' => $this->expenseCategories,
             'expenses' => $this->expenses,
             'payeeOutstandingBalance' => $this->payeeOutstandingBalance,
+            'branchesFormatted' => $branchesFormatted,
+            'suppliersFormatted' => $suppliersFormatted,
+            'vendorsFormatted' => $vendorsFormatted,
+            'expensePayeesFormatted' => $expensePayeesFormatted,
+            'cashBankAccountsFormatted' => $cashBankAccountsFormatted,
+            'debitAccountsFormatted' => $debitAccountsFormatted,
+            'paymentMethodsFormatted' => $paymentMethodsFormatted,
         ]);
     }
 }
