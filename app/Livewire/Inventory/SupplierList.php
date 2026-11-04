@@ -382,19 +382,40 @@ class SupplierList extends Component
             });
         }
 
+        $cutoffDate = $this->dateTo;
+        $isPastCutoff = !empty($cutoffDate) && \Carbon\Carbon::parse($cutoffDate)->startOfDay()->lt(\Carbon\Carbon::today());
+
         if ($this->balanceFilter === 'outstanding') {
-            $query->where(function ($q) {
-                $q->whereExists(function ($sub) {
-                    $sub->select(DB::raw(1))
-                        ->from('supplier_ledgers as sl1')
-                        ->whereColumn('sl1.supplier_id', 'suppliers.id')
-                        ->whereNull('sl1.deleted_at')
-                        ->whereRaw('sl1.id = (SELECT MAX(sl2.id) FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL)')
-                        ->where('sl1.running_balance', '>', 0.01);
-                })->orWhere(function ($sub) {
-                    $sub->whereDoesntHave('ledgers')->where('opening_balance', '>', 0.01);
+            if ($isPastCutoff) {
+                $query->where(function ($q) use ($cutoffDate) {
+                    $q->whereExists(function ($sub) use ($cutoffDate) {
+                        $sub->select(DB::raw(1))
+                            ->from('supplier_ledgers as sl1')
+                            ->whereColumn('sl1.supplier_id', 'suppliers.id')
+                            ->whereNull('sl1.deleted_at')
+                            ->whereDate('sl1.transaction_date', '<=', $cutoffDate)
+                            ->whereRaw('sl1.id = (SELECT sl2.id FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL AND date(sl2.transaction_date) <= ? ORDER BY sl2.transaction_date DESC, (CASE WHEN sl2.reference_type = "OpeningBalance" THEN 0 ELSE 1 END) DESC, sl2.id DESC LIMIT 1)', [$cutoffDate])
+                            ->where('sl1.running_balance', '>', 0.01);
+                    })->orWhere(function ($sub) use ($cutoffDate) {
+                        $sub->whereDoesntHave('ledgers', function ($lq) use ($cutoffDate) {
+                            $lq->whereDate('transaction_date', '<=', $cutoffDate);
+                        })->where('opening_balance', '>', 0.01);
+                    });
                 });
-            });
+            } else {
+                $query->where(function ($q) {
+                    $q->whereExists(function ($sub) {
+                        $sub->select(DB::raw(1))
+                            ->from('supplier_ledgers as sl1')
+                            ->whereColumn('sl1.supplier_id', 'suppliers.id')
+                            ->whereNull('sl1.deleted_at')
+                            ->whereRaw('sl1.id = (SELECT MAX(sl2.id) FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL)')
+                            ->where('sl1.running_balance', '>', 0.01);
+                    })->orWhere(function ($sub) {
+                        $sub->whereDoesntHave('ledgers')->where('opening_balance', '>', 0.01);
+                    });
+                });
+            }
         }
 
         if ($this->stockFilter === 'supplied_only') {
@@ -461,9 +482,21 @@ class SupplierList extends Component
             ->get()
             ->keyBy('supplier_id');
 
+        $cutoffDate = $this->dateTo;
+        $isPastCutoff = !empty($cutoffDate) && \Carbon\Carbon::parse($cutoffDate)->startOfDay()->lt(\Carbon\Carbon::today());
+
+        $allLastLedgers = $isPastCutoff ? SupplierLedger::whereIn('supplier_id', $supplierIds)
+            ->whereDate('transaction_date', '<=', $cutoffDate)
+            ->orderBy('transaction_date', 'desc')
+            ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END DESC")
+            ->orderBy('id', 'desc')
+            ->get()
+            ->unique('supplier_id')
+            ->keyBy('supplier_id') : collect();
+
         $periodLabel = $this->getPeriodLabel();
 
-        return response()->stream(function () use ($suppliers, $purchasesBySupplier, $returnsBySupplier, $periodLabel) {
+        return response()->stream(function () use ($suppliers, $purchasesBySupplier, $returnsBySupplier, $periodLabel, $isPastCutoff, $allLastLedgers) {
             $handle = fopen('php://output', 'w');
             fputs($handle, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel
 
@@ -494,7 +527,7 @@ class SupplierList extends Component
                 'Bills Count',
                 'Stock Received / Purchases (Rs.)',
                 'Opening Balance (Rs.)',
-                'Current Outstanding (Rs.)',
+                $isPastCutoff ? 'Closing Payables (Rs.)' : 'Current Outstanding (Rs.)',
                 'Notes'
             ]);
 
@@ -504,7 +537,10 @@ class SupplierList extends Component
 
             foreach ($suppliers as $idx => $s) {
                 $categoriesStr = $s->categories->pluck('name')->join(', ');
-                $balance = (float) $s->current_balance;
+                $lastL = $isPastCutoff ? $allLastLedgers->get($s->id) : null;
+                $balance = $isPastCutoff
+                    ? ($lastL ? (float) $lastL->running_balance : (float) $s->opening_balance)
+                    : (float) $s->current_balance;
                 $totalOutstanding += $balance;
 
                 $invData = $purchasesBySupplier->get($s->id);
@@ -595,15 +631,44 @@ class SupplierList extends Component
             ->get()
             ->keyBy('supplier_id');
 
-        foreach ($suppliers as $supp) {
-            $invData = $purchasesBySupplier->get($supp->id);
-            $retData = $returnsBySupplier->get($supp->id);
-            $gross = $invData ? (float) $invData->total_purchases : 0.0;
-            $ret = $retData ? (float) $retData->total_returns : 0.0;
+        $cutoffDate = $this->dateTo;
+        $isPastCutoff = !empty($cutoffDate) && \Carbon\Carbon::parse($cutoffDate)->startOfDay()->lt(\Carbon\Carbon::today());
 
-            $supp->period_stock_received = max(0.0, $gross - $ret);
-            $supp->period_invoice_count = $invData ? (int) $invData->invoice_count : 0;
-            $supp->period_returns = $ret;
+        if ($isPastCutoff) {
+            $lastLedgers = SupplierLedger::whereIn('supplier_id', $supplierIds)
+                ->whereDate('transaction_date', '<=', $cutoffDate)
+                ->orderBy('transaction_date', 'desc')
+                ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END DESC")
+                ->orderBy('id', 'desc')
+                ->get()
+                ->unique('supplier_id')
+                ->keyBy('supplier_id');
+
+            foreach ($suppliers as $supp) {
+                $invData = $purchasesBySupplier->get($supp->id);
+                $retData = $returnsBySupplier->get($supp->id);
+                $gross = $invData ? (float) $invData->total_purchases : 0.0;
+                $ret = $retData ? (float) $retData->total_returns : 0.0;
+
+                $supp->period_stock_received = max(0.0, $gross - $ret);
+                $supp->period_invoice_count = $invData ? (int) $invData->invoice_count : 0;
+                $supp->period_returns = $ret;
+
+                $lastL = $lastLedgers->get($supp->id);
+                $supp->closing_balance = $lastL ? (float) $lastL->running_balance : (float) $supp->opening_balance;
+            }
+        } else {
+            foreach ($suppliers as $supp) {
+                $invData = $purchasesBySupplier->get($supp->id);
+                $retData = $returnsBySupplier->get($supp->id);
+                $gross = $invData ? (float) $invData->total_purchases : 0.0;
+                $ret = $retData ? (float) $retData->total_returns : 0.0;
+
+                $supp->period_stock_received = max(0.0, $gross - $ret);
+                $supp->period_invoice_count = $invData ? (int) $invData->invoice_count : 0;
+                $supp->period_returns = $ret;
+                $supp->closing_balance = (float) $supp->current_balance;
+            }
         }
 
         // 2. Calculate overall totals across ALL filtered suppliers (not just page)
@@ -636,7 +701,24 @@ class SupplierList extends Component
             ->distinct()
             ->count('supplier_id');
 
-        $totalOutstandingOverall = (float) Supplier::whereIn('id', $filteredSupplierIds)->get()->sum('current_balance');
+        if ($isPastCutoff) {
+            $filteredSuppliers = Supplier::whereIn('id', $filteredSupplierIds)->get();
+            $allLastLedgers = SupplierLedger::whereIn('supplier_id', $filteredSupplierIds)
+                ->whereDate('transaction_date', '<=', $cutoffDate)
+                ->orderBy('transaction_date', 'desc')
+                ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END DESC")
+                ->orderBy('id', 'desc')
+                ->get()
+                ->unique('supplier_id')
+                ->keyBy('supplier_id');
+
+            $totalOutstandingOverall = (float) $filteredSuppliers->sum(function ($supp) use ($allLastLedgers) {
+                $lastLedger = $allLastLedgers->get($supp->id);
+                return $lastLedger ? (float) $lastLedger->running_balance : (float) $supp->opening_balance;
+            });
+        } else {
+            $totalOutstandingOverall = (float) Supplier::whereIn('id', $filteredSupplierIds)->get()->sum('current_balance');
+        }
         $periodLabel = $this->getPeriodLabel();
 
         return view('livewire.inventory.supplier-list', compact(
@@ -645,7 +727,9 @@ class SupplierList extends Component
             'totalStockValueOverall',
             'suppliersWithStockCount',
             'totalOutstandingOverall',
-            'periodLabel'
+            'periodLabel',
+            'isPastCutoff',
+            'cutoffDate'
         ))->layout('layouts.admin');
     }
 }

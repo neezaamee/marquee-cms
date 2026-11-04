@@ -18,7 +18,9 @@ use App\Models\Marquee;
 use App\Models\PettyCashAccount;
 use App\Models\PurchaseInvoice;
 use App\Models\Supplier;
+use App\Models\SupplierLedger;
 use App\Models\Vendor;
+use App\Models\VendorLedger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -318,61 +320,137 @@ class BusinessOwnerDashboard extends Component
                     ->value('total_receivables');
             }
 
-            // Total Payables & Liabilities (Supplier dues, Vendor dues, Credit expenses, and GL Payables)
-            // Total Payables & Liabilities (Supplier dues, Vendor dues, Credit expenses, and GL Payables)
+            // Total Payables & Liabilities / Closing Payables due
             $suppliers = Supplier::withoutGlobalScope('tenant')
                 ->where('marquee_id', $marqueeId)
                 ->whereIn('status', ['active', 'Active'])
                 ->with(['categories'])
                 ->get();
 
-            $payableSuppliers = $suppliers->filter(function ($supp) {
-                return (float) $supp->current_balance > 0.01;
-            })->sortByDesc('current_balance')->values();
+            if ($isPastReceivableCutoff) {
+                $supplierIds = $suppliers->pluck('id')->toArray();
+                $allLastLedgers = SupplierLedger::whereIn('supplier_id', $supplierIds)
+                    ->whereDate('transaction_date', '<=', $endDateStr)
+                    ->orderBy('transaction_date', 'desc')
+                    ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END DESC")
+                    ->orderBy('id', 'desc')
+                    ->get()
+                    ->unique('supplier_id')
+                    ->keyBy('supplier_id');
 
-            $supplierPayables = (float) $payableSuppliers->sum('current_balance');
+                $payableSuppliers = $suppliers->filter(function ($supp) use ($allLastLedgers) {
+                    $lastLedger = $allLastLedgers->get($supp->id);
+                    $balance = $lastLedger ? (float) $lastLedger->running_balance : (float) $supp->opening_balance;
+                    $supp->closing_balance = $balance;
+                    return $balance > 0.01;
+                })->sortByDesc('closing_balance')->values();
 
-            $vendors = Vendor::withoutGlobalScope('tenant')
-                ->where('marquee_id', $marqueeId)
-                ->whereIn('status', ['active', 'Active'])
-                ->get();
+                $supplierPayables = (float) $payableSuppliers->sum('closing_balance');
 
-            $payableVendors = $vendors->filter(function ($v) {
-                return (float) $v->current_balance > 0.01;
-            })->sortByDesc('current_balance')->values();
+                $vendors = Vendor::withoutGlobalScope('tenant')
+                    ->where('marquee_id', $marqueeId)
+                    ->whereIn('status', ['active', 'Active'])
+                    ->get();
 
-            $vendorPayables = (float) $payableVendors->sum('current_balance');
+                $vendorIds = $vendors->pluck('id')->toArray();
+                $vendorLastLedgers = VendorLedger::whereIn('vendor_id', $vendorIds)
+                    ->whereDate('transaction_date', '<=', $endDateStr)
+                    ->orderBy('transaction_date', 'desc')
+                    ->orderBy('id', 'desc')
+                    ->get()
+                    ->unique('vendor_id')
+                    ->keyBy('vendor_id');
 
-            $creditExpensePayables = (float) Expense::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)
-                ->where('payment_method', Expense::METHOD_CREDIT)
-                ->where('payment_status', 'Unpaid')
-                ->sum('total_amount');
+                $payableVendors = $vendors->filter(function ($v) use ($vendorLastLedgers) {
+                    $lastLedger = $vendorLastLedgers->get($v->id);
+                    $balance = $lastLedger ? (float) $lastLedger->running_balance : (float) $v->opening_balance;
+                    $v->closing_balance = $balance;
+                    return $balance > 0.01;
+                })->sortByDesc('closing_balance')->values();
 
-            $subledgerPayables = $supplierPayables + $vendorPayables + $creditExpensePayables;
+                $vendorPayables = (float) $payableVendors->sum('closing_balance');
 
-            $apAccountIds = Account::where('marquee_id', $marqueeId)
-                ->where(function ($q) {
-                    $q->where('account_code', '2001')
-                      ->orWhere('name', 'like', '%Accounts Payable%');
-                })
-                ->pluck('id');
+                $creditExpensePayables = (float) Expense::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)
+                    ->where('payment_method', Expense::METHOD_CREDIT)
+                    ->where('payment_status', 'Unpaid')
+                    ->whereDate('expense_date', '<=', $endDateStr)
+                    ->sum('total_amount');
 
-            $glApOpening = (float) AccountOpeningBalance::whereIn('account_id', $apAccountIds)
-                ->selectRaw('COALESCE(SUM(credit - debit), 0) as balance')
-                ->value('balance');
+                $subledgerPayables = $supplierPayables + $vendorPayables + $creditExpensePayables;
 
-            $glApJv = (float) DB::table('journal_voucher_items')
-                ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
-                ->whereNull('journal_vouchers.deleted_at')
-                ->where('journal_vouchers.status', 'posted')
-                ->where('journal_vouchers.marquee_id', $marqueeId)
-                ->whereIn('journal_voucher_items.account_id', $apAccountIds)
-                ->selectRaw('COALESCE(SUM(credit - debit), 0) as balance')
-                ->value('balance');
+                $apAccountIds = Account::where('marquee_id', $marqueeId)
+                    ->where(function ($q) {
+                        $q->where('account_code', '2001')
+                          ->orWhere('name', 'like', '%Accounts Payable%');
+                    })
+                    ->pluck('id');
 
-            $glApBalance = max(0, $glApOpening + $glApJv);
+                $glApOpening = (float) AccountOpeningBalance::whereIn('account_id', $apAccountIds)
+                    ->selectRaw('COALESCE(SUM(credit - debit), 0) as balance')
+                    ->value('balance');
 
-            $totalPayablesAndLiabilities = max($subledgerPayables, $glApBalance);
+                $glApJv = (float) DB::table('journal_voucher_items')
+                    ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
+                    ->whereNull('journal_vouchers.deleted_at')
+                    ->where('journal_vouchers.status', 'posted')
+                    ->where('journal_vouchers.marquee_id', $marqueeId)
+                    ->whereDate('journal_vouchers.voucher_date', '<=', $endDateStr)
+                    ->whereIn('journal_voucher_items.account_id', $apAccountIds)
+                    ->selectRaw('COALESCE(SUM(credit - debit), 0) as balance')
+                    ->value('balance');
+
+                $glApBalance = max(0, $glApOpening + $glApJv);
+
+                $totalPayablesAndLiabilities = max($subledgerPayables, $glApBalance);
+            } else {
+                $payableSuppliers = $suppliers->filter(function ($supp) {
+                    return (float) $supp->current_balance > 0.01;
+                })->sortByDesc('current_balance')->values();
+
+                $supplierPayables = (float) $payableSuppliers->sum('current_balance');
+
+                $vendors = Vendor::withoutGlobalScope('tenant')
+                    ->where('marquee_id', $marqueeId)
+                    ->whereIn('status', ['active', 'Active'])
+                    ->get();
+
+                $payableVendors = $vendors->filter(function ($v) {
+                    return (float) $v->current_balance > 0.01;
+                })->sortByDesc('current_balance')->values();
+
+                $vendorPayables = (float) $payableVendors->sum('current_balance');
+
+                $creditExpensePayables = (float) Expense::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)
+                    ->where('payment_method', Expense::METHOD_CREDIT)
+                    ->where('payment_status', 'Unpaid')
+                    ->sum('total_amount');
+
+                $subledgerPayables = $supplierPayables + $vendorPayables + $creditExpensePayables;
+
+                $apAccountIds = Account::where('marquee_id', $marqueeId)
+                    ->where(function ($q) {
+                        $q->where('account_code', '2001')
+                          ->orWhere('name', 'like', '%Accounts Payable%');
+                    })
+                    ->pluck('id');
+
+                $glApOpening = (float) AccountOpeningBalance::whereIn('account_id', $apAccountIds)
+                    ->selectRaw('COALESCE(SUM(credit - debit), 0) as balance')
+                    ->value('balance');
+
+                $glApJv = (float) DB::table('journal_voucher_items')
+                    ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
+                    ->whereNull('journal_vouchers.deleted_at')
+                    ->where('journal_vouchers.status', 'posted')
+                    ->where('journal_vouchers.marquee_id', $marqueeId)
+                    ->whereIn('journal_voucher_items.account_id', $apAccountIds)
+                    ->selectRaw('COALESCE(SUM(credit - debit), 0) as balance')
+                    ->value('balance');
+
+                $glApBalance = max(0, $glApOpening + $glApJv);
+
+                $totalPayablesAndLiabilities = max($subledgerPayables, $glApBalance);
+            }
 
             // Operating Expenses (Recognized / Posted / Approved operational expenses)
             $expenseQuery = Expense::where('marquee_id', $marqueeId)

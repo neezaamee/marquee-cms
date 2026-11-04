@@ -356,26 +356,46 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                     });
                 }
 
-                $balanceFilter = $request->query('balanceFilter', 'all');
-                if ($balanceFilter === 'outstanding') {
-                    $query->where(function ($q) {
-                        $q->whereExists(function ($sub) {
-                            $sub->select(\Illuminate\Support\Facades\DB::raw(1))
-                                ->from('supplier_ledgers as sl1')
-                                ->whereColumn('sl1.supplier_id', 'suppliers.id')
-                                ->whereNull('sl1.deleted_at')
-                                ->whereRaw('sl1.id = (SELECT MAX(sl2.id) FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL)')
-                                ->where('sl1.running_balance', '>', 0.01);
-                        })->orWhere(function ($sub) {
-                            $sub->whereDoesntHave('ledgers')->where('opening_balance', '>', 0.01);
-                        });
-                    });
-                }
-
                 $dateRange = $request->query('dateRange', 'all_time');
                 $dateFrom = $request->query('dateFrom');
                 $dateTo = $request->query('dateTo');
                 $stockFilter = $request->query('stockFilter', 'all');
+
+                $isPastCutoff = !empty($dateTo) && \Carbon\Carbon::parse($dateTo)->startOfDay()->lt(\Carbon\Carbon::today());
+
+                $balanceFilter = $request->query('balanceFilter', 'all');
+                if ($balanceFilter === 'outstanding') {
+                    if ($isPastCutoff) {
+                        $query->where(function ($q) use ($dateTo) {
+                            $q->whereExists(function ($sub) use ($dateTo) {
+                                $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                                    ->from('supplier_ledgers as sl1')
+                                    ->whereColumn('sl1.supplier_id', 'suppliers.id')
+                                    ->whereNull('sl1.deleted_at')
+                                    ->whereDate('sl1.transaction_date', '<=', $dateTo)
+                                    ->whereRaw('sl1.id = (SELECT sl2.id FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL AND date(sl2.transaction_date) <= ? ORDER BY sl2.transaction_date DESC, (CASE WHEN sl2.reference_type = "OpeningBalance" THEN 0 ELSE 1 END) DESC, sl2.id DESC LIMIT 1)', [$dateTo])
+                                    ->where('sl1.running_balance', '>', 0.01);
+                            })->orWhere(function ($sub) use ($dateTo) {
+                                $sub->whereDoesntHave('ledgers', function ($lq) use ($dateTo) {
+                                    $lq->whereDate('transaction_date', '<=', $dateTo);
+                                })->where('opening_balance', '>', 0.01);
+                            });
+                        });
+                    } else {
+                        $query->where(function ($q) {
+                            $q->whereExists(function ($sub) {
+                                $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                                    ->from('supplier_ledgers as sl1')
+                                    ->whereColumn('sl1.supplier_id', 'suppliers.id')
+                                    ->whereNull('sl1.deleted_at')
+                                    ->whereRaw('sl1.id = (SELECT MAX(sl2.id) FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL)')
+                                    ->where('sl1.running_balance', '>', 0.01);
+                            })->orWhere(function ($sub) {
+                                $sub->whereDoesntHave('ledgers')->where('opening_balance', '>', 0.01);
+                            });
+                        });
+                    }
+                }
 
                 if ($stockFilter === 'supplied_only') {
                     $query->whereExists(function ($sub) use ($marqueeId, $dateFrom, $dateTo) {
@@ -434,10 +454,30 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                     $s->period_invoice_count = $inv ? (int) $inv->invoice_count : 0;
                 }
 
+                if ($isPastCutoff) {
+                    $lastLedgers = \App\Models\SupplierLedger::whereIn('supplier_id', $supplierIds)
+                        ->whereDate('transaction_date', '<=', $dateTo)
+                        ->orderBy('transaction_date', 'desc')
+                        ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END DESC")
+                        ->orderBy('id', 'desc')
+                        ->get()
+                        ->unique('supplier_id')
+                        ->keyBy('supplier_id');
+
+                    foreach ($suppliers as $s) {
+                        $lastL = $lastLedgers->get($s->id);
+                        $s->closing_balance = $lastL ? (float) $lastL->running_balance : (float) $s->opening_balance;
+                    }
+                } else {
+                    foreach ($suppliers as $s) {
+                        $s->closing_balance = (float) $s->current_balance;
+                    }
+                }
+
                 $isPdf = true;
                 $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inventory.supplier-directory-pdf', compact(
                     'suppliers', 'marquee', 'isPdf', 'search', 'categoryFilter', 'balanceFilter',
-                    'dateRange', 'dateFrom', 'dateTo', 'stockFilter'
+                    'dateRange', 'dateFrom', 'dateTo', 'stockFilter', 'isPastCutoff'
                 ))->setPaper('a4', 'landscape');
                 return $pdf->stream('Supplier_Stock_Report_' . date('Ymd_His') . '.pdf');
             })->name('suppliers.pdf');
@@ -467,26 +507,46 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                     });
                 }
 
-                $balanceFilter = $request->query('balanceFilter', 'all');
-                if ($balanceFilter === 'outstanding') {
-                    $query->where(function ($q) {
-                        $q->whereExists(function ($sub) {
-                            $sub->select(\Illuminate\Support\Facades\DB::raw(1))
-                                ->from('supplier_ledgers as sl1')
-                                ->whereColumn('sl1.supplier_id', 'suppliers.id')
-                                ->whereNull('sl1.deleted_at')
-                                ->whereRaw('sl1.id = (SELECT MAX(sl2.id) FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL)')
-                                ->where('sl1.running_balance', '>', 0.01);
-                        })->orWhere(function ($sub) {
-                            $sub->whereDoesntHave('ledgers')->where('opening_balance', '>', 0.01);
-                        });
-                    });
-                }
-
                 $dateRange = $request->query('dateRange', 'all_time');
                 $dateFrom = $request->query('dateFrom');
                 $dateTo = $request->query('dateTo');
                 $stockFilter = $request->query('stockFilter', 'all');
+
+                $isPastCutoff = !empty($dateTo) && \Carbon\Carbon::parse($dateTo)->startOfDay()->lt(\Carbon\Carbon::today());
+
+                $balanceFilter = $request->query('balanceFilter', 'all');
+                if ($balanceFilter === 'outstanding') {
+                    if ($isPastCutoff) {
+                        $query->where(function ($q) use ($dateTo) {
+                            $q->whereExists(function ($sub) use ($dateTo) {
+                                $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                                    ->from('supplier_ledgers as sl1')
+                                    ->whereColumn('sl1.supplier_id', 'suppliers.id')
+                                    ->whereNull('sl1.deleted_at')
+                                    ->whereDate('sl1.transaction_date', '<=', $dateTo)
+                                    ->whereRaw('sl1.id = (SELECT sl2.id FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL AND date(sl2.transaction_date) <= ? ORDER BY sl2.transaction_date DESC, (CASE WHEN sl2.reference_type = "OpeningBalance" THEN 0 ELSE 1 END) DESC, sl2.id DESC LIMIT 1)', [$dateTo])
+                                    ->where('sl1.running_balance', '>', 0.01);
+                            })->orWhere(function ($sub) use ($dateTo) {
+                                $sub->whereDoesntHave('ledgers', function ($lq) use ($dateTo) {
+                                    $lq->whereDate('transaction_date', '<=', $dateTo);
+                                })->where('opening_balance', '>', 0.01);
+                            });
+                        });
+                    } else {
+                        $query->where(function ($q) {
+                            $q->whereExists(function ($sub) {
+                                $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                                    ->from('supplier_ledgers as sl1')
+                                    ->whereColumn('sl1.supplier_id', 'suppliers.id')
+                                    ->whereNull('sl1.deleted_at')
+                                    ->whereRaw('sl1.id = (SELECT MAX(sl2.id) FROM supplier_ledgers sl2 WHERE sl2.supplier_id = suppliers.id AND sl2.deleted_at IS NULL)')
+                                    ->where('sl1.running_balance', '>', 0.01);
+                            })->orWhere(function ($sub) {
+                                $sub->whereDoesntHave('ledgers')->where('opening_balance', '>', 0.01);
+                            });
+                        });
+                    }
+                }
 
                 if ($stockFilter === 'supplied_only') {
                     $query->whereExists(function ($sub) use ($marqueeId, $dateFrom, $dateTo) {
@@ -545,10 +605,30 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                     $s->period_invoice_count = $inv ? (int) $inv->invoice_count : 0;
                 }
 
+                if ($isPastCutoff) {
+                    $lastLedgers = \App\Models\SupplierLedger::whereIn('supplier_id', $supplierIds)
+                        ->whereDate('transaction_date', '<=', $dateTo)
+                        ->orderBy('transaction_date', 'desc')
+                        ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END DESC")
+                        ->orderBy('id', 'desc')
+                        ->get()
+                        ->unique('supplier_id')
+                        ->keyBy('supplier_id');
+
+                    foreach ($suppliers as $s) {
+                        $lastL = $lastLedgers->get($s->id);
+                        $s->closing_balance = $lastL ? (float) $lastL->running_balance : (float) $s->opening_balance;
+                    }
+                } else {
+                    foreach ($suppliers as $s) {
+                        $s->closing_balance = (float) $s->current_balance;
+                    }
+                }
+
                 $isPdf = false;
                 return view('inventory.supplier-directory-pdf', compact(
                     'suppliers', 'marquee', 'isPdf', 'search', 'categoryFilter', 'balanceFilter',
-                    'dateRange', 'dateFrom', 'dateTo', 'stockFilter'
+                    'dateRange', 'dateFrom', 'dateTo', 'stockFilter', 'isPastCutoff'
                 ));
             })->name('suppliers.print');
             Route::view('inventory/supplier-categories', 'inventory.supplier-categories')->name('supplier-categories.index');

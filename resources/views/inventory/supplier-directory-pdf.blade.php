@@ -272,7 +272,7 @@
     @php
         $totalSuppliers = $suppliers->count();
         $activeSuppliers = $suppliers->where('status', 'Active')->count();
-        $totalOutstanding = $suppliers->sum('current_balance');
+        $totalOutstanding = $suppliers->sum(fn($s) => $s->closing_balance ?? $s->current_balance);
         $totalStockReceived = $suppliers->sum('period_stock_received');
         $suppliersWithStock = $suppliers->filter(fn($s) => ($s->period_stock_received ?? 0) > 0)->count();
     @endphp
@@ -293,7 +293,7 @@
                 <div class="kpi-value" style="color: #1e3a8a;">Rs. {{ number_format($totalStockReceived, 2) }}</div>
             </td>
             <td class="kpi-card" style="width: 25%;">
-                <div class="kpi-label">Total Outstanding Payables (AP)</div>
+                <div class="kpi-label">{{ !empty($isPastCutoff) ? 'Closing Payables due' : 'Total Outstanding Payables (AP)' }}</div>
                 <div class="kpi-value danger">Rs. {{ number_format($totalOutstanding, 2) }}</div>
             </td>
         </tr>
@@ -325,7 +325,7 @@
                 <th class="text-center" style="width: 55px;">Status</th>
                 <th class="text-center" style="width: 45px;">Bills</th>
                 <th class="text-end" style="width: 110px;">Stock Received (Rs.)</th>
-                <th class="text-end" style="width: 105px;">Outstanding (Rs.)</th>
+                <th class="text-end" style="width: 105px;">{{ !empty($isPastCutoff) ? 'Closing Payables (Rs.)' : 'Outstanding (Rs.)' }}</th>
             </tr>
         </thead>
         <tbody>
@@ -358,8 +358,8 @@
                     <td class="text-end font-mono fw-bold" style="color: #1e3a8a;">
                         Rs. {{ number_format($s->period_stock_received ?? 0, 2) }}
                     </td>
-                    <td class="text-end font-mono fw-bold {{ $s->current_balance > 0 ? 'text-danger' : '' }}" style="{{ $s->current_balance > 0 ? 'color: #dc2626;' : 'color: #16a34a;' }}">
-                        Rs. {{ number_format($s->current_balance, 2) }}
+                    <td class="text-end font-mono fw-bold {{ ($s->closing_balance ?? $s->current_balance) > 0 ? 'text-danger' : '' }}" style="{{ ($s->closing_balance ?? $s->current_balance) > 0 ? 'color: #dc2626;' : 'color: #16a34a;' }}">
+                        Rs. {{ number_format($s->closing_balance ?? $s->current_balance, 2) }}
                     </td>
                 </tr>
             @empty

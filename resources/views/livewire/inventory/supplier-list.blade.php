@@ -282,9 +282,13 @@
                         <div class="card h-100 border shadow-none bg-white">
                             <div class="card-body p-2 d-flex align-items-center justify-content-between">
                                 <div>
-                                    <h6 class="text-700 fs-11 mb-0">Total Outstanding Payables (AP)</h6>
+                                    <h6 class="text-700 fs-11 mb-0">{{ $isPastCutoff ? 'Closing Payables due' : 'Total Outstanding Payables (AP)' }}</h6>
                                     <h4 class="mb-0 fw-bolder text-danger mt-1">Rs. {{ number_format($totalOutstandingOverall, 2) }}</h4>
-                                    <span class="fs-11 text-muted">Filtered suppliers live liability</span>
+                                    @if($isPastCutoff && !empty($cutoffDate))
+                                        <span class="fs-11 text-warning fw-medium"><span class="fas fa-history me-1"></span>As of {{ \Carbon\Carbon::parse($cutoffDate)->format('d M, Y') }}</span>
+                                    @else
+                                        <span class="fs-11 text-muted">Filtered suppliers live liability</span>
+                                    @endif
                                 </div>
                                 <div class="avatar avatar-m bg-danger-subtle text-danger rounded-circle d-flex align-items-center justify-content-center">
                                     <span class="fas fa-file-invoice-dollar fa-lg"></span>
@@ -314,7 +318,7 @@
                                     <th>Mobile</th>
                                     <th>City</th>
                                     <th class="text-end" style="width: 140px;">Stock Received</th>
-                                    <th class="text-end" style="width: 120px;">Outstanding</th>
+                                    <th class="text-end" style="width: 120px;">{{ $isPastCutoff ? 'Closing Payables' : 'Outstanding' }}</th>
                                     <th class="text-center" style="width: 80px;">Status</th>
                                     <th class="text-end pe-3" style="width: 110px;">Actions</th>
                                 </tr>
@@ -355,7 +359,7 @@
                                                 <span class="text-muted" style="font-size: 9px;">0 bills</span>
                                             @endif
                                         </td>
-                                        <td class="text-end font-monospace fw-bold {{ $supp->current_balance > 0 ? 'text-danger' : 'text-success' }}">Rs. {{ number_format($supp->current_balance, 2) }}</td>
+                                        <td class="text-end font-monospace fw-bold {{ ($supp->closing_balance ?? $supp->current_balance) > 0 ? 'text-danger' : 'text-success' }}">Rs. {{ number_format($supp->closing_balance ?? $supp->current_balance, 2) }}</td>
                                         <td class="text-center">
                                             <span class="badge badge-subtle-{{ $supp->status === 'Active' ? 'success' : 'secondary' }} rounded-pill">
                                                 {{ $supp->status }}

@@ -143,6 +143,22 @@ class Vendor extends Model
     }
 
     /**
+     * Get historical point-in-time closing balance as of a given cutoff date.
+     */
+    public function getClosingBalanceAsOf(?string $cutoffDate = null): float
+    {
+        if (empty($cutoffDate) || \Carbon\Carbon::parse($cutoffDate)->startOfDay()->gte(\Carbon\Carbon::today())) {
+            return (float) $this->current_balance;
+        }
+
+        $lastLedger = $this->ledgers()
+            ->whereDate('transaction_date', '<=', $cutoffDate)
+            ->first();
+
+        return $lastLedger ? (float) $lastLedger->running_balance : (float) $this->opening_balance;
+    }
+
+    /**
      * Accessor: Total lifetime sales.
      */
     public function getTotalSalesAttribute(): float

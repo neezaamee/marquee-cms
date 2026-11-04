@@ -372,14 +372,14 @@
                 </div>
             </div>
 
-            <!-- 4. Payables & Liabilities -->
+            <!-- 4. Payables & Liabilities / Closing Payables due -->
             <div class="col-6 col-md-4 col-xl">
                 <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative hover-lift" style="cursor: pointer;">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <div class="d-flex align-items-center gap-1">
-                                    <h6 class="text-700 fs-11 mb-0">Payables & Liabilities</h6>
+                                    <h6 class="text-700 fs-11 mb-0">{{ $isPastReceivableCutoff ? 'Closing Payables due' : 'Payables & Liabilities' }}</h6>
                                 </div>
                                 <h3 class="mb-0 fw-bolder text-danger mt-1">
                                     @if(abs($totalPayablesAndLiabilities) >= 1000000)
@@ -389,7 +389,11 @@
                                     @endif
                                 </h3>
                                 <div class="d-flex align-items-center gap-1 mt-1">
-                                    <span class="fs-11 text-muted">Supplier & vendor dues</span>
+                                    @if($isPastReceivableCutoff)
+                                        <span class="fs-11 text-warning fw-medium"><span class="fas fa-history me-1"></span>As of {{ $endDate->format('d M, Y') }}</span>
+                                    @else
+                                        <span class="fs-11 text-muted">Supplier & vendor dues</span>
+                                    @endif
                                     <span class="fas fa-arrow-right fs-11 text-danger ms-auto"></span>
                                 </div>
                             </div>
@@ -398,7 +402,11 @@
                             </div>
                         </div>
                     </div>
-                    <a href="{{ route('suppliers.index', ['balanceFilter' => 'outstanding']) }}" class="stretched-link" role="button" title="View Suppliers to Whom We Owe Payments"></a>
+                    @if($isPastReceivableCutoff)
+                        <a href="{{ route('suppliers.index', ['balanceFilter' => 'outstanding', 'dateRange' => 'custom', 'dateTo' => $endDate->format('Y-m-d')]) }}" class="stretched-link" role="button" title="View Closing Payables Due as of {{ $endDate->format('d M, Y') }}"></a>
+                    @else
+                        <a href="{{ route('suppliers.index', ['balanceFilter' => 'outstanding']) }}" class="stretched-link" role="button" title="View Suppliers to Whom We Owe Payments"></a>
+                    @endif
                 </div>
             </div>
 

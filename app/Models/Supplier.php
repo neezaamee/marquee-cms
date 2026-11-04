@@ -48,6 +48,25 @@ class Supplier extends Model
     }
 
     /**
+     * Get historical point-in-time closing balance as of a given cutoff date.
+     */
+    public function getClosingBalanceAsOf(?string $cutoffDate = null): float
+    {
+        if (empty($cutoffDate) || \Carbon\Carbon::parse($cutoffDate)->startOfDay()->gte(\Carbon\Carbon::today())) {
+            return (float) $this->current_balance;
+        }
+
+        $lastLedger = $this->ledgers()
+            ->whereDate('transaction_date', '<=', $cutoffDate)
+            ->orderBy('transaction_date', 'desc')
+            ->orderByRaw("CASE WHEN reference_type = 'OpeningBalance' THEN 0 ELSE 1 END DESC")
+            ->orderBy('id', 'desc')
+            ->first();
+
+        return $lastLedger ? (float) $lastLedger->running_balance : (float) $this->opening_balance;
+    }
+
+    /**
      * Get supplier ledgers.
      */
     public function ledgers()

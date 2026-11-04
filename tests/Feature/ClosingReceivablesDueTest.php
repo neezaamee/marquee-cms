@@ -214,3 +214,4 @@ class ClosingReceivablesDueTest extends TestCase
             ->assertSee('Rs. 100.0k');
     }
 }
+
