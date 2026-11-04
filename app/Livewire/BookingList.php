@@ -122,10 +122,13 @@ class BookingList extends Component
      */
     public function applyShortcutFilter($shortcut)
     {
+        $preserveDateEnd = ($shortcut === 'outstanding' && !empty($this->filterDateEnd));
         $this->filterQuickShortcut = $shortcut;
         $this->filterStatus = '';
         $this->filterDateStart = '';
-        $this->filterDateEnd = '';
+        if (!$preserveDateEnd) {
+            $this->filterDateEnd = '';
+        }
         $this->filterBalanceStatus = '';
         $this->filterGuestStatus = '';
         $this->resetPage();
@@ -138,9 +141,6 @@ class BookingList extends Component
             $this->filterStatus = 'Draft';
         } elseif ($shortcut === 'outstanding') {
             $this->filterBalanceStatus = 'outstanding';
-        } elseif ($shortcut === 'past_due' || $shortcut === 'past_due_receivables') {
-            $this->filterQuickShortcut = 'past_due';
-            $this->filterBalanceStatus = 'past_due';
         }
     }
 
@@ -336,39 +336,66 @@ class BookingList extends Component
         $thisMonthCount = (clone $activeQuery)->whereBetween('booking_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])->count();
         $pendingApprovalsCount = (clone $metricsQuery)->whereIn('booking_status', ['Draft', 'Pending'])->count();
 
+        $todayStr = Carbon::today()->format('Y-m-d');
+        $isPastReceivableCutoff = !empty($endDate) && Carbon::parse($endDate)->startOfDay()->lte(Carbon::today());
+        $paymentDateCutoff = $isPastReceivableCutoff ? $endDate : null;
+
         $paymentsSubqueries = [
-            'payments as posted_received' => function ($q) {
+            'payments as posted_received' => function ($q) use ($paymentDateCutoff) {
                 $q->where('status', 'posted')
                   ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit']);
+                if ($paymentDateCutoff) {
+                    $q->where(function ($dateQ) use ($paymentDateCutoff) {
+                        $dateQ->whereDate('payment_date', '<=', $paymentDateCutoff)
+                              ->orWhere(function ($fbQ) use ($paymentDateCutoff) {
+                                  $fbQ->whereNull('payment_date')
+                                      ->whereDate('created_at', '<=', $paymentDateCutoff . ' 23:59:59');
+                              });
+                    });
+                }
             },
-            'payments as posted_refunds' => function ($q) {
+            'payments as posted_refunds' => function ($q) use ($paymentDateCutoff) {
                 $q->where('status', 'posted')
                   ->where('payment_type', 'refund');
+                if ($paymentDateCutoff) {
+                    $q->where(function ($dateQ) use ($paymentDateCutoff) {
+                        $dateQ->whereDate('payment_date', '<=', $paymentDateCutoff)
+                              ->orWhere(function ($fbQ) use ($paymentDateCutoff) {
+                                  $fbQ->whereNull('payment_date')
+                                      ->whereDate('created_at', '<=', $paymentDateCutoff . ' 23:59:59');
+                              });
+                    });
+                }
             }
         ];
 
-        // Dynamic Payment Outstanding query (strictly for active completed or past events before today)
-        $todayStr = Carbon::today()->format('Y-m-d');
-        $outstandingQuery = (clone $activeQuery)
-            ->where(function ($q) use ($todayStr) {
-                $q->where('booking_status', 'Completed')
-                  ->orWhere('is_revenue_recognized', true)
-                  ->orWhereDate('booking_date', '<', $todayStr);
-            })
-            ->with(['finalBill'])
-            ->withSum($paymentsSubqueries, 'amount');
+        // Dynamic Payment Outstanding / Closing Receivables due query
+        // When a past "To date" is selected, compute point-in-time Closing Receivables due as of that cutoff date
+        if ($isPastReceivableCutoff) {
+            $outstandingQuery = (clone $activeQuery)
+                ->whereDate('booking_date', '<=', $endDate)
+                ->with(['finalBill'])
+                ->withSum($paymentsSubqueries, 'amount');
+        } else {
+            $outstandingQuery = (clone $activeQuery)
+                ->where(function ($q) use ($todayStr) {
+                    $q->where('booking_status', 'Completed')
+                      ->orWhere('is_revenue_recognized', true)
+                      ->orWhereDate('booking_date', '<', $todayStr);
+                })
+                ->with(['finalBill'])
+                ->withSum($paymentsSubqueries, 'amount');
+        }
         
         $allBookingsForFinances = $outstandingQuery->get();
         $outstandingPaymentsCount = $allBookingsForFinances->filter(function($b) {
-            $postedReceived = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
-            $received = $postedReceived > 0 ? $postedReceived : (float) ($b->advance_received ?? 0);
+            $received = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
             $grandTotal = $b->finalBill ? $b->finalBill->grand_total : $b->grand_total;
             return ($grandTotal - $received) > 0.01;
         })->count();
 
         $outstandingAmountSum = $allBookingsForFinances->sum(function($b) {
-            $postedReceived = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
-            $received = $postedReceived > 0 ? $postedReceived : (float) ($b->advance_received ?? 0);
+            $received = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
             $grandTotal = $b->finalBill ? $b->finalBill->grand_total : $b->grand_total;
             return max(0.00, $grandTotal - $received);
         });
@@ -420,8 +447,8 @@ class BookingList extends Component
             'pendingApprovalsCount' => $pendingApprovalsCount,
             'outstandingPaymentsCount' => $outstandingPaymentsCount,
             'outstandingAmountSum' => $outstandingAmountSum,
-            'pastDueReceivablesCount' => $outstandingPaymentsCount,
-            'pastDueReceivablesAmount' => $outstandingAmountSum,
+            'isPastReceivableCutoff' => $isPastReceivableCutoff,
+            'receivableCutoffDate' => $isPastReceivableCutoff ? Carbon::parse($endDate)->format('d M, Y') : null,
         ]);
     }
 

@@ -29,7 +29,6 @@ class BusinessOwnerDashboard extends Component
     public ?int $selectedBranchId = null; // null = All Branches
     public string $timeframe = 'this_month'; // 'today', 'this_week', 'this_month', 'this_quarter', 'this_year', 'last_30_days', 'custom'
     public string $filterRange = 'this_month'; // Synchronized alias matching Purchase Dashboard
-    public string $dueFilter = 'all'; // 'all', 'past_due'
     public string $customDateFrom = '';
     public string $customDateTo = '';
     public ?string $viewMode = null; // 'executive', 'operations' (for owners to toggle preview)
@@ -39,7 +38,6 @@ class BusinessOwnerDashboard extends Component
         'selectedBranchId' => ['except' => null],
         'timeframe' => ['except' => 'this_month'],
         'filterRange' => ['except' => 'this_month'],
-        'dueFilter' => ['except' => 'all'],
         'customDateFrom' => ['except' => ''],
         'customDateTo' => ['except' => ''],
     ];
@@ -105,11 +103,6 @@ class BusinessOwnerDashboard extends Component
     {
         $this->timeframe = $range;
         $this->filterRange = $range;
-    }
-
-    public function setDueFilter(string $filter)
-    {
-        $this->dueFilter = $filter;
     }
 
     public function setViewMode(?string $mode)
@@ -241,12 +234,6 @@ class BusinessOwnerDashboard extends Component
         $cashInHand = 0.0;
         $supplierPayables = 0.0;
         $vendorPayables = 0.0;
-        $pastDueCreditExpenses = 0.0;
-        $pastDueCreditExpensesCount = 0;
-        $pastDuePayablesTotal = 0.0;
-        $pastDuePayablesCount = 0;
-        $pastDueReceivablesTotal = 0.0;
-        $pastDueReceivablesCount = 0;
         $payableSuppliers = collect();
         $payableVendors = collect();
         $todayDateStr = Carbon::today()->format('Y-m-d');
@@ -280,24 +267,56 @@ class BusinessOwnerDashboard extends Component
                 ->where('is_revenue_recognized', false)
                 ->sum('advance_received');
 
-            // Pending Receivables (Outstanding customer balances strictly for completed functions or functions passed before the current date)
+            // Pending Receivables / Closing Receivables due
             $todayDateStr = Carbon::today()->format('Y-m-d');
-            $pendingReceivables = (float) (clone $bookingQuery)
-                ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
-                ->where(function ($q) use ($todayDateStr) {
-                    $q->where('bookings.booking_status', 'Completed')
-                      ->orWhere('bookings.is_revenue_recognized', true)
-                      ->orWhereDate('bookings.booking_date', '<', $todayDateStr);
-                })
-                ->leftJoin('booking_final_bills', 'bookings.id', '=', 'booking_final_bills.booking_id')
-                ->selectRaw('COALESCE(SUM(CASE 
-                    WHEN bookings.is_revenue_recognized = 1 THEN bookings.receivable_amount 
-                    WHEN bookings.receivable_amount > 0 THEN bookings.receivable_amount 
-                    WHEN (COALESCE(booking_final_bills.grand_total, bookings.grand_total) - bookings.advance_received) > 0 
-                        THEN (COALESCE(booking_final_bills.grand_total, bookings.grand_total) - bookings.advance_received) 
-                    ELSE 0 
-                END), 0) as total_receivables')
-                ->value('total_receivables');
+            $isPastReceivableCutoff = Carbon::parse($endDateStr)->startOfDay()->lt(Carbon::today());
+
+            if ($isPastReceivableCutoff) {
+                // When viewing a past timeframe or past "To date", calculate Closing Receivables due as of that cutoff date:
+                // Include functions held on or before $endDateStr, deducting only collections received on or before $endDateStr.
+                $historicalReceivableBookings = (clone $bookingQuery)
+                    ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
+                    ->whereDate('bookings.booking_date', '<=', $endDateStr)
+                    ->with([
+                        'finalBill',
+                        'payments' => function ($pq) use ($endDateStr) {
+                            $pq->where('status', 'posted')
+                               ->where(function ($dateQ) use ($endDateStr) {
+                                   $dateQ->whereDate('payment_date', '<=', $endDateStr)
+                                         ->orWhere(function ($fbQ) use ($endDateStr) {
+                                             $fbQ->whereNull('payment_date')
+                                                 ->whereDate('created_at', '<=', $endDateStr . ' 23:59:59');
+                                         });
+                               });
+                        }
+                    ])
+                    ->get();
+
+                $pendingReceivables = (float) $historicalReceivableBookings->sum(function ($b) {
+                    $billed = $b->finalBill ? (float) $b->finalBill->grand_total : (float) $b->grand_total;
+                    $received = (float) $b->payments->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])->sum('amount');
+                    $refunded = (float) $b->payments->where('payment_type', 'refund')->sum('amount');
+                    $netReceived = max(0.00, $received - $refunded);
+                    return max(0.00, $billed - $netReceived);
+                });
+            } else {
+                $pendingReceivables = (float) (clone $bookingQuery)
+                    ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
+                    ->where(function ($q) use ($todayDateStr) {
+                        $q->where('bookings.booking_status', 'Completed')
+                          ->orWhere('bookings.is_revenue_recognized', true)
+                          ->orWhereDate('bookings.booking_date', '<', $todayDateStr);
+                    })
+                    ->leftJoin('booking_final_bills', 'bookings.id', '=', 'booking_final_bills.booking_id')
+                    ->selectRaw('COALESCE(SUM(CASE 
+                        WHEN bookings.is_revenue_recognized = 1 THEN bookings.receivable_amount 
+                        WHEN bookings.receivable_amount > 0 THEN bookings.receivable_amount 
+                        WHEN (COALESCE(booking_final_bills.grand_total, bookings.grand_total) - bookings.advance_received) > 0 
+                            THEN (COALESCE(booking_final_bills.grand_total, bookings.grand_total) - bookings.advance_received) 
+                        ELSE 0 
+                    END), 0) as total_receivables')
+                    ->value('total_receivables');
+            }
 
             // Total Payables & Liabilities (Supplier dues, Vendor dues, Credit expenses, and GL Payables)
             // Total Payables & Liabilities (Supplier dues, Vendor dues, Credit expenses, and GL Payables)
@@ -354,36 +373,6 @@ class BusinessOwnerDashboard extends Component
             $glApBalance = max(0, $glApOpening + $glApJv);
 
             $totalPayablesAndLiabilities = max($subledgerPayables, $glApBalance);
-
-            // Past-Due Payables (Overdue unpaid expenses + supplier & vendor liabilities)
-            $pastDueCreditExpenses = (float) Expense::withoutGlobalScope('tenant')
-                ->where('marquee_id', $marqueeId)
-                ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
-                ->where('payment_status', '!=', 'Paid')
-                ->where(function ($q) use ($todayDateStr) {
-                    $q->where(function ($s) use ($todayDateStr) {
-                        $s->whereNotNull('due_date')->whereDate('due_date', '<', $todayDateStr);
-                    })->orWhere(function ($s) use ($todayDateStr) {
-                        $s->whereNull('due_date')->whereDate('expense_date', '<', $todayDateStr);
-                    });
-                })
-                ->sum(DB::raw('total_amount - COALESCE(paid_amount, 0)'));
-
-            $pastDueCreditExpensesCount = Expense::withoutGlobalScope('tenant')
-                ->where('marquee_id', $marqueeId)
-                ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
-                ->where('payment_status', '!=', 'Paid')
-                ->where(function ($q) use ($todayDateStr) {
-                    $q->where(function ($s) use ($todayDateStr) {
-                        $s->whereNotNull('due_date')->whereDate('due_date', '<', $todayDateStr);
-                    })->orWhere(function ($s) use ($todayDateStr) {
-                        $s->whereNull('due_date')->whereDate('expense_date', '<', $todayDateStr);
-                    });
-                })
-                ->count();
-
-            $pastDuePayablesTotal = $pastDueCreditExpenses + $supplierPayables + $vendorPayables;
-            $pastDuePayablesCount = $pastDueCreditExpensesCount + $payableSuppliers->count() + $payableVendors->count();
 
             // Operating Expenses (Recognized / Posted / Approved operational expenses)
             $expenseQuery = Expense::where('marquee_id', $marqueeId)
@@ -507,27 +496,30 @@ class BusinessOwnerDashboard extends Component
             ->take(5)
             ->values();
 
-        $overdueReceivablesCount = (clone $bookingQuery)
-            ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
-            ->where(function ($q) use ($todayDateStr) {
-                $q->where('bookings.booking_status', 'Completed')
-                  ->orWhere('bookings.is_revenue_recognized', true)
-                  ->orWhereDate('bookings.booking_date', '<', $todayDateStr);
-            })
-            ->where(function ($q) {
-                $q->where('bookings.receivable_amount', '>', 0)
-                  ->orWhere(function ($balQ) {
-                      $balQ->where('bookings.is_revenue_recognized', false)
-                           ->whereRaw('(bookings.grand_total - bookings.advance_received) > 0.01');
-                  });
-            })
-            ->count();
-
-        $pastDueReceivablesTotal = $pendingReceivables;
-        $pastDueReceivablesCount = $overdueReceivablesCount;
-
-        if ($this->dueFilter === 'past_due') {
-            $totalPayablesAndLiabilities = $pastDuePayablesTotal;
+        if (isset($isPastReceivableCutoff) && $isPastReceivableCutoff && isset($historicalReceivableBookings)) {
+            $overdueReceivablesCount = $historicalReceivableBookings->filter(function ($b) {
+                $billed = $b->finalBill ? (float) $b->finalBill->grand_total : (float) $b->grand_total;
+                $received = (float) $b->payments->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit'])->sum('amount');
+                $refunded = (float) $b->payments->where('payment_type', 'refund')->sum('amount');
+                $netReceived = max(0.00, $received - $refunded);
+                return ($billed - $netReceived) > 0.01;
+            })->count();
+        } else {
+            $overdueReceivablesCount = (clone $bookingQuery)
+                ->whereNotIn('bookings.booking_status', ['Cancelled', 'Rejected'])
+                ->where(function ($q) use ($todayDateStr) {
+                    $q->where('bookings.booking_status', 'Completed')
+                      ->orWhere('bookings.is_revenue_recognized', true)
+                      ->orWhereDate('bookings.booking_date', '<', $todayDateStr);
+                })
+                ->where(function ($q) {
+                    $q->where('bookings.receivable_amount', '>', 0)
+                      ->orWhere(function ($balQ) {
+                          $balQ->where('bookings.is_revenue_recognized', false)
+                               ->whereRaw('(bookings.grand_total - bookings.advance_received) > 0');
+                      });
+                })
+                ->count();
         }
 
         $unprintedKitchenSlipsCount = (clone $bookingQuery)
@@ -728,12 +720,8 @@ class BusinessOwnerDashboard extends Component
             'upcomingEvents' => $upcomingEvents,
             'lowStockItems' => $lowStockItems,
             'overdueReceivablesCount' => $overdueReceivablesCount,
+            'isPastReceivableCutoff' => $isPastReceivableCutoff ?? false,
             'unprintedKitchenSlipsCount' => $unprintedKitchenSlipsCount,
-            'dueFilter' => $this->dueFilter,
-            'pastDueReceivablesTotal' => $pastDueReceivablesTotal,
-            'pastDueReceivablesCount' => $pastDueReceivablesCount,
-            'pastDuePayablesTotal' => $pastDuePayablesTotal,
-            'pastDuePayablesCount' => $pastDuePayablesCount,
             'periodLabel' => $periodLabel,
             'startDate' => $startDate,
             'endDate' => $endDate,

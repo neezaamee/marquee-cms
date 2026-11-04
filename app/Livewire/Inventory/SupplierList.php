@@ -382,7 +382,7 @@ class SupplierList extends Component
             });
         }
 
-        if ($this->balanceFilter === 'outstanding' || $this->balanceFilter === 'past_due') {
+        if ($this->balanceFilter === 'outstanding') {
             $query->where(function ($q) {
                 $q->whereExists(function ($sub) {
                     $sub->select(DB::raw(1))

@@ -129,22 +129,6 @@
 
         <!-- Filtration drawer -->
         <div class="card-body bg-light border-bottom d-print-none">
-            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                <div class="nav nav-pills flex-wrap gap-1 fs-11">
-                    <button wire:click="$set('payment_status', '')" class="nav-link px-2 py-1 {{ empty($payment_status) ? 'active' : '' }}" type="button">All Expenses</button>
-                    <button wire:click="$set('payment_status', '{{ $payment_status === 'past_due' ? '' : 'past_due' }}')" class="nav-link px-2 py-1 {{ $payment_status === 'past_due' ? 'active bg-danger text-white fw-bold shadow-sm' : '' }}" type="button">
-                        <i class="fas fa-exclamation-circle me-1"></i>Past-Due Payables ({{ $pastDuePayablesCount }})
-                    </button>
-                    <button wire:click="$set('payment_status', 'Unpaid')" class="nav-link px-2 py-1 {{ $payment_status === 'Unpaid' ? 'active' : '' }}" type="button">Unpaid</button>
-                    <button wire:click="$set('payment_status', 'Partially Paid')" class="nav-link px-2 py-1 {{ $payment_status === 'Partially Paid' ? 'active' : '' }}" type="button">Partially Paid</button>
-                    <button wire:click="$set('payment_status', 'Paid')" class="nav-link px-2 py-1 {{ $payment_status === 'Paid' ? 'active' : '' }}" type="button">Paid</button>
-                </div>
-                @if($pastDuePayablesCount > 0)
-                    <div class="fs-11 text-danger fw-bold font-monospace">
-                        <span class="fas fa-clock me-1"></span>Total Past-Due Payables: Rs. {{ number_format($pastDuePayablesTotal, 2) }}
-                    </div>
-                @endif
-            </div>
             <div class="row g-2">
                 <div class="col-md-3">
                     <input wire:model.live.debounce.300ms="search" type="text" class="form-control form-control-sm" placeholder="Search Voucher / Ref / Cost Center...">
@@ -180,7 +164,6 @@
                 <div class="col-md-2">
                     <select wire:model.live="payment_status" class="form-select form-select-sm">
                         <option value="">All Pay Status</option>
-                        <option value="past_due">Past-Due Payables (Overdue)</option>
                         <option value="Paid">Paid</option>
                         <option value="Partially Paid">Partially Paid</option>
                         <option value="Unpaid">Unpaid</option>
@@ -212,17 +195,6 @@
 
         <!-- Table Grid -->
         <div class="card-body p-0">
-            @if($payment_status === 'past_due')
-                <div class="alert alert-danger border-0 rounded-0 p-2 mb-0 fs-11 d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="fas fa-filter text-danger me-1"></span>
-                        <strong>Filter Active: Total Payables for Past-Due Items</strong> ({{ $pastDuePayablesCount }} overdue items)
-                    </div>
-                    <div class="fw-bold fs-11 font-monospace text-danger">
-                        Total Past-Due Payables: Rs. {{ number_format($pastDuePayablesTotal, 2) }}
-                    </div>
-                </div>
-            @endif
             @if(session('success'))
                 <div class="alert alert-success border-2 d-flex align-items-center m-3" role="alert">
                     <div class="bg-success me-3 icon-item"><span class="fas fa-check-circle text-white fs-8"></span></div>

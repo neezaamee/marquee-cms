@@ -331,24 +331,6 @@ class ExpenseList extends Component
         $bankAccounts = CashBankAccount::where('marquee_id', $marqueeId)->get();
         $pettyDrawers = PettyCashAccount::where('marquee_id', $marqueeId)->where('is_active', true)->get();
 
-        // Calculate past-due payables metrics
-        $todayStr = \Carbon\Carbon::today()->format('Y-m-d');
-        $pastDueBase = Expense::where('marquee_id', $marqueeId)
-            ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
-            ->where('payment_status', '!=', 'Paid')
-            ->where(function ($q) use ($todayStr) {
-                $q->where(function ($sub) use ($todayStr) {
-                    $sub->whereNotNull('due_date')->whereDate('due_date', '<', $todayStr);
-                })->orWhere(function ($sub) use ($todayStr) {
-                    $sub->whereNull('due_date')->whereDate('expense_date', '<', $todayStr);
-                });
-            });
-
-        $pastDuePayablesCount = (clone $pastDueBase)->count();
-        $pastDuePayablesTotal = (float) (clone $pastDueBase)
-            ->selectRaw('COALESCE(SUM(total_amount - COALESCE(paid_amount, 0)), 0) as balance')
-            ->value('balance');
-
         return view('livewire.finance.expense-list', [
             'expenses' => $expenses,
             'branches' => $branches,
@@ -356,8 +338,6 @@ class ExpenseList extends Component
             'suppliers' => $suppliers,
             'bankAccounts' => $bankAccounts,
             'pettyDrawers' => $pettyDrawers,
-            'pastDuePayablesCount' => $pastDuePayablesCount,
-            'pastDuePayablesTotal' => $pastDuePayablesTotal,
         ]);
     }
 }

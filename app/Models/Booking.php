@@ -605,14 +605,36 @@ class Booking extends Model
         $user = $user ?? auth()->user();
         $marqueeId = $user ? $user->getActiveMarqueeId() : null;
 
+        $endDate = static::normalizeDateForFilter($filters['filterDateEnd'] ?? null);
+        $isPastReceivableCutoff = !empty($endDate) && Carbon::parse($endDate)->startOfDay()->lte(Carbon::today());
+        $paymentDateCutoff = $isPastReceivableCutoff ? $endDate : null;
+
         $paymentsSubqueries = [
-            'payments as posted_received' => function ($q) {
+            'payments as posted_received' => function ($q) use ($paymentDateCutoff) {
                 $q->where('status', 'posted')
                   ->whereIn('payment_type', ['advance', 'receivable_payment', 'security_deposit']);
+                if ($paymentDateCutoff) {
+                    $q->where(function ($dateQ) use ($paymentDateCutoff) {
+                        $dateQ->whereDate('payment_date', '<=', $paymentDateCutoff)
+                              ->orWhere(function ($fbQ) use ($paymentDateCutoff) {
+                                  $fbQ->whereNull('payment_date')
+                                      ->whereDate('created_at', '<=', $paymentDateCutoff . ' 23:59:59');
+                              });
+                    });
+                }
             },
-            'payments as posted_refunds' => function ($q) {
+            'payments as posted_refunds' => function ($q) use ($paymentDateCutoff) {
                 $q->where('status', 'posted')
                   ->where('payment_type', 'refund');
+                if ($paymentDateCutoff) {
+                    $q->where(function ($dateQ) use ($paymentDateCutoff) {
+                        $dateQ->whereDate('payment_date', '<=', $paymentDateCutoff)
+                              ->orWhere(function ($fbQ) use ($paymentDateCutoff) {
+                                  $fbQ->whereNull('payment_date')
+                                      ->whereDate('created_at', '<=', $paymentDateCutoff . ' 23:59:59');
+                              });
+                    });
+                }
             }
         ];
 
@@ -753,31 +775,28 @@ class Booking extends Model
         // Balance Status
         $balanceStatus = $filters['filterBalanceStatus'] ?? null;
         $quickShortcut = $filters['filterQuickShortcut'] ?? null;
-        if ($balanceStatus === 'past_due' || $quickShortcut === 'past_due' || $quickShortcut === 'past_due_receivables') {
+        if ($balanceStatus === 'outstanding' || $quickShortcut === 'outstanding') {
             $todayStr = Carbon::today()->format('Y-m-d');
-            $query->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
-                  ->where(function ($q) use ($todayStr) {
-                      $q->where('booking_status', 'Completed')
-                        ->orWhere('is_revenue_recognized', true)
-                        ->orWhereDate('booking_date', '<', $todayStr);
-                  })
-                  ->where(function ($q) {
-                      $q->where('receivable_amount', '>', 0)
-                        ->orWhere(function ($balQ) {
-                            $balQ->where('is_revenue_recognized', false)
-                                 ->whereRaw('(grand_total - advance_received) > 0.01');
-                        })
-                        ->orWhere('payment_status', '!=', 'Paid');
-                  });
-        } elseif ($balanceStatus === 'outstanding' || $quickShortcut === 'outstanding') {
-            $todayStr = Carbon::today()->format('Y-m-d');
-            $query->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
-                  ->where(function ($q) use ($todayStr) {
-                      $q->where('booking_status', 'Completed')
-                        ->orWhere('is_revenue_recognized', true)
-                        ->orWhereDate('booking_date', '<', $todayStr);
-                  })
-                  ->where('payment_status', '!=', 'Paid');
+            $query->whereNotIn('booking_status', ['Cancelled', 'Rejected']);
+
+            if ($isPastReceivableCutoff) {
+                $query->whereDate('booking_date', '<=', $endDate)
+                      ->where(function ($q) use ($endDate) {
+                          $q->where('payment_status', '!=', 'Paid')
+                            ->orWhereRaw('(
+                                COALESCE((SELECT grand_total FROM booking_final_bills WHERE booking_final_bills.booking_id = bookings.id LIMIT 1), bookings.grand_total)
+                                - COALESCE((SELECT SUM(amount) FROM booking_payments WHERE booking_payments.booking_id = bookings.id AND booking_payments.status = "posted" AND booking_payments.payment_type IN ("advance", "receivable_payment", "security_deposit") AND (booking_payments.payment_date <= ? OR (booking_payments.payment_date IS NULL AND booking_payments.created_at <= ?))), 0)
+                                + COALESCE((SELECT SUM(amount) FROM booking_payments WHERE booking_payments.booking_id = bookings.id AND booking_payments.status = "posted" AND booking_payments.payment_type = "refund" AND (booking_payments.payment_date <= ? OR (booking_payments.payment_date IS NULL AND booking_payments.created_at <= ?))), 0)
+                            ) > 0.01', [$endDate, $endDate . ' 23:59:59', $endDate, $endDate . ' 23:59:59']);
+                      });
+            } else {
+                $query->where(function ($q) use ($todayStr) {
+                    $q->where('booking_status', 'Completed')
+                      ->orWhere('is_revenue_recognized', true)
+                      ->orWhereDate('booking_date', '<', $todayStr);
+                })
+                ->where('payment_status', '!=', 'Paid');
+            }
         } elseif ($balanceStatus === 'fully_paid') {
             $query->where('payment_status', 'Paid');
         }
