@@ -138,6 +138,9 @@ class BookingList extends Component
             $this->filterStatus = 'Draft';
         } elseif ($shortcut === 'outstanding') {
             $this->filterBalanceStatus = 'outstanding';
+        } elseif ($shortcut === 'past_due' || $shortcut === 'past_due_receivables') {
+            $this->filterQuickShortcut = 'past_due';
+            $this->filterBalanceStatus = 'past_due';
         }
     }
 
@@ -357,13 +360,15 @@ class BookingList extends Component
         
         $allBookingsForFinances = $outstandingQuery->get();
         $outstandingPaymentsCount = $allBookingsForFinances->filter(function($b) {
-            $received = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
+            $postedReceived = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
+            $received = $postedReceived > 0 ? $postedReceived : (float) ($b->advance_received ?? 0);
             $grandTotal = $b->finalBill ? $b->finalBill->grand_total : $b->grand_total;
             return ($grandTotal - $received) > 0.01;
         })->count();
 
         $outstandingAmountSum = $allBookingsForFinances->sum(function($b) {
-            $received = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
+            $postedReceived = max(0.00, floatval($b->posted_received ?? 0) - floatval($b->posted_refunds ?? 0));
+            $received = $postedReceived > 0 ? $postedReceived : (float) ($b->advance_received ?? 0);
             $grandTotal = $b->finalBill ? $b->finalBill->grand_total : $b->grand_total;
             return max(0.00, $grandTotal - $received);
         });
@@ -415,6 +420,8 @@ class BookingList extends Component
             'pendingApprovalsCount' => $pendingApprovalsCount,
             'outstandingPaymentsCount' => $outstandingPaymentsCount,
             'outstandingAmountSum' => $outstandingAmountSum,
+            'pastDueReceivablesCount' => $outstandingPaymentsCount,
+            'pastDueReceivablesAmount' => $outstandingAmountSum,
         ]);
     }
 

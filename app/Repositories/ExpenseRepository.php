@@ -48,7 +48,22 @@ class ExpenseRepository implements ExpenseRepositoryInterface
         }
 
         if (!empty($filters['payment_status'])) {
-            $query->where('payment_status', $filters['payment_status']);
+            if ($filters['payment_status'] === 'past_due') {
+                $todayStr = \Carbon\Carbon::today()->format('Y-m-d');
+                $query->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
+                      ->where('payment_status', '!=', 'Paid')
+                      ->where(function ($q) use ($todayStr) {
+                          $q->where(function ($sub) use ($todayStr) {
+                              $sub->whereNotNull('due_date')
+                                  ->whereDate('due_date', '<', $todayStr);
+                          })->orWhere(function ($sub) use ($todayStr) {
+                              $sub->whereNull('due_date')
+                                  ->whereDate('expense_date', '<', $todayStr);
+                          });
+                      });
+            } else {
+                $query->where('payment_status', $filters['payment_status']);
+            }
         }
 
         if (!empty($filters['start_date'])) {

@@ -143,18 +143,18 @@
             </div>
         </div>
 
-        <!-- 8. Payment Outstanding -->
+        <!-- 8. Payment Outstanding & Past-Due Receivables -->
         <div class="col-12 col-sm-8 col-md-6 col-lg-4 col-xl-3">
-            <div class="card card-span h-100 cursor-pointer border {{ $filterQuickShortcut === 'outstanding' || $filterBalanceStatus === 'outstanding' ? 'border-danger shadow-sm bg-danger-subtle' : 'border-200' }}" wire:click="applyShortcutFilter('outstanding')">
+            <div class="card card-span h-100 cursor-pointer border {{ $filterQuickShortcut === 'past_due' || $filterBalanceStatus === 'past_due' ? 'border-danger shadow-sm bg-danger-subtle' : ($filterQuickShortcut === 'outstanding' || $filterBalanceStatus === 'outstanding' ? 'border-warning shadow-sm bg-warning-subtle' : 'border-200') }}" wire:click="applyShortcutFilter('past_due')" title="Click to filter total receivables for past-due items">
                 <div class="card-body p-2 d-flex align-items-center justify-content-between">
                     <div>
-                        <div class="text-500 fw-bold text-uppercase fs-12">Payment Outstanding</div>
+                        <div class="text-danger fw-bold text-uppercase fs-12"><i class="fas fa-clock me-1"></i>Past-Due Receivables</div>
                         <div class="d-flex align-items-baseline gap-2">
-                            <h4 class="mb-0 font-monospace text-danger fw-bold">{{ number_format($outstandingPaymentsCount) }}</h4>
-                            <span class="text-muted fs-12 font-monospace">Rs. {{ number_format($outstandingAmountSum, 0) }}</span>
+                            <h4 class="mb-0 font-monospace text-danger fw-bold">{{ number_format($pastDueReceivablesCount) }}</h4>
+                            <span class="text-danger fs-12 font-monospace fw-bold">Rs. {{ number_format($pastDueReceivablesAmount, 0) }}</span>
                         </div>
                     </div>
-                    <div class="icon-item bg-danger-subtle text-danger rounded-3"><span class="fas fa-exclamation-triangle fs-9"></span></div>
+                    <div class="icon-item bg-danger text-white rounded-3"><span class="fas fa-exclamation-triangle fs-9"></span></div>
                 </div>
             </div>
         </div>
@@ -166,13 +166,14 @@
             <!-- Shortcut Pills Row -->
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                 <div class="nav nav-pills flex-wrap gap-1 fs-11">
-                    <button wire:click="applyShortcutFilter('all')" class="nav-link px-2 py-1 {{ empty($filterQuickShortcut) ? 'active' : '' }}" type="button">All Bookings</button>
+                    <button wire:click="applyShortcutFilter('all')" class="nav-link px-2 py-1 {{ empty($filterQuickShortcut) && empty($filterBalanceStatus) ? 'active' : '' }}" type="button">All Bookings</button>
+                    <button wire:click="applyShortcutFilter('past_due')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'past_due' || $filterBalanceStatus === 'past_due' ? 'active bg-danger text-white fw-bold shadow-sm' : '' }}" type="button"><i class="fas fa-history me-1"></i>Past-Due Receivables</button>
                     <button wire:click="applyShortcutFilter('today')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'today' ? 'active bg-danger text-white' : '' }}" type="button">Today's Events</button>
                     <button wire:click="applyShortcutFilter('upcoming')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'upcoming' ? 'active' : '' }}" type="button">Upcoming Events</button>
                     <button wire:click="applyShortcutFilter('next_7_days')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'next_7_days' ? 'active' : '' }}" type="button">Next 7 Days</button>
                     <button wire:click="applyShortcutFilter('this_month')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'this_month' ? 'active' : '' }}" type="button">This Month</button>
                     <button wire:click="applyShortcutFilter('pending')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'pending' ? 'active bg-secondary text-white' : '' }}" type="button">Pending Approvals</button>
-                    <button wire:click="applyShortcutFilter('outstanding')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'outstanding' ? 'active bg-warning text-dark' : '' }}" type="button">Outstanding Balance</button>
+                    <button wire:click="applyShortcutFilter('outstanding')" class="nav-link px-2 py-1 {{ $filterQuickShortcut === 'outstanding' ? 'active bg-warning text-dark' : '' }}" type="button">All Outstanding</button>
                 </div>
                 <div>
                     <button wire:click="toggleAdvancedFilters" class="btn btn-falcon-default btn-xs" type="button">
@@ -367,7 +368,8 @@
                         <label class="form-label fs-11 text-700 mb-1">Balance Status</label>
                         <select wire:model.live="filterBalanceStatus" class="form-select form-select-sm">
                             <option value="">All Balances</option>
-                            <option value="outstanding">Outstanding Balance (> 0)</option>
+                            <option value="past_due">Past-Due Items (Receivables)</option>
+                            <option value="outstanding">All Outstanding Balance (> 0)</option>
                             <option value="fully_paid">Fully Settled (0)</option>
                         </select>
                     </div>
@@ -394,6 +396,17 @@
 
         <!-- Main Bookings Table -->
         <div class="card-body p-0">
+            @if($filterBalanceStatus === 'past_due' || $filterQuickShortcut === 'past_due')
+                <div class="alert alert-danger border-0 rounded-0 p-2 mb-0 fs-11 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="fas fa-filter text-danger me-1"></span>
+                        <strong>Filter Active: Total Receivables for Past-Due Items</strong> ({{ $pastDueReceivablesCount }} overdue events)
+                    </div>
+                    <div class="fw-bold fs-11 font-monospace text-danger">
+                        Total Receivables: Rs. {{ number_format($pastDueReceivablesAmount, 2) }}
+                    </div>
+                </div>
+            @endif
             @if(session('success'))
                 <div class="alert alert-success border-2 d-flex align-items-center m-3" role="alert">
                     <div class="bg-success me-3 icon-item"><span class="fas fa-check-circle text-white fs-8"></span></div>

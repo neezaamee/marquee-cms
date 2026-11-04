@@ -753,7 +753,23 @@ class Booking extends Model
         // Balance Status
         $balanceStatus = $filters['filterBalanceStatus'] ?? null;
         $quickShortcut = $filters['filterQuickShortcut'] ?? null;
-        if ($balanceStatus === 'outstanding' || $quickShortcut === 'outstanding') {
+        if ($balanceStatus === 'past_due' || $quickShortcut === 'past_due' || $quickShortcut === 'past_due_receivables') {
+            $todayStr = Carbon::today()->format('Y-m-d');
+            $query->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                  ->where(function ($q) use ($todayStr) {
+                      $q->where('booking_status', 'Completed')
+                        ->orWhere('is_revenue_recognized', true)
+                        ->orWhereDate('booking_date', '<', $todayStr);
+                  })
+                  ->where(function ($q) {
+                      $q->where('receivable_amount', '>', 0)
+                        ->orWhere(function ($balQ) {
+                            $balQ->where('is_revenue_recognized', false)
+                                 ->whereRaw('(grand_total - advance_received) > 0.01');
+                        })
+                        ->orWhere('payment_status', '!=', 'Paid');
+                  });
+        } elseif ($balanceStatus === 'outstanding' || $quickShortcut === 'outstanding') {
             $todayStr = Carbon::today()->format('Y-m-d');
             $query->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
                   ->where(function ($q) use ($todayStr) {

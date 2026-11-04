@@ -67,7 +67,7 @@
 
             <!-- Filter Controls -->
             <div class="row g-2 align-items-center justify-content-between">
-                <div class="col-auto">
+                <div class="col-auto d-flex flex-wrap align-items-center gap-2">
                     <!-- Period Filter Tabs -->
                     <div class="btn-group btn-group-sm" role="group">
                         <button type="button" wire:click="setFilterRange('today')" class="btn {{ $timeframe === 'today' ? 'btn-primary' : 'btn-outline-secondary' }}">Today</button>
@@ -78,6 +78,21 @@
                         <button type="button" wire:click="setFilterRange('last_30_days')" class="btn {{ $timeframe === 'last_30_days' ? 'btn-primary' : 'btn-outline-secondary' }}">Last 30 Days</button>
                         <button type="button" wire:click="setFilterRange('custom')" class="btn {{ $timeframe === 'custom' ? 'btn-primary' : 'btn-outline-secondary' }}">Custom</button>
                     </div>
+
+                    @if($canViewFinancials)
+                        <!-- Due Status Filter (All Balances vs Past-Due Items Only) -->
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" wire:click="setDueFilter('all')" class="btn {{ $dueFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary' }}" title="View all balances">
+                                <span class="fas fa-layer-group me-1"></span>All Balances
+                            </button>
+                            <button type="button" wire:click="setDueFilter('past_due')" class="btn {{ $dueFilter === 'past_due' ? 'btn-danger' : 'btn-outline-danger' }}" title="Filter to past-due items only">
+                                <span class="fas fa-exclamation-triangle me-1"></span>Past-Due Items
+                                @if(($pastDueReceivablesCount + $pastDuePayablesCount) > 0)
+                                    <span class="badge {{ $dueFilter === 'past_due' ? 'bg-white text-danger' : 'bg-danger text-white' }} ms-1 rounded-pill">{{ $pastDueReceivablesCount + $pastDuePayablesCount }}</span>
+                                @endif
+                            </button>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="col-auto d-flex flex-wrap gap-2 align-items-center">
@@ -124,6 +139,28 @@
     {{-- OWNER / EXECUTIVE DASHBOARD CARDS --}}
     {{-- ========================================================================= --}}
     @if($canViewFinancials)
+        @if($dueFilter === 'past_due')
+            <div class="alert alert-danger border-0 d-flex align-items-center justify-content-between p-2 mb-3 fs-11 rounded-3 shadow-sm">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fas fa-exclamation-circle fa-lg text-danger"></span>
+                    <div>
+                        <strong>Active Past-Due Items Filter:</strong> Viewing total receivables for overdue past events (<strong>Rs. {{ number_format($pastDueReceivablesTotal, 2) }}</strong> &bull; {{ $pastDueReceivablesCount }} items) and total payables for overdue expenses & suppliers (<strong>Rs. {{ number_format($pastDuePayablesTotal, 2) }}</strong> &bull; {{ $pastDuePayablesCount }} items).
+                    </div>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <a href="{{ route('bookings.index', ['filterBalanceStatus' => 'past_due', 'filterQuickShortcut' => 'past_due']) }}" class="btn btn-outline-danger btn-sm fs-11 py-0">
+                        <span class="fas fa-list me-1"></span>Past-Due Receivables
+                    </a>
+                    <a href="{{ route('expenses.index', ['payment_status' => 'past_due']) }}" class="btn btn-outline-danger btn-sm fs-11 py-0">
+                        <span class="fas fa-file-invoice-dollar me-1"></span>Past-Due Payables
+                    </a>
+                    <button wire:click="setDueFilter('all')" class="btn btn-falcon-default btn-sm fs-11 py-0" title="Reset to all balances">
+                        <span class="fas fa-times me-1"></span>Reset
+                    </button>
+                </div>
+            </div>
+        @endif
+
         <!-- Section 1: Sales, Purchases & Liquidity Position -->
         <div class="d-flex align-items-center justify-content-between mb-2">
             <span class="text-800 fw-bold fs-11 text-uppercase">
@@ -341,7 +378,10 @@
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <div class="d-flex align-items-center gap-1">
-                                    <h6 class="text-700 fs-11 mb-0">Receivables Due</h6>
+                                    <h6 class="text-700 fs-11 mb-0">{{ $dueFilter === 'past_due' ? 'Past-Due Receivables' : 'Receivables Due' }}</h6>
+                                    @if($pastDueReceivablesCount > 0)
+                                        <span class="badge bg-danger-subtle text-danger rounded-pill" style="font-size: 8px;">{{ $pastDueReceivablesCount }} Overdue</span>
+                                    @endif
                                 </div>
                                 <h3 class="mb-0 fw-bolder text-warning mt-1">
                                     @if(abs($pendingReceivables) >= 1000000)
@@ -360,7 +400,7 @@
                             </div>
                         </div>
                     </div>
-                    <a href="{{ route('customers.index', ['filterBalance' => 'outstanding']) }}" class="stretched-link" role="button" title="View Customers with Past & Completed Outstanding Balances"></a>
+                    <a href="{{ route('bookings.index', ['filterBalanceStatus' => 'past_due', 'filterQuickShortcut' => 'past_due']) }}" class="stretched-link" role="button" title="View Bookings with Past-Due Receivables"></a>
                 </div>
             </div>
 
@@ -371,7 +411,10 @@
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <div class="d-flex align-items-center gap-1">
-                                    <h6 class="text-700 fs-11 mb-0">Payables & Liabilities</h6>
+                                    <h6 class="text-700 fs-11 mb-0">{{ $dueFilter === 'past_due' ? 'Past-Due Payables' : 'Payables & Liabilities' }}</h6>
+                                    @if($pastDuePayablesCount > 0)
+                                        <span class="badge bg-danger-subtle text-danger rounded-pill" style="font-size: 8px;">{{ $pastDuePayablesCount }} Overdue</span>
+                                    @endif
                                 </div>
                                 <h3 class="mb-0 fw-bolder text-danger mt-1">
                                     @if(abs($totalPayablesAndLiabilities) >= 1000000)
@@ -381,7 +424,7 @@
                                     @endif
                                 </h3>
                                 <div class="d-flex align-items-center gap-1 mt-1">
-                                    <span class="fs-11 text-muted">Supplier & vendor dues</span>
+                                    <span class="fs-11 text-muted">Overdue expenses & suppliers</span>
                                     <span class="fas fa-arrow-right fs-11 text-danger ms-auto"></span>
                                 </div>
                             </div>
@@ -390,7 +433,7 @@
                             </div>
                         </div>
                     </div>
-                    <a href="{{ route('suppliers.index', ['balanceFilter' => 'outstanding']) }}" class="stretched-link" role="button" title="View Suppliers to Whom We Owe Payments"></a>
+                    <a href="{{ route('expenses.index', ['payment_status' => 'past_due']) }}" class="stretched-link" role="button" title="View Past-Due Payables & Overdue Expenses"></a>
                 </div>
             </div>
 
@@ -1265,13 +1308,32 @@
                     <div class="alert alert-danger border-0 p-2 fs-11 mb-2 d-flex align-items-center justify-content-between">
                         <div>
                             <span class="fas fa-exclamation-circle me-1"></span>
-                            <strong>{{ $overdueReceivablesCount }} Overdue Receivables</strong> from past completed functions.
+                            <strong>{{ $overdueReceivablesCount }} Overdue Receivables:</strong>
+                            <div class="text-700 fs-11 mt-1">Rs. {{ number_format($pastDueReceivablesTotal, 2) }} outstanding from past completed functions.</div>
                         </div>
-                        <a href="{{ route('customers.index', ['filterBalance' => 'outstanding']) }}" class="btn btn-danger btn-sm fs-11 px-2 py-0">View List</a>
+                        <div class="d-flex gap-1">
+                            <a href="{{ route('bookings.index', ['filterBalanceStatus' => 'past_due', 'filterQuickShortcut' => 'past_due']) }}" class="btn btn-danger btn-sm fs-11 px-2 py-0">Bookings</a>
+                            <a href="{{ route('customers.index', ['filterBalance' => 'past_due']) }}" class="btn btn-outline-danger btn-sm fs-11 px-2 py-0">Customers</a>
+                        </div>
                     </div>
                     @endif
 
-                    @if($unprintedKitchenSlipsCount === 0 && (!$canViewFinancials || ($lowStockItems->isEmpty() && $overdueReceivablesCount === 0)))
+                    <!-- Overdue Payables Alert (For Owner/Finance) -->
+                    @if($canViewFinancials && $pastDuePayablesCount > 0)
+                    <div class="alert alert-danger border-0 p-2 fs-11 mb-2 d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="fas fa-file-invoice-dollar me-1"></span>
+                            <strong>{{ $pastDuePayablesCount }} Overdue Payables:</strong>
+                            <div class="text-700 fs-11 mt-1">Rs. {{ number_format($pastDuePayablesTotal, 2) }} pending in overdue expenses & suppliers.</div>
+                        </div>
+                        <div class="d-flex gap-1">
+                            <a href="{{ route('expenses.index', ['payment_status' => 'past_due']) }}" class="btn btn-danger btn-sm fs-11 px-2 py-0">Expenses</a>
+                            <a href="{{ route('suppliers.index', ['balanceFilter' => 'past_due']) }}" class="btn btn-outline-danger btn-sm fs-11 px-2 py-0">Suppliers</a>
+                        </div>
+                    </div>
+                    @endif
+
+                    @if($unprintedKitchenSlipsCount === 0 && (!$canViewFinancials || ($lowStockItems->isEmpty() && $overdueReceivablesCount === 0 && $pastDuePayablesCount === 0)))
                     <div class="text-center py-3 text-success fs-11">
                         <span class="fas fa-check-circle fa-2x mb-1 d-block"></span>
                         All operational alerts clear. Schedule & operations running smoothly.

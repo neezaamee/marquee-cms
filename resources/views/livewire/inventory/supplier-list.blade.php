@@ -144,8 +144,9 @@
                         </select>
 
                         <!-- Balance Filter -->
-                        <select wire:model.live="balanceFilter" class="form-select form-select-sm" style="width: 140px;">
+                        <select wire:model.live="balanceFilter" class="form-select form-select-sm" style="width: 160px;">
                             <option value="all">All Balances</option>
+                            <option value="past_due">Past-Due Payables</option>
                             <option value="outstanding">Outstanding (> 0)</option>
                         </select>
 
@@ -300,6 +301,18 @@
                             <div class="bg-success me-3 icon-item"><span class="fas fa-check-circle text-white fs-8"></span></div>
                             <p class="mb-0 flex-1">{{ session('success') }}</p>
                             <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    @endif
+
+                    @if(in_array($balanceFilter, ['past_due', 'outstanding']))
+                        <div class="alert alert-warning border-0 d-flex align-items-center justify-content-between mx-3 my-2 p-2 fs-11 rounded-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fas fa-exclamation-circle text-warning fs-10"></span>
+                                <span>Filtering suppliers with <strong>Past-Due Payables</strong> (Total Payable: <strong>Rs. {{ number_format($totalOutstandingOverall, 2) }}</strong> across {{ $suppliers->total() }} suppliers).</span>
+                            </div>
+                            <button wire:click="$set('balanceFilter', 'all')" class="btn btn-link btn-sm text-dark p-0 text-decoration-none fs-11">
+                                <span class="fas fa-times me-1"></span>Clear
+                            </button>
                         </div>
                     @endif
 

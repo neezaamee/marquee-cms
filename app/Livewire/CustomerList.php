@@ -128,7 +128,7 @@ class CustomerList extends Component
 
         // Apply Balance Filter (strictly for completed events or events that have passed before today)
         $todayStr = \Carbon\Carbon::today()->format('Y-m-d');
-        if ($this->filterBalance === 'outstanding') {
+        if ($this->filterBalance === 'outstanding' || $this->filterBalance === 'past_due') {
             $query->whereHas('bookings', function ($bq) use ($todayStr) {
                 $bq->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
                    ->where(function ($dateQ) use ($todayStr) {

@@ -29,6 +29,7 @@ class BusinessOwnerDashboard extends Component
     public ?int $selectedBranchId = null; // null = All Branches
     public string $timeframe = 'this_month'; // 'today', 'this_week', 'this_month', 'this_quarter', 'this_year', 'last_30_days', 'custom'
     public string $filterRange = 'this_month'; // Synchronized alias matching Purchase Dashboard
+    public string $dueFilter = 'all'; // 'all', 'past_due'
     public string $customDateFrom = '';
     public string $customDateTo = '';
     public ?string $viewMode = null; // 'executive', 'operations' (for owners to toggle preview)
@@ -38,6 +39,7 @@ class BusinessOwnerDashboard extends Component
         'selectedBranchId' => ['except' => null],
         'timeframe' => ['except' => 'this_month'],
         'filterRange' => ['except' => 'this_month'],
+        'dueFilter' => ['except' => 'all'],
         'customDateFrom' => ['except' => ''],
         'customDateTo' => ['except' => ''],
     ];
@@ -103,6 +105,11 @@ class BusinessOwnerDashboard extends Component
     {
         $this->timeframe = $range;
         $this->filterRange = $range;
+    }
+
+    public function setDueFilter(string $filter)
+    {
+        $this->dueFilter = $filter;
     }
 
     public function setViewMode(?string $mode)
@@ -234,6 +241,12 @@ class BusinessOwnerDashboard extends Component
         $cashInHand = 0.0;
         $supplierPayables = 0.0;
         $vendorPayables = 0.0;
+        $pastDueCreditExpenses = 0.0;
+        $pastDueCreditExpensesCount = 0;
+        $pastDuePayablesTotal = 0.0;
+        $pastDuePayablesCount = 0;
+        $pastDueReceivablesTotal = 0.0;
+        $pastDueReceivablesCount = 0;
         $payableSuppliers = collect();
         $payableVendors = collect();
         $todayDateStr = Carbon::today()->format('Y-m-d');
@@ -341,6 +354,36 @@ class BusinessOwnerDashboard extends Component
             $glApBalance = max(0, $glApOpening + $glApJv);
 
             $totalPayablesAndLiabilities = max($subledgerPayables, $glApBalance);
+
+            // Past-Due Payables (Overdue unpaid expenses + supplier & vendor liabilities)
+            $pastDueCreditExpenses = (float) Expense::withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
+                ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
+                ->where('payment_status', '!=', 'Paid')
+                ->where(function ($q) use ($todayDateStr) {
+                    $q->where(function ($s) use ($todayDateStr) {
+                        $s->whereNotNull('due_date')->whereDate('due_date', '<', $todayDateStr);
+                    })->orWhere(function ($s) use ($todayDateStr) {
+                        $s->whereNull('due_date')->whereDate('expense_date', '<', $todayDateStr);
+                    });
+                })
+                ->sum(DB::raw('total_amount - COALESCE(paid_amount, 0)'));
+
+            $pastDueCreditExpensesCount = Expense::withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
+                ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
+                ->where('payment_status', '!=', 'Paid')
+                ->where(function ($q) use ($todayDateStr) {
+                    $q->where(function ($s) use ($todayDateStr) {
+                        $s->whereNotNull('due_date')->whereDate('due_date', '<', $todayDateStr);
+                    })->orWhere(function ($s) use ($todayDateStr) {
+                        $s->whereNull('due_date')->whereDate('expense_date', '<', $todayDateStr);
+                    });
+                })
+                ->count();
+
+            $pastDuePayablesTotal = $pastDueCreditExpenses + $supplierPayables + $vendorPayables;
+            $pastDuePayablesCount = $pastDueCreditExpensesCount + $payableSuppliers->count() + $payableVendors->count();
 
             // Operating Expenses (Recognized / Posted / Approved operational expenses)
             $expenseQuery = Expense::where('marquee_id', $marqueeId)
@@ -475,10 +518,17 @@ class BusinessOwnerDashboard extends Component
                 $q->where('bookings.receivable_amount', '>', 0)
                   ->orWhere(function ($balQ) {
                       $balQ->where('bookings.is_revenue_recognized', false)
-                           ->whereRaw('(bookings.grand_total - bookings.advance_received) > 0');
+                           ->whereRaw('(bookings.grand_total - bookings.advance_received) > 0.01');
                   });
             })
             ->count();
+
+        $pastDueReceivablesTotal = $pendingReceivables;
+        $pastDueReceivablesCount = $overdueReceivablesCount;
+
+        if ($this->dueFilter === 'past_due') {
+            $totalPayablesAndLiabilities = $pastDuePayablesTotal;
+        }
 
         $unprintedKitchenSlipsCount = (clone $bookingQuery)
             ->whereDate('booking_date', Carbon::today()->format('Y-m-d'))
@@ -679,6 +729,11 @@ class BusinessOwnerDashboard extends Component
             'lowStockItems' => $lowStockItems,
             'overdueReceivablesCount' => $overdueReceivablesCount,
             'unprintedKitchenSlipsCount' => $unprintedKitchenSlipsCount,
+            'dueFilter' => $this->dueFilter,
+            'pastDueReceivablesTotal' => $pastDueReceivablesTotal,
+            'pastDueReceivablesCount' => $pastDueReceivablesCount,
+            'pastDuePayablesTotal' => $pastDuePayablesTotal,
+            'pastDuePayablesCount' => $pastDuePayablesCount,
             'periodLabel' => $periodLabel,
             'startDate' => $startDate,
             'endDate' => $endDate,
