@@ -256,6 +256,9 @@ class UnifiedExpenseAndPaymentVoucherReportsTest extends TestCase
             ->assertSee('CPV-2026-HO-0001')
             ->assertSee('Expense')
             ->assertSee('CPV')
+            ->assertSee('Brief Note / Purpose')
+            ->assertSee('Generator repairs and oil replacement')
+            ->assertSee('Air conditioner capacitor replacement')
             ->assertSee('25,000.00')
             ->assertSee('15,000.00')
             ->assertSee('40,000.00'); // Total consolidated footer
@@ -275,6 +278,9 @@ class UnifiedExpenseAndPaymentVoucherReportsTest extends TestCase
         $response->sendContent();
         $csvContent = ob_get_clean();
 
+        $this->assertStringContainsString('Brief Note / Purpose', $csvContent);
+        $this->assertStringContainsString('Generator repairs and oil replacement', $csvContent);
+        $this->assertStringContainsString('Air conditioner capacitor replacement', $csvContent);
         $this->assertStringContainsString('EXP-20261106-00001', $csvContent);
         $this->assertStringContainsString('CPV-2026-HO-0001', $csvContent);
         $this->assertStringContainsString('Expense Voucher', $csvContent);

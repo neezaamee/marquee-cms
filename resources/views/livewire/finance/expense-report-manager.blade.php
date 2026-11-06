@@ -58,6 +58,14 @@
                 print-color-adjust: exact;
             }
 
+            .badge {
+                border: 1px solid #cbd5e1 !important;
+                background: transparent !important;
+                color: #0f172a !important;
+                font-weight: 600 !important;
+                padding: 1px 4px !important;
+            }
+
             .card {
                 border: none !important;
                 box-shadow: none !important;
@@ -377,6 +385,7 @@
                                         <th>Branch</th>
                                         <th>Category</th>
                                         <th>Payee / Vendor</th>
+                                        <th style="min-width: 160px;">Brief Note / Purpose</th>
                                         <th>Method</th>
                                         <th class="text-end">Amount (PKR)</th>
                                         <th class="text-center">Status</th>
@@ -397,6 +406,7 @@
                                             <td>{{ $row['branch']['name'] ?? 'Main' }}</td>
                                             <td class="fw-semi-bold">{{ $row['category']['name'] ?? 'Split' }}</td>
                                             <td>{{ $row['supplier']['name'] ?? '—' }}</td>
+                                            <td class="text-break" style="max-width: 260px;">{{ $row['description'] ?? '—' }}</td>
                                             <td>
                                                 <span class="badge badge-subtle-secondary">{{ $row['payment_method'] }}</span>
                                             </td>
@@ -409,7 +419,7 @@
                                 </tbody>
                                 <tfoot class="bg-100 fw-bold">
                                     <tr>
-                                        <td colspan="7" class="text-end px-3">Total Consolidated:</td>
+                                        <td colspan="8" class="text-end px-3">Total Consolidated:</td>
                                         <td class="text-end font-monospace text-primary">{{ number_format($reportTotal, 2) }}</td>
                                         <td></td>
                                     </tr>

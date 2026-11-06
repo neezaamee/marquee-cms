@@ -288,6 +288,7 @@ class ExpenseReportManager extends Component
                         'branch' => ['name' => $exp->branch?->name ?? 'Main'],
                         'category' => ['name' => $exp->category?->name ?? 'Split / Direct'],
                         'supplier' => ['name' => $exp->supplier?->name ?? ($exp->employee?->name ?? '—')],
+                        'description' => $exp->description ?: ($exp->internal_notes ?: '—'),
                         'payment_method' => $exp->payment_method ?: 'Cash',
                         'tax_amount' => (float)$exp->tax_amount,
                         'discount_amount' => (float)$exp->discount_amount,
@@ -349,6 +350,7 @@ class ExpenseReportManager extends Component
                         'branch' => ['name' => $pv->branch?->name ?? 'Main'],
                         'category' => ['name' => $catName],
                         'supplier' => ['name' => $pv->payee_name ?: ($pv->supplier?->name ?? '—')],
+                        'description' => $pv->description ?: ($pv->receiver_signature_notes ?: '—'),
                         'payment_method' => $pv->payment_method ?: ($pv->voucher_type === 'CPV' ? 'Cash' : 'Bank Transfer'),
                         'tax_amount' => 0.00,
                         'discount_amount' => 0.00,
@@ -501,7 +503,7 @@ class ExpenseReportManager extends Component
                     ]);
                 }
             } elseif ($this->reportType === 'register') {
-                fputcsv($file, ['Source', 'Voucher No', 'Date', 'Branch', 'Category', 'Payee / Vendor', 'Method', 'Tax (PKR)', 'Discount (PKR)', 'Total (PKR)', 'Status']);
+                fputcsv($file, ['Source', 'Voucher No', 'Date', 'Branch', 'Category', 'Payee / Vendor', 'Brief Note / Purpose', 'Method', 'Tax (PKR)', 'Discount (PKR)', 'Total (PKR)', 'Status']);
                 foreach ($this->reportData as $row) {
                     fputcsv($file, [
                         $row['source'] ?? 'Expense Voucher',
@@ -510,6 +512,7 @@ class ExpenseReportManager extends Component
                         $row['branch']['name'] ?? 'Main',
                         $row['category']['name'] ?? '—',
                         $row['supplier']['name'] ?? '—',
+                        $row['description'] ?? '—',
                         $row['payment_method'],
                         $row['tax_amount'],
                         $row['discount_amount'],
