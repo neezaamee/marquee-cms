@@ -372,10 +372,11 @@
                                 <thead class="bg-200">
                                     <tr>
                                         <th class="px-3">Voucher No</th>
+                                        <th>Source</th>
                                         <th>Date</th>
                                         <th>Branch</th>
                                         <th>Category</th>
-                                        <th>Payee</th>
+                                        <th>Payee / Vendor</th>
                                         <th>Method</th>
                                         <th class="text-end">Amount (PKR)</th>
                                         <th class="text-center">Status</th>
@@ -384,12 +385,21 @@
                                 <tbody>
                                     @foreach($reportData as $row)
                                         <tr>
-                                            <td class="px-3 fw-bold">{{ $row['expense_number'] }}</td>
+                                            <td class="px-3 fw-bold font-monospace text-primary">{{ $row['expense_number'] }}</td>
+                                            <td>
+                                                @if(($row['source'] ?? '') === 'Payment Voucher')
+                                                    <span class="badge badge-subtle-info"><i class="fas fa-file-invoice-dollar me-1"></i>{{ $row['source_badge'] ?? 'PV' }}</span>
+                                                @else
+                                                    <span class="badge badge-subtle-primary"><i class="fas fa-receipt me-1"></i>Expense</span>
+                                                @endif
+                                            </td>
                                             <td>{{ date('Y-m-d', strtotime($row['expense_date'])) }}</td>
                                             <td>{{ $row['branch']['name'] ?? 'Main' }}</td>
-                                            <td>{{ $row['category']['name'] ?? 'Split' }}</td>
+                                            <td class="fw-semi-bold">{{ $row['category']['name'] ?? 'Split' }}</td>
                                             <td>{{ $row['supplier']['name'] ?? '—' }}</td>
-                                            <td>{{ $row['payment_method'] }}</td>
+                                            <td>
+                                                <span class="badge badge-subtle-secondary">{{ $row['payment_method'] }}</span>
+                                            </td>
                                             <td class="text-end fw-bold font-monospace">{{ number_format($row['total_amount'], 2) }}</td>
                                             <td class="text-center">
                                                 <span class="badge badge-subtle-success rounded-pill">{{ $row['status'] }}</span>
@@ -397,6 +407,13 @@
                                         </tr>
                                     @endforeach
                                 </tbody>
+                                <tfoot class="bg-100 fw-bold">
+                                    <tr>
+                                        <td colspan="7" class="text-end px-3">Total Consolidated:</td>
+                                        <td class="text-end font-monospace text-primary">{{ number_format($reportTotal, 2) }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
                             </table>
 
                         <!-- 4. Budget vs Actual -->

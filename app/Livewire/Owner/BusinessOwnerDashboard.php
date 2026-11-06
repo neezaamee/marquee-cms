@@ -15,6 +15,7 @@ use App\Models\Hall;
 use App\Models\InventoryItem;
 use App\Models\Lead;
 use App\Models\Marquee;
+use App\Models\PaymentVoucher;
 use App\Models\PettyCashAccount;
 use App\Models\PurchaseInvoice;
 use App\Models\Supplier;
@@ -462,6 +463,25 @@ class BusinessOwnerDashboard extends Component
                 ->whereBetween('expense_date', [$startDateStr, $endDateStr])
                 ->sum('total_amount');
 
+            // Include Operating Expenses from Payment Vouchers (payee_type = 'expense' or debit account is Expense)
+            $pvExpenseQuery = PaymentVoucher::where('marquee_id', $marqueeId)
+                ->whereNull('expense_id')
+                ->whereNotIn('status', [PaymentVoucher::STATUS_DRAFT, PaymentVoucher::STATUS_CANCELLED])
+                ->where(function ($q) {
+                    $q->where('payee_type', PaymentVoucher::PAYEE_EXPENSE)
+                      ->orWhereHas('debitAccount', function ($aq) {
+                          $aq->where('nature', 'Expense')->orWhere('account_code', 'like', '5%');
+                      });
+                });
+            if ($this->selectedBranchId) {
+                $pvExpenseQuery->where('branch_id', $this->selectedBranchId);
+            }
+            $pvOperatingExpenses = (float) $pvExpenseQuery
+                ->whereBetween('voucher_date', [$startDateStr, $endDateStr])
+                ->sum('amount');
+
+            $operatingExpenses += $pvOperatingExpenses;
+
             // Net Operating Cashflow / Margin
             $netOperatingCashflow = $realizedRevenue - $operatingExpenses;
 
@@ -713,6 +733,21 @@ class BusinessOwnerDashboard extends Component
                 ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
                 ->sum('total_amount');
 
+            $mPvExpenses = (float) PaymentVoucher::where('marquee_id', $marqueeId)
+                ->whereNull('expense_id')
+                ->whereNotIn('status', [PaymentVoucher::STATUS_DRAFT, PaymentVoucher::STATUS_CANCELLED])
+                ->where(function ($q) {
+                    $q->where('payee_type', PaymentVoucher::PAYEE_EXPENSE)
+                      ->orWhereHas('debitAccount', function ($aq) {
+                          $aq->where('nature', 'Expense')->orWhere('account_code', 'like', '5%');
+                      });
+                })
+                ->whereBetween('voucher_date', [$mStart, $mEnd])
+                ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
+                ->sum('amount');
+
+            $mExpenses += $mPvExpenses;
+
             $mBookingsCount = Booking::where('marquee_id', $marqueeId)
                 ->whereBetween('booking_date', [$mStart, $mEnd])
                 ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
@@ -731,8 +766,8 @@ class BusinessOwnerDashboard extends Component
             ];
         }
 
-        // Top 5 Expense Categories Breakdown
-        $topExpenseCategories = DB::table('expenses')
+        // Top 5 Expense Categories Breakdown (Combining Expenses + Operating Payment Vouchers)
+        $expCatRows = DB::table('expenses')
             ->join('expense_categories', 'expense_categories.id', '=', 'expenses.expense_category_id')
             ->where('expenses.marquee_id', $marqueeId)
             ->whereNotIn('expenses.status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
@@ -744,9 +779,61 @@ class BusinessOwnerDashboard extends Component
                 DB::raw('SUM(expenses.total_amount) as total_amount')
             )
             ->groupBy('expense_categories.id', 'expense_categories.name')
-            ->orderByDesc('total_amount')
-            ->take(5)
             ->get();
+
+        $allCategories = DB::table('expense_categories')->where('marquee_id', $marqueeId)->whereNull('deleted_at')->get();
+        $categoriesById = $allCategories->keyBy('id');
+        $categoriesByAccountId = $allCategories->whereNotNull('default_account_id')->keyBy('default_account_id');
+
+        $pvRows = PaymentVoucher::where('marquee_id', $marqueeId)
+            ->whereNull('expense_id')
+            ->whereNotIn('status', [PaymentVoucher::STATUS_DRAFT, PaymentVoucher::STATUS_CANCELLED])
+            ->where(function ($q) {
+                $q->where('payee_type', PaymentVoucher::PAYEE_EXPENSE)
+                  ->orWhereHas('debitAccount', function ($aq) {
+                      $aq->where('nature', 'Expense')->orWhere('account_code', 'like', '5%');
+                  });
+            })
+            ->whereBetween('voucher_date', [$startDateStr, $endDateStr])
+            ->when($this->selectedBranchId, fn($q) => $q->where('branch_id', $this->selectedBranchId))
+            ->with(['debitAccount'])
+            ->get();
+
+        $combinedCategories = [];
+
+        foreach ($expCatRows as $row) {
+            $combinedCategories[$row->category_name] = [
+                'category_name' => $row->category_name,
+                'expense_count' => (int)$row->expense_count,
+                'total_amount' => (float)$row->total_amount,
+            ];
+        }
+
+        foreach ($pvRows as $pv) {
+            $catName = 'Operating Expenses (PV)';
+            if ($pv->payee_id && isset($categoriesById[$pv->payee_id])) {
+                $catName = $categoriesById[$pv->payee_id]->name;
+            } elseif ($pv->debit_account_id && isset($categoriesByAccountId[$pv->debit_account_id])) {
+                $catName = $categoriesByAccountId[$pv->debit_account_id]->name;
+            } elseif ($pv->debitAccount) {
+                $catName = $pv->debitAccount->name;
+            } elseif (!empty($pv->payee_name)) {
+                $catName = $pv->payee_name;
+            }
+
+            if (!isset($combinedCategories[$catName])) {
+                $combinedCategories[$catName] = [
+                    'category_name' => $catName,
+                    'expense_count' => 0,
+                    'total_amount' => 0.0,
+                ];
+            }
+            $combinedCategories[$catName]['expense_count'] += 1;
+            $combinedCategories[$catName]['total_amount'] += (float)$pv->amount;
+        }
+
+        usort($combinedCategories, fn($a, $b) => $b['total_amount'] <=> $a['total_amount']);
+        $topExpenseCategories = collect(array_slice($combinedCategories, 0, 5))->map(fn($item) => (object)$item);
 
         return view('livewire.owner.business-owner-dashboard', [
             'marquee' => $marquee,

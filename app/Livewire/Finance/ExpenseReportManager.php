@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\ExpenseBudget;
+use App\Models\PaymentVoucher;
 use App\Models\Supplier;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -40,74 +41,329 @@ class ExpenseReportManager extends Component
         $this->generateReport();
     }
 
+    /**
+     * Base query for operating expense Payment Vouchers.
+     * Includes all non-draft, non-cancelled payment vouchers where payee_type is expense
+     * or debit_account is an Expense head, and expense_id is null (to avoid double counting).
+     */
+    protected function getOperatingPaymentVouchersQuery(?int $marqueeId)
+    {
+        return PaymentVoucher::where('marquee_id', $marqueeId)
+            ->whereNull('expense_id')
+            ->whereNotIn('status', [PaymentVoucher::STATUS_DRAFT, PaymentVoucher::STATUS_CANCELLED])
+            ->where(function ($q) {
+                $q->where('payee_type', PaymentVoucher::PAYEE_EXPENSE)
+                  ->orWhereHas('debitAccount', function ($aq) {
+                      $aq->where('nature', 'Expense')->orWhere('account_code', 'like', '5%');
+                  });
+            });
+    }
+
     public function generateReport()
     {
         $user = auth()->user();
         $marqueeId = $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+        $categories = ExpenseCategory::where('marquee_id', $marqueeId)->get();
+        $categoriesById = $categories->keyBy('id');
+        $categoriesByAccountId = $categories->whereNotNull('default_account_id')->keyBy('default_account_id');
 
         switch ($this->reportType) {
             case 'category_summary':
-                $query = Expense::where('marquee_id', $marqueeId)
-                    ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED]);
-                if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
-                if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
-                if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
-                
-                $totalAll = (float)(clone $query)->sum('total_amount_base');
+                // 1. Expense Module Records
+                $expQuery = Expense::where('marquee_id', $marqueeId)
+                    ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED]);
+                if ($this->branch_id) { $expQuery->where('branch_id', $this->branch_id); }
+                if ($this->start_date) { $expQuery->whereDate('expense_date', '>=', $this->start_date); }
+                if ($this->end_date) { $expQuery->whereDate('expense_date', '<=', $this->end_date); }
+                if ($this->expense_category_id) { $expQuery->where('expense_category_id', $this->expense_category_id); }
+                if ($this->supplier_id) { $expQuery->where('supplier_id', $this->supplier_id); }
+                if ($this->payment_method) { $expQuery->where('payment_method', $this->payment_method); }
 
-                $records = (clone $query)
+                $expRecords = (clone $expQuery)
                     ->select('expense_category_id', DB::raw('COUNT(id) as count'), DB::raw('SUM(total_amount_base) as total_amount'))
                     ->groupBy('expense_category_id')
                     ->with('category')
-                    ->orderByDesc('total_amount')
                     ->get();
 
-                $this->reportData = $records->map(function ($row) use ($totalAll) {
-                    $pct = $totalAll > 0 ? ($row->total_amount / $totalAll) * 100 : 0;
-                    return [
-                        'category_name' => $row->category->name ?? 'Unclassified / Split',
-                        'voucher_count' => $row->count,
-                        'total_amount' => (float)$row->total_amount,
+                // 2. Payment Voucher Operating Expense Records
+                $pvQuery = $this->getOperatingPaymentVouchersQuery($marqueeId)->with(['debitAccount']);
+                if ($this->branch_id) { $pvQuery->where('branch_id', $this->branch_id); }
+                if ($this->start_date) { $pvQuery->whereDate('voucher_date', '>=', $this->start_date); }
+                if ($this->end_date) { $pvQuery->whereDate('voucher_date', '<=', $this->end_date); }
+                if ($this->supplier_id) { $pvQuery->where('supplier_id', $this->supplier_id); }
+                if ($this->expense_category_id) {
+                    $catAccount = ExpenseCategory::where('id', $this->expense_category_id)->value('default_account_id');
+                    $pvQuery->where(function ($q) use ($catAccount) {
+                        $q->where('payee_id', $this->expense_category_id);
+                        if ($catAccount) {
+                            $q->orWhere('debit_account_id', $catAccount);
+                        }
+                    });
+                }
+                if ($this->payment_method) {
+                    if ($this->payment_method === 'Cash') {
+                        $pvQuery->where(function($q) {
+                            $q->where('payment_method', 'Cash')->orWhere('voucher_type', 'CPV');
+                        });
+                    } elseif ($this->payment_method === 'Bank') {
+                        $pvQuery->where(function($q) {
+                            $q->whereIn('payment_method', ['Bank Transfer', 'Cheque', 'Online', 'Bank'])->orWhere('voucher_type', 'BPV');
+                        });
+                    } elseif ($this->payment_method === 'Petty Cash') {
+                        $pvQuery->where('payment_method', 'Petty Cash');
+                    } else {
+                        $pvQuery->whereRaw('1 = 0');
+                    }
+                }
+
+                $pvRecords = $pvQuery->get();
+
+                // 3. Merge aggregates by category name
+                $categoryAggregates = [];
+
+                foreach ($expRecords as $row) {
+                    $catName = $row->category->name ?? 'Unclassified / Split';
+                    if (!isset($categoryAggregates[$catName])) {
+                        $categoryAggregates[$catName] = [
+                            'category_name' => $catName,
+                            'voucher_count' => 0,
+                            'total_amount' => 0.0,
+                        ];
+                    }
+                    $categoryAggregates[$catName]['voucher_count'] += (int)$row->count;
+                    $categoryAggregates[$catName]['total_amount'] += (float)$row->total_amount;
+                }
+
+                foreach ($pvRecords as $pv) {
+                    $catName = 'Operating Expenses (PV)';
+                    if ($pv->payee_id && isset($categoriesById[$pv->payee_id])) {
+                        $catName = $categoriesById[$pv->payee_id]->name;
+                    } elseif ($pv->debit_account_id && isset($categoriesByAccountId[$pv->debit_account_id])) {
+                        $catName = $categoriesByAccountId[$pv->debit_account_id]->name;
+                    } elseif ($pv->debitAccount) {
+                        $catName = $pv->debitAccount->name;
+                    } elseif (!empty($pv->payee_name)) {
+                        $catName = $pv->payee_name;
+                    }
+
+                    if (!isset($categoryAggregates[$catName])) {
+                        $categoryAggregates[$catName] = [
+                            'category_name' => $catName,
+                            'voucher_count' => 0,
+                            'total_amount' => 0.0,
+                        ];
+                    }
+                    $categoryAggregates[$catName]['voucher_count'] += 1;
+                    $categoryAggregates[$catName]['total_amount'] += (float)$pv->amount;
+                }
+
+                $totalAll = array_sum(array_column($categoryAggregates, 'total_amount'));
+
+                // Calculate percentage share and sort descending by amount
+                $result = [];
+                foreach ($categoryAggregates as $catName => $row) {
+                    $pct = $totalAll > 0 ? ($row['total_amount'] / $totalAll) * 100 : 0;
+                    $result[] = [
+                        'category_name' => $row['category_name'],
+                        'voucher_count' => $row['voucher_count'],
+                        'total_amount' => round($row['total_amount'], 2),
                         'percentage' => round($pct, 1),
                     ];
-                })->toArray();
+                }
+
+                usort($result, fn($a, $b) => $b['total_amount'] <=> $a['total_amount']);
+                $this->reportData = $result;
                 break;
 
             case 'payment_methods':
-                $query = Expense::where('marquee_id', $marqueeId)
-                    ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED]);
-                if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
-                if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
-                if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
-                
-                $totalAll = (float)(clone $query)->sum('total_amount_base');
+                // 1. Expense module payment methods
+                $expQuery = Expense::where('marquee_id', $marqueeId)
+                    ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED]);
+                if ($this->branch_id) { $expQuery->where('branch_id', $this->branch_id); }
+                if ($this->start_date) { $expQuery->whereDate('expense_date', '>=', $this->start_date); }
+                if ($this->end_date) { $expQuery->whereDate('expense_date', '<=', $this->end_date); }
+                if ($this->expense_category_id) { $expQuery->where('expense_category_id', $this->expense_category_id); }
+                if ($this->supplier_id) { $expQuery->where('supplier_id', $this->supplier_id); }
 
-                $records = (clone $query)
+                $expRecords = (clone $expQuery)
                     ->select('payment_method', DB::raw('COUNT(id) as count'), DB::raw('SUM(total_amount_base) as total_amount'))
                     ->groupBy('payment_method')
-                    ->orderByDesc('total_amount')
                     ->get();
 
-                $this->reportData = $records->map(function ($row) use ($totalAll) {
-                    $pct = $totalAll > 0 ? ($row->total_amount / $totalAll) * 100 : 0;
-                    return [
-                        'payment_method' => $row->payment_method ?: 'Cash',
-                        'voucher_count' => $row->count,
-                        'total_amount' => (float)$row->total_amount,
-                        'percentage' => round($pct, 1),
-                    ];
-                })->toArray();
+                // 2. Payment Voucher payment methods
+                $pvQuery = $this->getOperatingPaymentVouchersQuery($marqueeId);
+                if ($this->branch_id) { $pvQuery->where('branch_id', $this->branch_id); }
+                if ($this->start_date) { $pvQuery->whereDate('voucher_date', '>=', $this->start_date); }
+                if ($this->end_date) { $pvQuery->whereDate('voucher_date', '<=', $this->end_date); }
+                if ($this->supplier_id) { $pvQuery->where('supplier_id', $this->supplier_id); }
+                if ($this->expense_category_id) {
+                    $catAccount = ExpenseCategory::where('id', $this->expense_category_id)->value('default_account_id');
+                    $pvQuery->where(function ($q) use ($catAccount) {
+                        $q->where('payee_id', $this->expense_category_id);
+                        if ($catAccount) {
+                            $q->orWhere('debit_account_id', $catAccount);
+                        }
+                    });
+                }
+
+                $pvRecords = $pvQuery->get();
+
+                $methodAggregates = [
+                    'Cash' => ['count' => 0, 'total' => 0.0],
+                    'Bank' => ['count' => 0, 'total' => 0.0],
+                    'Petty Cash' => ['count' => 0, 'total' => 0.0],
+                    'Accounts Payable' => ['count' => 0, 'total' => 0.0],
+                ];
+
+                foreach ($expRecords as $row) {
+                    $m = $row->payment_method ?: 'Cash';
+                    if (in_array($m, ['Credit', 'Accounts Payable', Expense::METHOD_CREDIT])) {
+                        $standardKey = 'Accounts Payable';
+                    } elseif (in_array(strtolower($m), ['petty cash', 'petty_cash'])) {
+                        $standardKey = 'Petty Cash';
+                    } elseif (in_array(strtolower($m), ['bank', 'bank transfer', 'cheque', 'online'])) {
+                        $standardKey = 'Bank';
+                    } else {
+                        $standardKey = 'Cash';
+                    }
+
+                    $methodAggregates[$standardKey]['count'] += (int)$row->count;
+                    $methodAggregates[$standardKey]['total'] += (float)$row->total_amount;
+                }
+
+                foreach ($pvRecords as $pv) {
+                    $pm = strtolower($pv->payment_method ?? '');
+                    if ($pv->voucher_type === 'CPV' || $pm === 'cash') {
+                        $standardKey = 'Cash';
+                    } elseif ($pm === 'petty cash' || $pm === 'petty_cash') {
+                        $standardKey = 'Petty Cash';
+                    } else {
+                        $standardKey = 'Bank';
+                    }
+
+                    $methodAggregates[$standardKey]['count'] += 1;
+                    $methodAggregates[$standardKey]['total'] += (float)$pv->amount;
+                }
+
+                $totalAll = array_sum(array_column($methodAggregates, 'total'));
+
+                $result = [];
+                foreach ($methodAggregates as $methodName => $data) {
+                    if ($data['count'] > 0 || $data['total'] > 0) {
+                        $pct = $totalAll > 0 ? ($data['total'] / $totalAll) * 100 : 0;
+                        $result[] = [
+                            'payment_method' => $methodName,
+                            'voucher_count' => $data['count'],
+                            'total_amount' => round($data['total'], 2),
+                            'percentage' => round($pct, 1),
+                        ];
+                    }
+                }
+
+                usort($result, fn($a, $b) => $b['total_amount'] <=> $a['total_amount']);
+                $this->reportData = $result;
                 break;
 
             case 'register':
-                $query = Expense::where('marquee_id', $marqueeId)->with(['category', 'branch', 'supplier']);
-                if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
-                if ($this->expense_category_id) { $query->where('expense_category_id', $this->expense_category_id); }
-                if ($this->supplier_id) { $query->where('supplier_id', $this->supplier_id); }
-                if ($this->payment_method) { $query->where('payment_method', $this->payment_method); }
-                if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
-                if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
-                $this->reportData = $query->orderBy('expense_date', 'desc')->get()->toArray();
+                // 1. Expense module records
+                $expQuery = Expense::where('marquee_id', $marqueeId)
+                    ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
+                    ->with(['category', 'branch', 'supplier', 'employee']);
+                if ($this->branch_id) { $expQuery->where('branch_id', $this->branch_id); }
+                if ($this->expense_category_id) { $expQuery->where('expense_category_id', $this->expense_category_id); }
+                if ($this->supplier_id) { $expQuery->where('supplier_id', $this->supplier_id); }
+                if ($this->payment_method) { $expQuery->where('payment_method', $this->payment_method); }
+                if ($this->start_date) { $expQuery->whereDate('expense_date', '>=', $this->start_date); }
+                if ($this->end_date) { $expQuery->whereDate('expense_date', '<=', $this->end_date); }
+
+                $expenseList = $expQuery->orderBy('expense_date', 'desc')->get();
+                $mergedRegister = [];
+
+                foreach ($expenseList as $exp) {
+                    $mergedRegister[] = [
+                        'source' => 'Expense Voucher',
+                        'source_badge' => 'Expense',
+                        'expense_number' => $exp->expense_number,
+                        'expense_date' => $exp->expense_date ? $exp->expense_date->format('Y-m-d') : '',
+                        'branch' => ['name' => $exp->branch?->name ?? 'Main'],
+                        'category' => ['name' => $exp->category?->name ?? 'Split / Direct'],
+                        'supplier' => ['name' => $exp->supplier?->name ?? ($exp->employee?->name ?? '—')],
+                        'payment_method' => $exp->payment_method ?: 'Cash',
+                        'tax_amount' => (float)$exp->tax_amount,
+                        'discount_amount' => (float)$exp->discount_amount,
+                        'total_amount' => (float)$exp->total_amount,
+                        'status' => ucfirst($exp->status),
+                    ];
+                }
+
+                // 2. Payment Voucher Operating Expense records
+                $pvQuery = $this->getOperatingPaymentVouchersQuery($marqueeId)->with(['branch', 'debitAccount', 'supplier']);
+                if ($this->branch_id) { $pvQuery->where('branch_id', $this->branch_id); }
+                if ($this->start_date) { $pvQuery->whereDate('voucher_date', '>=', $this->start_date); }
+                if ($this->end_date) { $pvQuery->whereDate('voucher_date', '<=', $this->end_date); }
+                if ($this->supplier_id) { $pvQuery->where('supplier_id', $this->supplier_id); }
+                if ($this->expense_category_id) {
+                    $catAccount = ExpenseCategory::where('id', $this->expense_category_id)->value('default_account_id');
+                    $pvQuery->where(function ($q) use ($catAccount) {
+                        $q->where('payee_id', $this->expense_category_id);
+                        if ($catAccount) {
+                            $q->orWhere('debit_account_id', $catAccount);
+                        }
+                    });
+                }
+                if ($this->payment_method) {
+                    if ($this->payment_method === 'Cash') {
+                        $pvQuery->where(function($q) {
+                            $q->where('payment_method', 'Cash')->orWhere('voucher_type', 'CPV');
+                        });
+                    } elseif ($this->payment_method === 'Bank') {
+                        $pvQuery->where(function($q) {
+                            $q->whereIn('payment_method', ['Bank Transfer', 'Cheque', 'Online', 'Bank'])->orWhere('voucher_type', 'BPV');
+                        });
+                    } elseif ($this->payment_method === 'Petty Cash') {
+                        $pvQuery->where('payment_method', 'Petty Cash');
+                    } else {
+                        $pvQuery->whereRaw('1 = 0');
+                    }
+                }
+
+                $pvList = $pvQuery->orderBy('voucher_date', 'desc')->get();
+
+                foreach ($pvList as $pv) {
+                    $catName = 'Operating Expense';
+                    if ($pv->payee_id && isset($categoriesById[$pv->payee_id])) {
+                        $catName = $categoriesById[$pv->payee_id]->name;
+                    } elseif ($pv->debit_account_id && isset($categoriesByAccountId[$pv->debit_account_id])) {
+                        $catName = $categoriesByAccountId[$pv->debit_account_id]->name;
+                    } elseif ($pv->debitAccount) {
+                        $catName = $pv->debitAccount->name;
+                    } elseif (!empty($pv->payee_name)) {
+                        $catName = $pv->payee_name;
+                    }
+
+                    $mergedRegister[] = [
+                        'source' => 'Payment Voucher',
+                        'source_badge' => $pv->voucher_type, // 'CPV' or 'BPV'
+                        'expense_number' => $pv->voucher_no,
+                        'expense_date' => $pv->voucher_date ? $pv->voucher_date->format('Y-m-d') : '',
+                        'branch' => ['name' => $pv->branch?->name ?? 'Main'],
+                        'category' => ['name' => $catName],
+                        'supplier' => ['name' => $pv->payee_name ?: ($pv->supplier?->name ?? '—')],
+                        'payment_method' => $pv->payment_method ?: ($pv->voucher_type === 'CPV' ? 'Cash' : 'Bank Transfer'),
+                        'tax_amount' => 0.00,
+                        'discount_amount' => 0.00,
+                        'total_amount' => (float)$pv->amount,
+                        'status' => ucfirst($pv->status),
+                    ];
+                }
+
+                // Sort unified log by date descending, then voucher number descending
+                usort($mergedRegister, function ($a, $b) {
+                    $dCompare = strcmp($b['expense_date'], $a['expense_date']);
+                    return $dCompare !== 0 ? $dCompare : strcmp($b['expense_number'], $a['expense_number']);
+                });
+
+                $this->reportData = $mergedRegister;
                 break;
 
             case 'budget_vs_actual':
@@ -115,7 +371,61 @@ class ExpenseReportManager extends Component
                 if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
                 if ($this->expense_category_id) { $query->where('category_id', $this->expense_category_id); }
                 if ($this->year) { $query->where('year', $this->year); }
-                $this->reportData = $query->get()->toArray();
+                $budgets = $query->get();
+
+                // Calculate actual expenditures combining Expense + PaymentVoucher
+                $this->reportData = $budgets->map(function ($b) use ($marqueeId) {
+                    $year = $b->year;
+                    $month = $b->month;
+                    $catId = $b->category_id;
+                    $cat = $b->category;
+                    $catAccId = $cat?->default_account_id;
+
+                    // 1. Expense actual
+                    $expQ = Expense::where('marquee_id', $marqueeId)
+                        ->whereNotIn('status', [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED, Expense::STATUS_CANCELLED])
+                        ->where('expense_category_id', $catId);
+                    if ($b->branch_id) { $expQ->where('branch_id', $b->branch_id); }
+                    if ($month) {
+                        $start = "{$year}-" . str_pad($month, 2, '0', STR_PAD_LEFT) . "-01";
+                        $end = date('Y-m-t', strtotime($start));
+                        $expQ->whereBetween('expense_date', [$start, $end]);
+                    } else {
+                        $expQ->whereYear('expense_date', $year);
+                    }
+                    $expActual = (float)$expQ->sum('total_amount_base');
+
+                    // 2. Payment voucher actual
+                    $pvQ = PaymentVoucher::where('marquee_id', $marqueeId)
+                        ->whereNull('expense_id')
+                        ->whereNotIn('status', [PaymentVoucher::STATUS_DRAFT, PaymentVoucher::STATUS_CANCELLED])
+                        ->where(function ($q) use ($catId, $catAccId) {
+                            $q->where('payee_id', $catId);
+                            if ($catAccId) {
+                                $q->orWhere('debit_account_id', $catAccId);
+                            }
+                        });
+                    if ($b->branch_id) { $pvQ->where('branch_id', $b->branch_id); }
+                    if ($month) {
+                        $start = "{$year}-" . str_pad($month, 2, '0', STR_PAD_LEFT) . "-01";
+                        $end = date('Y-m-t', strtotime($start));
+                        $pvQ->whereBetween('voucher_date', [$start, $end]);
+                    } else {
+                        $pvQ->whereYear('voucher_date', $year);
+                    }
+                    $pvActual = (float)$pvQ->sum('amount');
+
+                    $totalConsumed = $expActual + $pvActual;
+
+                    return [
+                        'category' => $b->category ? ['name' => $b->category->name] : ['name' => 'General'],
+                        'branch' => $b->branch ? ['name' => $b->branch->name] : null,
+                        'month' => $b->month,
+                        'year' => $b->year,
+                        'allocated_amount' => (float)$b->allocated_amount,
+                        'consumed_amount' => $totalConsumed,
+                    ];
+                })->toArray();
                 break;
 
             case 'utility':
@@ -123,8 +433,8 @@ class ExpenseReportManager extends Component
                     ->whereHas('utilityBill')
                     ->with(['utilityBill', 'branch']);
                 if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
-                if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
-                if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
+                if ($this->start_date) { $query->whereDate('expense_date', '>=', $this->start_date); }
+                if ($this->end_date) { $query->whereDate('expense_date', '<=', $this->end_date); }
                 $this->reportData = $query->orderBy('expense_date', 'desc')->get()->toArray();
                 break;
 
@@ -133,8 +443,8 @@ class ExpenseReportManager extends Component
                     ->select('tax_amount', 'amount', 'total_amount', 'expense_date', 'expense_number', 'reference_number')
                     ->where('tax_amount', '>', 0);
                 if ($this->branch_id) { $query->where('branch_id', $this->branch_id); }
-                if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
-                if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
+                if ($this->start_date) { $query->whereDate('expense_date', '>=', $this->start_date); }
+                if ($this->end_date) { $query->whereDate('expense_date', '<=', $this->end_date); }
                 $this->reportData = $query->orderBy('expense_date', 'desc')->get()->toArray();
                 break;
 
@@ -143,8 +453,8 @@ class ExpenseReportManager extends Component
                     ->select('cost_center', DB::raw('SUM(amount) as subtotal'), DB::raw('SUM(tax_amount) as tax'), DB::raw('SUM(total_amount_base) as total'))
                     ->whereNotNull('cost_center')
                     ->groupBy('cost_center');
-                if ($this->start_date) { $query->where('expense_date', '>=', $this->start_date); }
-                if ($this->end_date) { $query->where('expense_date', '<=', $this->end_date); }
+                if ($this->start_date) { $query->whereDate('expense_date', '>=', $this->start_date); }
+                if ($this->end_date) { $query->whereDate('expense_date', '<=', $this->end_date); }
                 $this->reportData = $query->get()->toArray();
                 break;
         }
@@ -168,6 +478,7 @@ class ExpenseReportManager extends Component
 
         $callback = function() {
             $file = fopen('php://output', 'w');
+            fputs($file, "\xEF\xBB\xBF"); // UTF-8 BOM
             
             if ($this->reportType === 'category_summary') {
                 fputcsv($file, ['Category Name', 'Voucher Count', 'Total Spent (PKR)', 'Percentage (%)']);
@@ -190,21 +501,24 @@ class ExpenseReportManager extends Component
                     ]);
                 }
             } elseif ($this->reportType === 'register') {
-                fputcsv($file, ['Voucher No', 'Date', 'Category', 'Vendor', 'Method', 'Tax', 'Discount', 'Total']);
+                fputcsv($file, ['Source', 'Voucher No', 'Date', 'Branch', 'Category', 'Payee / Vendor', 'Method', 'Tax (PKR)', 'Discount (PKR)', 'Total (PKR)', 'Status']);
                 foreach ($this->reportData as $row) {
                     fputcsv($file, [
+                        $row['source'] ?? 'Expense Voucher',
                         $row['expense_number'],
                         $row['expense_date'],
+                        $row['branch']['name'] ?? 'Main',
                         $row['category']['name'] ?? '—',
                         $row['supplier']['name'] ?? '—',
                         $row['payment_method'],
                         $row['tax_amount'],
                         $row['discount_amount'],
                         $row['total_amount'],
+                        $row['status'] ?? '—',
                     ]);
                 }
             } elseif ($this->reportType === 'budget_vs_actual') {
-                fputcsv($file, ['Category', 'Branch', 'Period', 'Allocated', 'Consumed', 'Remaining']);
+                fputcsv($file, ['Category', 'Branch', 'Period', 'Allocated (PKR)', 'Consumed (PKR)', 'Remaining (PKR)']);
                 foreach ($this->reportData as $row) {
                     fputcsv($file, [
                         $row['category']['name'] ?? '—',

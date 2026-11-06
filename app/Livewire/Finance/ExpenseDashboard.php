@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\ExpenseBudget;
+use App\Models\PaymentVoucher;
 use App\Models\PettyCashAccount;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -60,15 +61,33 @@ class ExpenseDashboard extends Component
             $baseExpenseQuery->where('branch_id', $this->branch_id);
         }
 
-        // 1. Today's total expenses
+        // Base query for Operating Expense Payment Vouchers
+        $basePvQuery = PaymentVoucher::where('marquee_id', $marqueeId)
+            ->whereNull('expense_id')
+            ->whereNotIn('status', [PaymentVoucher::STATUS_DRAFT, PaymentVoucher::STATUS_CANCELLED])
+            ->where(function ($q) {
+                $q->where('payee_type', PaymentVoucher::PAYEE_EXPENSE)
+                  ->orWhereHas('debitAccount', function ($aq) {
+                      $aq->where('nature', 'Expense')->orWhere('account_code', 'like', '5%');
+                  });
+            });
+        if ($this->branch_id) {
+            $basePvQuery->where('branch_id', $this->branch_id);
+        }
+
+        // 1. Today's total expenses (Combined)
         $todayExpenses = (float)(clone $baseExpenseQuery)
             ->where('expense_date', $today)
             ->sum('total_amount_base');
+        $todayPv = (float)(clone $basePvQuery)->whereDate('voucher_date', $today)->sum('amount');
+        $todayExpenses += $todayPv;
 
-        // 2. Selected Period's total expenses
+        // 2. Selected Period's total expenses (Combined)
         $periodExpenses = (float)(clone $baseExpenseQuery)
             ->whereBetween('expense_date', [$startDate, $endDate])
             ->sum('total_amount_base');
+        $periodPv = (float)(clone $basePvQuery)->whereBetween('voucher_date', [$startDate, $endDate])->sum('amount');
+        $periodExpenses += $periodPv;
 
         // 3. Petty Cash Available in Drawers
         $pettyCashQuery = PettyCashAccount::where('marquee_id', $marqueeId)->where('is_active', true);
@@ -89,15 +108,63 @@ class ExpenseDashboard extends Component
             ->when($this->branch_id, fn($q) => $q->where('branch_id', $this->branch_id))
             ->count();
 
-        // 6. Category-wise distribution for selected period
-        $categoryBreakdown = (clone $baseExpenseQuery)
+        // 6. Category-wise distribution for selected period (Combined)
+        $allCategories = DB::table('expense_categories')->where('marquee_id', $marqueeId)->whereNull('deleted_at')->get();
+        $categoriesById = $allCategories->keyBy('id');
+        $categoriesByAccountId = $allCategories->whereNotNull('default_account_id')->keyBy('default_account_id');
+
+        $expCatBreakdown = (clone $baseExpenseQuery)
             ->whereBetween('expense_date', [$startDate, $endDate])
             ->select('expense_category_id', DB::raw('SUM(total_amount_base) as total'), DB::raw('COUNT(id) as count'))
             ->groupBy('expense_category_id')
             ->with('category')
-            ->orderByDesc('total')
-            ->take(6)
             ->get();
+
+        $pvCatBreakdown = (clone $basePvQuery)
+            ->whereBetween('voucher_date', [$startDate, $endDate])
+            ->with(['debitAccount'])
+            ->get();
+
+        $combinedCategories = [];
+
+        foreach ($expCatBreakdown as $row) {
+            $catName = $row->category->name ?? 'Unclassified / Split';
+            $combinedCategories[$catName] = [
+                'name' => $catName,
+                'total' => (float)$row->total,
+                'count' => (int)$row->count,
+            ];
+        }
+
+        foreach ($pvCatBreakdown as $pv) {
+            $catName = 'Operating Expenses (PV)';
+            if ($pv->payee_id && isset($categoriesById[$pv->payee_id])) {
+                $catName = $categoriesById[$pv->payee_id]->name;
+            } elseif ($pv->debit_account_id && isset($categoriesByAccountId[$pv->debit_account_id])) {
+                $catName = $categoriesByAccountId[$pv->debit_account_id]->name;
+            } elseif ($pv->debitAccount) {
+                $catName = $pv->debitAccount->name;
+            } elseif (!empty($pv->payee_name)) {
+                $catName = $pv->payee_name;
+            }
+
+            if (!isset($combinedCategories[$catName])) {
+                $combinedCategories[$catName] = [
+                    'name' => $catName,
+                    'total' => 0.0,
+                    'count' => 0,
+                ];
+            }
+            $combinedCategories[$catName]['total'] += (float)$pv->amount;
+            $combinedCategories[$catName]['count'] += 1;
+        }
+
+        usort($combinedCategories, fn($a, $b) => $b['total'] <=> $a['total']);
+        $categoryBreakdown = collect(array_slice($combinedCategories, 0, 6))->map(fn($item) => (object)[
+            'total' => $item['total'],
+            'count' => $item['count'],
+            'category' => (object)['name' => $item['name']],
+        ]);
 
         // 7. Branch-wise distribution
         $branchBreakdown = (clone $baseExpenseQuery)

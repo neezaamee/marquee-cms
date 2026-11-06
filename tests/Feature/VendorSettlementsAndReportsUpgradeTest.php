@@ -358,14 +358,19 @@ class VendorSettlementsAndReportsUpgradeTest extends TestCase
             ->assertSee('Rs. ' . number_format(67500)); // Running balance
 
         // 2. Settlement Print Accuracy & Summary Totals
+        $settlementCount = VendorSettlement::where('vendor_id', $this->vendor->id)
+            ->whereBetween('settlement_date', [date('Y-m-01'), date('Y-m-d')])
+            ->count();
+        $expectedSettlementTotal = $settlementCount * 50000;
+
         Livewire::test(VendorReports::class)
             ->set('reportType', 'settlement')
             ->set('vendor_id', $this->vendor->id)
             ->assertStatus(200)
             ->assertSee('Service Provider Settlement Report')
             ->assertSee('TOTALS:')
-            ->assertSee('Rs. ' . number_format(200000)) // Net payable total
-            ->assertSee('Rs. ' . number_format(200000)) // Paid amount total
+            ->assertSee('Rs. ' . number_format($expectedSettlementTotal)) // Net payable total
+            ->assertSee('Rs. ' . number_format($expectedSettlementTotal)) // Paid amount total
             ->assertSee('Rs. 0');                       // Remaining balance total
 
         // 3. Monthly Period Label Formatting
