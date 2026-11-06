@@ -21,6 +21,9 @@
     <link rel="manifest" href="{{ asset('manifest.json') }}">
     <meta name="msapplication-TileImage" content="{{ asset('assets/img/favicons/mstile-150x150.png') }}">
     <meta name="theme-color" content="#2c7be5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Marquee ERP">
     <link href="{{ asset('assets/css/offline-pill.css') }}" rel="stylesheet">
     <script src="{{ asset('assets/js/offline-manager.js') }}"></script>
     <script src="{{ asset('assets/js/config.js') }}"></script>
