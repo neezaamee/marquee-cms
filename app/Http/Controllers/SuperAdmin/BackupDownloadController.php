@@ -29,8 +29,25 @@ class BackupDownloadController extends Controller
         // Record audit download log
         $backupService->logDownload($backup, $user->id);
 
+        // Close PHP session early so other requests & pages don't block during download
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        // Clean any active output buffers so binary streaming is direct and fast
+        if (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $fileSize = File::size($fullPath);
+
         return response()->download($fullPath, $backup->file_name, [
             'Content-Type' => 'application/zip',
+            'Content-Length' => (string)$fileSize,
+            'Content-Disposition' => 'attachment; filename="' . $backup->file_name . '"',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
         ]);
     }
 }

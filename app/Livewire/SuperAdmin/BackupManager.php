@@ -40,16 +40,24 @@ class BackupManager extends Component
     // Activity Log Filters
     public $logActionFilter = '';
 
+    // Recently Created Backup State for Instant Download
+    public $recentlyCreatedBackupId = null;
+    public $recentlyCreatedBackupName = '';
+    public $recentlyCreatedBackupSize = '';
+
     protected $queryString = [
         'activeTab' => ['except' => 'manual'],
         'logActionFilter' => ['except' => ''],
     ];
 
-    public function mount()
+    public function mount(BackupService $backupService)
     {
         if (!auth()->user() || !auth()->user()->isSuperAdmin()) {
             abort(403, 'Unauthorized access to Super Admin Backup Management.');
         }
+
+        // Clean up any stale in-progress backups
+        $backupService->cleanupStaleBackups();
 
         // Load initial schedule settings from config / defaults
         $this->scheduleFrequency = config('backup.schedule_frequency', 'daily');
@@ -85,11 +93,48 @@ class BackupManager extends Component
                 notes: $this->backupNotes
             );
 
+            $this->recentlyCreatedBackupId = $backup->id;
+            $this->recentlyCreatedBackupName = $backup->file_name;
+            $this->recentlyCreatedBackupSize = $backup->human_size;
             $this->backupNotes = '';
             session()->flash('success', "Manual backup archive '{$backup->file_name}' created successfully!");
         } catch (\Throwable $e) {
             session()->flash('error', "Backup generation failed: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Download backup file directly.
+     */
+    public function downloadBackup($backupId, BackupService $backupService)
+    {
+        abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized access.');
+
+        $backup = SystemBackup::findOrFail($backupId);
+        $fullPath = storage_path('app/' . $backup->file_path);
+        if (!\Illuminate\Support\Facades\File::exists($fullPath)) {
+            $fullPath = storage_path('app/private/' . $backup->file_path);
+        }
+
+        if (!\Illuminate\Support\Facades\File::exists($fullPath)) {
+            session()->flash('error', 'Backup file does not exist on disk.');
+            return null;
+        }
+
+        $backupService->logDownload($backup, auth()->id());
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        if (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        return response()->download($fullPath, $backup->file_name, [
+            'Content-Type' => 'application/zip',
+            'Content-Length' => (string)\Illuminate\Support\Facades\File::size($fullPath),
+            'Content-Disposition' => 'attachment; filename="' . $backup->file_name . '"',
+        ]);
     }
 
     /**
@@ -103,6 +148,11 @@ class BackupManager extends Component
 
         try {
             $backupService->deleteBackup($backup, auth()->id());
+            if ($this->recentlyCreatedBackupId === (int)$backupId) {
+                $this->recentlyCreatedBackupId = null;
+                $this->recentlyCreatedBackupName = '';
+                $this->recentlyCreatedBackupSize = '';
+            }
             session()->flash('success', "Backup archive deleted successfully.");
         } catch (\Throwable $e) {
             session()->flash('error', "Failed deleting backup: " . $e->getMessage());
@@ -304,9 +354,13 @@ class BackupManager extends Component
         }
     }
 
-    public function render()
+    public function render(BackupService $backupService)
     {
         abort_unless(auth()->user() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized access.');
+
+        // Auto-clean any stale in-progress snapshots so they don't block the UI
+        $backupService->cleanupStaleBackups();
+
         $backups = SystemBackup::with('creator')
             ->latest()
             ->paginate(10, ['*'], 'backupsPage');

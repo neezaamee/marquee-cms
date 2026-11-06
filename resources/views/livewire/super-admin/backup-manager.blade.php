@@ -21,7 +21,22 @@
   <!-- Notification Flash Messages -->
   @if (session()->has('success'))
     <div class="alert alert-success alert-dismissible fade show" role="alert">
-      <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+        </div>
+        @if ($recentlyCreatedBackupId)
+          <div>
+            <a href="{{ route('super-admin.backups.download', $recentlyCreatedBackupId) }}" 
+               download="{{ $recentlyCreatedBackupName }}"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="btn btn-sm btn-success text-white shadow-sm fw-bold">
+              <i class="fas fa-download me-1"></i>Download Backup Now ({{ $recentlyCreatedBackupSize }})
+            </a>
+          </div>
+        @endif
+      </div>
       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
   @endif
@@ -226,12 +241,20 @@
                         @elseif($backup->status === 'in_progress')
                           <span class="badge bg-subtle-warning text-warning"><i class="fas fa-spinner fa-spin me-1"></i>In Progress</span>
                         @else
-                          <span class="badge bg-subtle-danger text-danger"><i class="fas fa-times-circle me-1"></i>Failed</span>
+                          <span class="badge bg-subtle-danger text-danger" title="{{ $backup->notes }}"><i class="fas fa-times-circle me-1"></i>Failed</span>
+                          @if($backup->notes)
+                            <div class="fs-11 text-muted text-truncate" style="max-width: 150px;" title="{{ $backup->notes }}">{{ $backup->notes }}</div>
+                          @endif
                         @endif
                       </td>
                       <td class="text-end">
                         @if($backup->status === 'completed')
-                          <a href="{{ route('super-admin.backups.download', $backup->id) }}" class="btn btn-xs btn-outline-success me-1" title="Download Backup Archive">
+                          <a href="{{ route('super-admin.backups.download', $backup->id) }}" 
+                             download="{{ $backup->file_name }}"
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             class="btn btn-xs btn-outline-success me-1" 
+                             title="Download Backup Archive">
                             <i class="fas fa-download"></i>
                           </a>
                           <button class="btn btn-xs btn-outline-primary me-1" wire:click="prepareRestore({{ $backup->id }})" title="Restore Data">

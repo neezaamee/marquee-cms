@@ -241,4 +241,54 @@ class SuperAdminBackupManagementTest extends TestCase
             @unlink($tempZip);
         }
     }
+
+    public function test_stale_in_progress_backups_are_auto_cleaned_up()
+    {
+        $staleBackup = SystemBackup::create([
+            'file_name' => 'stale_backup.zip',
+            'file_path' => 'backups/stale_backup.zip',
+            'type' => 'db_only',
+            'file_size' => 0,
+            'status' => 'in_progress',
+            'trigger_type' => 'manual',
+            'created_by' => $this->superAdmin->id,
+        ]);
+        \Illuminate\Support\Facades\DB::table('system_backups')
+            ->where('id', $staleBackup->id)
+            ->update(['created_at' => now()->subMinutes(30)]);
+
+        Livewire::actingAs($this->superAdmin)
+            ->test(BackupManager::class)
+            ->assertOk();
+
+        $staleBackup->refresh();
+        $this->assertEquals('failed', $staleBackup->status);
+        $this->assertStringContainsString('timed out', $staleBackup->notes);
+    }
+
+    public function test_download_controller_provides_content_length_and_instant_headers()
+    {
+        $backupService = app(BackupService::class);
+        $backup = $backupService->createBackup(type: 'db_only', trigger: 'manual', userId: $this->superAdmin->id);
+
+        $response = $this->actingAs($this->superAdmin)
+            ->get(route('super-admin.backups.download', $backup->id));
+
+        $response->assertOk();
+        $this->assertTrue($response->headers->has('content-length'));
+        $this->assertGreaterThan(0, (int)$response->headers->get('content-length'));
+        $this->assertStringContainsString($backup->file_name, $response->headers->get('content-disposition'));
+    }
+
+    public function test_manual_backup_creation_displays_instant_download_button()
+    {
+        Livewire::actingAs($this->superAdmin)
+            ->test(BackupManager::class)
+            ->set('backupType', 'db_only')
+            ->call('createBackup')
+            ->assertSee('Download Backup Now')
+            ->assertSet('recentlyCreatedBackupId', function ($id) {
+                return !empty($id);
+            });
+    }
 }
