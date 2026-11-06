@@ -32,6 +32,7 @@ class VendorSale extends Model
         'commission_type',
         'commission_rate',
         'commission_amount',
+        'commission_collected_amount',
         'vendor_net_amount',
         'advance_amount',
         'paid_amount',
@@ -55,6 +56,7 @@ class VendorSale extends Model
         'customer_remaining_amount' => 'decimal:2',
         'commission_rate' => 'decimal:2',
         'commission_amount' => 'decimal:2',
+        'commission_collected_amount' => 'decimal:2',
         'vendor_net_amount' => 'decimal:2',
         'advance_amount' => 'decimal:2',
         'paid_amount' => 'decimal:2',
@@ -171,6 +173,9 @@ class VendorSale extends Model
      */
     public function getCustomerPaidAttribute(): float
     {
+        if (!$this->include_in_invoice) {
+            return (float) $this->sale_amount;
+        }
         return (float) ($this->customer_paid_amount > 0 ? $this->customer_paid_amount : $this->customer_advance_amount);
     }
 
@@ -179,6 +184,9 @@ class VendorSale extends Model
      */
     public function getCustomerRemainingAttribute(): float
     {
+        if (!$this->include_in_invoice) {
+            return 0.00;
+        }
         $paid = (float) ($this->customer_paid_amount > 0 ? $this->customer_paid_amount : $this->customer_advance_amount);
         return max(0.00, (float) $this->sale_amount - $paid);
     }
@@ -196,6 +204,29 @@ class VendorSale extends Model
      */
     public function getVendorRemainingAttribute(): float
     {
+        if (!$this->include_in_invoice) {
+            return 0.00;
+        }
         return max(0.00, (float) $this->vendor_net_amount - (float) $this->paid_amount);
+    }
+
+    /**
+     * Helper: Total Commission Remitted / Collected from Vendor.
+     */
+    public function getCommissionCollectedAttribute(): float
+    {
+        if (array_key_exists('commission_collected_amount', $this->attributes) && $this->attributes['commission_collected_amount'] !== null) {
+            $val = (float) $this->attributes['commission_collected_amount'];
+            if ($val > 0) return $val;
+        }
+        return (float) $this->ledgers()->where('transaction_type', 'commission_collected')->sum('commission_amount');
+    }
+
+    /**
+     * Helper: Remaining Commission Due to be collected from Vendor.
+     */
+    public function getCommissionRemainingAmountAttribute(): float
+    {
+        return max(0.00, (float) $this->commission_amount - $this->commission_collected);
     }
 }

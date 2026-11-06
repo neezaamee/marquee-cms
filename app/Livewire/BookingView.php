@@ -121,6 +121,22 @@ class BookingView extends Component
     public $vpReference = '';
     public $vpAccountId = null;
     public $vpRemarks = '';
+    public $vpIsDirectDeduction = false; // When true, clears vendor remaining as deducted by vendor directly
+
+    // Vendor Commission Collection Modal State
+    public $showCollectCommissionModal = false;
+    public $ccSaleId = '';
+    public $ccVendorName = '';
+    public $ccServiceName = '';
+    public $ccTotalCommission = 0.00;
+    public $ccAlreadyCollected = 0.00;
+    public $ccRemainingCommission = 0.00;
+    public $ccCollectionAmount = 0.00;
+    public $ccPaymentDate = '';
+    public $ccPaymentMethod = 'Cash';
+    public $ccAccountId = null;
+    public $ccReference = '';
+    public $ccRemarks = '';
 
     // Vendor View Modal State
     public $showVendorViewModal = false;
@@ -449,6 +465,7 @@ class BookingView extends Component
         $this->vpAccountId = $defaultCashAccount?->id ?? null;
 
         $this->vpRemarks = '';
+        $this->vpIsDirectDeduction = false;
         $this->showVendorPaymentModal = true;
     }
 
@@ -476,19 +493,33 @@ class BookingView extends Component
 
     public function recordVendorInstallmentPayment()
     {
+        $sale = \App\Models\VendorSale::findOrFail($this->vpSaleId);
+        $serviceEngine = app(\App\Services\VendorCommissionService::class);
+
+        // If marked as Direct Customer Payment (Vendor Deducted Fee)
+        if ($this->vpIsDirectDeduction) {
+            $serviceEngine->updateVendorSale($sale, [
+                'include_in_invoice' => false,
+                'notes' => ($sale->notes ? $sale->notes . "\n" : "") . "Cleared via Booking View: Marked as Direct Customer Payment (Vendor Deducted Fee)",
+            ]);
+
+            $this->booking->refresh();
+            $this->showVendorPaymentModal = false;
+            session()->flash('success', 'Vendor payment marked as cleared (deducted by vendor directly). Remaining vendor payable cleared to Rs. 0.00 and Marquee commission recorded.');
+            return;
+        }
+
         $this->validate([
             'vpPaymentAmount' => 'required|numeric|min:1',
             'vpPaymentDate' => 'required|date',
             'vpPaymentMethod' => 'required|string',
         ]);
 
-        $sale = \App\Models\VendorSale::findOrFail($this->vpSaleId);
         if (floatval($this->vpPaymentAmount) > floatval($sale->remaining_amount)) {
             $this->addError('vpPaymentAmount', 'Payment amount cannot exceed remaining payable balance (Rs. ' . number_format($sale->remaining_amount, 2) . ').');
             return;
         }
 
-        $serviceEngine = app(\App\Services\VendorCommissionService::class);
         $serviceEngine->recordVendorSalePayment($sale, floatval($this->vpPaymentAmount), [
             'payment_date' => $this->vpPaymentDate,
             'payment_method' => $this->vpPaymentMethod,
@@ -500,6 +531,86 @@ class BookingView extends Component
         $this->booking->refresh();
         $this->showVendorPaymentModal = false;
         session()->flash('success', 'Vendor payment installment recorded successfully with ledger & accounting voucher.');
+    }
+
+    public function openCollectCommissionModal($saleId)
+    {
+        $sale = \App\Models\VendorSale::with(['vendor', 'service'])->findOrFail($saleId);
+        $this->ccSaleId = $sale->id;
+        $this->ccVendorName = $sale->vendor->name;
+        $this->ccServiceName = $sale->service?->service_name ?? 'Vendor Service';
+        $this->ccTotalCommission = (float) $sale->commission_amount;
+        $this->ccAlreadyCollected = (float) $sale->commission_collected;
+        $this->ccRemainingCommission = (float) $sale->commission_remaining_amount;
+        $this->ccCollectionAmount = $this->ccRemainingCommission;
+        $this->ccPaymentDate = date('Y-m-d');
+        $this->ccPaymentMethod = 'Cash';
+        $this->ccReference = '';
+        $this->ccRemarks = '';
+
+        $marqueeId = $this->booking->marquee_id ?? (auth()->check() ? auth()->user()->getActiveMarqueeId() : null);
+        $defaultCashAccount = \App\Models\Account::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where(function ($q) {
+                $q->where('account_code', '1001')
+                  ->orWhere('account_code', 'like', '1001%')
+                  ->orWhere('name', 'like', '%Cash%');
+            })
+            ->where('nature', 'Asset')
+            ->first();
+        $this->ccAccountId = $defaultCashAccount?->id ?? null;
+
+        $this->showCollectCommissionModal = true;
+    }
+
+    public function updatedCcPaymentMethod($val)
+    {
+        $marqueeId = $this->booking->marquee_id ?? (auth()->check() ? auth()->user()->getActiveMarqueeId() : null);
+        $isCash = in_array(strtolower($val), ['cash', 'cash in hand']);
+        $targetCode = $isCash ? '1001' : '1002';
+        $targetKeyword = $isCash ? '%Cash%' : '%Bank%';
+
+        $account = \App\Models\Account::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where(function ($q) use ($targetCode, $targetKeyword) {
+                $q->where('account_code', $targetCode)
+                  ->orWhere('account_code', 'like', $targetCode . '%')
+                  ->orWhere('name', 'like', $targetKeyword);
+            })
+            ->where('nature', 'Asset')
+            ->first();
+
+        if ($account) {
+            $this->ccAccountId = $account->id;
+        }
+    }
+
+    public function recordVendorCommissionCollection()
+    {
+        $this->validate([
+            'ccCollectionAmount' => 'required|numeric|min:1',
+            'ccPaymentDate' => 'required|date',
+            'ccPaymentMethod' => 'required|string',
+        ]);
+
+        $sale = \App\Models\VendorSale::findOrFail($this->ccSaleId);
+        if (floatval($this->ccCollectionAmount) > floatval($sale->commission_remaining_amount)) {
+            $this->addError('ccCollectionAmount', 'Collection amount cannot exceed remaining commission due (Rs. ' . number_format($sale->commission_remaining_amount, 2) . ').');
+            return;
+        }
+
+        $serviceEngine = app(\App\Services\VendorCommissionService::class);
+        $serviceEngine->recordVendorCommissionCollection($sale, floatval($this->ccCollectionAmount), [
+            'payment_date' => $this->ccPaymentDate,
+            'payment_method' => $this->ccPaymentMethod,
+            'reference_number' => $this->ccReference ?: null,
+            'account_id' => $this->ccAccountId ?: null,
+            'remarks' => $this->ccRemarks ?: 'Commission remitted by service provider',
+        ]);
+
+        $this->booking->refresh();
+        $this->showCollectCommissionModal = false;
+        session()->flash('success', 'Vendor commission collected successfully and deposited into cash/bank account with GL voucher.');
     }
 
     /**

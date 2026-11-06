@@ -423,6 +423,9 @@
                                             <td class="text-end font-monospace fw-bold text-dark">Rs. {{ number_format($custCharge, 2) }}</td>
                                             <td class="text-end font-monospace text-success">
                                                 Rs. {{ number_format($custPaid, 2) }}
+                                                @if(!$vs->include_in_invoice)
+                                                    <span class="badge badge-subtle-secondary fs-11" title="Paid directly to service provider">Direct</span>
+                                                @endif
                                             </td>
                                             <td class="text-end font-monospace fw-bold {{ $custRemaining > 0 ? 'text-danger' : 'text-success' }}">
                                                 Rs. {{ number_format($custRemaining, 2) }}
@@ -441,10 +444,15 @@
                                             <td class="text-end font-monospace text-primary fw-semi-bold">Rs. {{ number_format($vendCost, 2) }}</td>
                                             <td class="text-end font-monospace fw-bold {{ $vendRemaining > 0 ? 'text-danger' : 'text-success' }}">
                                                 Rs. {{ number_format($vendRemaining, 2) }}
+                                                @if(!$vs->include_in_invoice)
+                                                    <div class="text-muted fs-11"><i class="fas fa-check-circle text-success me-1"></i>Deducted by Vendor</div>
+                                                @endif
                                             </td>
                                             <td class="text-center">
                                                 @if($isCancelled)
                                                     <span class="badge bg-danger text-white rounded-pill text-uppercase fs-10">Cancelled</span>
+                                                @elseif(!$vs->include_in_invoice)
+                                                    <span class="badge badge-subtle-success rounded-pill text-uppercase fs-11">Cleared</span>
                                                 @else
                                                     <span class="badge badge-subtle-{{ $statusBadge }} rounded-pill text-uppercase fs-11">
                                                         {{ str_replace('_', ' ', $vs->payment_status ?: 'unpaid') }}
@@ -459,8 +467,8 @@
                                                     </button>
 
                                                     @if(!$isCancelled)
-                                                        <!-- Record Customer Advance Button -->
-                                                        @if($custRemaining > 0.01)
+                                                        <!-- Record Customer Advance Button (Invoiced only) -->
+                                                        @if($vs->include_in_invoice && $custRemaining > 0.01)
                                                             <button wire:click="openCustomerPaymentModal({{ $vs->id }})" class="btn btn-falcon-success btn-xs" title="Record Customer Advance / Installment">
                                                                 <i class="fas fa-plus-circle me-1"></i>Cust. Adv
                                                             </button>
@@ -471,11 +479,24 @@
                                                             <i class="fas fa-edit text-warning"></i>
                                                         </button>
 
-                                                        <!-- Pay Vendor Installment Button -->
-                                                        @if($vendRemaining > 0.01)
+                                                        <!-- Pay Vendor Installment Button (Invoiced only) -->
+                                                        @if($vs->include_in_invoice && $vendRemaining > 0.01)
                                                             <button wire:click="openVendorPaymentModal({{ $vs->id }})" class="btn btn-falcon-primary btn-xs" title="Disburse Payout to Vendor">
                                                                 <i class="fas fa-money-bill-wave me-1"></i> Pay Vendor
                                                             </button>
+                                                        @endif
+
+                                                        <!-- Collect Commission Button (Direct Pay) -->
+                                                        @if(!$vs->include_in_invoice)
+                                                            @if($vs->commission_remaining_amount > 0.01)
+                                                                <button wire:click="openCollectCommissionModal({{ $vs->id }})" class="btn btn-falcon-success btn-xs" title="Collect Commission from Service Provider">
+                                                                    <i class="fas fa-coins me-1 text-warning"></i>Collect Comm (Rs. {{ number_format($vs->commission_remaining_amount, 0) }})
+                                                                </button>
+                                                            @else
+                                                                <span class="badge badge-subtle-success fs-10 py-1 px-2" title="Marquee Commission Received">
+                                                                    <i class="fas fa-check-double me-1"></i>Comm Collected
+                                                                </span>
+                                                            @endif
                                                         @endif
 
                                                         <!-- Cancel / Delete Button -->
@@ -501,9 +522,9 @@
                                             In Invoice: Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->where('include_in_invoice', true)->sum('sale_amount'), 2) }}
                                         </td>
                                         <td class="text-end text-primary font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->sum('vendor_net_amount'), 2) }}</td>
-                                        <td class="text-end text-muted font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->sum('advance_amount'), 2) }}</td>
+                                        <td class="text-end text-muted font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->where('include_in_invoice', true)->sum('advance_amount'), 2) }}</td>
                                         <td class="text-end text-success font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->sum('paid_amount'), 2) }}</td>
-                                        <td class="text-end text-danger font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->sum('remaining_amount'), 2) }}</td>
+                                        <td class="text-end text-danger font-monospace">Rs. {{ number_format($vendorSales->where('status', '!=', 'cancelled')->where('include_in_invoice', true)->sum('remaining_amount'), 2) }}</td>
                                         <td colspan="2"></td>
                                     </tr>
                                 </tfoot>
@@ -2145,23 +2166,136 @@
                                 </div>
                             </div>
 
+                            <div class="form-check form-switch mb-3 p-2 ps-5 border rounded bg-light">
+                                <input class="form-check-input" type="checkbox" id="vpIsDirectDeduction" wire:model.live="vpIsDirectDeduction">
+                                <label class="form-check-label fw-bold text-dark fs-12 mb-0" for="vpIsDirectDeduction">
+                                    <span class="fas fa-hand-holding-usd text-warning me-1"></span> Mark as Direct Customer Payment (Vendor Deducted Fee)
+                                </label>
+                                <div class="text-muted fs-11 mt-1">
+                                    Check this if the customer paid the service provider directly and the vendor deducted their share. Marquee owes Rs. 0.00. This clears the vendor remaining balance and records Marquee's commission as receivable.
+                                </div>
+                            </div>
+
+                            @if($vpIsDirectDeduction)
+                                <div class="alert alert-warning py-2 px-3 mb-2 fs-11">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Confirming this will mark the vendor's net payable of <strong>Rs. {{ number_format($vpRemainingBalance, 2) }}</strong> as deducted directly by the service provider. The vendor's remaining balance will be cleared to <strong>Rs. 0.00</strong>, and Marquee's commission percentage will be recorded as receivable. No cash or bank funds will be disbursed from Marquee accounts.
+                                </div>
+                            @else
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Payment Amount (PKR) <span class="text-danger">*</span></label>
+                                        <input type="number" step="0.01" wire:model="vpPaymentAmount" class="form-control form-control-sm @error('vpPaymentAmount') is-invalid @enderror">
+                                        @error('vpPaymentAmount') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Payment Date <span class="text-danger">*</span></label>
+                                        <input type="date" wire:model="vpPaymentDate" class="form-control form-control-sm @error('vpPaymentDate') is-invalid @enderror">
+                                        @error('vpPaymentDate') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Payment Method <span class="text-danger">*</span></label>
+                                        <select wire:model.live="vpPaymentMethod" class="form-select form-select-sm">
+                                            <option value="Cash">Cash</option>
+                                            <option value="Bank Transfer">Bank Transfer</option>
+                                            <option value="Cheque">Cheque</option>
+                                            <option value="Online">Online</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Paid From Account</label>
+                                        <select wire:model="vpAccountId" class="form-select form-select-sm">
+                                            <option value="">-- Default Cash/Bank Account --</option>
+                                            @foreach($accounts as $acc)
+                                                <option value="{{ $acc->id }}">{{ $acc->name }} ({{ $acc->account_code }})</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold">Reference / Cheque / Transaction #</label>
+                                    <input type="text" wire:model="vpReference" class="form-control form-control-sm" placeholder="e.g. CHQ-98231, TRX-812739">
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold">Remarks / Notes</label>
+                                    <textarea wire:model="vpRemarks" class="form-control form-control-sm" rows="2" placeholder="e.g. Stage decoration final installment payment..."></textarea>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="modal-footer bg-light py-2">
+                            <button wire:click="$set('showVendorPaymentModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Cancel</button>
+                            <button type="submit" class="btn {{ $vpIsDirectDeduction ? 'btn-warning' : 'btn-primary' }} btn-sm px-4">
+                                @if($vpIsDirectDeduction)
+                                    <i class="fas fa-check-double me-1"></i> Confirm Direct Deduction & Clear Balance
+                                @else
+                                    <i class="fas fa-check-circle me-1"></i> Post Payout & Update Ledger
+                                @endif
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Collect Vendor Commission Modal -->
+    @if($showCollectCommissionModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-success text-white py-2">
+                        <h6 class="modal-title fw-bold fs-13"><i class="fas fa-coins me-2"></i>Collect Commission from Service Provider</h6>
+                        <button wire:click="$set('showCollectCommissionModal', false)" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <form wire:submit.prevent="recordVendorCommissionCollection">
+                        <div class="modal-body p-3 fs-12">
+                            <div class="alert alert-secondary py-2 px-3 mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-700">Vendor:</span>
+                                    <strong class="text-dark">{{ $ccVendorName }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-700">Service:</span>
+                                    <span class="badge badge-subtle-info">{{ $ccServiceName }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between border-top pt-1 mt-1">
+                                    <span class="text-700 fw-bold">Total Commission:</span>
+                                    <span class="font-monospace">Rs. {{ number_format($ccTotalCommission, 2) }}</span>
+                                </div>
+                                @if($ccAlreadyCollected > 0)
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-700">Already Collected:</span>
+                                        <span class="font-monospace text-success">Rs. {{ number_format($ccAlreadyCollected, 2) }}</span>
+                                    </div>
+                                @endif
+                                <div class="d-flex justify-content-between border-top pt-1 mt-1">
+                                    <span class="text-700 fw-bold">Commission Due:</span>
+                                    <strong class="text-success font-monospace fs-12">Rs. {{ number_format($ccRemainingCommission, 2) }}</strong>
+                                </div>
+                            </div>
+
                             <div class="row g-2 mb-2">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold">Payment Amount (PKR) <span class="text-danger">*</span></label>
-                                    <input type="number" step="0.01" wire:model="vpPaymentAmount" class="form-control form-control-sm @error('vpPaymentAmount') is-invalid @enderror">
-                                    @error('vpPaymentAmount') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    <label class="form-label fw-bold">Collected Amount (PKR) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" wire:model="ccCollectionAmount" class="form-control form-control-sm @error('ccCollectionAmount') is-invalid @enderror">
+                                    @error('ccCollectionAmount') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold">Payment Date <span class="text-danger">*</span></label>
-                                    <input type="date" wire:model="vpPaymentDate" class="form-control form-control-sm @error('vpPaymentDate') is-invalid @enderror">
-                                    @error('vpPaymentDate') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    <label class="form-label fw-bold">Collection Date <span class="text-danger">*</span></label>
+                                    <input type="date" wire:model="ccPaymentDate" class="form-control form-control-sm @error('ccPaymentDate') is-invalid @enderror">
+                                    @error('ccPaymentDate') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                             </div>
 
                             <div class="row g-2 mb-2">
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Payment Method <span class="text-danger">*</span></label>
-                                    <select wire:model.live="vpPaymentMethod" class="form-select form-select-sm">
+                                    <select wire:model.live="ccPaymentMethod" class="form-select form-select-sm">
                                         <option value="Cash">Cash</option>
                                         <option value="Bank Transfer">Bank Transfer</option>
                                         <option value="Cheque">Cheque</option>
@@ -2169,8 +2303,8 @@
                                     </select>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold">Paid From Account</label>
-                                    <select wire:model="vpAccountId" class="form-select form-select-sm">
+                                    <label class="form-label fw-bold">Deposit To Account</label>
+                                    <select wire:model="ccAccountId" class="form-select form-select-sm">
                                         <option value="">-- Default Cash/Bank Account --</option>
                                         @foreach($accounts as $acc)
                                             <option value="{{ $acc->id }}">{{ $acc->name }} ({{ $acc->account_code }})</option>
@@ -2180,19 +2314,19 @@
                             </div>
 
                             <div class="mb-2">
-                                <label class="form-label fw-bold">Reference / Cheque / Transaction #</label>
-                                <input type="text" wire:model="vpReference" class="form-control form-control-sm" placeholder="e.g. CHQ-98231, TRX-812739">
+                                <label class="form-label fw-bold">Receipt / Ref #</label>
+                                <input type="text" wire:model="ccReference" class="form-control form-control-sm" placeholder="e.g. REC-8912">
                             </div>
 
                             <div class="mb-2">
                                 <label class="form-label fw-bold">Remarks / Notes</label>
-                                <textarea wire:model="vpRemarks" class="form-control form-control-sm" rows="2" placeholder="e.g. Stage decoration final installment payment..."></textarea>
+                                <textarea wire:model="ccRemarks" class="form-control form-control-sm" rows="2" placeholder="e.g. Commission remitted in cash..."></textarea>
                             </div>
                         </div>
                         <div class="modal-footer bg-light py-2">
-                            <button wire:click="$set('showVendorPaymentModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Cancel</button>
-                            <button type="submit" class="btn btn-primary btn-sm px-4">
-                                <i class="fas fa-check-circle me-1"></i> Post Payout & Update Ledger
+                            <button wire:click="$set('showCollectCommissionModal', false)" type="button" class="btn btn-secondary btn-sm px-3">Cancel</button>
+                            <button type="submit" class="btn btn-success btn-sm px-4">
+                                <i class="fas fa-check-circle me-1"></i> Record Commission Receipt
                             </button>
                         </div>
                     </form>

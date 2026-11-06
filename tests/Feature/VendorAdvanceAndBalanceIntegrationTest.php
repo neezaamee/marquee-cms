@@ -420,7 +420,11 @@ class VendorAdvanceAndBalanceIntegrationTest extends TestCase
         $this->assertFalse($sale->include_in_invoice);
         $this->assertEquals(80000, $sale->vendor_net_amount);
         $this->assertEquals(20000, $sale->commission_amount);
-        $this->assertEquals(80000, $this->vendor->fresh()->current_balance);
+        $this->assertEquals(0, (float) $sale->remaining_amount);
+        $this->assertEquals(80000, (float) $sale->paid_amount);
+        $this->assertEquals('fully_paid', $sale->payment_status);
+        // Vendor balance reflects commission debit (vendor owes Marquee commission)
+        $this->assertEquals(-20000, (float) $this->vendor->fresh()->current_balance);
 
         // Check PDF invoice: Must show direct pay indicator
         $booking = $this->booking->fresh(['customer', 'hall', 'halls', 'slot', 'package', 'eventType', 'extraServices', 'menuItems', 'branch', 'marquee', 'payments', 'vendorSales.service', 'vendorSales.vendor']);

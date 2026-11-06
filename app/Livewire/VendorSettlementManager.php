@@ -99,6 +99,10 @@ class VendorSettlementManager extends Component
 
         $marqueeId = $this->getMarqueeId();
         $vendorObj = Vendor::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->findOrFail($this->vendor_id);
+        if ($vendorObj->current_balance <= 0) {
+            $this->addError('paid_amount', 'This service provider has no payable balance owed by Marquee (Current Balance: Rs. ' . number_format($vendorObj->current_balance, 2) . ').');
+            return;
+        }
         if (floatval($this->paid_amount) > $vendorObj->current_balance) {
             $this->addError('paid_amount', 'Payout amount cannot exceed current service provider outstanding balance (Rs. ' . number_format($vendorObj->current_balance) . ').');
             return;

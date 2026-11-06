@@ -227,8 +227,13 @@
                             <td class="fw-bold text-primary">
                                 {{ $entry->payment_amount > 0 ? 'Rs. ' . number_format($entry->payment_amount) : '—' }}
                             </td>
-                            <td class="fw-bold {{ $entry->running_balance > 0 ? 'text-danger' : 'text-success' }}">
-                                Rs. {{ number_format($entry->running_balance) }}
+                            <td class="fw-bold {{ $entry->running_balance > 0 ? 'text-danger' : ($entry->running_balance < 0 ? 'text-warning' : 'text-success') }}">
+                                @if($entry->running_balance < 0)
+                                    Rs. ({{ number_format(abs($entry->running_balance)) }})
+                                    <span class="badge badge-subtle-warning fs-11 ms-1" title="Vendor owes commission to Marquee">Receivable</span>
+                                @else
+                                    Rs. {{ number_format($entry->running_balance) }}
+                                @endif
                             </td>
                         </tr>
                     @empty
