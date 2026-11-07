@@ -598,9 +598,16 @@ class AccountingService
 
         foreach ($accounts as $account) {
             $gl = $this->getGeneralLedger($account->id, $startDate, $endDate, $branchId, $financialYearId);
-            $balance = (float)$gl['closing_balance'];
+            
+            // For P&L (Income Statement), measure net activity within the selected period (startDate to endDate),
+            // rather than cumulative year-to-date closing balance which includes prior months' expenses/income.
+            if ($account->nature === 'Income') {
+                $balance = (float)$gl['total_credit'] - (float)$gl['total_debit'];
+            } else {
+                $balance = (float)$gl['total_debit'] - (float)$gl['total_credit'];
+            }
 
-            if ($balance == 0) {
+            if (abs($balance) < 0.0001) {
                 continue;
             }
 
