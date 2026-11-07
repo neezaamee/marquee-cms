@@ -291,4 +291,22 @@ class SuperAdminBackupManagementTest extends TestCase
                 return !empty($id);
             });
     }
+
+    public function test_backup_succeeds_even_when_exec_and_shell_exec_are_disabled()
+    {
+        // Simulate shared hosting environment where exec and shell_exec are in disable_functions
+        $mockService = $this->partialMock(BackupService::class, function ($mock) {
+            $mock->shouldReceive('isFunctionEnabled')->with('shell_exec')->andReturn(false);
+            $mock->shouldReceive('isFunctionEnabled')->with('exec')->andReturn(false);
+        });
+
+        $this->assertFalse($mockService->isFunctionEnabled('shell_exec'));
+        $this->assertFalse($mockService->isFunctionEnabled('exec'));
+
+        $backup = $mockService->createBackup(type: 'db_only', trigger: 'manual', userId: $this->superAdmin->id);
+
+        $this->assertEquals('completed', $backup->status);
+        $this->assertGreaterThan(0, (int)$backup->file_size);
+        $this->assertFileExists(storage_path('app/backups/' . $backup->file_name));
+    }
 }

@@ -82,6 +82,26 @@ class BackupService
     }
 
     /**
+     * Check if a PHP function is available and not disabled in php.ini.
+     */
+    public function isFunctionEnabled(string $functionName): bool
+    {
+        if (!function_exists($functionName)) {
+            return false;
+        }
+
+        $disabled = ini_get('disable_functions');
+        if (!empty($disabled)) {
+            $disabledList = array_map('trim', explode(',', $disabled));
+            if (in_array($functionName, $disabledList, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Find native mysqldump executable path on the host system.
      */
     public function findMysqldumpPath(): ?string
@@ -112,13 +132,19 @@ class BackupService
             }
         }
 
-        $lookup = PHP_OS_FAMILY === 'Windows' ? 'where mysqldump 2>NUL' : 'which mysqldump 2>/dev/null';
-        $out = @shell_exec($lookup);
-        if ($out) {
-            $lines = explode("\n", trim($out));
-            $candidate = trim($lines[0]);
-            if (!empty($candidate) && File::exists($candidate)) {
-                return $candidate;
+        if ($this->isFunctionEnabled('shell_exec')) {
+            $lookup = PHP_OS_FAMILY === 'Windows' ? 'where mysqldump 2>NUL' : 'which mysqldump 2>/dev/null';
+            try {
+                $out = @shell_exec($lookup);
+                if ($out) {
+                    $lines = explode("\n", trim($out));
+                    $candidate = trim($lines[0]);
+                    if (!empty($candidate) && File::exists($candidate)) {
+                        return $candidate;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Silently fall back if shell execution is restricted
             }
         }
 
@@ -234,7 +260,7 @@ class BackupService
         $connection = DB::connection();
         $driver = $connection->getDriverName();
 
-        if ($driver === 'mysql') {
+        if ($driver === 'mysql' && $this->isFunctionEnabled('exec')) {
             $mysqldump = $this->findMysqldumpPath();
             if ($mysqldump) {
                 $config = config('database.connections.mysql');
@@ -255,15 +281,21 @@ class BackupService
                     $targetSqlPath
                 );
 
-                @exec($cmd, $output, $returnCode);
+                try {
+                    $output = [];
+                    $returnCode = -1;
+                    @exec($cmd, $output, $returnCode);
 
-                if ($returnCode === 0 && File::exists($targetSqlPath) && File::size($targetSqlPath) > 0) {
-                    return;
+                    if ($returnCode === 0 && File::exists($targetSqlPath) && File::size($targetSqlPath) > 0) {
+                        return;
+                    }
+                } catch (\Throwable $e) {
+                    // Silently fall back to streaming PHP dump if exec is restricted or fails
                 }
             }
         }
 
-        // Fast streaming PHP fallback for SQLite or if mysqldump is unavailable
+        // Fast streaming PHP fallback for SQLite, shared hosting with restricted shell execution, or if mysqldump is unavailable
         $this->dumpDatabaseViaPhpStream($targetSqlPath);
     }
 
