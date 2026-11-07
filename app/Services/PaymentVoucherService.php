@@ -182,8 +182,11 @@ class PaymentVoucherService
                 $supplierId = Supplier::where('id', $payeeId)->where('marquee_id', $marqueeId)->value('id');
             } elseif ($payeeType === 'vendor' && $payeeId) {
                 $vendorId = Vendor::withoutGlobalScope('tenant')->where('id', $payeeId)->where('marquee_id', $marqueeId)->value('id');
-            } elseif ($payeeType === 'expense' && $payeeId) {
-                $expenseId = Expense::where('id', $payeeId)->where('marquee_id', $marqueeId)->value('id');
+            } elseif ($payeeType === 'expense') {
+                $candidateExpenseId = array_key_exists('expense_id', $data) ? $data['expense_id'] : $payeeId;
+                if ($candidateExpenseId) {
+                    $expenseId = Expense::where('id', $candidateExpenseId)->where('marquee_id', $marqueeId)->value('id');
+                }
             }
 
             $voucher = PaymentVoucher::create([
@@ -234,6 +237,22 @@ class PaymentVoucherService
 
         $payeeType = $data['payee_type'] ?? $voucher->payee_type;
         $payeeId = $data['payee_id'] ?? $voucher->payee_id;
+        $marqueeId = $voucher->marquee_id;
+
+        $supplierId = null;
+        $vendorId = null;
+        $expenseId = null;
+
+        if ($payeeType === 'supplier' && $payeeId) {
+            $supplierId = Supplier::where('id', $payeeId)->where('marquee_id', $marqueeId)->value('id');
+        } elseif ($payeeType === 'vendor' && $payeeId) {
+            $vendorId = Vendor::withoutGlobalScope('tenant')->where('id', $payeeId)->where('marquee_id', $marqueeId)->value('id');
+        } elseif ($payeeType === 'expense') {
+            $candidateExpenseId = array_key_exists('expense_id', $data) ? $data['expense_id'] : ($voucher->expense_id ?: $payeeId);
+            if ($candidateExpenseId) {
+                $expenseId = Expense::where('id', $candidateExpenseId)->where('marquee_id', $marqueeId)->value('id');
+            }
+        }
 
         $voucher->update([
             'branch_id' => $data['branch_id'] ?? $voucher->branch_id,
@@ -252,9 +271,9 @@ class PaymentVoucherService
             'cheque_date' => $data['cheque_date'] ?? $voucher->cheque_date,
             'reference_no' => $data['reference_no'] ?? $voucher->reference_no,
             'description' => $data['description'] ?? $voucher->description,
-            'supplier_id' => $payeeType === 'supplier' ? $payeeId : null,
-            'vendor_id' => $payeeType === 'vendor' ? $payeeId : null,
-            'expense_id' => $payeeType === 'expense' ? $payeeId : null,
+            'supplier_id' => $supplierId,
+            'vendor_id' => $vendorId,
+            'expense_id' => $expenseId,
             'updated_by' => $userId,
         ]);
 

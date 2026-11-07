@@ -137,7 +137,18 @@ class PaymentVoucherForm extends Component
             $this->branch_id = $voucher->branch_id ?? '';
             $this->status = $voucher->status;
             $this->payee_type = $voucher->payee_type;
-            $this->payee_id = $voucher->payee_id ?? '';
+            $this->payee_id = $voucher->payee_id ? (string)$voucher->payee_id : '';
+            if ($this->payee_type === 'expense') {
+                if ($voucher->expense_id) {
+                    $this->payee_id = 'exp_' . $voucher->expense_id;
+                } elseif ($voucher->payee_id) {
+                    if (ExpenseCategory::where('id', $voucher->payee_id)->exists()) {
+                        $this->payee_id = 'cat_' . $voucher->payee_id;
+                    } elseif (Account::where('id', $voucher->payee_id)->exists()) {
+                        $this->payee_id = 'acc_' . $voucher->payee_id;
+                    }
+                }
+            }
             $this->payee_name = $voucher->payee_name;
             $this->payee_cnic = $voucher->payee_cnic;
             $this->payee_phone = $voucher->payee_phone;
@@ -377,12 +388,19 @@ class PaymentVoucherForm extends Component
             return;
         }
 
-        // Safely extract numeric payee_id if prefixed
+        // Safely extract numeric payee_id and explicit expense_id if prefixed
         $cleanPayeeId = null;
+        $explicitExpenseId = null;
+
         if (is_numeric($this->payee_id)) {
             $cleanPayeeId = (int) $this->payee_id;
-        } elseif (is_string($this->payee_id) && preg_match('/^(?:ven_|exp_|cat_|acc_)?(\d+)$/', $this->payee_id, $matches)) {
-            $cleanPayeeId = (int) $matches[1];
+        } elseif (is_string($this->payee_id)) {
+            if (str_starts_with($this->payee_id, 'exp_')) {
+                $explicitExpenseId = (int) str_replace('exp_', '', $this->payee_id);
+                $cleanPayeeId = $explicitExpenseId;
+            } elseif (preg_match('/^(?:ven_|cat_|acc_)?(\d+)$/', $this->payee_id, $matches)) {
+                $cleanPayeeId = (int) $matches[1];
+            }
         }
 
         $payload = [
@@ -393,6 +411,7 @@ class PaymentVoucherForm extends Component
             'voucher_date' => $this->voucher_date,
             'payee_type' => $this->payee_type,
             'payee_id' => $cleanPayeeId,
+            'expense_id' => $explicitExpenseId,
             'payee_name' => $this->payee_name,
             'payee_cnic' => $this->payee_cnic,
             'payee_phone' => $this->payee_phone,
