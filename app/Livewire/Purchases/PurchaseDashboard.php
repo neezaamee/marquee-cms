@@ -71,8 +71,8 @@ class PurchaseDashboard extends Component
 
     public function render()
     {
-        $marqueeId = auth()->user()->marquee_id;
         $user = auth()->user();
+        $marqueeId = $user->getActiveMarqueeId() ?: $user->marquee_id;
         $branchId = $this->filterBranch ?: ($user->branch_id && !$user->isSuperAdmin() && !$user->isBusinessOwner() ? $user->branch_id : null);
 
         [$startDate, $endDate, $periodLabel] = $this->getDateRange();
@@ -201,6 +201,7 @@ class PurchaseDashboard extends Component
             ->where('purchase_invoices.marquee_id', $marqueeId)
             ->whereBetween('purchase_invoices.purchase_date', [$startStr, $endStr])
             ->where('purchase_invoices.status', '!=', 'Cancelled')
+            ->whereNull('purchase_invoices.deleted_at')
             ->when($branchId, fn($q) => $q->where('purchase_invoices.branch_id', $branchId))
             ->when($this->filterSupplier, fn($q) => $q->where('purchase_invoices.supplier_id', $this->filterSupplier))
             ->select('supplier_categories.id as category_id', 'supplier_categories.name as category_name', DB::raw('SUM(purchase_invoices.net_amount) as total_spend'), DB::raw('COUNT(DISTINCT purchase_invoices.id) as invoice_count'))
@@ -218,6 +219,7 @@ class PurchaseDashboard extends Component
                 ->where('supplier_supplier_category.supplier_category_id', $cat->category_id)
                 ->whereBetween('purchase_returns.return_date', [$startStr, $endStr])
                 ->where('purchase_returns.status', '!=', 'Cancelled')
+                ->whereNull('purchase_returns.deleted_at')
                 ->when($branchId, fn($q) => $q->where('purchase_returns.branch_id', $branchId))
                 ->when($this->filterSupplier, fn($q) => $q->where('purchase_returns.supplier_id', $this->filterSupplier))
                 ->sum('purchase_returns.net_amount');
@@ -287,6 +289,7 @@ class PurchaseDashboard extends Component
             ->where('purchase_invoices.marquee_id', $marqueeId)
             ->whereBetween('purchase_invoices.purchase_date', [$startStr, $endStr])
             ->where('purchase_invoices.status', '!=', 'Cancelled')
+            ->whereNull('purchase_invoices.deleted_at')
             ->when($branchId, fn($q) => $q->where('purchase_invoices.branch_id', $branchId))
             ->select(
                 'suppliers.id',

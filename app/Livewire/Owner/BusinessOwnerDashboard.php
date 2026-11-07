@@ -18,6 +18,7 @@ use App\Models\Marquee;
 use App\Models\PaymentVoucher;
 use App\Models\PettyCashAccount;
 use App\Models\PurchaseInvoice;
+use App\Models\PurchaseReturn;
 use App\Models\Supplier;
 use App\Models\SupplierLedger;
 use App\Models\Vendor;
@@ -227,6 +228,8 @@ class BusinessOwnerDashboard extends Component
         // =========================================================================
         $totalSales = 0.0;
         $totalPurchases = 0.0;
+        $totalPurchasesGross = 0.0;
+        $totalPurchasesReturns = 0.0;
         $realizedRevenue = 0.0;
         $customerAdvanceHeld = 0.0;
         $pendingReceivables = 0.0;
@@ -250,14 +253,23 @@ class BusinessOwnerDashboard extends Component
                 ->selectRaw('COALESCE(SUM(COALESCE(booking_final_bills.grand_total, bookings.grand_total)), 0) as total_sales')
                 ->value('total_sales');
 
-            // Total Purchases in Period
+            // Total Purchases in Period (Net of Purchase Returns to align with Procurement Dashboard)
             $purchaseQuery = PurchaseInvoice::where('marquee_id', $marqueeId)
                 ->whereBetween('purchase_date', [$startDateStr, $endDateStr])
                 ->where('status', '!=', 'Cancelled');
             if ($this->selectedBranchId) {
                 $purchaseQuery->where('branch_id', $this->selectedBranchId);
             }
-            $totalPurchases = (float) $purchaseQuery->sum('net_amount');
+            $totalPurchasesGross = (float) $purchaseQuery->sum('net_amount');
+
+            $returnQuery = PurchaseReturn::where('marquee_id', $marqueeId)
+                ->whereBetween('return_date', [$startDateStr, $endDateStr])
+                ->where('status', '!=', 'Cancelled');
+            if ($this->selectedBranchId) {
+                $returnQuery->where('branch_id', $this->selectedBranchId);
+            }
+            $totalPurchasesReturns = (float) $returnQuery->sum('net_amount');
+            $totalPurchases = max(0.0, $totalPurchasesGross - $totalPurchasesReturns);
 
             // Realized Revenue (from recognized completed events)
             $realizedRevenue = (float) (clone $bookingQuery)
@@ -844,6 +856,8 @@ class BusinessOwnerDashboard extends Component
             // Financial cards (Owner)
             'totalSales' => $totalSales,
             'totalPurchases' => $totalPurchases,
+            'totalPurchasesGross' => $totalPurchasesGross,
+            'totalPurchasesReturns' => $totalPurchasesReturns,
             'bankBalance' => $bankBalance,
             'cashInHand' => $cashInHand,
             'realizedRevenue' => $realizedRevenue,

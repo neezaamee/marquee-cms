@@ -424,12 +424,13 @@ class SupplierList extends Component
                     ->from('purchase_invoices')
                     ->whereColumn('purchase_invoices.supplier_id', 'suppliers.id')
                     ->where('purchase_invoices.marquee_id', $marqueeId)
-                    ->where('purchase_invoices.status', '!=', 'Cancelled');
+                    ->where('purchase_invoices.status', '!=', 'Cancelled')
+                    ->whereNull('purchase_invoices.deleted_at');
                 if (!empty($this->dateFrom)) {
                     $sub->whereDate('purchase_invoices.purchase_date', '>=', $this->dateFrom);
                 }
                 if (!empty($this->dateTo)) {
-                    $sub->whereDate('purchase_invoices.purchase_date', '<=', $this->dateTo);
+                    $sub->whereDate('purchase_date', '<=', $this->dateTo);
                 }
             });
         }
@@ -456,6 +457,7 @@ class SupplierList extends Component
         $purchasesBySupplier = DB::table('purchase_invoices')
             ->where('marquee_id', $marqueeId)
             ->where('status', '!=', 'Cancelled')
+            ->whereNull('deleted_at')
             ->whereIn('supplier_id', $supplierIds)
             ->when($this->dateFrom, fn($q) => $q->whereDate('purchase_date', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('purchase_date', '<=', $this->dateTo))
@@ -471,6 +473,7 @@ class SupplierList extends Component
         $returnsBySupplier = DB::table('purchase_returns')
             ->where('marquee_id', $marqueeId)
             ->where('status', '!=', 'Cancelled')
+            ->whereNull('deleted_at')
             ->whereIn('supplier_id', $supplierIds)
             ->when($this->dateFrom, fn($q) => $q->whereDate('return_date', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('return_date', '<=', $this->dateTo))
@@ -605,6 +608,7 @@ class SupplierList extends Component
         $purchasesBySupplier = DB::table('purchase_invoices')
             ->where('marquee_id', $marqueeId)
             ->where('status', '!=', 'Cancelled')
+            ->whereNull('deleted_at')
             ->whereIn('supplier_id', $supplierIds)
             ->when($this->dateFrom, fn($q) => $q->whereDate('purchase_date', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('purchase_date', '<=', $this->dateTo))
@@ -620,6 +624,7 @@ class SupplierList extends Component
         $returnsBySupplier = DB::table('purchase_returns')
             ->where('marquee_id', $marqueeId)
             ->where('status', '!=', 'Cancelled')
+            ->whereNull('deleted_at')
             ->whereIn('supplier_id', $supplierIds)
             ->when($this->dateFrom, fn($q) => $q->whereDate('return_date', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('return_date', '<=', $this->dateTo))
@@ -677,6 +682,7 @@ class SupplierList extends Component
         $overallPurchases = (float) DB::table('purchase_invoices')
             ->where('marquee_id', $marqueeId)
             ->where('status', '!=', 'Cancelled')
+            ->whereNull('deleted_at')
             ->whereIn('supplier_id', $filteredSupplierIds)
             ->when($this->dateFrom, fn($q) => $q->whereDate('purchase_date', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('purchase_date', '<=', $this->dateTo))
@@ -685,6 +691,7 @@ class SupplierList extends Component
         $overallReturns = (float) DB::table('purchase_returns')
             ->where('marquee_id', $marqueeId)
             ->where('status', '!=', 'Cancelled')
+            ->whereNull('deleted_at')
             ->whereIn('supplier_id', $filteredSupplierIds)
             ->when($this->dateFrom, fn($q) => $q->whereDate('return_date', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('return_date', '<=', $this->dateTo))
@@ -695,6 +702,7 @@ class SupplierList extends Component
         $suppliersWithStockCount = DB::table('purchase_invoices')
             ->where('marquee_id', $marqueeId)
             ->where('status', '!=', 'Cancelled')
+            ->whereNull('deleted_at')
             ->whereIn('supplier_id', $filteredSupplierIds)
             ->when($this->dateFrom, fn($q) => $q->whereDate('purchase_date', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('purchase_date', '<=', $this->dateTo))

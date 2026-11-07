@@ -174,7 +174,7 @@
                                     <h6 class="text-700 fs-11 mb-0">Total Purchases</h6>
                                     <span class="badge bg-warning-subtle text-warning rounded-pill" style="font-size: 8px;">Procurement</span>
                                 </div>
-                                <h3 class="mb-0 fw-bolder text-warning mt-1">
+                                <h3 class="mb-0 fw-bolder text-warning mt-1" title="Exact Net Purchases: Rs. {{ number_format($totalPurchases, 2) }}">
                                     @if($totalPurchases >= 1000000)
                                         Rs. {{ number_format($totalPurchases / 1000000, 2) }}M
                                     @else
@@ -182,7 +182,7 @@
                                     @endif
                                 </h3>
                                 <div class="d-flex align-items-center gap-1 mt-1">
-                                    <span class="fs-11 text-muted">Raw inventory & bills</span>
+                                    <span class="fs-11 text-muted" title="Exact Net Procurement: Rs. {{ number_format($totalPurchases, 2) }}">Rs. {{ number_format($totalPurchases, 0) }}</span>
                                     <span class="fas fa-arrow-right fs-11 text-warning ms-auto"></span>
                                 </div>
                             </div>
