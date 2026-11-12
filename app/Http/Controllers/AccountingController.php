@@ -176,7 +176,7 @@ class AccountingController extends Controller
      */
     public function cashBank()
     {
-        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->hasPermission('manage_accounting'), 403);
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->isBusinessOwner() || auth()->user()->hasPermission('manage_accounting'), 403);
         return view('finance.cash-bank');
     }
 

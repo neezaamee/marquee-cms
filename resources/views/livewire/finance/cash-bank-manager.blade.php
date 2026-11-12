@@ -1,4 +1,62 @@
 <div>
+    <!-- KPI Summary Cards -->
+    <div class="row g-3 mb-3">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="fs-11 text-muted text-uppercase fw-bold">Cash in Hand</span>
+                            <h4 class="mb-0 fw-bolder text-success mt-1">Rs. {{ number_format($totalCashBalance, 2) }}</h4>
+                        </div>
+                        <div class="avatar avatar-m bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
+                            <span class="fas fa-money-bill-wave fa-lg"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="fs-11 text-muted text-uppercase fw-bold">Bank Balance</span>
+                            <h4 class="mb-0 fw-bolder text-primary mt-1">Rs. {{ number_format($totalBankBalance, 2) }}</h4>
+                        </div>
+                        <div class="avatar avatar-m bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center">
+                            <span class="fas fa-university fa-lg"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm bg-body-tertiary">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="fs-11 text-muted text-uppercase fw-bold">Total Liquid Assets</span>
+                            <h4 class="mb-0 fw-bolder text-dark mt-1">Rs. {{ number_format($totalLiquidBalance, 2) }}</h4>
+                        </div>
+                        <div class="avatar avatar-m bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center">
+                            <span class="fas fa-coins fa-lg"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm bg-primary-subtle d-flex justify-content-center">
+                <div class="card-body p-3 text-center">
+                    <a href="{{ route('finance.daily-cash-bank-report') }}" class="btn btn-primary btn-sm fw-bold w-100">
+                        <span class="fas fa-file-invoice-dollar me-1"></span> Daily Day-Book Report
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card mb-3">
         <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0"><span class="fas fa-university me-2 text-primary"></span>Cash & Bank Accounts</h5>
@@ -101,11 +159,12 @@
                 <table class="table table-sm table-striped fs-10 mb-0 align-middle table-hover">
                     <thead class="bg-200 text-900">
                         <tr>
-                            <th class="px-3" style="width: 25%;">COA Account</th>
-                            <th style="width: 15%;">Type</th>
-                            <th style="width: 20%;">Bank Name</th>
-                            <th style="width: 15%;">Account Number</th>
-                            <th style="width: 15%;">IBAN</th>
+                            <th class="px-3" style="width: 22%;">COA Account</th>
+                            <th style="width: 12%;">Type</th>
+                            <th style="width: 18%;">Bank Name</th>
+                            <th style="width: 13%;">Account Number</th>
+                            <th style="width: 12%;">IBAN</th>
+                            <th class="text-end" style="width: 13%;">Current Balance</th>
                             <th class="text-center" style="width: 5%;">Status</th>
                             <th class="text-end px-3" style="width: 5%;">Actions</th>
                         </tr>
@@ -126,6 +185,9 @@
                                 <td>{{ $cb->bank_name ?? '—' }}</td>
                                 <td class="font-monospace">{{ $cb->account_number ?? '—' }}</td>
                                 <td class="font-monospace">{{ $cb->iban ?? '—' }}</td>
+                                <td class="text-end font-monospace fw-bold {{ ($accountBalances[$cb->account_id] ?? 0) >= 0 ? 'text-900' : 'text-danger' }}">
+                                    Rs. {{ number_format($accountBalances[$cb->account_id] ?? 0, 2) }}
+                                </td>
                                 <td class="text-center">
                                     @if($cb->status === 'active')
                                         <span class="badge badge-subtle-success rounded-pill">Active</span>
@@ -134,7 +196,12 @@
                                     @endif
                                 </td>
                                 <td class="text-end px-3">
-                                    <div class="d-flex justify-content-end gap-2">
+                                    <div class="d-flex justify-content-end gap-2 align-items-center">
+                                        @if($cb->account_id)
+                                            <a href="{{ route('finance.general-ledger', ['account_id' => $cb->account_id]) }}" class="btn btn-link p-0 text-info" title="View Full General Ledger">
+                                                <span class="fas fa-book-open"></span>
+                                            </a>
+                                        @endif
                                         <button wire:click="edit({{ $cb->id }})" class="btn btn-link p-0 text-primary" title="Edit">
                                             <span class="fas fa-edit"></span>
                                         </button>
@@ -146,7 +213,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center py-5 text-muted">
+                                <td colspan="8" class="text-center py-5 text-muted">
                                     <span class="fas fa-university fa-2x mb-2 d-block"></span>
                                     No cash or bank accounts registered.
                                 </td>

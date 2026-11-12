@@ -242,6 +242,8 @@ class BusinessOwnerDashboard extends Component
         $vendorPayables = 0.0;
         $payableSuppliers = collect();
         $payableVendors = collect();
+        $bankAccountsBreakdown = collect();
+        $cashAccountsBreakdown = collect();
         $todayDateStr = Carbon::today()->format('Y-m-d');
 
         if ($canViewFinancials) {
@@ -512,20 +514,54 @@ class BusinessOwnerDashboard extends Component
                     ->pluck('id');
             }
 
-            $bankOpening = (float) AccountOpeningBalance::whereIn('account_id', $bankAccountIds)
-                ->selectRaw('COALESCE(SUM(debit - credit), 0) as balance')
-                ->value('balance');
+            $bankAccounts = Account::whereIn('id', $bankAccountIds)->get()->keyBy('id');
+            $bankCashBankMap = CashBankAccount::where('marquee_id', $marqueeId)
+                ->whereIn('account_id', $bankAccountIds)
+                ->get()
+                ->keyBy('account_id');
 
-            $bankJv = (float) DB::table('journal_voucher_items')
+            $bankOpeningBalances = AccountOpeningBalance::whereIn('account_id', $bankAccountIds)
+                ->groupBy('account_id')
+                ->selectRaw('account_id, COALESCE(SUM(debit - credit), 0) as balance')
+                ->pluck('balance', 'account_id');
+
+            $bankJvSummaries = DB::table('journal_voucher_items')
                 ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
                 ->whereNull('journal_vouchers.deleted_at')
                 ->where('journal_vouchers.status', 'posted')
                 ->where('journal_vouchers.marquee_id', $marqueeId)
                 ->whereIn('journal_voucher_items.account_id', $bankAccountIds)
-                ->selectRaw('COALESCE(SUM(debit - credit), 0) as balance')
-                ->value('balance');
+                ->groupBy('journal_voucher_items.account_id')
+                ->selectRaw('journal_voucher_items.account_id, COALESCE(SUM(debit), 0) as total_debit, COALESCE(SUM(credit), 0) as total_credit, COALESCE(SUM(debit - credit), 0) as balance')
+                ->get()
+                ->keyBy('account_id');
 
-            $bankBalance = $bankOpening + $bankJv;
+            foreach ($bankAccountIds as $accId) {
+                $acc = $bankAccounts->get($accId);
+                if (!$acc) continue;
+                $cb = $bankCashBankMap->get($accId);
+                $opening = (float) ($bankOpeningBalances->get($accId, 0));
+                $debit = (float) ($bankJvSummaries->get($accId)->total_debit ?? 0);
+                $credit = (float) ($bankJvSummaries->get($accId)->total_credit ?? 0);
+                $balance = $opening + (float) ($bankJvSummaries->get($accId)->balance ?? 0);
+
+                $bankAccountsBreakdown->push([
+                    'id' => $acc->id,
+                    'account_code' => $acc->account_code,
+                    'account_name' => $acc->name,
+                    'bank_name' => $cb?->bank_name ?: $acc->name,
+                    'account_number' => $cb?->account_number ?: '—',
+                    'iban' => $cb?->iban,
+                    'branch_name' => $cb?->branch_name,
+                    'status' => $cb?->status ?? 'active',
+                    'opening' => $opening,
+                    'debit' => $debit,
+                    'credit' => $credit,
+                    'balance' => $balance,
+                ]);
+            }
+
+            $bankBalance = (float) $bankAccountsBreakdown->sum('balance');
 
             // Cash in Hand from Chart of Accounts, CashBankAccount & PettyCashAccount
             $cashAccountIds = CashBankAccount::where('marquee_id', $marqueeId)
@@ -546,20 +582,51 @@ class BusinessOwnerDashboard extends Component
                     ->pluck('id');
             }
 
-            $cashOpening = (float) AccountOpeningBalance::whereIn('account_id', $cashAccountIds)
-                ->selectRaw('COALESCE(SUM(debit - credit), 0) as balance')
-                ->value('balance');
+            $cashAccounts = Account::whereIn('id', $cashAccountIds)->get()->keyBy('id');
+            $cashCashBankMap = CashBankAccount::where('marquee_id', $marqueeId)
+                ->whereIn('account_id', $cashAccountIds)
+                ->get()
+                ->keyBy('account_id');
 
-            $cashJv = (float) DB::table('journal_voucher_items')
+            $cashOpeningBalances = AccountOpeningBalance::whereIn('account_id', $cashAccountIds)
+                ->groupBy('account_id')
+                ->selectRaw('account_id, COALESCE(SUM(debit - credit), 0) as balance')
+                ->pluck('balance', 'account_id');
+
+            $cashJvSummaries = DB::table('journal_voucher_items')
                 ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
                 ->whereNull('journal_vouchers.deleted_at')
                 ->where('journal_vouchers.status', 'posted')
                 ->where('journal_vouchers.marquee_id', $marqueeId)
                 ->whereIn('journal_voucher_items.account_id', $cashAccountIds)
-                ->selectRaw('COALESCE(SUM(debit - credit), 0) as balance')
-                ->value('balance');
+                ->groupBy('journal_voucher_items.account_id')
+                ->selectRaw('journal_voucher_items.account_id, COALESCE(SUM(debit), 0) as total_debit, COALESCE(SUM(credit), 0) as total_credit, COALESCE(SUM(debit - credit), 0) as balance')
+                ->get()
+                ->keyBy('account_id');
 
-            $cashInHand = $cashOpening + $cashJv;
+            foreach ($cashAccountIds as $accId) {
+                $acc = $cashAccounts->get($accId);
+                if (!$acc) continue;
+                $cb = $cashCashBankMap->get($accId);
+                $opening = (float) ($cashOpeningBalances->get($accId, 0));
+                $debit = (float) ($cashJvSummaries->get($accId)->total_debit ?? 0);
+                $credit = (float) ($cashJvSummaries->get($accId)->total_credit ?? 0);
+                $balance = $opening + (float) ($cashJvSummaries->get($accId)->balance ?? 0);
+
+                $cashAccountsBreakdown->push([
+                    'id' => $acc->id,
+                    'account_code' => $acc->account_code,
+                    'account_name' => $acc->name,
+                    'title' => $cb?->bank_name ?: $acc->name,
+                    'status' => $cb?->status ?? 'active',
+                    'opening' => $opening,
+                    'debit' => $debit,
+                    'credit' => $credit,
+                    'balance' => $balance,
+                ]);
+            }
+
+            $cashInHand = (float) $cashAccountsBreakdown->sum('balance');
         }
 
         // =========================================================================
@@ -860,6 +927,8 @@ class BusinessOwnerDashboard extends Component
             'totalPurchasesReturns' => $totalPurchasesReturns,
             'bankBalance' => $bankBalance,
             'cashInHand' => $cashInHand,
+            'bankAccountsBreakdown' => $bankAccountsBreakdown,
+            'cashAccountsBreakdown' => $cashAccountsBreakdown,
             'realizedRevenue' => $realizedRevenue,
             'customerAdvanceHeld' => $customerAdvanceHeld,
             'pendingReceivables' => $pendingReceivables,

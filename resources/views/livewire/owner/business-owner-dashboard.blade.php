@@ -222,7 +222,7 @@
 
             <!-- 4. Bank Balance -->
             <div class="col-6 col-md-6 col-xl">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative" style="cursor: pointer;">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -230,7 +230,7 @@
                                     <h6 class="text-700 fs-11 mb-0">Bank Balance</h6>
                                     <span class="badge bg-primary-subtle text-primary rounded-pill" style="font-size: 8px;">Bank Accounts</span>
                                 </div>
-                                <h3 class="mb-0 fw-bolder text-primary mt-1">
+                                <h3 class="mb-0 fw-bolder text-primary mt-1" title="Exact Net Bank Balance: Rs. {{ number_format($bankBalance, 2) }}">
                                     @if(abs($bankBalance) >= 1000000)
                                         Rs. {{ number_format($bankBalance / 1000000, 2) }}M
                                     @else
@@ -238,8 +238,8 @@
                                     @endif
                                 </h3>
                                 <div class="d-flex align-items-center gap-1 mt-1">
-                                    <span class="fs-11 text-muted">Bank accounts & ledger</span>
-                                    <span class="fas fa-arrow-right fs-11 text-primary ms-auto"></span>
+                                    <span class="fs-11 text-muted">{{ $bankAccountsBreakdown->count() }} accounts &middot; click for details</span>
+                                    <span class="fas fa-search-plus fs-11 text-primary ms-auto"></span>
                                 </div>
                             </div>
                             <div class="avatar avatar-m bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center">
@@ -247,13 +247,13 @@
                             </div>
                         </div>
                     </div>
-                    <a href="{{ route('finance.cash-bank') }}" class="stretched-link" title="View Bank Accounts & Ledgers"></a>
+                    <a href="javascript:void(0)" class="stretched-link" data-bs-toggle="modal" data-bs-target="#bankBalanceModal" title="Click to view bank accounts breakdown and ledgers"></a>
                 </div>
             </div>
 
             <!-- 5. Cash in Hand -->
             <div class="col-6 col-md-6 col-xl">
-                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative">
+                <div class="card h-100 border-0 shadow-sm bg-body-tertiary position-relative" style="cursor: pointer;">
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
@@ -261,7 +261,7 @@
                                     <h6 class="text-700 fs-11 mb-0">Cash in Hand</h6>
                                     <span class="badge bg-success-subtle text-success rounded-pill" style="font-size: 8px;">Cash Vault</span>
                                 </div>
-                                <h3 class="mb-0 fw-bolder text-success mt-1">
+                                <h3 class="mb-0 fw-bolder text-success mt-1" title="Exact Cash in Hand: Rs. {{ number_format($cashInHand, 2) }}">
                                     @if(abs($cashInHand) >= 1000000)
                                         Rs. {{ number_format($cashInHand / 1000000, 2) }}M
                                     @else
@@ -269,8 +269,8 @@
                                     @endif
                                 </h3>
                                 <div class="d-flex align-items-center gap-1 mt-1">
-                                    <span class="fs-11 text-muted">Counter & petty drawer</span>
-                                    <span class="fas fa-arrow-right fs-11 text-success ms-auto"></span>
+                                    <span class="fs-11 text-muted">{{ $cashAccountsBreakdown->count() }} cash accounts &middot; click for details</span>
+                                    <span class="fas fa-search-plus fs-11 text-success ms-auto"></span>
                                 </div>
                             </div>
                             <div class="avatar avatar-m bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
@@ -278,7 +278,7 @@
                             </div>
                         </div>
                     </div>
-                    <a href="{{ route('expenses.petty-cash') }}" class="stretched-link" title="View Petty Cash & Cash Drawers"></a>
+                    <a href="javascript:void(0)" class="stretched-link" data-bs-toggle="modal" data-bs-target="#cashInHandModal" title="Click to view cash-in-hand breakdown and ledgers"></a>
                 </div>
             </div>
         </div>
@@ -1403,6 +1403,216 @@
                             <span class="fas fa-chevron-right text-400 fs-11"></span>
                         </a>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Bank Balance Breakdown -->
+    <div class="modal fade" id="bankBalanceModal" tabindex="-1" aria-labelledby="bankBalanceModalLabel" aria-hidden="true" wire:ignore.self>
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white py-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fas fa-university fa-lg"></span>
+                        <div>
+                            <h5 class="modal-title text-white mb-0" id="bankBalanceModalLabel">Bank Accounts & Liquidity Details</h5>
+                            <span class="fs-11 text-white-50">Current financial positions across all registered bank accounts</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Total Balance Banner -->
+                    <div class="card bg-primary-subtle border-0 mb-4">
+                        <div class="card-body p-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div>
+                                <span class="text-uppercase fs-11 fw-bold text-primary">Consolidated Net Bank Balance</span>
+                                <h2 class="mb-0 fw-bolder text-primary">Rs. {{ number_format($bankBalance, 2) }}</h2>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ route('finance.daily-cash-bank-report', ['methodFilter' => 'bank', 'tab' => 'accounts']) }}" class="btn btn-primary btn-sm shadow-sm">
+                                    <span class="fas fa-file-invoice-dollar me-1"></span> Daily Day-Book
+                                </a>
+                                <a href="{{ route('finance.cash-bank') }}" class="btn btn-outline-primary btn-sm">
+                                    <span class="fas fa-cog me-1"></span> Manage Accounts
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accounts Table -->
+                    <h6 class="text-700 fs-11 text-uppercase fw-bold mb-2">Active Bank Accounts ({{ $bankAccountsBreakdown->count() }})</h6>
+                    <div class="table-responsive border rounded-3">
+                        <table class="table table-sm table-hover align-middle mb-0 fs-10">
+                            <thead class="bg-200 text-900">
+                                <tr>
+                                    <th class="ps-3 py-2">COA / Title</th>
+                                    <th class="py-2">Bank & Account #</th>
+                                    <th class="text-end py-2">Opening</th>
+                                    <th class="text-end py-2 text-success">Inflows (Dr)</th>
+                                    <th class="text-end py-2 text-danger">Outflows (Cr)</th>
+                                    <th class="text-end py-2 fw-bold">Current Balance</th>
+                                    <th class="text-center py-2 pe-3">Ledger</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($bankAccountsBreakdown as $bAcc)
+                                    <tr>
+                                        <td class="ps-3 fw-bold">
+                                            <span class="badge bg-secondary-subtle text-secondary me-1">{{ $bAcc['account_code'] }}</span>
+                                            {{ $bAcc['account_name'] }}
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold text-900">{{ $bAcc['bank_name'] }}</div>
+                                            <div class="text-muted font-monospace fs-11">{{ $bAcc['account_number'] }}</div>
+                                        </td>
+                                        <td class="text-end font-monospace">Rs. {{ number_format($bAcc['opening'], 2) }}</td>
+                                        <td class="text-end font-monospace text-success">+ Rs. {{ number_format($bAcc['debit'], 2) }}</td>
+                                        <td class="text-end font-monospace text-danger">- Rs. {{ number_format($bAcc['credit'], 2) }}</td>
+                                        <td class="text-end font-monospace fw-bold {{ $bAcc['balance'] >= 0 ? 'text-primary' : 'text-danger' }}">
+                                            Rs. {{ number_format($bAcc['balance'], 2) }}
+                                        </td>
+                                        <td class="text-center pe-3">
+                                            <a href="{{ route('finance.general-ledger', ['account_id' => $bAcc['id']]) }}" class="btn btn-falcon-default btn-xs" title="View Full General Ledger">
+                                                <span class="fas fa-book-open text-primary"></span>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">
+                                            <span class="fas fa-university fa-2x mb-2 d-block text-400"></span>
+                                            No bank accounts mapped yet. <a href="{{ route('finance.cash-bank') }}">Map Bank Account</a>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                            @if($bankAccountsBreakdown->isNotEmpty())
+                                <tfoot class="bg-100 fw-bold border-top">
+                                    <tr>
+                                        <td colspan="2" class="ps-3 py-2 text-uppercase text-700">Total All Bank Accounts</td>
+                                        <td class="text-end font-monospace">Rs. {{ number_format($bankAccountsBreakdown->sum('opening'), 2) }}</td>
+                                        <td class="text-end font-monospace text-success">+ Rs. {{ number_format($bankAccountsBreakdown->sum('debit'), 2) }}</td>
+                                        <td class="text-end font-monospace text-danger">- Rs. {{ number_format($bankAccountsBreakdown->sum('credit'), 2) }}</td>
+                                        <td class="text-end font-monospace text-primary fs-11">Rs. {{ number_format($bankBalance, 2) }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            @endif
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-falcon-default btn-sm" data-bs-dismiss="modal">Close</button>
+                    <a href="{{ route('finance.daily-cash-bank-report', ['methodFilter' => 'bank', 'tab' => 'accounts']) }}" class="btn btn-primary btn-sm">
+                        <span class="fas fa-external-link-alt me-1"></span> Open Bank Day-Book Report
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Cash in Hand Breakdown -->
+    <div class="modal fade" id="cashInHandModal" tabindex="-1" aria-labelledby="cashInHandModalLabel" aria-hidden="true" wire:ignore.self>
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-success text-white py-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fas fa-money-bill-wave fa-lg"></span>
+                        <div>
+                            <h5 class="modal-title text-white mb-0" id="cashInHandModalLabel">Cash in Hand & Vault Details</h5>
+                            <span class="fs-11 text-white-50">Current financial positions across cash drawers, vaults & petty cash</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Total Balance Banner -->
+                    <div class="card bg-success-subtle border-0 mb-4">
+                        <div class="card-body p-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div>
+                                <span class="text-uppercase fs-11 fw-bold text-success">Consolidated Net Cash in Hand</span>
+                                <h2 class="mb-0 fw-bolder text-success">Rs. {{ number_format($cashInHand, 2) }}</h2>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ route('finance.daily-cash-bank-report', ['methodFilter' => 'cash', 'tab' => 'accounts']) }}" class="btn btn-success btn-sm shadow-sm text-white">
+                                    <span class="fas fa-file-invoice-dollar me-1"></span> Daily Cash Day-Book
+                                </a>
+                                <a href="{{ route('finance.cash-bank') }}" class="btn btn-outline-success btn-sm">
+                                    <span class="fas fa-cog me-1"></span> Manage Accounts
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accounts Table -->
+                    <h6 class="text-700 fs-11 text-uppercase fw-bold mb-2">Active Cash Accounts & Drawers ({{ $cashAccountsBreakdown->count() }})</h6>
+                    <div class="table-responsive border rounded-3">
+                        <table class="table table-sm table-hover align-middle mb-0 fs-10">
+                            <thead class="bg-200 text-900">
+                                <tr>
+                                    <th class="ps-3 py-2">COA / Code</th>
+                                    <th class="py-2">Account Title</th>
+                                    <th class="text-end py-2">Opening</th>
+                                    <th class="text-end py-2 text-success">Inflows (Dr)</th>
+                                    <th class="text-end py-2 text-danger">Outflows (Cr)</th>
+                                    <th class="text-end py-2 fw-bold">Current Balance</th>
+                                    <th class="text-center py-2 pe-3">Ledger</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($cashAccountsBreakdown as $cAcc)
+                                    <tr>
+                                        <td class="ps-3 fw-bold">
+                                            <span class="badge bg-secondary-subtle text-secondary me-1">{{ $cAcc['account_code'] }}</span>
+                                            {{ $cAcc['account_name'] }}
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold text-900">{{ $cAcc['title'] }}</div>
+                                            <span class="badge bg-success-subtle text-success fs-11">Cash Drawer / Vault</span>
+                                        </td>
+                                        <td class="text-end font-monospace">Rs. {{ number_format($cAcc['opening'], 2) }}</td>
+                                        <td class="text-end font-monospace text-success">+ Rs. {{ number_format($cAcc['debit'], 2) }}</td>
+                                        <td class="text-end font-monospace text-danger">- Rs. {{ number_format($cAcc['credit'], 2) }}</td>
+                                        <td class="text-end font-monospace fw-bold {{ $cAcc['balance'] >= 0 ? 'text-success' : 'text-danger' }}">
+                                            Rs. {{ number_format($cAcc['balance'], 2) }}
+                                        </td>
+                                        <td class="text-center pe-3">
+                                            <a href="{{ route('finance.general-ledger', ['account_id' => $cAcc['id']]) }}" class="btn btn-falcon-default btn-xs" title="View Full General Ledger">
+                                                <span class="fas fa-book-open text-success"></span>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">
+                                            <span class="fas fa-money-bill-wave fa-2x mb-2 d-block text-400"></span>
+                                            No cash accounts mapped yet. <a href="{{ route('finance.cash-bank') }}">Map Cash Account</a>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                            @if($cashAccountsBreakdown->isNotEmpty())
+                                <tfoot class="bg-100 fw-bold border-top">
+                                    <tr>
+                                        <td colspan="2" class="ps-3 py-2 text-uppercase text-700">Total Cash in Hand</td>
+                                        <td class="text-end font-monospace">Rs. {{ number_format($cashAccountsBreakdown->sum('opening'), 2) }}</td>
+                                        <td class="text-end font-monospace text-success">+ Rs. {{ number_format($cashAccountsBreakdown->sum('debit'), 2) }}</td>
+                                        <td class="text-end font-monospace text-danger">- Rs. {{ number_format($cashAccountsBreakdown->sum('credit'), 2) }}</td>
+                                        <td class="text-end font-monospace text-success fs-11">Rs. {{ number_format($cashInHand, 2) }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            @endif
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-falcon-default btn-sm" data-bs-dismiss="modal">Close</button>
+                    <a href="{{ route('finance.daily-cash-bank-report', ['methodFilter' => 'cash', 'tab' => 'accounts']) }}" class="btn btn-success btn-sm text-white">
+                        <span class="fas fa-external-link-alt me-1"></span> Open Cash Day-Book Report
+                    </a>
                 </div>
             </div>
         </div>

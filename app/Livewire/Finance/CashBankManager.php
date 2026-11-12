@@ -3,7 +3,9 @@
 namespace App\Livewire\Finance;
 
 use App\Models\Account;
+use App\Models\AccountOpeningBalance;
 use App\Models\CashBankAccount;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -55,7 +57,7 @@ class CashBankManager extends Component
     public function mount()
     {
         $user = auth()->user();
-        abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('manage_accounting') || $user->hasPermission('manage_finance')), 403, 'Unauthorized access to cash and bank manager.');
+        abort_unless($user && ($user->isSuperAdmin() || $user->isBusinessOwner() || $user->hasPermission('manage_accounting') || $user->hasPermission('manage_finance')), 403, 'Unauthorized access to cash and bank manager.');
 
         $marqueeId = $this->getMarqueeId();
 
@@ -201,10 +203,85 @@ class CashBankManager extends Component
         $cashBankAccounts = CashBankAccount::where('marquee_id', $marqueeId)
             ->with(['account'])
             ->orderBy('type')
-            ->paginate(10);
+            ->paginate(15);
+
+        $accountIds = $cashBankAccounts->pluck('account_id')->filter()->unique();
+
+        $openingBalances = AccountOpeningBalance::whereIn('account_id', $accountIds)
+            ->groupBy('account_id')
+            ->selectRaw('account_id, COALESCE(SUM(debit - credit), 0) as balance')
+            ->pluck('balance', 'account_id');
+
+        $jvSummaries = DB::table('journal_voucher_items')
+            ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
+            ->whereNull('journal_vouchers.deleted_at')
+            ->where('journal_vouchers.status', 'posted')
+            ->where('journal_vouchers.marquee_id', $marqueeId)
+            ->whereIn('journal_voucher_items.account_id', $accountIds)
+            ->groupBy('journal_voucher_items.account_id')
+            ->selectRaw('journal_voucher_items.account_id, COALESCE(SUM(debit - credit), 0) as balance')
+            ->pluck('balance', 'account_id');
+
+        $accountBalances = [];
+        foreach ($accountIds as $accId) {
+            $opening = (float) ($openingBalances->get($accId, 0));
+            $jv = (float) ($jvSummaries->get($accId, 0));
+            $accountBalances[$accId] = $opening + $jv;
+        }
+
+        // Overall totals for KPI cards
+        $allCb = CashBankAccount::where('marquee_id', $marqueeId)->get();
+        $allBankAccIds = $allCb->where('type', 'bank')->pluck('account_id')->filter()->unique();
+        $allCashAccIds = $allCb->where('type', 'cash')->pluck('account_id')->filter()->unique();
+
+        if ($allBankAccIds->isEmpty()) {
+            $allBankAccIds = Account::where('marquee_id', $marqueeId)
+                ->where(function ($q) {
+                    $q->where('account_code', '1002')->orWhere('name', 'like', '%Bank%');
+                })
+                ->pluck('id');
+        }
+
+        if ($allCashAccIds->isEmpty()) {
+            $allCashAccIds = Account::where('marquee_id', $marqueeId)
+                ->where(function ($q) {
+                    $q->where('account_code', '1001')->orWhere('name', 'like', '%Cash%');
+                })
+                ->pluck('id');
+        }
+
+        $allBankOpening = (float) AccountOpeningBalance::whereIn('account_id', $allBankAccIds)
+            ->selectRaw('COALESCE(SUM(debit - credit), 0) as balance')
+            ->value('balance');
+        $allBankJv = (float) DB::table('journal_voucher_items')
+            ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
+            ->whereNull('journal_vouchers.deleted_at')
+            ->where('journal_vouchers.status', 'posted')
+            ->where('journal_vouchers.marquee_id', $marqueeId)
+            ->whereIn('journal_voucher_items.account_id', $allBankAccIds)
+            ->selectRaw('COALESCE(SUM(debit - credit), 0) as balance')
+            ->value('balance');
+        $totalBankBalance = $allBankOpening + $allBankJv;
+
+        $allCashOpening = (float) AccountOpeningBalance::whereIn('account_id', $allCashAccIds)
+            ->selectRaw('COALESCE(SUM(debit - credit), 0) as balance')
+            ->value('balance');
+        $allCashJv = (float) DB::table('journal_voucher_items')
+            ->join('journal_vouchers', 'journal_voucher_items.journal_voucher_id', '=', 'journal_vouchers.id')
+            ->whereNull('journal_vouchers.deleted_at')
+            ->where('journal_vouchers.status', 'posted')
+            ->where('journal_vouchers.marquee_id', $marqueeId)
+            ->whereIn('journal_voucher_items.account_id', $allCashAccIds)
+            ->selectRaw('COALESCE(SUM(debit - credit), 0) as balance')
+            ->value('balance');
+        $totalCashBalance = $allCashOpening + $allCashJv;
 
         return view('livewire.finance.cash-bank-manager', [
             'cashBankAccounts' => $cashBankAccounts,
+            'accountBalances' => $accountBalances,
+            'totalBankBalance' => $totalBankBalance,
+            'totalCashBalance' => $totalCashBalance,
+            'totalLiquidBalance' => $totalBankBalance + $totalCashBalance,
         ]);
     }
 }
