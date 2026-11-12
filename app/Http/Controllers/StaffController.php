@@ -3,9 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\Attendance;
 use App\Models\Branch;
 use App\Models\Employee;
+use App\Models\Marquee;
+use App\Models\PayrollItem;
 use App\Models\Role;
+use App\Models\SalaryAdvance;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -139,8 +143,40 @@ class StaffController extends Controller
     {
         $this->authorizeStaffAccess($staff);
 
-        $staff->load(['branch', 'users.role']);
-        return view('staff.show', compact('staff'));
+        $staff->load([
+            'branch',
+            'users.role',
+            'salaryAdvances' => fn($q) => $q->orderBy('advance_date', 'desc'),
+            'payrollItems' => fn($q) => $q->with('payroll')->orderBy('id', 'desc'),
+        ]);
+
+        $attendances = Attendance::where('employee_id', $staff->id)
+            ->orderBy('date', 'desc')
+            ->take(31)
+            ->get();
+
+        return view('staff.show', compact('staff', 'attendances'));
+    }
+
+    /**
+     * Display printable payslip for a specific payroll item.
+     */
+    public function payslip(int $id)
+    {
+        $item = PayrollItem::with([
+            'employee.branch',
+            'employee',
+            'payroll.approver',
+            'branch',
+            'cashBankAccount',
+            'paymentVoucher',
+        ])->findOrFail($id);
+
+        $this->authorizeStaffAccess($item->employee);
+
+        $marquee = Marquee::find($item->marquee_id);
+
+        return view('payroll.slip', compact('item', 'marquee'));
     }
 
     /**

@@ -475,7 +475,15 @@
           <a class="nav-link {{ Route::is('staff.attendance') ? 'active' : '' }}" href="{{ route('staff.attendance') }}">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-calendar-check text-warning"></span></span>
-              <span class="nav-link-text ps-1">Staff Attendance</span>
+              <span class="nav-link-text ps-1">Daily Attendance</span>
+            </div>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ Route::is('attendance.monthly') ? 'active' : '' }}" href="{{ route('attendance.monthly') }}">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-calendar-alt text-info"></span></span>
+              <span class="nav-link-text ps-1">Monthly Attendance Sheet</span>
             </div>
           </a>
         </li>
@@ -1443,30 +1451,50 @@
           <div class="col ps-0"><hr class="mb-0 text-300" /></div>
         </div>
 
-        <!-- Employee Roster -->
+        <!-- HR, Attendance & Payroll Management -->
         @php
-          $staffActive = Route::is('staff.index') || Route::is('staff.show') || Route::is('staff.edit') || Route::is('staff.create');
+          $hrActive = Route::is('staff.*') || Route::is('attendance.*') || Route::is('payroll.*');
         @endphp
         <li class="nav-item">
-          <a class="nav-link dropdown-indicator {{ $staffActive ? '' : 'collapsed' }}" href="#staffCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $staffActive ? 'true' : 'false' }}" aria-controls="staffCollapse">
+          <a class="nav-link dropdown-indicator {{ $hrActive ? '' : 'collapsed' }}" href="#hrCollapse" role="button" data-bs-toggle="collapse" aria-expanded="{{ $hrActive ? 'true' : 'false' }}" aria-controls="hrCollapse">
             <div class="d-flex align-items-center">
-              <span class="nav-link-icon"><span class="fas fa-user-tie"></span></span>
-              <span class="nav-link-text ps-1">Employees</span>
+              <span class="nav-link-icon"><span class="fas fa-user-tie text-primary"></span></span>
+              <span class="nav-link-text ps-1">HR &amp; Payroll</span>
             </div>
           </a>
-          <ul class="nav collapse {{ $staffActive ? 'show' : '' }}" id="staffCollapse" data-bs-parent="#navbarVerticalNav">
+          <ul class="nav collapse {{ $hrActive ? 'show' : '' }}" id="hrCollapse" data-bs-parent="#navbarVerticalNav">
             <li class="nav-item">
-              <a class="nav-link {{ Route::is('staff.index') ? 'active' : '' }}" href="{{ route('staff.index') }}">
+              <a class="nav-link {{ Route::is('staff.index') || Route::is('staff.show') ? 'active' : '' }}" href="{{ route('staff.index') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">All Employees</span>
+                  <span class="nav-link-text ps-1">Employees Roster</span>
                 </div>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('staff.attendance') ? 'active' : '' }}" href="{{ route('staff.attendance') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Payroll Overview</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                  <span class="nav-link-text ps-1">Daily Attendance</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('attendance.monthly') ? 'active' : '' }}" href="{{ route('attendance.monthly') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Monthly Attendance Sheet</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('payroll.advances') ? 'active' : '' }}" href="{{ route('payroll.advances') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Salary Advances &amp; Loans</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('payroll.index') || Route::is('payroll.show') ? 'active' : '' }}" href="{{ route('payroll.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Monthly Payroll Batches</span>
                 </div>
               </a>
             </li>

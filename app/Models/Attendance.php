@@ -19,6 +19,7 @@ class Attendance extends Model
         'date',
         'check_in',
         'check_out',
+        'overtime_hours',
         'status',
         'notes',
         'created_by',
@@ -27,6 +28,7 @@ class Attendance extends Model
 
     protected $casts = [
         'date' => 'date',
+        'overtime_hours' => 'decimal:2',
     ];
 
     /**

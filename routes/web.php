@@ -729,8 +729,15 @@ Route::middleware(['auth', 'user.active'])->group(function () {
             Route::get('expenses/export/pdf', [\App\Http\Controllers\ExpenseController::class, 'pdfRegister'])->name('expenses.pdf');
             Route::resource('expenses', \App\Http\Controllers\ExpenseController::class);
 
-            // Kitchen & Event Operations Sprint Routes
+            // HR, Attendance & Payroll Management Module
             Route::get('staff-attendance', \App\Livewire\StaffAttendance::class)->name('staff.attendance');
+            Route::get('attendance/monthly', \App\Livewire\MonthlyAttendanceSheet::class)->name('attendance.monthly');
+            Route::get('payroll/advances', \App\Livewire\Payroll\SalaryAdvanceManager::class)->name('payroll.advances');
+            Route::get('payroll', \App\Livewire\Payroll\PayrollBatchManager::class)->name('payroll.index');
+            Route::get('payroll/{id}', \App\Livewire\Payroll\PayrollBatchDetail::class)->name('payroll.show');
+            Route::get('payroll/slips/{id}', [\App\Http\Controllers\StaffController::class, 'payslip'])->name('payroll.slip');
+
+            // Kitchen & Event Operations Sprint Routes
             Route::get('recipes', \App\Livewire\RecipeList::class)->name('recipes.index');
             Route::get('operations/checklists', \App\Livewire\EventChecklistManager::class)->name('operations.checklists');
 

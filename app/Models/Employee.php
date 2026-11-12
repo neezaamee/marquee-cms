@@ -253,6 +253,33 @@ class Employee extends Model
         return $this->hasMany(DepartmentAttendance::class);
     }
 
+    /**
+     * Get the salary advances for this employee.
+     */
+    public function salaryAdvances()
+    {
+        return $this->hasMany(SalaryAdvance::class);
+    }
+
+    /**
+     * Get the payroll items / salary slips for this employee.
+     */
+    public function payrollItems()
+    {
+        return $this->hasMany(PayrollItem::class);
+    }
+
+    /**
+     * Get total pending salary advances.
+     */
+    public function getPendingAdvanceBalanceAttribute(): float
+    {
+        return (float) $this->salaryAdvances()
+            ->where('status', 'pending')
+            ->selectRaw('COALESCE(SUM(amount - deducted_amount), 0) as balance')
+            ->value('balance');
+    }
+
     public function setMobileNumberAttribute($value)
     {
         $this->attributes['mobile_number'] = \App\Services\PhoneNumberService::normalize($value);
