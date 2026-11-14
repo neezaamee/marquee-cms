@@ -1,6 +1,117 @@
 <div class="container-fluid p-0">
-    <!-- Header -->
-    <div class="row mb-3 align-items-center justify-content-between">
+    <style>
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 8mm 10mm;
+            }
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+                font-size: 9pt !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .no-print,
+            .navbar,
+            .navbar-vertical,
+            .navbar-top,
+            footer,
+            .btn,
+            .card-header .btn,
+            .pagination,
+            nav[aria-label="Pagination Navigation"] {
+                display: none !important;
+            }
+            .card {
+                border: none !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .card-header {
+                background: transparent !important;
+                padding: 4px 0 !important;
+                border-bottom: 2px solid #333 !important;
+            }
+            .card-body {
+                padding: 0 !important;
+            }
+            .table-responsive {
+                overflow: visible !important;
+                width: 100% !important;
+            }
+            table {
+                width: 100% !important;
+                font-size: 8.5pt !important;
+                border-collapse: collapse !important;
+            }
+            thead th {
+                background-color: #f1f3f5 !important;
+                color: #000 !important;
+                border-top: 1px solid #333 !important;
+                border-bottom: 2px solid #333 !important;
+                padding: 5px 6px !important;
+            }
+            tbody td {
+                border-bottom: 1px solid #ddd !important;
+                padding: 4px 6px !important;
+            }
+            tr {
+                page-break-inside: avoid !important;
+            }
+            .badge {
+                border: 1px solid #777 !important;
+                background: transparent !important;
+                color: #000 !important;
+                font-weight: normal !important;
+                padding: 1px 4px !important;
+            }
+            .print-letterhead {
+                display: block !important;
+                margin-bottom: 12px !important;
+                border-bottom: 2px solid #1a1a1a !important;
+                padding-bottom: 8px !important;
+            }
+        }
+        .print-letterhead {
+            display: none;
+        }
+    </style>
+
+    <!-- Executive Letterhead (Visible in Print Mode) -->
+    <div class="print-letterhead">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h3 class="fw-bold mb-1 text-uppercase text-dark">{{ $marquee?->name ?? 'Marquee CMS' }}</h3>
+                <div class="fs-11 text-muted">
+                    {{ $marquee?->address ?? '' }}
+                    @if($marquee?->phone) &bull; Phone: {{ $marquee->phone }} @endif
+                    @if($marquee?->email) &bull; Email: {{ $marquee->email }} @endif
+                </div>
+            </div>
+            <div class="text-end">
+                <h4 class="fw-bold text-uppercase text-primary mb-1">
+                    @if($reportType === 'consumption') Stock Movement Audit Report
+                    @elseif($reportType === 'attendance') Attendance Audit Log
+                    @elseif($reportType === 'production') Kitchen Production Log
+                    @elseif($reportType === 'ledger_summary') Department Stock Balance Summary
+                    @endif
+                </h4>
+                <div class="fs-11 text-muted">
+                    Period: <strong>{{ \Carbon\Carbon::parse($dateFrom)->format('d M Y') }}</strong> to <strong>{{ \Carbon\Carbon::parse($dateTo)->format('d M Y') }}</strong>
+                </div>
+                <div class="fs-11 text-muted">
+                    Dept: <strong>{{ $filterDepartment ? ($departments->firstWhere('id', $filterDepartment)->name ?? 'Filtered') : 'All Departments' }}</strong>
+                    &bull; Branch: <strong>{{ $filterBranch ? ($branches->firstWhere('id', $filterBranch)->name ?? 'Branch') : 'All Branches' }}</strong>
+                </div>
+                <div class="fs-11 text-muted">Printed On: {{ date('d M Y, h:i A') }} &bull; By: {{ auth()->user()->name }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screen Header (Hidden on Print) -->
+    <div class="row mb-3 align-items-center justify-content-between no-print">
         <div class="col-auto">
             <h3 class="mb-0 text-secondary">
                 <span class="fas fa-file-alt me-2 text-primary"></span>Department Analytical Reports
@@ -8,8 +119,9 @@
             <p class="text-600 fs-10 mb-0">Generate stock issues, consumption, attendance, and production audit reports</p>
         </div>
         <div class="col-auto d-flex gap-2">
-            <button wire:click="exportCsv" class="btn btn-outline-success btn-sm">
-                <span class="fas fa-file-csv me-1"></span>Export CSV
+            <button wire:click="exportCsv" wire:loading.attr="disabled" class="btn btn-outline-success btn-sm">
+                <span wire:loading.remove wire:target="exportCsv"><span class="fas fa-file-csv me-1"></span>Export CSV</span>
+                <span wire:loading wire:target="exportCsv"><span class="spinner-border spinner-border-sm me-1"></span>Exporting...</span>
             </button>
             <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
                 <span class="fas fa-print me-1"></span>Print View
@@ -17,8 +129,8 @@
         </div>
     </div>
 
-    <!-- Filters Card -->
-    <div class="card border border-200 mb-3">
+    <!-- Filters Card (Hidden on Print) -->
+    <div class="card border border-200 mb-3 no-print">
         <div class="card-body p-3 bg-light">
             <div class="row g-2 align-items-center">
                 <div class="col-md-3">
@@ -38,7 +150,7 @@
                     <label class="form-label fs-11 text-uppercase fw-semi-bold mb-1">To Date</label>
                     <input type="date" wire:model.live="dateTo" class="form-control form-control-sm">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label fs-11 text-uppercase fw-semi-bold mb-1">Department</label>
                     <select wire:model.live="filterDepartment" class="form-select form-select-sm">
                         <option value="">All Departments</option>
@@ -56,13 +168,23 @@
                         @endforeach
                     </select>
                 </div>
+                <div class="col-md-1">
+                    <label class="form-label fs-11 text-uppercase fw-semi-bold mb-1">Rows</label>
+                    <select wire:model.live="perPage" class="form-select form-select-sm" title="Rows to display and print">
+                        <option value="15">15</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="all">All</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Stock Valuation Summary Cards (shown for stock-related reports) -->
     @if(in_array($reportType, ['consumption', 'ledger_summary']))
-        <div class="row g-2 mb-3">
+        <div class="row g-2 mb-3 no-print">
             <div class="col-md-6 col-lg-3">
                 <div class="card border border-200 bg-white h-100 shadow-none">
                     <div class="card-body p-3">
@@ -164,7 +286,7 @@
                         <tbody>
                             @forelse($reportData as $row)
                                 <tr>
-                                    <td class="ps-3 font-monospace">{{ $row->transaction_date->format('Y-m-d') }}</td>
+                                    <td class="ps-3 font-monospace">{{ $row->transaction_date ? $row->transaction_date->format('Y-m-d') : '—' }}</td>
                                     <td class="fw-semi-bold">{{ $row->department->name ?? '—' }}</td>
                                     <td class="font-monospace">{{ $row->inventoryItem->item_code ?? '—' }}</td>
                                     <td>{{ $row->inventoryItem->name ?? '—' }}</td>
@@ -210,7 +332,7 @@
                         <tbody>
                             @forelse($reportData as $row)
                                 <tr>
-                                    <td class="ps-3 font-monospace">{{ $row->date->format('Y-m-d') }}</td>
+                                    <td class="ps-3 font-monospace">{{ $row->date ? $row->date->format('Y-m-d') : '—' }}</td>
                                     <td class="fw-semi-bold">{{ $row->department->name ?? '—' }}</td>
                                     <td class="font-monospace">{{ $row->employee->employee_id ?? '—' }}</td>
                                     <td class="fw-semi-bold">{{ $row->employee->name ?? '—' }}</td>
@@ -253,7 +375,7 @@
                             @forelse($reportData as $row)
                                 <tr>
                                     <td class="ps-3 font-monospace fw-bold">{{ $row->batch_number }}</td>
-                                    <td>{{ $row->production_date->format('Y-m-d') }}</td>
+                                    <td>{{ $row->production_date ? $row->production_date->format('Y-m-d') : '—' }}</td>
                                     <td class="fw-semi-bold">{{ $row->department->name ?? '—' }}</td>
                                     <td>{{ $row->recipe->name ?? '—' }}</td>
                                     <td class="text-end font-monospace text-success fw-bold">{{ number_format($row->produced_qty, 2) }}</td>
@@ -312,7 +434,7 @@
             </div>
         </div>
         @if($reportData && $reportData->hasPages())
-            <div class="card-footer bg-light p-2">
+            <div class="card-footer bg-light p-2 no-print">
                 {{ $reportData->links() }}
             </div>
         @endif
