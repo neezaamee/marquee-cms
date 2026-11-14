@@ -120,12 +120,26 @@
           padding-left: 0 !important;
           background: #ffffff !important;
           color: #000000 !important;
+          overflow: visible !important;
+          height: auto !important;
+          min-height: auto !important;
+          display: block !important;
+          position: static !important;
         }
 
         .card {
           border: 1px solid #dee2e6 !important;
           box-shadow: none !important;
           background: #ffffff !important;
+          overflow: visible !important;
+          page-break-inside: auto !important;
+          break-inside: auto !important;
+        }
+
+        .card-body {
+          overflow: visible !important;
+          page-break-inside: auto !important;
+          break-inside: auto !important;
         }
 
         .table {
@@ -133,8 +147,9 @@
           page-break-inside: auto;
         }
 
-        tr, .card-header, .card-body {
+        tr {
           page-break-inside: avoid;
+          break-inside: avoid;
         }
       }
     </style>

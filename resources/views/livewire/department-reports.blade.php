@@ -5,12 +5,21 @@
                 size: A4 landscape;
                 margin: 8mm 10mm;
             }
-            body {
+            html, body, .main, [data-layout="container"], .container, .container-fluid, .content {
                 background: #ffffff !important;
                 color: #000000 !important;
                 font-size: 9pt !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                min-height: auto !important;
+                overflow: visible !important;
+                display: block !important;
+                position: static !important;
             }
             .no-print,
             .navbar,
@@ -28,23 +37,36 @@
                 box-shadow: none !important;
                 margin: 0 !important;
                 padding: 0 !important;
+                overflow: visible !important;
+                page-break-inside: auto !important;
+                break-inside: auto !important;
+                background: transparent !important;
             }
             .card-header {
-                background: transparent !important;
-                padding: 4px 0 !important;
-                border-bottom: 2px solid #333 !important;
+                display: none !important;
             }
             .card-body {
                 padding: 0 !important;
+                overflow: visible !important;
+                page-break-inside: auto !important;
+                break-inside: auto !important;
             }
             .table-responsive {
                 overflow: visible !important;
                 width: 100% !important;
+                display: block !important;
+                page-break-inside: auto !important;
+                break-inside: auto !important;
             }
             table {
                 width: 100% !important;
                 font-size: 8.5pt !important;
                 border-collapse: collapse !important;
+                page-break-inside: auto !important;
+                break-inside: auto !important;
+            }
+            thead {
+                display: table-header-group !important;
             }
             thead th {
                 background-color: #f1f3f5 !important;
@@ -57,8 +79,24 @@
                 border-bottom: 1px solid #ddd !important;
                 padding: 4px 6px !important;
             }
+            tfoot {
+                display: table-footer-group !important;
+            }
+            tfoot tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            tfoot td {
+                border-top: 2px solid #333 !important;
+                border-bottom: 2px solid #333 !important;
+                font-weight: bold !important;
+                background-color: #f8f9fa !important;
+                padding: 5px 6px !important;
+                color: #000 !important;
+            }
             tr {
                 page-break-inside: avoid !important;
+                break-inside: avoid !important;
             }
             .badge {
                 border: 1px solid #777 !important;
@@ -69,12 +107,25 @@
             }
             .print-letterhead {
                 display: block !important;
-                margin-bottom: 12px !important;
+                margin-bottom: 8px !important;
                 border-bottom: 2px solid #1a1a1a !important;
-                padding-bottom: 8px !important;
+                padding-bottom: 6px !important;
+            }
+            .print-summary-box {
+                display: block !important;
+                margin-bottom: 10px !important;
+            }
+            .print-summary-box table {
+                border: 1px solid #999 !important;
+            }
+            .print-summary-box td {
+                border: 1px solid #ccc !important;
+                padding: 4px 8px !important;
+                background: #f8f9fa !important;
             }
         }
-        .print-letterhead {
+        .print-letterhead,
+        .print-summary-box {
             display: none;
         }
     </style>
@@ -108,6 +159,36 @@
                 <div class="fs-11 text-muted">Printed On: {{ date('d M Y, h:i A') }} &bull; By: {{ auth()->user()->name }}</div>
             </div>
         </div>
+    </div>
+
+    <!-- Executive Summary Box (Visible in Print Mode) -->
+    <div class="print-summary-box">
+        <table class="table mb-0">
+            <tbody>
+                <tr>
+                    @if($reportType === 'consumption')
+                        <td class="text-center"><strong>Period Total Turnover:</strong> Rs. {{ number_format($periodTotalValue, 2) }}</td>
+                        <td class="text-center"><strong>Period Stock Issued Value:</strong> Rs. {{ number_format($periodIssuedValue, 2) }}</td>
+                        <td class="text-center"><strong>Total Units Moved:</strong> {{ number_format($periodTotalQty, 2) }}</td>
+                        <td class="text-center"><strong>Total Records:</strong> {{ number_format($periodTotalRows) }}</td>
+                    @elseif($reportType === 'ledger_summary')
+                        <td class="text-center"><strong>Total Issued Value:</strong> Rs. {{ number_format($ledgerTotalIssuedValue, 2) }}</td>
+                        <td class="text-center"><strong>Total Issued Qty:</strong> {{ number_format($ledgerTotalIssuedQty, 2) }}</td>
+                        <td class="text-center"><strong>Total Consumed:</strong> {{ number_format($ledgerTotalConsumedQty, 2) }}</td>
+                        <td class="text-center"><strong>Net Stock Balance:</strong> {{ number_format($ledgerNetBalance, 2) }}</td>
+                    @elseif($reportType === 'production')
+                        <td class="text-center"><strong>Total Batches:</strong> {{ $productionTotals->total_batches ?? 0 }}</td>
+                        <td class="text-center"><strong>Total Produced Qty:</strong> {{ number_format($productionTotals->total_produced ?? 0, 2) }}</td>
+                        <td class="text-center"><strong>Total Wastage Qty:</strong> {{ number_format($productionTotals->total_wastage ?? 0, 2) }}</td>
+                    @elseif($reportType === 'attendance')
+                        <td class="text-center"><strong>Total Attendance Logs:</strong> {{ $attendanceTotals->total_logs ?? 0 }}</td>
+                        <td class="text-center"><strong>Present:</strong> {{ $attendanceTotals->present_count ?? 0 }}</td>
+                        <td class="text-center"><strong>Absent:</strong> {{ $attendanceTotals->absent_count ?? 0 }}</td>
+                        <td class="text-center"><strong>Late:</strong> {{ $attendanceTotals->late_count ?? 0 }}</td>
+                    @endif
+                </tr>
+            </tbody>
+        </table>
     </div>
 
     <!-- Screen Header (Hidden on Print) -->
@@ -182,7 +263,7 @@
         </div>
     </div>
 
-    <!-- Stock Valuation Summary Cards (shown for stock-related reports) -->
+    <!-- Summary Cards (Screen Only - Print has Dedicated Executive Summary Box) -->
     @if(in_array($reportType, ['consumption', 'ledger_summary']))
         <div class="row g-2 mb-3 no-print">
             <div class="col-md-6 col-lg-3">
@@ -208,7 +289,7 @@
                             <div>
                                 <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Period Total Issued Value</h6>
                                 <h4 class="mb-0 text-success font-monospace fw-bold">Rs. {{ number_format($periodIssuedValue, 2) }}</h4>
-                                <small class="text-muted fs-11">{{ number_format($periodIssuedQty, 2) }} units in date range</small>
+                                <small class="text-muted fs-11">{{ number_format($periodIssuedQty, 2) }} units issued in range</small>
                             </div>
                             <div class="avatar avatar-m bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center">
                                 <span class="fas fa-money-bill-wave fs-8"></span>
@@ -222,7 +303,23 @@
                     <div class="card-body p-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
-                                <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Selected Department</h6>
+                                <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Period Total Turnover Value</h6>
+                                <h4 class="mb-0 text-dark font-monospace fw-bold">Rs. {{ number_format($periodTotalValue, 2) }}</h4>
+                                <small class="text-muted fs-11">{{ number_format($periodTotalQty, 2) }} units total ({{ number_format($periodTotalRows) }} rows)</small>
+                            </div>
+                            <div class="avatar avatar-m bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center">
+                                <span class="fas fa-boxes fs-8"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="card border border-200 bg-white h-100 shadow-none">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Scope & Filter</h6>
                                 <h5 class="mb-0 text-dark fw-bold">
                                     {{ $filterDepartment ? ($departments->firstWhere('id', $filterDepartment)->name ?? 'Filtered Dept') : 'All Departments' }}
                                 </h5>
@@ -235,19 +332,72 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-6 col-lg-3">
+        </div>
+    @elseif($reportType === 'production')
+        <div class="row g-2 mb-3 no-print">
+            <div class="col-md-4">
                 <div class="card border border-200 bg-white h-100 shadow-none">
                     <div class="card-body p-3">
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div>
-                                <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Valuation Basis</h6>
-                                <div class="badge bg-secondary-subtle text-secondary fw-semi-bold">Default Purchase Rate</div>
-                                <div class="text-muted fs-11 mt-1">Calculated via Purchase Rates</div>
-                            </div>
-                            <div class="avatar avatar-m bg-secondary-subtle text-secondary rounded-circle d-flex align-items-center justify-content-center">
-                                <span class="fas fa-calculator fs-8"></span>
-                            </div>
-                        </div>
+                        <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Total Batches Produced</h6>
+                        <h4 class="mb-0 text-primary font-monospace fw-bold">{{ $productionTotals->total_batches ?? 0 }}</h4>
+                        <small class="text-muted fs-11">batches in selected period</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border border-200 bg-white h-100 shadow-none">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Total Produced Quantity</h6>
+                        <h4 class="mb-0 text-success font-monospace fw-bold">{{ number_format($productionTotals->total_produced ?? 0, 2) }}</h4>
+                        <small class="text-muted fs-11">units produced</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border border-200 bg-white h-100 shadow-none">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Total Kitchen Wastage</h6>
+                        <h4 class="mb-0 text-danger font-monospace fw-bold">{{ number_format($productionTotals->total_wastage ?? 0, 2) }}</h4>
+                        <small class="text-muted fs-11">units wasted</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @elseif($reportType === 'attendance')
+        <div class="row g-2 mb-3 no-print">
+            <div class="col-md-3">
+                <div class="card border border-200 bg-white h-100 shadow-none">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Total Attendance Logs</h6>
+                        <h4 class="mb-0 text-primary font-monospace fw-bold">{{ $attendanceTotals->total_logs ?? 0 }}</h4>
+                        <small class="text-muted fs-11">logs recorded</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border border-200 bg-white h-100 shadow-none">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Present Count</h6>
+                        <h4 class="mb-0 text-success font-monospace fw-bold">{{ $attendanceTotals->present_count ?? 0 }}</h4>
+                        <small class="text-muted fs-11">staff present</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border border-200 bg-white h-100 shadow-none">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Absent Count</h6>
+                        <h4 class="mb-0 text-danger font-monospace fw-bold">{{ $attendanceTotals->absent_count ?? 0 }}</h4>
+                        <small class="text-muted fs-11">staff absent</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border border-200 bg-white h-100 shadow-none">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fs-11 fw-bold mb-1">Late Arrivals</h6>
+                        <h4 class="mb-0 text-warning font-monospace fw-bold">{{ $attendanceTotals->late_count ?? 0 }}</h4>
+                        <small class="text-muted fs-11">late check-ins</small>
                     </div>
                 </div>
             </div>
@@ -314,6 +464,15 @@
                                 </tr>
                             @endforelse
                         </tbody>
+                        <tfoot class="bg-200 fw-bold">
+                            <tr>
+                                <td colspan="5" class="text-end ps-3 fw-bold">FILTERED TOTAL:</td>
+                                <td class="text-end font-monospace fw-bold">{{ number_format($periodTotalQty, 2) }}</td>
+                                <td class="text-end text-muted font-monospace">—</td>
+                                <td class="text-end font-monospace fw-bold text-primary">Rs. {{ number_format($periodTotalValue, 2) }}</td>
+                                <td class="pe-3 font-monospace text-muted">{{ number_format($periodTotalRows) }} rows</td>
+                            </tr>
+                        </tfoot>
                     </table>
 
                 @elseif($reportType === 'attendance')
@@ -356,9 +515,18 @@
                                 </tr>
                             @endforelse
                         </tbody>
+                        <tfoot class="bg-200 fw-bold">
+                            <tr>
+                                <td colspan="4" class="text-end ps-3 fw-bold">SUMMARY TOTALS:</td>
+                                <td colspan="3" class="pe-3 fs-11">
+                                    <span class="badge bg-success-subtle text-success me-1">Present: {{ $attendanceTotals->present_count ?? 0 }}</span>
+                                    <span class="badge bg-danger-subtle text-danger me-1">Absent: {{ $attendanceTotals->absent_count ?? 0 }}</span>
+                                    <span class="badge bg-warning-subtle text-warning me-1">Late: {{ $attendanceTotals->late_count ?? 0 }}</span>
+                                    <span class="badge bg-secondary-subtle text-secondary">Total: {{ $attendanceTotals->total_logs ?? 0 }}</span>
+                                </td>
+                            </tr>
+                        </tfoot>
                     </table>
-
-                @elseif($reportType === 'production')
                     <table class="table table-sm table-striped mb-0 align-middle">
                         <thead class="bg-200">
                             <tr>
@@ -388,6 +556,14 @@
                                 </tr>
                             @endforelse
                         </tbody>
+                        <tfoot class="bg-200 fw-bold">
+                            <tr>
+                                <td colspan="4" class="text-end ps-3 fw-bold">FILTERED TOTAL:</td>
+                                <td class="text-end font-monospace text-success fw-bold">{{ number_format($productionTotals->total_produced ?? 0, 2) }}</td>
+                                <td class="text-end font-monospace text-danger fw-bold">{{ number_format($productionTotals->total_wastage ?? 0, 2) }}</td>
+                                <td class="pe-3 font-monospace text-muted">{{ $productionTotals->total_batches ?? 0 }} batches</td>
+                            </tr>
+                        </tfoot>
                     </table>
 
                 @elseif($reportType === 'ledger_summary')
@@ -429,6 +605,17 @@
                                 </tr>
                             @endforelse
                         </tbody>
+                        <tfoot class="bg-200 fw-bold">
+                            <tr>
+                                <td colspan="2" class="text-end ps-3 fw-bold">FILTERED TOTAL:</td>
+                                <td class="text-end font-monospace text-primary fw-bold">{{ number_format($ledgerTotalIssuedQty, 2) }}</td>
+                                <td class="text-end font-monospace text-info fw-bold">{{ number_format($ledgerTotalReturnedQty, 2) }}</td>
+                                <td class="text-end font-monospace text-warning fw-bold">{{ number_format($ledgerTotalConsumedQty, 2) }}</td>
+                                <td class="text-end font-monospace text-danger fw-bold">{{ number_format($ledgerTotalWastageQty, 2) }}</td>
+                                <td class="text-end font-monospace fw-bold {{ $ledgerNetBalance > 0 ? 'text-success' : 'text-muted' }}">{{ number_format($ledgerNetBalance, 2) }}</td>
+                                <td class="text-end pe-3 font-monospace fw-bold text-primary">Rs. {{ number_format($ledgerTotalIssuedValue, 2) }}</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 @endif
             </div>

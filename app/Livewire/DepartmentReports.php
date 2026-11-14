@@ -30,13 +30,30 @@ class DepartmentReports extends Component
     {
         $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
         $this->dateTo = now()->format('Y-m-d');
-        $this->filterBranch = auth()->user()->branch_id ?: '';
+        $user = auth()->user();
+        if ($user && $user->branch_id && !$user->isSuperAdmin() && !$user->isBusinessOwner()) {
+            $this->filterBranch = $user->branch_id;
+        } else {
+            $this->filterBranch = '';
+        }
     }
 
     public function getMarqueeId(): ?int
     {
         $user = auth()->user();
         return $user ? ($user->getActiveMarqueeId() ?: $user->marquee_id) : null;
+    }
+
+    public function getEffectiveBranchId(): ?int
+    {
+        if ($this->filterBranch) {
+            return (int) $this->filterBranch;
+        }
+        $user = auth()->user();
+        if ($user && $user->branch_id && !$user->isSuperAdmin() && !$user->isBusinessOwner()) {
+            return (int) $user->branch_id;
+        }
+        return null;
     }
 
     public function updatedReportType()
@@ -72,7 +89,9 @@ class DepartmentReports extends Component
     public function exportCsv(): StreamedResponse
     {
         $marqueeId = $this->getMarqueeId();
-        $branchId = $this->filterBranch ?: auth()->user()->branch_id;
+        $branchId = $this->getEffectiveBranchId();
+        $startDateTime = $this->dateFrom ? $this->dateFrom . ' 00:00:00' : now()->startOfMonth()->format('Y-m-d 00:00:00');
+        $endDateTime = $this->dateTo ? $this->dateTo . ' 23:59:59' : now()->format('Y-m-d 23:59:59');
 
         $fileName = 'department-' . $this->reportType . '-report-' . date('Y-m-d') . '.csv';
 
@@ -84,7 +103,7 @@ class DepartmentReports extends Component
             'Expires' => '0',
         ];
 
-        return response()->streamDownload(function () use ($marqueeId, $branchId) {
+        return response()->streamDownload(function () use ($marqueeId, $branchId, $startDateTime, $endDateTime) {
             $output = fopen('php://output', 'w');
             // Write UTF-8 BOM for Microsoft Excel compatibility
             fputs($output, "\xEF\xBB\xBF");
@@ -92,7 +111,7 @@ class DepartmentReports extends Component
             if ($this->reportType === 'consumption') {
                 fputcsv($output, ['Date', 'Department', 'Item Code', 'Item Name', 'Transaction Type', 'Quantity', 'Unit Rate (Rs.)', 'Total Value (Rs.)', 'Reference']);
                 $query = DepartmentStockLedger::where('marquee_id', $marqueeId)
-                    ->whereBetween('transaction_date', [$this->dateFrom, $this->dateTo])
+                    ->whereBetween('transaction_date', [$startDateTime, $endDateTime])
                     ->with(['department', 'inventoryItem']);
                 if ($branchId) $query->where('branch_id', $branchId);
                 if ($this->filterDepartment) $query->where('department_id', $this->filterDepartment);
@@ -115,7 +134,7 @@ class DepartmentReports extends Component
             } elseif ($this->reportType === 'attendance') {
                 fputcsv($output, ['Date', 'Department', 'Employee Code', 'Employee Name', 'Check In', 'Check Out', 'Status']);
                 $query = DepartmentAttendance::where('marquee_id', $marqueeId)
-                    ->whereBetween('date', [$this->dateFrom, $this->dateTo])
+                    ->whereBetween('date', [$startDateTime, $endDateTime])
                     ->with(['department', 'employee']);
                 if ($branchId) $query->where('branch_id', $branchId);
                 if ($this->filterDepartment) $query->where('department_id', $this->filterDepartment);
@@ -134,7 +153,7 @@ class DepartmentReports extends Component
             } elseif ($this->reportType === 'production') {
                 fputcsv($output, ['Date', 'Batch No', 'Department', 'Recipe', 'Produced Qty', 'Wastage Qty', 'Prepared By']);
                 $query = DepartmentProduction::where('marquee_id', $marqueeId)
-                    ->whereBetween('production_date', [$this->dateFrom, $this->dateTo])
+                    ->whereBetween('production_date', [$startDateTime, $endDateTime])
                     ->with(['department', 'recipe', 'prepStaff']);
                 if ($branchId) $query->where('branch_id', $branchId);
                 if ($this->filterDepartment) $query->where('department_id', $this->filterDepartment);
@@ -146,14 +165,14 @@ class DepartmentReports extends Component
                         $row->department->name ?? 'N/A',
                         $row->recipe->name ?? 'N/A',
                         $row->produced_qty,
-                        $row->wastage_qty,
+                        $row->legacy_finished_good_wastage_qty ?? $row->wastage_qty ?? 0,
                         $row->prepStaff->name ?? 'System',
                     ]);
                 }
             } elseif ($this->reportType === 'ledger_summary') {
                 fputcsv($output, ['Department', 'Item Code', 'Item Name', 'Total Issued', 'Total Returned', 'Total Consumed', 'Total Wastage', 'Net Balance', 'Total Issued Value (Rs.)']);
                 $query = DepartmentStockLedger::where('marquee_id', $marqueeId)
-                    ->whereBetween('transaction_date', [$this->dateFrom, $this->dateTo])
+                    ->whereBetween('transaction_date', [$startDateTime, $endDateTime])
                     ->selectRaw("department_id, item_id, 
                         SUM(CASE WHEN transaction_type = 'Issue' THEN qty_in ELSE 0 END) as total_issued,
                         SUM(CASE WHEN transaction_type = 'Return' THEN qty_out ELSE 0 END) as total_returned,
@@ -188,7 +207,9 @@ class DepartmentReports extends Component
     public function render()
     {
         $marqueeId = $this->getMarqueeId();
-        $branchId = $this->filterBranch ?: auth()->user()->branch_id;
+        $branchId = $this->getEffectiveBranchId();
+        $startDateTime = $this->dateFrom ? $this->dateFrom . ' 00:00:00' : now()->startOfMonth()->format('Y-m-d 00:00:00');
+        $endDateTime = $this->dateTo ? $this->dateTo . ' 23:59:59' : now()->format('Y-m-d 23:59:59');
 
         $marquee = $marqueeId ? Marquee::find($marqueeId) : null;
 
@@ -198,29 +219,86 @@ class DepartmentReports extends Component
 
         $branches = Branch::where('marquee_id', $marqueeId)->get();
 
-        // Monetary & quantity summary metrics for stock issued
+        // Monetary & quantity summary metrics for stock issued (Today)
         $todayQuery = DepartmentStockLedger::where('marquee_id', $marqueeId)
-            ->where('transaction_date', today()->toDateString())
+            ->whereDate('transaction_date', today()->toDateString())
             ->where('transaction_type', 'Issue');
         if ($branchId) $todayQuery->where('branch_id', $branchId);
         if ($this->filterDepartment) $todayQuery->where('department_id', $this->filterDepartment);
         $todayIssuedValue = (float) $todayQuery->sum('total_cost');
         $todayIssuedQty = (float) $todayQuery->sum('qty_in');
 
-        $periodQuery = DepartmentStockLedger::where('marquee_id', $marqueeId)
-            ->whereBetween('transaction_date', [$this->dateFrom, $this->dateTo])
-            ->where('transaction_type', 'Issue');
-        if ($branchId) $periodQuery->where('branch_id', $branchId);
-        if ($this->filterDepartment) $periodQuery->where('department_id', $this->filterDepartment);
-        $periodIssuedValue = (float) $periodQuery->sum('total_cost');
-        $periodIssuedQty = (float) $periodQuery->sum('qty_in');
+        // Comprehensive Filtered Period Metrics for Stock Movements
+        $consumptionAggregates = DepartmentStockLedger::where('marquee_id', $marqueeId)
+            ->whereBetween('transaction_date', [$startDateTime, $endDateTime])
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($this->filterDepartment, fn($q) => $q->where('department_id', $this->filterDepartment))
+            ->selectRaw("
+                COUNT(*) as total_rows,
+                SUM(CASE WHEN qty_in > 0 THEN qty_in ELSE qty_out END) as total_qty,
+                SUM(total_cost) as total_value,
+                SUM(CASE WHEN transaction_type = 'Issue' THEN total_cost ELSE 0 END) as issued_value,
+                SUM(CASE WHEN transaction_type = 'Issue' THEN qty_in ELSE 0 END) as issued_qty,
+                SUM(CASE WHEN transaction_type = 'Return' THEN qty_out ELSE 0 END) as return_qty,
+                SUM(CASE WHEN transaction_type = 'Consumption' THEN qty_out ELSE 0 END) as consumed_qty,
+                SUM(CASE WHEN transaction_type = 'Wastage' THEN qty_out ELSE 0 END) as wastage_qty
+            ")->first();
+
+        $periodTotalRows = (int) ($consumptionAggregates->total_rows ?? 0);
+        $periodTotalQty = (float) ($consumptionAggregates->total_qty ?? 0);
+        $periodTotalValue = (float) ($consumptionAggregates->total_value ?? 0);
+        $periodIssuedValue = (float) ($consumptionAggregates->issued_value ?? 0);
+        $periodIssuedQty = (float) ($consumptionAggregates->issued_qty ?? 0);
+
+        // Comprehensive Filtered Period Metrics for Department Stock Balance Summary
+        $ledgerTotals = DepartmentStockLedger::where('marquee_id', $marqueeId)
+            ->whereBetween('transaction_date', [$startDateTime, $endDateTime])
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($this->filterDepartment, fn($q) => $q->where('department_id', $this->filterDepartment))
+            ->selectRaw("
+                SUM(CASE WHEN transaction_type = 'Issue' THEN qty_in ELSE 0 END) as total_issued,
+                SUM(CASE WHEN transaction_type = 'Return' THEN qty_out ELSE 0 END) as total_returned,
+                SUM(CASE WHEN transaction_type = 'Consumption' THEN qty_out ELSE 0 END) as total_consumed,
+                SUM(CASE WHEN transaction_type = 'Wastage' THEN qty_out ELSE 0 END) as total_wastage,
+                SUM(CASE WHEN transaction_type = 'Issue' THEN total_cost ELSE 0 END) as total_issued_value
+            ")->first();
+
+        $ledgerTotalIssuedQty = (float) ($ledgerTotals->total_issued ?? 0);
+        $ledgerTotalReturnedQty = (float) ($ledgerTotals->total_returned ?? 0);
+        $ledgerTotalConsumedQty = (float) ($ledgerTotals->total_consumed ?? 0);
+        $ledgerTotalWastageQty = (float) ($ledgerTotals->total_wastage ?? 0);
+        $ledgerTotalIssuedValue = (float) ($ledgerTotals->total_issued_value ?? 0);
+        $ledgerNetBalance = $ledgerTotalIssuedQty - $ledgerTotalReturnedQty - $ledgerTotalConsumedQty - $ledgerTotalWastageQty;
+
+        // Comprehensive Filtered Period Metrics for Kitchen Production
+        $productionTotals = DepartmentProduction::where('marquee_id', $marqueeId)
+            ->whereBetween('production_date', [$startDateTime, $endDateTime])
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($this->filterDepartment, fn($q) => $q->where('department_id', $this->filterDepartment))
+            ->selectRaw("
+                COUNT(*) as total_batches,
+                SUM(produced_qty) as total_produced,
+                SUM(COALESCE(legacy_finished_good_wastage_qty, 0)) as total_wastage
+            ")->first();
+
+        // Comprehensive Filtered Period Metrics for Attendance
+        $attendanceTotals = DepartmentAttendance::where('marquee_id', $marqueeId)
+            ->whereBetween('date', [$startDateTime, $endDateTime])
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($this->filterDepartment, fn($q) => $q->where('department_id', $this->filterDepartment))
+            ->selectRaw("
+                COUNT(*) as total_logs,
+                SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present_count,
+                SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) as absent_count,
+                SUM(CASE WHEN status = 'Late' THEN 1 ELSE 0 END) as late_count
+            ")->first();
 
         $pageSize = ($this->perPage === 'all' || $this->perPage == -1) ? 5000 : (int) $this->perPage;
         $reportData = null;
 
         if ($this->reportType === 'consumption') {
             $query = DepartmentStockLedger::where('marquee_id', $marqueeId)
-                ->whereBetween('transaction_date', [$this->dateFrom, $this->dateTo])
+                ->whereBetween('transaction_date', [$startDateTime, $endDateTime])
                 ->with(['department', 'inventoryItem']);
             if ($branchId) $query->where('branch_id', $branchId);
             if ($this->filterDepartment) $query->where('department_id', $this->filterDepartment);
@@ -228,7 +306,7 @@ class DepartmentReports extends Component
 
         } elseif ($this->reportType === 'attendance') {
             $query = DepartmentAttendance::where('marquee_id', $marqueeId)
-                ->whereBetween('date', [$this->dateFrom, $this->dateTo])
+                ->whereBetween('date', [$startDateTime, $endDateTime])
                 ->with(['department', 'employee']);
             if ($branchId) $query->where('branch_id', $branchId);
             if ($this->filterDepartment) $query->where('department_id', $this->filterDepartment);
@@ -236,7 +314,7 @@ class DepartmentReports extends Component
 
         } elseif ($this->reportType === 'production') {
             $query = DepartmentProduction::where('marquee_id', $marqueeId)
-                ->whereBetween('production_date', [$this->dateFrom, $this->dateTo])
+                ->whereBetween('production_date', [$startDateTime, $endDateTime])
                 ->with(['department', 'recipe', 'prepStaff']);
             if ($branchId) $query->where('branch_id', $branchId);
             if ($this->filterDepartment) $query->where('department_id', $this->filterDepartment);
@@ -244,7 +322,7 @@ class DepartmentReports extends Component
 
         } elseif ($this->reportType === 'ledger_summary') {
             $query = DepartmentStockLedger::where('marquee_id', $marqueeId)
-                ->whereBetween('transaction_date', [$this->dateFrom, $this->dateTo])
+                ->whereBetween('transaction_date', [$startDateTime, $endDateTime])
                 ->selectRaw("department_id, item_id, 
                     SUM(CASE WHEN transaction_type = 'Issue' THEN qty_in ELSE 0 END) as total_issued,
                     SUM(CASE WHEN transaction_type = 'Return' THEN qty_out ELSE 0 END) as total_returned,
@@ -267,6 +345,18 @@ class DepartmentReports extends Component
             'todayIssuedQty' => $todayIssuedQty,
             'periodIssuedValue' => $periodIssuedValue,
             'periodIssuedQty' => $periodIssuedQty,
+            'periodTotalValue' => $periodTotalValue,
+            'periodTotalQty' => $periodTotalQty,
+            'periodTotalRows' => $periodTotalRows,
+            'ledgerTotals' => $ledgerTotals,
+            'ledgerTotalIssuedQty' => $ledgerTotalIssuedQty,
+            'ledgerTotalReturnedQty' => $ledgerTotalReturnedQty,
+            'ledgerTotalConsumedQty' => $ledgerTotalConsumedQty,
+            'ledgerTotalWastageQty' => $ledgerTotalWastageQty,
+            'ledgerTotalIssuedValue' => $ledgerTotalIssuedValue,
+            'ledgerNetBalance' => $ledgerNetBalance,
+            'productionTotals' => $productionTotals,
+            'attendanceTotals' => $attendanceTotals,
         ])->layout('layouts.admin');
     }
 }

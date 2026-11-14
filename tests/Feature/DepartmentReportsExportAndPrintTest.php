@@ -76,6 +76,8 @@ class DepartmentReportsExportAndPrintTest extends TestCase
             'status' => 'active',
         ]);
 
+        $this->marquee->owners()->attach($this->user->id);
+
         $this->department = Department::create([
             'marquee_id' => $this->marquee->id,
             'branch_id' => $this->branch->id,
@@ -222,7 +224,7 @@ class DepartmentReportsExportAndPrintTest extends TestCase
             'batch_number' => 'BATCH-202611-001',
             'production_date' => now()->toDateString(),
             'produced_qty' => 5,
-            'wastage_qty' => 0.5,
+            'legacy_finished_good_wastage_qty' => 0.5,
             'prepared_by' => $cook->id,
         ]);
 
@@ -245,12 +247,40 @@ class DepartmentReportsExportAndPrintTest extends TestCase
     {
         $this->actingAs($this->user);
 
+        // Seed a stock ledger transaction within current period
+        DepartmentStockLedger::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'department_id' => $this->department->id,
+            'item_id' => $this->item->id,
+            'transaction_date' => now()->toDateString(),
+            'transaction_type' => 'Issue',
+            'qty_in' => 10,
+            'qty_out' => 0,
+            'running_balance' => 10,
+            'unit_price' => 500,
+            'total_cost' => 5000,
+        ]);
+
         $component = Livewire::test(DepartmentReports::class)
             ->set('reportType', 'consumption')
             ->set('perPage', 'all')
             ->assertSee('Royal Palm Banquet')
             ->assertSee('Stock Movement Audit Report')
             ->assertSee('Print View')
-            ->assertSee('Export CSV');
+            ->assertSee('Export CSV')
+            ->assertSee('print-letterhead', false)
+            ->assertSee('print-summary-box', false)
+            ->assertSee('FILTERED TOTAL:')
+            ->assertSee('5,000.00')
+            ->assertSee('10.00');
+
+        // Test Ledger Summary report print view and totals
+        Livewire::test(DepartmentReports::class)
+            ->set('reportType', 'ledger_summary')
+            ->assertSee('Department Stock Balance Summary')
+            ->assertSee('print-summary-box', false)
+            ->assertSee('FILTERED TOTAL:')
+            ->assertSee('5,000.00');
     }
 }

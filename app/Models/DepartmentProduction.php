@@ -80,6 +80,14 @@ class DepartmentProduction extends Model
     }
 
     /**
+     * Backward-compatible accessor for wastage_qty.
+     */
+    public function getWastageQtyAttribute()
+    {
+        return $this->attributes['legacy_finished_good_wastage_qty'] ?? 0.00;
+    }
+
+    /**
      * Get raw materials consumed for this production.
      */
     public function items(): HasMany
