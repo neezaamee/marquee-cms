@@ -207,6 +207,8 @@ class VendorCommissionService
                     'notes' => "Customer Advance for " . ($service?->service_name ?? $vendor->name) . " (Sale #" . $sale->vendor_sale_number . ")",
                     'recorded_by' => auth()->id(),
                 ]);
+
+                $this->recalculateVendorSaleCustomerFinancials($sale);
             }
 
             // 3. Post to Vendor Ledger
@@ -373,6 +375,8 @@ class VendorCommissionService
                 'include_in_invoice' => $newIncludeInInvoice,
                 'notes' => $data['notes'] ?? $sale->notes,
             ]);
+
+            $this->recalculateVendorSaleCustomerFinancials($sale);
 
             // Ledger Adjustments:
             $currentBalance = $vendor->current_balance;
@@ -718,19 +722,42 @@ class VendorCommissionService
             }
 
             // 2. Recalculate customer paid and remaining balance on VendorSale
-            $totalCustomerPaid = (float) \App\Models\BookingPayment::where('vendor_sale_id', $sale->id)->sum('amount');
-            if ($totalCustomerPaid <= 0) {
-                $totalCustomerPaid = (float) $sale->customer_paid_amount + $paymentAmount;
-            }
-            $customerRemaining = max(0.00, (float) $sale->sale_amount - $totalCustomerPaid);
-
-            $sale->update([
-                'customer_paid_amount' => $totalCustomerPaid,
-                'customer_remaining_amount' => $customerRemaining,
-            ]);
+            $this->recalculateVendorSaleCustomerFinancials($sale);
 
             return $payment;
         });
+    }
+
+    /**
+     * Recalculate customer paid and remaining balance for a VendorSale based on valid non-rejected payments.
+     */
+    public function recalculateVendorSaleCustomerFinancials(VendorSale $sale): void
+    {
+        if (!$sale->include_in_invoice) {
+            $sale->updateQuietly([
+                'customer_paid_amount' => (float) $sale->sale_amount,
+                'customer_remaining_amount' => 0.00,
+            ]);
+            return;
+        }
+
+        $hasRecordedPayments = \App\Models\BookingPayment::where('vendor_sale_id', $sale->id)->exists();
+
+        if ($hasRecordedPayments) {
+            $totalCustomerPaid = (float) \App\Models\BookingPayment::where('vendor_sale_id', $sale->id)
+                ->whereNotIn('status', ['rejected', 'cancelled', 'reversed'])
+                ->sum('amount');
+        } else {
+            // Fallback for legacy sales where BookingPayment records were not linked via vendor_sale_id
+            $totalCustomerPaid = (float) ($sale->customer_paid_amount > 0 ? $sale->customer_paid_amount : $sale->customer_advance_amount);
+        }
+
+        $customerRemaining = max(0.00, (float) $sale->sale_amount - $totalCustomerPaid);
+
+        $sale->updateQuietly([
+            'customer_paid_amount' => $totalCustomerPaid,
+            'customer_remaining_amount' => $customerRemaining,
+        ]);
     }
 
     /**

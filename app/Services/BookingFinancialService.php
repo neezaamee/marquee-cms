@@ -12,6 +12,7 @@ use App\Models\Customer;
 use App\Models\CustomerLedger;
 use App\Models\JournalVoucher;
 use App\Models\JournalVoucherItem;
+use App\Models\VendorSale;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -121,6 +122,13 @@ class BookingFinancialService
             ]);
 
             $this->recalculateBookingFinancials($booking);
+
+            if ($payment->vendor_sale_id) {
+                $vSale = VendorSale::find($payment->vendor_sale_id);
+                if ($vSale) {
+                    app(VendorCommissionService::class)->recalculateVendorSaleCustomerFinancials($vSale);
+                }
+            }
 
             return $payment;
         });
@@ -273,6 +281,13 @@ class BookingFinancialService
             // 6. Recalculate Booking Financial Metrics
             $this->recalculateBookingFinancials($booking);
 
+            if ($payment->vendor_sale_id) {
+                $vSale = VendorSale::find($payment->vendor_sale_id);
+                if ($vSale) {
+                    app(VendorCommissionService::class)->recalculateVendorSaleCustomerFinancials($vSale);
+                }
+            }
+
             // 7. Booking History Log
             BookingHistory::create([
                 'booking_id' => $booking->id,
@@ -319,6 +334,13 @@ class BookingFinancialService
             ]);
 
             $this->recalculateBookingFinancials($booking);
+
+            if ($payment->vendor_sale_id) {
+                $vSale = VendorSale::find($payment->vendor_sale_id);
+                if ($vSale) {
+                    app(VendorCommissionService::class)->recalculateVendorSaleCustomerFinancials($vSale);
+                }
+            }
 
             return $payment;
         });
@@ -424,6 +446,13 @@ class BookingFinancialService
             ]);
 
             $this->recalculateBookingFinancials($booking);
+
+            if ($payment->vendor_sale_id) {
+                $vSale = VendorSale::find($payment->vendor_sale_id);
+                if ($vSale) {
+                    app(VendorCommissionService::class)->recalculateVendorSaleCustomerFinancials($vSale);
+                }
+            }
 
             BookingHistory::create([
                 'booking_id' => $booking->id,
@@ -544,6 +573,13 @@ class BookingFinancialService
             ]);
 
             $this->recalculateBookingFinancials($booking);
+
+            if ($payment->vendor_sale_id) {
+                $vSale = VendorSale::find($payment->vendor_sale_id);
+                if ($vSale) {
+                    app(VendorCommissionService::class)->recalculateVendorSaleCustomerFinancials($vSale);
+                }
+            }
 
             BookingHistory::create([
                 'booking_id' => $booking->id,

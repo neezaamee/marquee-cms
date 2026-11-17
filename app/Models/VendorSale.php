@@ -161,6 +161,22 @@ class VendorSale extends Model
     }
 
     /**
+     * Get valid (non-rejected/non-reversed) customer payments recorded for this vendor service.
+     */
+    public function validCustomerPayments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->customerPayments()->whereNotIn('status', ['rejected', 'cancelled', 'reversed']);
+    }
+
+    /**
+     * Recalculate customer financial figures (paid and remaining) from linked payment transactions.
+     */
+    public function recalculateCustomerFinancials(): void
+    {
+        app(\App\Services\VendorCommissionService::class)->recalculateVendorSaleCustomerFinancials($this);
+    }
+
+    /**
      * Helper: Customer charge amount.
      */
     public function getCustomerChargeAttribute(): float
@@ -176,7 +192,12 @@ class VendorSale extends Model
         if (!$this->include_in_invoice) {
             return (float) $this->sale_amount;
         }
-        return (float) ($this->customer_paid_amount > 0 ? $this->customer_paid_amount : $this->customer_advance_amount);
+
+        if ($this->customer_paid_amount !== null) {
+            return (float) $this->customer_paid_amount;
+        }
+
+        return (float) ($this->customer_advance_amount ?? 0.00);
     }
 
     /**
@@ -187,7 +208,12 @@ class VendorSale extends Model
         if (!$this->include_in_invoice) {
             return 0.00;
         }
-        $paid = (float) ($this->customer_paid_amount > 0 ? $this->customer_paid_amount : $this->customer_advance_amount);
+
+        if ($this->customer_remaining_amount !== null) {
+            return (float) $this->customer_remaining_amount;
+        }
+
+        $paid = $this->customer_paid;
         return max(0.00, (float) $this->sale_amount - $paid);
     }
 

@@ -1934,6 +1934,7 @@
                                         <th>Date</th>
                                         <th>Receipt / Ref #</th>
                                         <th>Method</th>
+                                        <th>Status</th>
                                         <th>Recorded By</th>
                                         <th>Notes</th>
                                         <th class="text-end">Amount Paid</th>
@@ -1941,17 +1942,43 @@
                                 </thead>
                                 <tbody>
                                     @forelse($viewingVendorSale->customerPayments as $cPay)
-                                        <tr>
+                                        @php
+                                            $isRejectedOrReversed = in_array($cPay->status, ['rejected', 'cancelled', 'reversed']);
+                                        @endphp
+                                        <tr class="{{ $isRejectedOrReversed ? 'opacity-75 bg-light' : '' }}">
                                             <td>{{ \Carbon\Carbon::parse($cPay->payment_date)->format('M d, Y') }}</td>
                                             <td class="font-monospace">{{ $cPay->transaction_reference ?? '—' }}</td>
                                             <td><span class="badge badge-subtle-info">{{ $cPay->payment_method }}</span></td>
+                                            <td>
+                                                @if($cPay->status === 'posted')
+                                                    <span class="badge badge-subtle-success"><i class="fas fa-check-circle me-1"></i>Posted</span>
+                                                @elseif($cPay->status === 'rejected')
+                                                    <span class="badge badge-subtle-danger" title="{{ $cPay->rejection_reason }}"><i class="fas fa-times-circle me-1"></i>Rejected</span>
+                                                @elseif($cPay->status === 'reversed')
+                                                    <span class="badge badge-subtle-warning" title="{{ $cPay->reversal_reason }}"><i class="fas fa-undo me-1"></i>Reversed</span>
+                                                @elseif($cPay->status === 'cancelled')
+                                                    <span class="badge badge-subtle-secondary">Cancelled</span>
+                                                @else
+                                                    <span class="badge badge-subtle-warning">Pending</span>
+                                                @endif
+                                            </td>
                                             <td>{{ $cPay->recorder->name ?? 'System' }}</td>
-                                            <td class="text-muted">{{ $cPay->notes ?? '—' }}</td>
-                                            <td class="text-end font-monospace text-success fw-bold">Rs. {{ number_format($cPay->amount, 2) }}</td>
+                                            <td class="text-muted">
+                                                {{ $cPay->notes ?? '—' }}
+                                                @if($cPay->rejection_reason)
+                                                    <div class="text-danger fs-10 mt-1"><i class="fas fa-info-circle me-1"></i>Reason: {{ $cPay->rejection_reason }}</div>
+                                                @endif
+                                                @if($cPay->reversal_reason)
+                                                    <div class="text-warning fs-10 mt-1"><i class="fas fa-info-circle me-1"></i>Reason: {{ $cPay->reversal_reason }}</div>
+                                                @endif
+                                            </td>
+                                            <td class="text-end font-monospace {{ $isRejectedOrReversed ? 'text-decoration-line-through text-muted' : 'text-success fw-bold' }}">
+                                                Rs. {{ number_format($cPay->amount, 2) }}
+                                            </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="text-center text-muted py-2">
+                                            <td colspan="7" class="text-center text-muted py-2">
                                                 @if((float)$viewingVendorSale->customer_advance_amount > 0)
                                                     Initial customer advance: Rs. {{ number_format($viewingVendorSale->customer_advance_amount, 2) }}
                                                 @else
