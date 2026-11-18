@@ -839,33 +839,36 @@
                             <td class="text-500 px-0">Extra Addons (Actual):</td>
                             <td class="px-0 text-end fw-semi-bold">Rs. {{ number_format($booking->finalBill->extra_charges, 2) }}</td>
                         </tr>
-                        <tr class="border-bottom text-danger">
-                            <td class="px-0 pb-2">Discount:</td>
-                            <td class="px-0 text-end fw-bold pb-2">- Rs. {{ number_format($booking->finalBill->discount_amount, 2) }}</td>
-                        </tr>
 
-                        <tr class="fw-bold">
+                        <tr class="fw-bold border-top">
                             <td class="px-0 py-2">Event Subtotal:</td>
                             <td class="px-0 text-end py-2">Rs. {{ number_format($booking->finalBill->subtotal, 2) }}</td>
                         </tr>
-                        <tr class="border-bottom text-muted">
-                            <td class="px-0 pb-2">Tax:</td>
-                            <td class="px-0 text-end pb-2">Rs. {{ number_format($booking->finalBill->tax_amount, 2) }}</td>
+                        <tr class="text-muted">
+                            <td class="px-0 pb-1">Tax:</td>
+                            <td class="px-0 text-end pb-1">Rs. {{ number_format($booking->finalBill->tax_amount, 2) }}</td>
                         </tr>
 
                         @if($booking->security_deposit > 0)
-                            <tr class="border-bottom text-info">
-                                <td class="px-0 py-2">Refundable Deposit:</td>
-                                <td class="px-0 text-end fw-bold py-2">Rs. {{ number_format($booking->security_deposit, 2) }}</td>
+                            <tr class="text-info">
+                                <td class="px-0 py-1">Refundable Deposit:</td>
+                                <td class="px-0 text-end fw-bold py-1">Rs. {{ number_format($booking->security_deposit, 2) }}</td>
+                            </tr>
+                        @endif
+
+                        @if($booking->finalBill->discount_amount > 0)
+                            <tr class="text-danger border-top">
+                                <td class="px-0 py-1 fw-bold">Less: Discount (In Last):</td>
+                                <td class="px-0 text-end fw-bold py-1">- Rs. {{ number_format($booking->finalBill->discount_amount, 2) }}</td>
                             </tr>
                         @endif
 
                         @php
                             $fbVendorTotal = (float) ($booking->finalBill->vendor_charges ?: ($booking->vendorSales ? $booking->vendorSales->where('include_in_invoice', true)->whereIn('status', ['confirmed', 'settled'])->sum('sale_amount') : 0));
                         @endphp
-                        <tr class="fs-9 fw-black text-primary {{ $fbVendorTotal > 0 ? '' : 'border-bottom' }}">
-                            <td class="px-0 pt-3">Final Event Grand Total:</td>
-                            <td class="px-0 text-end pt-3">Rs. {{ number_format($booking->finalBill->grand_total, 2) }}</td>
+                        <tr class="fs-9 fw-black text-primary border-top {{ $fbVendorTotal > 0 ? '' : 'border-bottom' }}">
+                            <td class="px-0 pt-2">Final Event Grand Total:</td>
+                            <td class="px-0 text-end pt-2">Rs. {{ number_format($booking->finalBill->grand_total, 2) }}</td>
                         </tr>
 
                         @if($fbVendorTotal > 0)
@@ -1249,25 +1252,20 @@
 
                         <!-- Form Grid -->
                         <div class="row g-3 mb-3">
-                            <div class="col-sm-6">
+                            <div class="col-sm-4">
                                 <label class="form-label fw-bold mb-1">Actual Guest Count *</label>
                                 <input wire:model.live="fbGuestCount" type="number" class="form-control form-control-sm" />
                                 @error('fbGuestCount') <div class="text-danger mt-1">{{ $message }}</div> @enderror
                             </div>
-                            <div class="col-sm-6">
+                            <div class="col-sm-4">
                                 <label class="form-label fw-bold mb-1">Actual Per Head Price (Rs.) *</label>
                                 <input wire:model.live="fbPerPlatePrice" type="number" step="0.01" class="form-control form-control-sm" />
                                 @error('fbPerPlatePrice') <div class="text-danger mt-1">{{ $message }}</div> @enderror
                             </div>
-                            <div class="col-sm-6">
+                            <div class="col-sm-4">
                                 <label class="form-label fw-bold mb-1">Actual Hall Charges (Rs.) *</label>
                                 <input wire:model.live="fbHallCharges" type="number" step="0.01" class="form-control form-control-sm" />
                                 @error('fbHallCharges') <div class="text-danger mt-1">{{ $message }}</div> @enderror
-                            </div>
-                            <div class="col-sm-6">
-                                <label class="form-label fw-bold mb-1">Discount Amount (Rs.) *</label>
-                                <input wire:model.live="fbDiscountAmount" type="number" step="0.01" class="form-control form-control-sm" />
-                                @error('fbDiscountAmount') <div class="text-danger mt-1">{{ $message }}</div> @enderror
                             </div>
                         </div>
 
@@ -1361,6 +1359,29 @@
                             </div>
                         </div>
 
+                        <!-- Final Bill Discount Adjustment (Calculated in Last) -->
+                        <div class="card mb-3 bg-light border border-danger-subtle">
+                            <div class="card-header bg-200 py-2 d-flex justify-content-between align-items-center">
+                                <h7 class="mb-0 fw-bold fs-11 text-800"><span class="fas fa-tag me-1 text-danger"></span>Final Bill Discount (Deducted in Last)</h7>
+                                <span class="badge badge-subtle-danger rounded-pill fs-11">Calculated in Last</span>
+                            </div>
+                            <div class="card-body p-2 fs-11">
+                                <div class="row align-items-center">
+                                    <div class="col-sm-7">
+                                        <label class="form-label fw-bold mb-0 text-dark">Special Discount Amount (Rs.)</label>
+                                        <div class="text-muted fs-11">Event-day settlement discount deducted at the end from total event charges.</div>
+                                    </div>
+                                    <div class="col-sm-5">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text py-0 px-2 font-monospace">Rs.</span>
+                                            <input wire:model.live="fbDiscountAmount" type="number" step="0.01" min="0" class="form-control form-control-sm font-monospace text-end" placeholder="0.00" />
+                                        </div>
+                                        @error('fbDiscountAmount') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Dynamic Live Calculation Result -->
                         @php
                             $cGuestCount = (int) ($fbGuestCount ?? 0);
@@ -1373,8 +1394,9 @@
                             $cSecurityDeposit = (float) ($booking->security_deposit ?? 0);
 
                             $cPackageAmount = $booking->no_food ? 0.00 : ($cGuestCount * $cPerPlatePrice);
-                            $cAdjustedSubtotal = $cPackageAmount + $cHallCharges + $cExtraCharges - $cDiscountAmount;
-                            $cEventGrandTotal = $cAdjustedSubtotal + $cTaxAmount + $cSecurityDeposit;
+                            $cServicesSubtotal = $cPackageAmount + $cHallCharges + $cExtraCharges;
+                            $cTotalBeforeDiscount = $cServicesSubtotal + $cTaxAmount + $cSecurityDeposit;
+                            $cEventGrandTotal = max(0.00, $cTotalBeforeDiscount - $cDiscountAmount);
                             $fbCalculatedTotalBill = $cEventGrandTotal + $cVendorCharges;
                             $fbTotalPaidByCust = (float) $booking->total_paid;
                             $fbNetRemainingCustDue = max(0.00, $fbCalculatedTotalBill - $fbTotalPaidByCust);
@@ -1392,15 +1414,9 @@
                                 <span>Extra Add-ons:</span>
                                 <span class="fw-bold font-monospace">Rs. {{ number_format($cExtraCharges, 2) }}</span>
                             </div>
-                            @if($cDiscountAmount > 0)
-                                <div class="d-flex justify-content-between mb-1 text-danger">
-                                    <span>Discount Deducted:</span>
-                                    <span class="fw-bold font-monospace">- Rs. {{ number_format($cDiscountAmount, 2) }}</span>
-                                </div>
-                            @endif
                             <div class="d-flex justify-content-between border-top pt-1 mb-1">
-                                <span>Event Subtotal:</span>
-                                <span class="fw-bold font-monospace">Rs. {{ number_format($cAdjustedSubtotal, 2) }}</span>
+                                <span class="fw-bold">Event Services Subtotal:</span>
+                                <span class="fw-bold font-monospace">Rs. {{ number_format($cServicesSubtotal, 2) }}</span>
                             </div>
                             <div class="d-flex justify-content-between mb-1">
                                 <span>Estimated Tax ({{ $fbApplyTax ? (number_format($fbTaxRate, 1) . '%') : '0%' }}):</span>
@@ -1412,8 +1428,18 @@
                                     <span class="fw-bold font-monospace">Rs. {{ number_format($cSecurityDeposit, 2) }}</span>
                                 </div>
                             @endif
+                            @if($cDiscountAmount > 0)
+                                <div class="d-flex justify-content-between border-top pt-1 mb-1 text-muted">
+                                    <span>Total Before Discount:</span>
+                                    <span class="fw-bold font-monospace">Rs. {{ number_format($cTotalBeforeDiscount, 2) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1 text-danger fw-bold">
+                                    <span>Less: Special Discount (Deducted in Last):</span>
+                                    <span class="font-monospace">- Rs. {{ number_format($cDiscountAmount, 2) }}</span>
+                                </div>
+                            @endif
                             <div class="d-flex justify-content-between mt-2 border-top pt-2 text-primary fw-bold fs-13">
-                                <span>Event Sales Grand Total:</span>
+                                <span>Final Event Grand Total:</span>
                                 <span class="font-monospace">Rs. {{ number_format($cEventGrandTotal, 2) }}</span>
                             </div>
                             @if($cVendorCharges > 0)

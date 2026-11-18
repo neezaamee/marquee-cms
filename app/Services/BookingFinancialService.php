@@ -1040,8 +1040,8 @@ class BookingFinancialService
             $fb = $booking->finalBill;
             $packageAmount = $booking->no_food ? 0.00 : ((int) $fb->guest_count * (float) $fb->per_plate_price);
             
-            // Marquee event sales subtotal (strictly catering, hall, and extra services minus discount)
-            $eventSubtotal = max(0, $packageAmount + (float) $fb->hall_charges + (float) $fb->extra_charges - (float) $fb->discount_amount);
+            // Marquee event sales subtotal (strictly catering, hall, and extra services before discount)
+            $eventSubtotal = max(0, $packageAmount + (float) $fb->hall_charges + (float) $fb->extra_charges);
             
             $taxRate = 0.00;
             if ($fb->tax_rate !== null) {
@@ -1062,7 +1062,8 @@ class BookingFinancialService
             
             // Tax is applied strictly to event catering and hall charges (service providers are non-taxable)
             $taxAmount = ($taxRate > 0) ? round(($eventSubtotal * $taxRate) / 100, 2) : 0.00;
-            $eventGrandTotal = $eventSubtotal + $taxAmount + (float) $booking->security_deposit;
+            // Discount is calculated in last, deducted from the total charges
+            $eventGrandTotal = max(0.00, $eventSubtotal + $taxAmount + (float) $booking->security_deposit - (float) $fb->discount_amount);
 
             $fb->updateQuietly([
                 'package_amount' => $packageAmount,

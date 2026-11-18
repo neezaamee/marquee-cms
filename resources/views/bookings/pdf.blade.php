@@ -480,14 +480,8 @@
                                 <td class="summary-value">Rs. {{ number_format($billing->extra_charges, 2) }}</td>
                             </tr>
                         @endif
-                        @if($billing->discount_amount > 0)
-                            <tr style="color: red;">
-                                <td class="summary-label">Discount Applied:</td>
-                                <td class="summary-value">- Rs. {{ number_format($billing->discount_amount, 2) }}</td>
-                            </tr>
-                        @endif
                         <tr>
-                            <td class="summary-label" style="font-weight: bold; border-top: 1px solid #dee2e6;">Net Event Subtotal:</td>
+                            <td class="summary-label" style="font-weight: bold; border-top: 1px solid #dee2e6;">Event Subtotal:</td>
                             <td class="summary-value" style="border-top: 1px solid #dee2e6;">Rs. {{ number_format($billing->subtotal, 2) }}</td>
                         </tr>
                         @if($billing->tax_amount > 0)
@@ -506,6 +500,12 @@
                             <tr style="color: #0c5460;">
                                 <td class="summary-label">Refundable Security Deposit:</td>
                                 <td class="summary-value">Rs. {{ number_format($booking->security_deposit, 2) }}</td>
+                            </tr>
+                        @endif
+                        @if($billing->discount_amount > 0)
+                            <tr style="color: red;">
+                                <td class="summary-label">Less: Discount Applied (In Last):</td>
+                                <td class="summary-value">- Rs. {{ number_format($billing->discount_amount, 2) }}</td>
                             </tr>
                         @endif
                         <tr class="total-row">

@@ -354,31 +354,19 @@
                 <div class="col-5 col-md-5 col-print-summary">
                     <table class="table table-sm table-borderless fs-11 text-end mb-0">
                         <tr>
-                            <th class="text-700 px-0">Gross Subtotal:</th>
-                            <td class="fw-semi-bold font-monospace px-0 text-dark">
-                                {{ number_format($billing->subtotal + $billing->discount_amount, 2) }}
-                            </td>
-                        </tr>
-                        @if($billing->discount_amount > 0)
-                            <tr class="text-danger">
-                                <th class="px-0">Promotional Discount:</th>
-                                <td class="fw-bold font-monospace px-0">
-                                    {{ number_format($billing->discount_amount, 2) }}
-                                </td>
-                            </tr>
-                        @endif
-                        <tr class="border-top">
-                            <th class="text-700 px-0">Net Subtotal:</th>
+                            <th class="text-700 px-0">Event Services Subtotal:</th>
                             <td class="fw-semi-bold font-monospace px-0 text-dark">
                                 {{ number_format($billing->subtotal, 2) }}
                             </td>
                         </tr>
-                        <tr>
-                            <th class="text-700 px-0">Applicable Tax ({{ $taxRate }}%):</th>
-                            <td class="fw-semi-bold font-monospace px-0 text-dark">
-                                {{ number_format($billing->tax_amount, 2) }}
-                            </td>
-                        </tr>
+                        @if($billing->tax_amount > 0)
+                            <tr>
+                                <th class="text-700 px-0">Applicable Tax ({{ $taxRate }}%):</th>
+                                <td class="fw-semi-bold font-monospace px-0 text-dark">
+                                    {{ number_format($billing->tax_amount, 2) }}
+                                </td>
+                            </tr>
+                        @endif
                         @php
                             $invoicedVendorTotal = (float) $vendorSalesList->sum('sale_amount');
                         @endphp
@@ -395,6 +383,14 @@
                                 <th class="px-0">Refundable Security Deposit:</th>
                                 <td class="fw-bold font-monospace px-0">
                                     {{ number_format($booking->security_deposit, 2) }}
+                                </td>
+                            </tr>
+                        @endif
+                        @if($billing->discount_amount > 0)
+                            <tr class="text-danger border-top">
+                                <th class="px-0">Less: Discount (In Last):</th>
+                                <td class="fw-bold font-monospace px-0">
+                                    - {{ number_format($billing->discount_amount, 2) }}
                                 </td>
                             </tr>
                         @endif

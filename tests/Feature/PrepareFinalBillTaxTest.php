@@ -263,4 +263,74 @@ class PrepareFinalBillTaxTest extends TestCase
         $this->assertEquals(15.00, (float) $booking->tax_rate);
         $this->assertEquals(138000.00, (float) $booking->grand_total);
     }
+
+    public function test_prepare_and_adjust_final_bill_calculates_discount_amount_in_last(): void
+    {
+        $booking = Booking::create([
+            'marquee_id' => $this->marquee->id,
+            'branch_id' => $this->branch->id,
+            'customer_id' => $this->customer->id,
+            'event_type_id' => $this->eventType->id,
+            'hall_id' => $this->hall->id,
+            'slot_id' => $this->slot->id,
+            'booking_number' => 'BK-TEST-DISC-001',
+            'booking_date' => now()->toDateString(),
+            'start_time' => now()->setTime(19, 0),
+            'end_time' => now()->setTime(23, 0),
+            'guest_count' => 200,
+            'per_plate_price' => 1500.00,
+            'package_amount' => 300000.00,
+            'hall_charges' => 50000.00,
+            'extra_charges' => 0.00,
+            'discount_amount' => 0.00,
+            'security_deposit' => 25000.00,
+            'tax_rate' => 10.00,
+            'tax_amount' => 35000.00,
+            'subtotal' => 350000.00,
+            'grand_total' => 410000.00,
+            'booking_status' => 'Confirmed',
+            'created_by' => $this->owner->id,
+        ]);
+
+        $this->actingAs($this->owner);
+
+        // Open final bill modal: actual guests 200 @ 1500 = 300,000. Hall = 50,000.
+        // Add 20,000 addon -> subtotal = 370,000.
+        // Tax @ 10% = 37,000.
+        // Deposit = 25,000. Total before discount = 432,000.
+        // Discount in last = 32,000 -> Grand Total = 400,000.
+        Livewire::test(BookingView::class, ['booking' => $booking])
+            ->call('openFinalBillModal')
+            ->set('fbGuestCount', 200)
+            ->set('fbPerPlatePrice', 1500.00)
+            ->set('fbHallCharges', 50000.00)
+            ->set('newAddonName', 'DJ Sound Setup')
+            ->set('newAddonPrice', 20000.00)
+            ->set('newAddonQty', 1)
+            ->call('addFbAddon')
+            ->assertSet('fbExtraCharges', 20000.00)
+            ->set('fbApplyTax', true)
+            ->set('fbTaxRate', 10.00)
+            ->assertSet('fbTaxAmount', 37000.00) // 10% of (300,000 + 50,000 + 20,000) = 37,000
+            ->set('fbDiscountAmount', 32000.00)
+            ->assertSet('fbTaxAmount', 37000.00) // Tax is NOT reduced by discount because discount is in last
+            ->call('saveFinalBill');
+
+        $booking->refresh();
+        $finalBill = $booking->finalBill;
+        $this->assertNotNull($finalBill);
+        $this->assertEquals(370000.00, (float) $finalBill->subtotal); // Event services subtotal before discount
+        $this->assertEquals(37000.00, (float) $finalBill->tax_amount);
+        $this->assertEquals(32000.00, (float) $finalBill->discount_amount);
+        // Grand Total: (370,000 subtotal + 37,000 tax + 25,000 deposit) - 32,000 discount = 400,000
+        $this->assertEquals(400000.00, (float) $finalBill->grand_total);
+        $this->assertEquals(400000.00, (float) $booking->grand_total);
+
+        // Verify syncBookingCommercialTotals preserves discount in last
+        app(BookingFinancialService::class)->syncBookingCommercialTotals($booking);
+        $booking->refresh();
+        $this->assertEquals(370000.00, (float) $booking->finalBill->subtotal);
+        $this->assertEquals(37000.00, (float) $booking->finalBill->tax_amount);
+        $this->assertEquals(400000.00, (float) $booking->finalBill->grand_total);
+    }
 }
