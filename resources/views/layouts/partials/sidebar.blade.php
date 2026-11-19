@@ -1051,10 +1051,16 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link text-muted" href="#!">
+              <a class="nav-link {{ Route::is('attendance.monthly') ? 'active' : '' }}" href="{{ route('attendance.monthly') }}">
                 <div class="d-flex align-items-center">
-                  <span class="nav-link-text ps-1">Staff Reports</span>
-                  <span class="badge badge-subtle-warning rounded-pill ms-2" style="font-size: 8px; padding: 1px 4px;">Soon</span>
+                  <span class="nav-link-text ps-1">Staff Attendance Reports</span>
+                </div>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ Route::is('payroll.index') ? 'active' : '' }}" href="{{ route('payroll.index') }}">
+                <div class="d-flex align-items-center">
+                  <span class="nav-link-text ps-1">Monthly Payroll Registers</span>
                 </div>
               </a>
             </li>
