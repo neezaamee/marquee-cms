@@ -274,6 +274,25 @@ class SearchableDropdownsTest extends TestCase
         $test->assertSet('payee_name', 'Gourmet Bakers');
         $test->assertSet('amount', 45000);
         $test->assertSet('amount_in_words', 'Rupees Forty-Five Thousand Only');
+        $test->assertSet('debit_account_id', (string) $this->apAccount->id);
+    }
+
+    public function test_payment_voucher_form_supplier_selection_automatically_populates_debit_account_head(): void
+    {
+        $this->actingAs($this->ownerUser);
+
+        // CPV Cash Payment Voucher initially loaded with payee_type supplier
+        $test = Livewire::test(PaymentVoucherForm::class, ['type' => 'CPV']);
+
+        $test->assertSet('voucher_type', 'CPV');
+        $test->assertSet('payee_type', 'supplier');
+        // Initial load should have Accounts Payable pre-selected
+        $test->assertSet('debit_account_id', (string) $this->apAccount->id);
+
+        // Selecting a supplier from dropdown keeps / sets debit_account_id to Accounts Payable
+        $test->set('payee_id', (string) $this->supplier->id);
+        $test->assertSet('debit_account_id', (string) $this->apAccount->id);
+        $test->assertSet('payee_name', 'Gourmet Bakers');
     }
 
     public function test_payment_voucher_form_vendor_selection_populates_service_category(): void

@@ -149,13 +149,13 @@
                                     <label class="form-label fs-11 fw-bold">
                                         {{ $voucher_type === 'CPV' ? 'Disbursing Cash Drawer / Petty Cash' : 'Disbursing Bank Account' }}
                                     </label>
-                                    <x-searchable-select id="pv_cash_bank_account" model="cash_bank_account_id" :options="$cashBankAccountsFormatted" placeholder="-- Choose Account --" :required="true" />
+                                    <x-searchable-select id="pv_cash_bank_account" model="cash_bank_account_id" :options="$cashBankAccountsFormatted" placeholder="-- Choose Account --" :required="true" :live="true" />
                                 </div>
 
                                 <!-- Debit Account -->
-                                <div class="col-md-6">
+                                <div class="col-md-6" wire:key="pv-debit-account-head-select">
                                     <label class="form-label fs-11 fw-bold">Debit Account Head (General Ledger)</label>
-                                    <x-searchable-select id="pv_debit_account" model="debit_account_id" :options="$debitAccountsFormatted" placeholder="-- Choose GL Account --" :required="true" />
+                                    <x-searchable-select id="pv_debit_account" model="debit_account_id" :options="$debitAccountsFormatted" placeholder="-- Choose GL Account --" :required="true" :live="true" />
                                     <div class="fs-10 text-muted mt-1">This account will be debited upon voucher posting (e.g. Accounts Payable or Expense).</div>
                                 </div>
 

@@ -172,6 +172,14 @@ class PaymentVoucherForm extends Component
                 $this->branch_id = $user->branch_id;
             }
             $this->refreshVoucherNo();
+
+            // Set default debit account for initial payee type (supplier)
+            if ($this->payee_type === 'supplier') {
+                $apId = $this->resolveAccountsPayableAccountId($marqueeId);
+                if ($apId) {
+                    $this->debit_account_id = (string) $apId;
+                }
+            }
         }
 
         $this->loadCashBankAccounts();
@@ -224,6 +232,84 @@ class PaymentVoucherForm extends Component
         $this->updatedPayeeType($type);
     }
 
+    /**
+     * Resolve the Accounts Payable account ID for a supplier.
+     */
+    public function resolveAccountsPayableAccountId(?int $marqueeId = null): ?int
+    {
+        $marqueeId = $marqueeId ?: $this->getMarqueeId();
+        if (!$marqueeId) {
+            return null;
+        }
+
+        // 1. Check InventorySetting mapped accounts_payable_account_id
+        $invSetting = \App\Models\InventorySetting::withoutGlobalScope('tenant')->where('marquee_id', $marqueeId)->first();
+        if ($invSetting && $invSetting->accounts_payable_account_id) {
+            $this->ensureDebitAccountLoaded((int) $invSetting->accounts_payable_account_id, $marqueeId);
+            return (int) $invSetting->accounts_payable_account_id;
+        }
+
+        // 2. Check standard account code 2001 (Accounts Payable)
+        $apAccount = Account::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where('account_code', '2001')
+            ->first();
+        if ($apAccount) {
+            $this->ensureDebitAccountLoaded((int) $apAccount->id, $marqueeId);
+            return (int) $apAccount->id;
+        }
+
+        // 3. Fallback: Search by name 'Accounts Payable' or Liability with 'Payable'
+        $fallback = Account::withoutGlobalScope('tenant')
+            ->where('marquee_id', $marqueeId)
+            ->where('nature', 'Liability')
+            ->where(function ($q) {
+                $q->where('name', 'like', '%Accounts Payable%')
+                  ->orWhere('name', 'like', '%Payable%')
+                  ->orWhere('name', 'like', '%Supplier%');
+            })
+            ->first();
+        if ($fallback) {
+            $this->ensureDebitAccountLoaded((int) $fallback->id, $marqueeId);
+            return (int) $fallback->id;
+        }
+
+        // 4. Ensure it exists via COA auto-resolution
+        $created = app(\App\Services\BookingFinancialService::class)->resolveCoaAccount(
+            $marqueeId,
+            '2001',
+            'Accounts Payable',
+            'Liability',
+            'CURRENT_LIABILITIES'
+        );
+        if ($created) {
+            $this->ensureDebitAccountLoaded((int) $created->id, $marqueeId);
+            return (int) $created->id;
+        }
+
+        return null;
+    }
+
+    /**
+     * Ensure the specified account is loaded in $this->debitAccounts.
+     */
+    protected function ensureDebitAccountLoaded(int $accountId, int $marqueeId): void
+    {
+        if ($this->debitAccounts && !$this->debitAccounts->contains('id', $accountId)) {
+            $acc = Account::with('accountType')
+                ->withoutGlobalScope('tenant')
+                ->where('marquee_id', $marqueeId)
+                ->find($accountId);
+            if ($acc) {
+                if ($this->debitAccounts instanceof \Illuminate\Support\Collection) {
+                    $this->debitAccounts->push($acc);
+                } else {
+                    $this->debitAccounts = collect([$acc]);
+                }
+            }
+        }
+    }
+
     public function updatedPayeeType($val)
     {
         $this->payee_id = '';
@@ -236,10 +322,9 @@ class PaymentVoucherForm extends Component
 
         // Automatically set default debit account based on payee type
         if ($val === 'supplier') {
-            // Find Accounts Payable account 2001
-            $apAccount = Account::where('marquee_id', $marqueeId)->where('account_code', '2001')->first();
-            if ($apAccount) {
-                $this->debit_account_id = $apAccount->id;
+            $apId = $this->resolveAccountsPayableAccountId($marqueeId);
+            if ($apId) {
+                $this->debit_account_id = (string) $apId;
             }
         } elseif ($val === 'vendor') {
             // Find Out Sources or Vendor liability account
@@ -274,6 +359,12 @@ class PaymentVoucherForm extends Component
                 if (!$this->amount && $sup->current_balance > 0) {
                     $this->amount = $sup->current_balance;
                     $this->updatedAmount($this->amount);
+                }
+
+                // Automatically set Debit Account Head to Accounts Payable when a supplier is selected
+                $apId = $this->resolveAccountsPayableAccountId($marqueeId);
+                if ($apId) {
+                    $this->debit_account_id = (string) $apId;
                 }
             }
         } elseif ($this->payee_type === 'vendor') {

@@ -62,14 +62,18 @@
             this.search = opt.label;
             this.open = false;
             this.activeIndex = -1;
-            $dispatch('change', opt.id);
+            if (typeof this.$dispatch === 'function') {
+                this.$dispatch('change', opt.id);
+            }
         },
         clearSelection() {
             this.selectedId = '';
             this.search = '';
             this.open = true;
             this.activeIndex = -1;
-            $dispatch('change', '');
+            if (typeof this.$dispatch === 'function') {
+                this.$dispatch('change', '');
+            }
             this.$nextTick(() => this.$refs.searchInput.focus());
         },
         handleKeydown(e) {
